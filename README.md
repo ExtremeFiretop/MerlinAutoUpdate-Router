@@ -16,7 +16,7 @@ The script can be run using various options. Here are some common use cases:
 
 - To update the firmware:
   ```bash
-  ./MerlinAutoUpdate-Router.sh update
+  ./MerlinAutoUpdate-Router.sh
 To check log files for reset recommendations:
 
 Before using MerlinAutoUpdate-Router, ensure the following prerequisites are met:
