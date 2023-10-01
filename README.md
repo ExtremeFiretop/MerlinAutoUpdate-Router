@@ -33,7 +33,7 @@ Use your preferred SSH client to connect to the router.
 Download the script to your router:
 Copy and paste:
 ```bash
-curl --retry 3 "[https://raw.githubusercontent.com/MartineauUK/Chk-WAN/master/ChkWAN.sh](https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAutoUpdate-Router.sh)" -o "/jffs/scripts/MerlinAutoUpdate-Router.sh" && chmod +x "/jffs/scripts/MerlinAutoUpdate-Router.sh"
+curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAutoUpdate-Router.sh" -o "/jffs/scripts/MerlinAutoUpdate-Router.sh" && chmod +x "/jffs/scripts/MerlinAutoUpdate-Router.sh"
 ```
 The script is now ready for use.
 
