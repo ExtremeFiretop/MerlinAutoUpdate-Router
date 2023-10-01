@@ -60,19 +60,19 @@ if [ ! -f "$log_file" ]; then
 fi
 
 # Checking the log file for reset recommendation between two dates
-log_contents=$(awk '/2023-09-30 00:00:00/,/2023-10-01 23:59:59/' "$log_file")
+#log_contents=$(awk '/2023-09-30 00:00:00/,/2023-10-01 23:59:59/' "$log_file")
 
-if echo "$log_contents" | grep -q "reset recommended"; then
-    echo -e "Factory Default Reset is recommended according to the logs. Would you like to continue anyways?"
-	read choice
-	if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-        continue
-    else
-        exit
-    fi
-else
-    echo "No reset is recommended according to the logs."
-fi
+#if echo "$log_contents" | grep -q "reset recommended"; then
+#    echo -e "Factory Default Reset is recommended according to the logs. Would you like to continue anyways?"
+#	read choice
+#	if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+#       continue
+#    else
+#        exit
+#    fi
+#else
+#    echo "No reset is recommended according to the logs."
+#fi
 
 # Check for the presence of "rog" in filenames in the extracted directory
 cd "/home/root/${MODEL}_firmware"
