@@ -1,4 +1,6 @@
-# MerlinAutoUpdate-Router
+---WORK IN PROGRESS--- NOT YET COMPLETE. PLEASE DO NOT USE AT THIS TIME....
+
+## MerlinAutoUpdate-Router
 
 MerlinAutoUpdate-Router is a versatile shell script designed to automate the firmware update process for ASUS routers running Asuswrt-Merlin firmware. 
 It streamlines the firmware update procedure, automatically detects your router model, fetches the latest firmware, and offers options for installation. Moreover, it checks log files for reset recommendations before flashing the firmware.
