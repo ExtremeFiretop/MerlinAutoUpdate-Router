@@ -35,7 +35,24 @@ Copy and paste:
 ```bash
 curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAutoUpdate-Router.sh" -o "/jffs/scripts/MerlinAutoUpdate-Router.sh" && chmod +x "/jffs/scripts/MerlinAutoUpdate-Router.sh"
 ```
-The script is now ready for use.
+The script is now ready for use, however you would include the call to the script in using cru (cron) to schedule the script at a pre-determined scheduled time
 
+e.g. Every week
+```
+cat > /jffs/scripts/MerlinUpdate << EOF;chmod +x /jffs/scripts/MerlinUpdate
+#!/bin/sh
+
+if [ "\$2" == "connected" ];then
+   # Check for updates every week
+   sh /jffs/MerlinAutoUpdate-Router.sh cron="0 0 * * 0" &
+fi
+EOF
+```
+Check desired cru (cron) schedule has been created
+```
+cru l
+0 0 * * 0 /jffs/scripts/MerlinAutoUpdate-Router.sh #MerlinUpdate#
+```
 ## Contribution
 Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
+
