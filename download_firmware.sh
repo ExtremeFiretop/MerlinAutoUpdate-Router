@@ -9,6 +9,45 @@ MODEL=$(nvram get model)
 URL_BETA="${URL_BASE}/${MODEL}/${URL_BETA_SUFFIX}/"
 URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
 
+Update_Custom_Settings() {
+    SETTINGS_DIR="/jffs/addons/MerlinUpdate"
+    SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
+
+    # Check if the directory exists, and if not, create it
+    if [ ! -d "$SETTINGS_DIR" ]; then
+        mkdir -p "$SETTINGS_DIR"
+    fi
+
+    case "$1" in
+        local)
+            if [ -f "$SETTINGSFILE" ]; then
+                if [ "$(grep -c "local_setting" "$SETTINGSFILE")" -gt 0 ]; then
+                    if [ "$2" != "$(grep "local_setting" "$SETTINGSFILE" | cut -f2 -d' ')" ]; then
+                        sed -i "s/local_setting.*/local_setting $2/" "$SETTINGSFILE"
+                    fi
+                else
+                    echo "local_setting $2" >> "$SETTINGSFILE"
+                fi
+            else
+                echo "local_setting $2" >> "$SETTINGSFILE"
+            fi
+            ;;
+        server)
+            if [ -f "$SETTINGSFILE" ]; then
+                if [ "$(grep -c "server_setting" "$SETTINGSFILE")" -gt 0 ]; then
+                    if [ "$2" != "$(grep "server_setting" "$SETTINGSFILE" | cut -f2 -d' ')" ]; then
+                        sed -i "s/server_setting.*/server_setting $2/" "$SETTINGSFILE"
+                    fi
+                else
+                    echo "server_setting $2" >> "$SETTINGSFILE"
+                fi
+            else
+                echo "server_setting $2" >> "$SETTINGSFILE"
+            fi
+            ;;
+    esac
+}
+
 get_latest_firmware() {
     local url="$1"
     local page=$(curl -s "$url")
@@ -74,6 +113,7 @@ fi
 #    echo "No reset is recommended according to the logs."
 #fi
 
+# Logging user's choice
 # Check for the presence of "rog" in filenames in the extracted directory
 cd "/home/root/${MODEL}_firmware"
 rog_file=$(ls | grep -i '_rog_')
@@ -83,16 +123,16 @@ if [ ! -z "$rog_file" ]; then
     echo -e "\033[31mFound ROG build: $rog_file. Would you like to use the ROG build? (y/n)\033[0m"
     read choice
     if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-        firmware_file="$rog_file"
+    firmware_file="$rog_file"
+    Update_Custom_Settings "local" "$rog_file"
     else
         firmware_file="$pure_file"
+        Update_Custom_Settings "local" "$pure_file"
     fi
 else
     firmware_file="$pure_file"
+    Update_Custom_Settings "local" "$pure_file"
 fi
-
-# Logging user's choice
-echo "User chose $firmware_file" >> "/home/root/${MODEL}_firmware/choice_log.txt"
 
 # Flashing the chosen firmware
 echo -e "\033[32mFlashing $firmware_file...\033[0m"
