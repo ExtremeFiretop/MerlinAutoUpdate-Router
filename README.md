@@ -17,15 +17,14 @@ The script can be run using various options. Here are some common use cases:
 - To update the firmware:
   ```bash
   ./MerlinAutoUpdate-Router.sh
-To check log files for reset recommendations:
 
+## Installation
 Before using MerlinAutoUpdate-Router, ensure the following prerequisites are met:
 
 An ASUS router running Asuswrt-Merlin firmware.
 Access to the router's command line interface (SSH or Telnet).
 A working internet connection on the router.
 
-Installation
 To install MerlinAutoUpdate-Router, follow these steps:
 
 Enable SSH on your router if not already enabled.
@@ -38,5 +37,5 @@ curl --retry 3 "[https://raw.githubusercontent.com/MartineauUK/Chk-WAN/master/Ch
 ```
 The script is now ready for use.
 
-Contribution
+## Contribution
 Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
