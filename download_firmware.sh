@@ -90,13 +90,13 @@ mkdir -p "/home/root/${MODEL}_firmware"
 unzip -o "${MODEL}_firmware.zip" -d "/home/root/${MODEL}_firmware"
 
 # Define the path to the log file
-log_file="/home/root/${MODEL}_firmware/Changelog-NG.txt"
+#log_file="/home/root/${MODEL}_firmware/Changelog-NG.txt"
 
 # Check if the log file exists
-if [ ! -f "$log_file" ]; then
-    echo "Log file does not exist at $log_file"
-    exit 1
-fi
+#if [ ! -f "$log_file" ]; then
+#    echo "Log file does not exist at $log_file"
+#    exit 1
+#fi
 
 # Checking the log file for reset recommendation between two dates
 #log_contents=$(awk '/2023-09-30 00:00:00/,/2023-10-01 23:59:59/' "$log_file")
