@@ -6,9 +6,10 @@ It streamlines the firmware update procedure, automatically detects your router 
 ## Features
 
 - Automatic router model detection.
+- Works with both ROG and non-ROG routers, if it's a ROG router simply select if you want to use the ROG or Pure Build.
 - Download and install the latest firmware for your router model from the Asuswrt-Merlin repository.
 - Log analysis to determine if a factory reset is recommended within a specified date range.
-- Option to reboot the router for enhanced system memory.
+- Option to reboot the router for enhanced system memory and finalize the update post flash.
 
 ## Usage
 
