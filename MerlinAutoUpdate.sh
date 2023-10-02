@@ -278,7 +278,7 @@ change_schedule() {
   read -p "Enter new cron schedule (e.g. 0 0 * * 0 for every Sunday at midnight): " new_schedule
   
   # Update the cron job in the script
-  sed -i "/sh \/jffs\/MerlinAutoUpdate.sh cron/c\   sh \/jffs\/MerlinAutoUpdate-Router.sh cron=\"$new_schedule\" &" /jffs/scripts/MerlinAutoUpdate
+  sed -i "/sh \/jffs\/MerlinAutoUpdate.sh cron/c\   sh \/jffs\/MerlinAutoUpdate.sh cron=\"$new_schedule\" &" /jffs/scripts/MerlinAutoUpdate
   
   # You may also need to update the cron job itself in the crontab if it's there
   crontab -l | grep -v '/jffs/scripts/MerlinAutoUpdate' | crontab -
