@@ -45,7 +45,6 @@ The script can be run using various options. Here are some common use cases:
   ```bash
   /./jffs/scripts/MerlinAutoUpdate.sh
 
-- 
 Check desired cru (cron) schedule has been created:
 ```
 cru l
