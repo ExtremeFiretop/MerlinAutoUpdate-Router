@@ -17,9 +17,9 @@ It streamlines the firmware update procedure, automatically detects your router 
 
 The script can be run using various options. Here are some common use cases:
 
-- To update the firmware:
+- To update the firmware: (Run from Root of SSH location)
   ```bash
-  ./MerlinAutoUpdate.sh
+  /./jffs/scripts/MerlinAutoUpdate.sh
 
 ## Installation
 Before using MerlinAutoUpdate-Router, ensure the following prerequisites are met:
