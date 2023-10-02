@@ -43,7 +43,7 @@ curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Route
 
 e.g. Every week
 ```
-cat > /jffs/scripts/MerlinUpdate << EOF;chmod +x /jffs/scripts/MerlinUpdate
+cat > /jffs/scripts/MerlinAutoUpdateCron << EOF;chmod +x /jffs/MerlinAutoUpdateCron
 #!/bin/sh
 
 if [ "\$2" == "connected" ];then
