@@ -40,7 +40,6 @@ curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Route
 ```
 - The script is now ready for use, however you need to include the call to the script using cru (cron) to schedule the script at a pre-determined scheduled time...
 - Connect to the router using SSH, and run the below command for a check every week at Sunday mightnight:
-- (Cron calculator here: https://crontab.guru/)
 
 e.g. Every week
 ```
@@ -58,6 +57,7 @@ Check desired cru (cron) schedule has been created:
 cru l
 0 0 * * 0 /jffs/scripts/MerlinAutoUpdate.sh #MerlinUpdate#
 ```
+- (Cron calculator here: https://crontab.guru/)
 ## Contribution
 Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
 
