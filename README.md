@@ -12,7 +12,7 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Download and install the latest firmware for your router model from the Asuswrt-Merlin repository.
 - Option to reboot the router for enhanced system memory and finalize the update post flash.
 
-- Outstanding Work:
+## Remaining/Planned Features:
 - Cancel change of Schedule.
 - ~~Log analysis to determine if a factory reset is recommended within a specified date range.~~ - Will need some kind of notification system for this
 - ~~Add Install for AMTM.~~ - Will need some more research into AMTM
