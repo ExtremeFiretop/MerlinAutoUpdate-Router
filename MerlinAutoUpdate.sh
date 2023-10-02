@@ -258,7 +258,7 @@ change_schedule() {
   echo "Changing Schedule..."
   
   # Extract the current cron schedule from the script
-  current_schedule=$(awk -F'"' '/sh \/jffs\/MerlinAutoUpdate.sh cron/ {print $2}' /jffs/scripts/MerlinAutoUpdate)
+  current_schedule=$(awk -F'"' '/sh \/jffs\/MerlinAutoUpdate.sh cron/ {print $2}' /jffs/scripts/MerlinAutoUpdateCron)
   
   # Translate cron schedule to English
   case "$current_schedule" in
@@ -278,12 +278,13 @@ change_schedule() {
   read -p "Enter new cron schedule (e.g. 0 0 * * 0 for every Sunday at midnight): " new_schedule
   
   # Update the cron job in the script
-  sed -i "/sh \/jffs\/MerlinAutoUpdate.sh cron/c\   sh \/jffs\/MerlinAutoUpdate.sh cron=\"$new_schedule\" &" /jffs/scripts/MerlinAutoUpdate
+  if [ ! -z "$rog_file" ]; then
+  sed -i "/sh \/jffs\/MerlinAutoUpdate.sh cron/c\   sh \/jffs\/MerlinAutoUpdate.sh cron=\"$new_schedule\" &" /jffs/scripts/MerlinAutoUpdateCron
   
   # You may also need to update the cron job itself in the crontab if it's there
-  crontab -l | grep -v '/jffs/scripts/MerlinAutoUpdate' | crontab -
-  (crontab -l; echo "$new_schedule sh /jffs/scripts/MerlinAutoUpdate") | crontab -
-  
+  crontab -l | grep -v '/jffs/scripts/MerlinAutoUpdateCron' | crontab -
+  (crontab -l; echo "$new_schedule sh /jffs/scripts/MerlinAutoUpdateCron") | crontab -
+  fi
   read -p "Press Enter to continue..."
 }
 
