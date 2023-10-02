@@ -47,13 +47,13 @@ The script can be run using various options. Here are some common use cases:
   /./jffs/scripts/MerlinAutoUpdate.sh
 
 - Check desired cru (cron) schedule has been created:
-```
+  ```bash
   cru l
-```
+
 - Result should look something like: 
-```
+  ```bash
   0 0 * * 0 /bin/sh /jffs/scripts/MerlinAutoUpdate.sh #MerlinUpdate#
-```
+
 - (Cron calculator here: https://crontab.guru/)
 ## Contribution
 Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
