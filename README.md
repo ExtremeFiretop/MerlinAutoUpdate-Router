@@ -4,7 +4,7 @@ NOT YET COMPLETE. PLEASE EXPECT BUGS...
 ## Remaining/Planned Features:
 - Cancel change of Schedule.
 - ~~Log analysis to determine if a factory reset is recommended within a specified date range.~~ - Will need some kind of notification system for this
-- ~~Add Install for AMTM.~~ - Will need some more research into AMTMb
+- ~~Add Install for AMTM.~~ - Will need some more research into AMTM
 - ~~Add Un-Install for AMTM.~~ - Will need some more research into AMTM
   
 
