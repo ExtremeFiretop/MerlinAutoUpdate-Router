@@ -171,13 +171,13 @@ fi
 
 # Flashing the chosen firmware
 echo -e "\033[32mFlashing $firmware_file...\033[0m"
-#hnd-write "$firmware_file"  # Execute the command to flash the firmware.
+hnd-write "$firmware_file"  # Execute the command to flash the firmware.
 
 # Wait for 3 minutes
-#sleep 180
+sleep 180
 
 # Reboot the router
-#reboot
+reboot
     
     read -p "Press Enter to continue..."
 }
