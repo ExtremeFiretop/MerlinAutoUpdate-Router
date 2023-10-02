@@ -49,7 +49,10 @@ The script can be run using various options. Here are some common use cases:
 Check desired cru (cron) schedule has been created:
 ```
 cru l
-0 0 * * 0 /jffs/scripts/MerlinAutoUpdate.sh #MerlinUpdate#
+```
+Result should look something like: 
+```
+0 0 * * 0 /bin/sh /jffs/scripts/MerlinAutoUpdate.sh #MerlinUpdate#
 ```
 - (Cron calculator here: https://crontab.guru/)
 ## Contribution
