@@ -256,7 +256,6 @@ pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
 
 change_schedule() {
   echo "Changing Schedule..."
-  
   # Extract the current cron schedule from the script
   current_schedule=$(awk -F'"' '/sh \/jffs\/MerlinAutoUpdate.sh cron/ {print $2}' /jffs/scripts/MerlinAutoUpdateCron)
   
@@ -278,13 +277,12 @@ change_schedule() {
   read -p "Enter new cron schedule (e.g. 0 0 * * 0 for every Sunday at midnight): " new_schedule
   
   # Update the cron job in the script
-  if [ ! -z "$rog_file" ]; then
   sed -i "/sh \/jffs\/MerlinAutoUpdate.sh cron/c\   sh \/jffs\/MerlinAutoUpdate.sh cron=\"$new_schedule\" &" /jffs/scripts/MerlinAutoUpdateCron
   
   # You may also need to update the cron job itself in the crontab if it's there
   crontab -l | grep -v '/jffs/scripts/MerlinAutoUpdateCron' | crontab -
   (crontab -l; echo "$new_schedule sh /jffs/scripts/MerlinAutoUpdateCron") | crontab -
-  fi
+  
   read -p "Press Enter to continue..."
 }
 
@@ -310,14 +308,20 @@ while true; do
   show_menu
   if [ -f "$SETTINGSFILE" ]; then
   read -p "Enter your choice (1/2/3/e): " choice
-  else
-  read -p "Enter your choice (1/2/e): " choice
-  fi
-  case $choice in
+    case $choice in
     1) run_now ;;
     2) change_build_type ;;
     3) change_schedule ;;
     e) exit ;;
     *) echo "Invalid choice. Please try again." ;;
   esac
+  else
+  read -p "Enter your choice (1/2/e): " choice
+  case $choice in
+    1) run_now ;;
+    2) change_schedule ;;
+    e) exit ;;
+    *) echo "Invalid choice. Please try again." ;;
+  esac
+  fi
 done
