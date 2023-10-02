@@ -7,7 +7,7 @@ URL_RELEASE_SUFFIX="Release"
 MODEL=$(nvram get model)
 URL_BETA="${URL_BASE}/${MODEL}/${URL_BETA_SUFFIX}/"
 URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
-SETTINGS_DIR="/jffs/addons/MerlinUpdate"
+SETTINGS_DIR="/jffs/addons/MerlinAutoUpdate"
 SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
 
 Update_Custom_Settings() {
@@ -258,7 +258,7 @@ change_schedule() {
   echo "Changing Schedule..."
   
   # Extract the current cron schedule from the script
-  current_schedule=$(awk -F'"' '/sh \/jffs\/MerlinAutoUpdate-Router.sh cron/ {print $2}' /jffs/scripts/MerlinUpdate)
+  current_schedule=$(awk -F'"' '/sh \/jffs\/MerlinAutoUpdate.sh cron/ {print $2}' /jffs/scripts/MerlinAutoUpdate)
   
   # Translate cron schedule to English
   case "$current_schedule" in
@@ -278,11 +278,11 @@ change_schedule() {
   read -p "Enter new cron schedule (e.g. 0 0 * * 0 for every Sunday at midnight): " new_schedule
   
   # Update the cron job in the script
-  sed -i "/sh \/jffs\/MerlinAutoUpdate-Router.sh cron/c\   sh \/jffs\/MerlinAutoUpdate-Router.sh cron=\"$new_schedule\" &" /jffs/scripts/MerlinUpdate
+  sed -i "/sh \/jffs\/MerlinAutoUpdate.sh cron/c\   sh \/jffs\/MerlinAutoUpdate-Router.sh cron=\"$new_schedule\" &" /jffs/scripts/MerlinAutoUpdate
   
   # You may also need to update the cron job itself in the crontab if it's there
-  crontab -l | grep -v '/jffs/scripts/MerlinUpdate' | crontab -
-  (crontab -l; echo "$new_schedule sh /jffs/scripts/MerlinUpdate") | crontab -
+  crontab -l | grep -v '/jffs/scripts/MerlinAutoUpdate' | crontab -
+  (crontab -l; echo "$new_schedule sh /jffs/scripts/MerlinAutoUpdate") | crontab -
   
   read -p "Press Enter to continue..."
 }
