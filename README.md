@@ -36,7 +36,7 @@ Copy and paste:
 curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAutoUpdate.sh" -o "/jffs/scripts/MerlinAutoUpdate.sh" && chmod +x "/jffs/scripts/MerlinAutoUpdate.sh"
 ```
 - The script is now ready for use!
-- 
+  
 ## Usage
 
 The script can be run using various options. Here are some common use cases:
