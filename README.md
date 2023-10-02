@@ -19,7 +19,7 @@ The script can be run using various options. Here are some common use cases:
 
 - To update the firmware:
   ```bash
-  ./MerlinAutoUpdate-Router.sh
+  ./MerlinAutoUpdate.sh
 
 ## Installation
 Before using MerlinAutoUpdate-Router, ensure the following prerequisites are met:
@@ -36,7 +36,7 @@ Use your preferred SSH client to connect to the router.
 Download the script to your router:
 Copy and paste:
 ```bash
-curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAutoUpdate-Router.sh" -o "/jffs/scripts/MerlinAutoUpdate-Router.sh" && chmod +x "/jffs/scripts/MerlinAutoUpdate-Router.sh"
+curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAutoUpdate.sh" -o "/jffs/scripts/MerlinAutoUpdate.sh" && chmod +x "/jffs/scripts/MerlinAutoUpdate.sh"
 ```
 The script is now ready for use, however you need to include the call to the script using cru (cron) to schedule the script at a pre-determined scheduled time...
 Connect to the router using SSH, and run the below command for a check every week at Sunday mightnight:
@@ -49,14 +49,14 @@ cat > /jffs/scripts/MerlinUpdate << EOF;chmod +x /jffs/scripts/MerlinUpdate
 
 if [ "\$2" == "connected" ];then
    # Check for updates every week
-   sh /jffs/MerlinAutoUpdate-Router.sh cron="0 0 * * 0" &
+   sh /jffs/MerlinAutoUpdate.sh cron="0 0 * * 0" &
 fi
 EOF
 ```
 Check desired cru (cron) schedule has been created:
 ```
 cru l
-0 0 * * 0 /jffs/scripts/MerlinAutoUpdate-Router.sh #MerlinUpdate#
+0 0 * * 0 /jffs/scripts/MerlinAutoUpdate.sh #MerlinUpdate#
 ```
 ## Contribution
 Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
