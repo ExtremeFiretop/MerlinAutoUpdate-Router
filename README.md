@@ -46,13 +46,13 @@ The script can be run using various options. Here are some common use cases:
   ```bash
   /./jffs/scripts/MerlinAutoUpdate.sh
 
-Check desired cru (cron) schedule has been created:
+- Check desired cru (cron) schedule has been created:
 ```
-cru l
+  cru l
 ```
-Result should look something like: 
+- Result should look something like: 
 ```
-0 0 * * 0 /bin/sh /jffs/scripts/MerlinAutoUpdate.sh #MerlinUpdate#
+  0 0 * * 0 /bin/sh /jffs/scripts/MerlinAutoUpdate.sh #MerlinUpdate#
 ```
 - (Cron calculator here: https://crontab.guru/)
 ## Contribution
