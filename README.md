@@ -18,14 +18,6 @@ It streamlines the firmware update procedure, automatically detects your router 
 - ~~Add Install for AMTM.~~ - Will need some more research into AMTM
 - ~~Add Un-Install for AMTM.~~ - Will need some more research into AMTM
 
-## Usage
-
-The script can be run using various options. Here are some common use cases:
-
-- To update the firmware: (Run from Root of SSH location)
-  ```bash
-  /./jffs/scripts/MerlinAutoUpdate.sh
-
 ## Installation
 Before using MerlinAutoUpdate-Router, ensure the following prerequisites are met:
 
@@ -43,20 +35,17 @@ Copy and paste:
 ```bash
 curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAutoUpdate.sh" -o "/jffs/scripts/MerlinAutoUpdate.sh" && chmod +x "/jffs/scripts/MerlinAutoUpdate.sh"
 ```
-- The script is now ready for use, however you need to include the call to the script using cru (cron) to schedule the script at a pre-determined scheduled time...
-- Connect to the router using SSH, and run the below command for a check every week at Sunday mightnight:
+- The script is now ready for use!
+- 
+## Usage
 
-e.g. Every week
-```
-cat > /jffs/scripts/MerlinAutoUpdateCron << EOF;chmod +x /jffs/scripts/MerlinAutoUpdateCron
-#!/bin/sh
+The script can be run using various options. Here are some common use cases:
 
-if [ "\$2" == "connected" ];then
-   # Check for updates every week
-   sh /jffs/scripts/MerlinAutoUpdate.sh cron="0 0 * * 0" &
-fi
-EOF
-```
+- To update the firmware: (Run from Root of SSH location)
+  ```bash
+  /./jffs/scripts/MerlinAutoUpdate.sh
+
+- 
 Check desired cru (cron) schedule has been created:
 ```
 cru l
