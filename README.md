@@ -48,7 +48,7 @@ cat > /jffs/scripts/MerlinAutoUpdateCron << EOF;chmod +x /jffs/scripts/MerlinAut
 
 if [ "\$2" == "connected" ];then
    # Check for updates every week
-   sh /jffs/MerlinAutoUpdate.sh cron="0 0 * * 0" &
+   sh /jffs/scripts/MerlinAutoUpdate.sh cron="0 0 * * 0" &
 fi
 EOF
 ```
