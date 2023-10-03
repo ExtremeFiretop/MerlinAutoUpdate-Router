@@ -10,6 +10,29 @@ URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
 SETTINGS_DIR="/jffs/addons/MerlinAutoUpdate"
 SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
 
+Say(){
+   echo -e $$ $@ | logger -st "($(basename $0))"
+}
+
+# Function to get custom setting value from the settings file
+Get_Custom_Setting() {
+    local setting_type="$1"
+    local default_value="$2"
+
+    if [ -f "$SETTINGSFILE" ]; then
+        case "$setting_type" in
+            local)
+                grep -q "FirmwareVersion_setting" "$SETTINGSFILE" && grep "FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
+                ;;
+            *)
+                echo "$default_value"
+                ;;
+        esac
+    else
+        echo "$default_value"
+    fi
+}
+
 Update_Custom_Settings() {
     local setting_type="$1"
     local setting_value="$2"
@@ -36,6 +59,11 @@ Update_Custom_Settings() {
     esac
 }
 
+get_current_firmware() {
+    local current_version=$(nvram get buildno)
+    echo "$current_version"
+}
+
 get_latest_firmware() {
     local url="$1"
     local page=$(curl -s "$url")
@@ -56,7 +84,10 @@ get_latest_firmware() {
 
 # Embed functions from second script, modified as necessary.
 run_now() {
-    echo "Running the task now..."
+
+Say "Running the task now...Checking for updates..."
+# Get current firmware version
+current_version=$(get_current_firmware)	
 	
 # Use set to read the output of the function into variables
 set -- $(get_latest_firmware "$URL_BETA")
@@ -67,13 +98,20 @@ set -- $(get_latest_firmware "$URL_RELEASE")
 release_version=$1
 release_link=$2
 
-if [ "$beta_version" \> "$release_version" ]; then
-    echo "Latest beta version is $beta_version, downloading from $beta_link"
-    wget -O "${MODEL}_firmware.zip" "$beta_link"
-else
-    echo "Latest release version is $release_version, downloading from $release_link"
-    wget -O "${MODEL}_firmware.zip" "$release_link"
-fi
+    # Compare versions before deciding to download
+    if [ "$beta_version" \> "$current_version" ]; then
+        Say "Latest beta version is $beta_version, downloading from $beta_link"
+        wget -O "${MODEL}_firmware.zip" "$beta_link"
+    elif [ "$release_version" \> "$current_version" ]; then
+        Say "Latest release version is $release_version, downloading from $release_link"
+        wget -O "${MODEL}_firmware.zip" "$release_link"
+    else
+        Say "Current firmware version $current_version is up to date."
+        if [[ $1 != "run_now" ]]; then  # Check if the first argument is not "cron"
+            read -p "Press Enter to return to the main menu..."
+        fi
+        return  # Exit the function early as there's no newer firmware
+    fi
 
 # Create directory for extracting firmware
 mkdir -p "/home/root/${MODEL}_firmware"
@@ -105,34 +143,10 @@ unzip -o "${MODEL}_firmware.zip" -d "/home/root/${MODEL}_firmware"
 #    echo "No reset is recommended according to the logs."
 #fi
 
-# Logging user's choice
-# Check for the presence of "rog" in filenames in the extracted directory
-cd "/home/root/${MODEL}_firmware"
-rog_file=$(ls | grep -i '_rog_')
-pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
-
-# Function to get custom setting value from the settings file
-Get_Custom_Setting() {
-    local setting_type="$1"
-    local default_value="$2"
-
-    if [ -f "$SETTINGSFILE" ]; then
-        case "$setting_type" in
-            local)
-                grep -q "FirmwareVersion_setting" "$SETTINGSFILE" && grep "FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
-                ;;
-            *)
-                echo "$default_value"
-                ;;
-        esac
-    else
-        echo "$default_value"
-    fi
-}
-
 # Use Get_Custom_Setting to retrieve the previous choice
 previous_choice=$(Get_Custom_Setting "local" "n")
 
+# Logging user's choice
 # Check for the presence of "rog" in filenames in the extracted directory
 cd "/home/root/${MODEL}_firmware"
 rog_file=$(ls | grep -i '_rog_')
@@ -174,13 +188,19 @@ echo -e "\033[32mFlashing $firmware_file...\033[0m"
 hnd-write "$firmware_file"  # Execute the command to flash the firmware.
 
 # Wait for 3 minutes
-sleep 180
+sleep 60
 
 # Reboot the router
 reboot
     
     read -p "Press Enter to continue..."
 }
+
+if [[ $1 == "run_now" ]]; then
+    # If the argument is "run_now", call the run_now function and exit
+    run_now
+    exit 0
+fi
 
 change_build_type() {
     echo "Changing Build Type..."
@@ -256,7 +276,7 @@ pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
 
 # Define the cron schedule and command to execute
 CRON_SCHEDULE="0 0 * * 0"
-COMMAND="/bin/sh /jffs/scripts/MerlinAutoUpdate.sh"
+COMMAND="sh /jffs/scripts/MerlinAutoUpdate.sh run_now"
 
 # Check if the cron job command already exists
 if ! crontab -l | grep -qF "$COMMAND"; then
@@ -297,6 +317,7 @@ change_schedule() {
   # Use crontab -l to retrieve all cron jobs and filter for the one containing the script's path
   current_schedule_line=$(crontab -l | grep "$COMMAND")
   
+  
   if [ -n "$current_schedule_line" ]; then
     # Extract the schedule part (the first five fields) from the current cron job line
     current_schedule=$(echo "$current_schedule_line" | awk '{print $1, $2, $3, $4, $5}')
@@ -309,7 +330,22 @@ change_schedule() {
     echo "Cron job 'MerlinAutoUpdate' does not exist. It will be added."
   fi
 
-  read -p "Enter new cron schedule (e.g., 0 0 * * 0 for every Sunday at midnight): " new_schedule
+     while true; do  # Loop to keep asking for input
+        read -p "Enter new cron schedule (e.g., 0 0 * * 0 for every Sunday at midnight, or 'e' to exit): " new_schedule
+    
+        # If the user enters 'e', break out of the loop and return to the main menu
+        if [[ "$new_schedule" == "e" ]]; then
+            echo "Returning to main menu..."
+            return
+        fi
+    
+        # Validate the input using grep
+        if echo "$new_schedule" | grep -E -q '^([0-9\*\-\,\/]+[[:space:]]){4}[0-9\*\-\,\/]+$'; then
+            break  # If valid input, break out of the loop
+        else
+            echo "Invalid schedule. Please try again or press 'e' to exit."
+        fi
+    done
 
   # Update the cron job in the crontab
   (crontab -l | grep -vF "$COMMAND" && echo "$new_schedule $COMMAND") | crontab -
@@ -342,7 +378,6 @@ show_menu() {
 	echo "2. Change Schedule"
 	echo "e. Exit"
   fi
-
 }
 
 # Main loop
