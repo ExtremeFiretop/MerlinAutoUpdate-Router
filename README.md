@@ -1,6 +1,39 @@
 ---WORK IN PROGRESS--- 
 NOT YET COMPLETE. PLEASE EXPECT BUGS...
 
+## SUPPORTED MODELS:
+
+ - GT-AXE11000
+ - GT-AXE16000
+ - GT-AX6000
+ - GT-AX11000
+ - GT-AX11000_PRO
+ - RT-AX88U_PRO
+ - RT-AX86U_PRO
+ - RT-AX68U
+ - RT-AX86U
+ - RT-AX56U
+ - RT-AX58U
+ - RT-AX3000
+ - RT-AX88U
+ 
+## UNSUPPORTED MODELS:
+
+ - GT-AC2900
+ - RT-AC86U
+ - RT-AC1900
+ - RT-AC87U
+ - RT-AC5300
+ - RT-AC3200
+ - RT-AC3100
+ - RT-AC88U
+ - RT-AC68U
+ - RT-AC66U
+ - RT-AC56U
+ - RT-AC66U_B1
+ - RT-N66U
+ - XT12
+
 ## Remaining/Planned Features:
 - Cancel change of Schedule.
 - ~~Log analysis to determine if a factory reset is recommended within a specified date range.~~ - Will need some kind of notification system for this
