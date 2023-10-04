@@ -3,37 +3,37 @@ Project Abandoned.
 
 ## SUPPORTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
 
- - GT-AXE11000
- - GT-AXE16000
- - GT-AX6000
- - GT-AX11000
- - GT-AX11000_PRO
- - GT-AC2900
- - RT-AX88U_PRO
- - RT-AX86U_PRO
- - RT-AX68U
- - RT-AX86U
- - RT-AX56U
- - RT-AX58U
- - RT-AX3000
- - RT-AX88U
- - RT-AC86U
- - XT12
+ - GT-AXE11000 (Tested)
+ - GT-AXE16000 (Untested)
+ - GT-AX6000 (Untested)
+ - GT-AX11000 (Untested)
+ - GT-AX11000_PRO (Untested)
+ - GT-AC2900 (Untested)
+ - RT-AX88U_PRO (Untested)
+ - RT-AX86U_PRO (Untested)
+ - RT-AX68U (Untested)
+ - RT-AX86U (Tested)
+ - RT-AX56U (Untested)
+ - RT-AX58U (Untested)
+ - RT-AX3000 (Untested)
+ - RT-AX88U (Tested)
+ - RT-AC86U (Untested)
+ - XT12 (Untested)
  
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 
- - RT-AC86U
- - RT-AC1900
- - RT-AC87U
- - RT-AC5300
- - RT-AC3200
- - RT-AC3100
- - RT-AC88U
- - RT-AC68U
- - RT-AC66U
- - RT-AC56U
- - RT-AC66U_B1
- - RT-N66U
+ - RT-AC86U (No)
+ - RT-AC1900 (No)
+ - RT-AC87U (No)
+ - RT-AC5300 (No)
+ - RT-AC3200 (No)
+ - RT-AC3100 (No)
+ - RT-AC88U (No)
+ - RT-AC68U (No)
+ - RT-AC66U (No)
+ - RT-AC56U (No)
+ - RT-AC66U_B1 (No)
+ - RT-N66U (No)
 
 ## Remaining/Planned Features:
 - ~~Log analysis to determine if a factory reset is recommended within a specified date range.~~ - Will need some kind of notification system for this
