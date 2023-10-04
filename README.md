@@ -3,7 +3,7 @@ Project Abandoned.
 
 ## SUPPORTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
 
- - GT-AXE11000 (Tested)
+ - GT-AXE11000 (Untested)
  - GT-AXE16000 (Untested)
  - GT-AX6000 (Untested)
  - GT-AX11000 (Untested)
@@ -12,11 +12,11 @@ Project Abandoned.
  - RT-AX88U_PRO (Untested)
  - RT-AX86U_PRO (Untested)
  - RT-AX68U (Untested)
- - RT-AX86U (Tested)
+ - RT-AX86U (Untested)
  - RT-AX56U (Untested)
  - RT-AX58U (Untested)
  - RT-AX3000 (Untested)
- - RT-AX88U (Tested)
+ - RT-AX88U (Untested)
  - RT-AC86U (Untested)
  - XT12 (Untested)
  
