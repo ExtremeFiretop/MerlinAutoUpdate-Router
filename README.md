@@ -17,6 +17,8 @@ NOT YET COMPLETE. PLEASE EXPECT BUGS...
  - RT-AX58U
  - RT-AX3000
  - RT-AX88U
+ - RT-AC86U
+ - XT12
  
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 
@@ -32,7 +34,6 @@ NOT YET COMPLETE. PLEASE EXPECT BUGS...
  - RT-AC56U
  - RT-AC66U_B1
  - RT-N66U
- - XT12
 
 ## Remaining/Planned Features:
 - Cancel change of Schedule.
