@@ -1,5 +1,5 @@
 ---WORK IN PROGRESS--- 
-NOT YET COMPLETE. PLEASE EXPECT BUGS...
+Project Abandonded.
 
 ## SUPPORTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
 
@@ -36,7 +36,6 @@ NOT YET COMPLETE. PLEASE EXPECT BUGS...
  - RT-N66U
 
 ## Remaining/Planned Features:
-- Cancel change of Schedule.
 - ~~Log analysis to determine if a factory reset is recommended within a specified date range.~~ - Will need some kind of notification system for this
 - ~~Add Install for AMTM.~~ - Will need some more research into AMTM
 - ~~Add Un-Install for AMTM.~~ - Will need some more research into AMTM
