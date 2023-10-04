@@ -15,7 +15,7 @@ Say(){
 # Function to check if the current router model is supported
 check_model_support() {
     # List of unsupported models as a space-separated string
-    local unsupported_models="RT-AC86U RT-AC1900 RT-AC87U RT-AC5300 RT-AC3200 RT-AC3100 RT-AC88U RT-AC68U RT-AC66U RT-AC56U RT-AC66U_B1 RT-N66U XT12"
+    local unsupported_models="RT-AC1900 RT-AC87U RT-AC5300 RT-AC3200 RT-AC3100 RT-AC88U RT-AC68U RT-AC66U RT-AC56U RT-AC66U_B1 RT-N66U"
     
     # Get the current model
     local current_model=$(nvram get model)
