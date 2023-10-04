@@ -1,5 +1,5 @@
 ---WORK IN PROGRESS--- 
-Project Abandoned.
+PREVIEW, NOT YET COMPLETE. PLEASE EXPECT ISSUES.
 
 ## SUPPORTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
 
