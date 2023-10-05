@@ -12,6 +12,13 @@ SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
 CRON_SCHEDULE="0 0 * * 0"
 COMMAND="sh /jffs/scripts/MerlinAutoUpdate.sh run_now"
 
+# Function to get LAN IP
+get_lan_ip() {
+    local lan_ip
+    lan_ip=$(nvram get lan_ipaddr)
+    echo "$lan_ip"  # This will return just the IP address
+}
+
 Say(){
    echo -e $$ $@ | logger -st "($(basename $0))"
 }
@@ -265,8 +272,8 @@ run_now() {
 Say "Running the task now...Checking for updates..."
 
 # Get current firmware version
-current_version=$(get_current_firmware)	
-#current_version="388.3"
+#current_version=$(get_current_firmware)	
+current_version="388.3"
 
 # Use set to read the output of the function into variables
 set -- $(get_latest_firmware "$URL_RELEASE")
@@ -290,6 +297,11 @@ mkdir -p "/home/root/${MODEL}_firmware"
 
 # Extracting the firmware
 unzip -o "${MODEL}_firmware.zip" -d "/home/root/${MODEL}_firmware"
+
+# If unzip was successful, delete the zip file
+if [ $? -eq 0 ]; then
+    rm -f "${MODEL}_firmware.zip"
+fi
 
 # Define the path to the log file
 #log_file="/home/root/${MODEL}_firmware/Changelog-NG.txt"
@@ -364,24 +376,30 @@ fi
 # Use Get_Custom_Setting to retrieve the previous choice
 previous_creds=$(Get_Custom_Setting "credentials_base64")
 
+# Assuming get_lan_ip is the function that sets lan_ip
+lan_ip=$(get_lan_ip)
+
+# Debug: Print the LAN IP to ensure it's being set correctly
+echo "Debug: LAN IP is $lan_ip"
+
 
 Say "\033[32mFlashing $firmware_file...\033[0m"
-curl_response=$(curl 'http://www.asusrouter.com/login.cgi' -X POST \
---referer http://www.asusrouter.com/Main_Login.asp \
+curl_response=$(curl "http://${lan_ip}/login.cgi" \
+--referer http://$lan_ip/Main_Login.asp \
 --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
 -H 'Accept-Language: en-US,en;q=0.5' \
 -H 'Content-Type: application/x-www-form-urlencoded' \
--H 'Origin: http://www.asusrouter.com/' \
+-H "Origin: http://${lan_ip}/" \
 -H 'Connection: keep-alive' \
 --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${previous_creds}" \
 --cookie-jar /tmp/cookie.txt)
 
 if echo "$curl_response" | grep -q 'url=index.asp'; then
-upload_response=$(curl 'http://www.asusrouter.com/upgrade.cgi' \
-    --referer http://www.asusrouter.com/Advanced_FirmwareUpgrade_Content.asp \
+nohup curl "http://$lan_ip/upgrade.cgi" \
+    --referer http://$lan_ip/Advanced_FirmwareUpgrade_Content.asp \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Origin: http://www.asusrouter.com/' \
+    -H "Origin: http://${lan_ip}/" \
     -F 'current_page=Advanced_FirmwareUpgrade_Content.asp' \
     -F 'next_page=' \
     -F 'action_mode=' \
@@ -390,21 +408,8 @@ upload_response=$(curl 'http://www.asusrouter.com/upgrade.cgi' \
     -F 'preferred_lang=EN' \
     -F 'firmver=3.0.0.4' \
     -F "file=@${firmware_file}" \
-    --cookie /tmp/cookie.txt)
-	# Look for a unique portion of the HTML that indicates success
-	if echo "$upload_response" | grep -q 'parent.showLoadingBar'; then
-    Say "Firmware upload successful. The router will reboot shortly."
-	# Wait for 1 minutes
+    --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
 	sleep 60
-
-	# Reboot the router
-	reboot
-
-	else
-    Say "Firmware upload failed. The response did not match the expected output."
-    echo "$upload_response"  # Optionally log the unexpected output for debugging
-fi
-
 else
     Say "Login failed. Please confirm credentials by selecting: 1. Configure Credentials"
 fi
