@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 URL_RELEASE_SUFFIX="Release"
