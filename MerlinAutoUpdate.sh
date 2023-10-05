@@ -8,6 +8,10 @@ URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
 SETTINGS_DIR="/jffs/addons/MerlinAutoUpdate"
 SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
 
+# Define the cron schedule and command to execute
+CRON_SCHEDULE="0 0 * * 0"
+COMMAND="sh /jffs/scripts/MerlinAutoUpdate.sh run_now"
+
 Say(){
    echo -e $$ $@ | logger -st "($(basename $0))"
 }
@@ -37,6 +41,9 @@ Get_Custom_Setting() {
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
+            credentials_base64)
+                grep -q "credentials_base64" "$SETTINGSFILE" && grep "credentials_base64" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
+                ;;
             local)
                 grep -q "FirmwareVersion_setting" "$SETTINGSFILE" && grep "FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
                 ;;
@@ -49,6 +56,24 @@ Get_Custom_Setting() {
     fi
 }
 
+credentials_menu() {
+    echo "=== Credentials Menu ==="
+    
+    # Prompt the user for a username and password
+    read -p "Enter username: " username
+    read -s -p "Enter password: " password  # -s flag hides the password input
+    echo  # Output a newline
+    
+    # Encode the username and password in Base64
+    credentials_base64=$(echo -n "$username:$password" | openssl base64)
+    
+    # Use Update_Custom_Settings to save the credentials to the SETTINGSFILE
+    Update_Custom_Settings "credentials_base64" "$credentials_base64"
+    
+    echo "Credentials saved."
+    read -p "Press Enter to return to the main menu..."
+}
+
 Update_Custom_Settings() {
     local setting_type="$1"
     local setting_value="$2"
@@ -59,18 +84,21 @@ Update_Custom_Settings() {
     fi
 
     case "$setting_type" in
-        local)
+        local|credentials_base64)
             if [ -f "$SETTINGSFILE" ]; then
-                if [ "$(grep -c "FirmwareVersion_setting" "$SETTINGSFILE")" -gt 0 ]; then
-                    if [ "$setting_value" != "$(grep "FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ')" ]; then
-                        sed -i "s/FirmwareVersion_setting.*/FirmwareVersion_setting $setting_value/" "$SETTINGSFILE"
+                if [ "$(grep -c "$setting_type" "$SETTINGSFILE")" -gt 0 ]; then
+                    if [ "$setting_value" != "$(grep "$setting_type" "$SETTINGSFILE" | cut -f2 -d' ')" ]; then
+                        sed -i "s/$setting_type.*/$setting_type $setting_value/" "$SETTINGSFILE"
                     fi
                 else
-                    echo "FirmwareVersion_setting $setting_value" >> "$SETTINGSFILE"
+                    echo "$setting_type $setting_value" >> "$SETTINGSFILE"
                 fi
             else
-                echo "FirmwareVersion_setting $setting_value" >> "$SETTINGSFILE"
+                echo "$setting_type $setting_value" >> "$SETTINGSFILE"
             fi
+            ;;
+        *)
+            echo "Invalid setting type: $setting_type"
             ;;
     esac
 }
@@ -101,15 +129,10 @@ get_latest_firmware() {
 change_build_type() {
     echo "Changing Build Type..."
     
-# Logging user's choice
-# Check for the presence of "rog" in filenames in the extracted directory
-cd "/home/root/${MODEL}_firmware"
-rog_file=$(ls | grep -i '_rog_')
-pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
-
 # Use Get_Custom_Setting to retrieve the previous choice
 previous_choice=$(Get_Custom_Setting "local" "n")
 
+# Logging user's choice
 # Check for the presence of "rog" in filenames in the extracted directory
 cd "/home/root/${MODEL}_firmware"
 rog_file=$(ls | grep -i '_rog_')
@@ -150,26 +173,6 @@ pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
 
     read -p "Press Enter to continue..."
 }
-
-# Define the cron schedule and command to execute
-CRON_SCHEDULE="0 0 * * 0"
-COMMAND="sh /jffs/scripts/MerlinAutoUpdate.sh run_now"
-
-# Check if the cron job command already exists
-if ! crontab -l | grep -qF "$COMMAND"; then
-  # Add the cron job if it doesn't exist
-  (crontab -l; echo "$CRON_SCHEDULE $COMMAND") | crontab -
-  
-  # Verify that the cron job has been added
-  if crontab -l | grep -qF "$COMMAND"; then
-    echo "Cron job 'MerlinAutoUpdate' added successfully."
-  else
-    echo "Failed to add the cron job."
-  fi
-else
-  echo "Cron job 'MerlinAutoUpdate' already exists."
-  change_schedule
-fi
 
 # Function to translate cron schedule to English
 translate_schedule() {
@@ -241,10 +244,26 @@ change_schedule() {
   read -p "Press Enter to return to the main menu..."
 }
 
+# Check if the cron job command already exists
+if ! crontab -l | grep -qF "$COMMAND"; then
+  # Add the cron job if it doesn't exist
+  (crontab -l; echo "$CRON_SCHEDULE $COMMAND") | crontab -
+  
+  # Verify that the cron job has been added
+  if crontab -l | grep -qF "$COMMAND"; then
+    echo "Cron job 'MerlinAutoUpdate' added successfully."
+  else
+    echo "Failed to add the cron job."
+  fi
+else
+  echo "Cron job 'MerlinAutoUpdate' already exists."
+fi
+
 # Embed functions from second script, modified as necessary.
 run_now() {
 
 Say "Running the task now...Checking for updates..."
+
 # Get current firmware version
 current_version=$(get_current_firmware)	
 #current_version="388.3"
@@ -297,7 +316,7 @@ unzip -o "${MODEL}_firmware.zip" -d "/home/root/${MODEL}_firmware"
 #fi
 
 # Use Get_Custom_Setting to retrieve the previous choice
-previous_choice=$(Get_Custom_Setting "local" "n")
+previous_choice=$(Get_Custom_Setting "local")
 
 # Logging user's choice
 # Check for the presence of "rog" in filenames in the extracted directory
@@ -305,7 +324,9 @@ cd "/home/root/${MODEL}_firmware"
 rog_file=$(ls | grep -i '_rog_')
 pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
 
-if [ ! -f "$SETTINGSFILE" ]; then
+local_value=$(Get_Custom_Setting "local")
+
+if [[ -z "$local_value" ]]; then
     if [ ! -z "$rog_file" ]; then
         # Check if the first argument is "run_now"
         if [ "$1" == "run_now" ]; then
@@ -339,63 +360,118 @@ else
 fi
 
 # Flashing the chosen firmware
+
+# Use Get_Custom_Setting to retrieve the previous choice
+previous_creds=$(Get_Custom_Setting "credentials_base64")
+
+
 Say "\033[32mFlashing $firmware_file...\033[0m"
-hnd-write "$firmware_file"  # Execute the command to flash the firmware.
+curl_response=$(curl 'http://www.asusrouter.com/login.cgi' -X POST \
+--referer http://www.asusrouter.com/Main_Login.asp \
+--user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+-H 'Accept-Language: en-US,en;q=0.5' \
+-H 'Content-Type: application/x-www-form-urlencoded' \
+-H 'Origin: http://www.asusrouter.com/' \
+-H 'Connection: keep-alive' \
+--data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${previous_creds}" \
+--cookie-jar /tmp/cookie.txt)
 
-# Wait for 3 minutes
-sleep 60
+if echo "$curl_response" | grep -q 'url=index.asp'; then
+upload_response=$(curl 'http://www.asusrouter.com/upgrade.cgi' \
+    --referer http://www.asusrouter.com/Advanced_FirmwareUpgrade_Content.asp \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Origin: http://www.asusrouter.com/' \
+    -F 'current_page=Advanced_FirmwareUpgrade_Content.asp' \
+    -F 'next_page=' \
+    -F 'action_mode=' \
+    -F 'action_script=' \
+    -F 'action_wait=' \
+    -F 'preferred_lang=EN' \
+    -F 'firmver=3.0.0.4' \
+    -F "file=@${firmware_file}" \
+    --cookie /tmp/cookie.txt)
+	# Look for a unique portion of the HTML that indicates success
+	if echo "$upload_response" | grep -q 'parent.showLoadingBar'; then
+    Say "Firmware upload successful. The router will reboot shortly."
+	# Wait for 1 minutes
+	sleep 60
 
-# Reboot the router
-reboot
-    
-    read -p "Press Enter to continue..."
+	# Reboot the router
+	reboot
+
+	else
+    Say "Firmware upload failed. The response did not match the expected output."
+    echo "$upload_response"  # Optionally log the unexpected output for debugging
+fi
+
+else
+    Say "Login failed. Please confirm credentials by selecting: 1. Configure Credentials"
+fi
+
+read -p "Press Enter to continue..."
 }
 
-if [[ $1 == "run_now" ]]; then
+if [[ -n "$1" && "$1" == "run_now" ]]; then
     # If the argument is "run_now", call the run_now function and exit
     run_now
     exit 0
 fi
 
+# Function to display the menu
 show_menu() {
   clear
   echo "===== Merlin Auto Update Main Menu ====="
-  echo "1. Run now"
+  echo "1. Configure Credentials"
+  echo "2. Run now"
   
-  # Only display the "Change Build Type" option if a custom_settings.txt file exists
-  if [ -f "$SETTINGSFILE" ]; then
-    echo "2. Change Build Type"
-	echo "3. Change Schedule"
-	echo "e. Exit"
+  # Check if the directory exists before attempting to navigate to it
+  if [ -d "/home/root/${MODEL}_firmware" ]; then
+    cd "/home/root/${MODEL}_firmware"
+    # Check for the presence of "rog" in filenames in the directory
+    rog_file=$(ls | grep -i '_rog_')
+    
+    # If a file with "_rog_" in its name is found, display the "Change Build Type" option
+    if [ ! -z "$rog_file" ]; then
+      echo "3. Change Build Type"
+      echo "4. Change Schedule"
+      echo "e. Exit"
+    else
+      echo "3. Change Schedule"
+      echo "e. Exit"
+    fi
   else
-	echo "2. Change Schedule"
-	echo "e. Exit"
+    echo "3. Change Schedule"
+    echo "e. Exit"
   fi
 }
 
 # Main loop
 while true; do
   show_menu
-  if [ -f "$SETTINGSFILE" ]; then
-  read -p "Enter your choice (1/2/3/e): " choice
-    case $choice in
-    1) run_now ;;
-    2) change_build_type ;;
-    3) change_schedule ;;
-    e) exit ;;
-    *) echo "Invalid choice. Please try again."
-   read -p "Press Enter to continue..."  # Pauses script until Enter is pressed
-   ;;
-  esac
+  # Check if the directory exists again before attempting to navigate to it
+  if [ -d "/home/root/${MODEL}_firmware" ]; then
+    cd "/home/root/${MODEL}_firmware"
+    # Check for the presence of "rog" in filenames in the directory again
+    rog_file=$(ls | grep -i '_rog_')
+    
+    if [ ! -z "$rog_file" ]; then
+      read -p "Enter your choice (1/2/3/4/e): " choice
+    else
+      read -p "Enter your choice (1/2/3/e): " choice
+    fi
   else
-  read -p "Enter your choice (1/2/e): " choice
+    read -p "Enter your choice (1/2/3/e): " choice
+  fi
+  
   case $choice in
-    1) run_now ;;
-    2) change_schedule ;;
+    1) credentials_menu ;;
+    2) run_now ;;
+    3) [ ! -z "$rog_file" ] && change_build_type || change_schedule ;;
+    4) change_schedule ;;
     e) exit ;;
     *) echo "Invalid choice. Please try again."
-   read -p "Press Enter to continue..."  # Pauses script until Enter is pressed
-   ;;
+       read -p "Press Enter to continue..."  # Pauses script until Enter is pressed
+       ;;
   esac
-  fi
 done
