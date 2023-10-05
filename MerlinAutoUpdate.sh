@@ -129,7 +129,7 @@ Update_Custom_Settings() {
 }
 
 get_current_firmware() {
-    local current_version=$(nvram get buildno)
+    local current_version="$(nvram get buildno)_$(nvram get extendno)"
     echo "$current_version"
 }
 
