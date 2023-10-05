@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 URL_RELEASE_SUFFIX="Release"
@@ -296,7 +296,7 @@ release_link=$2
 mkdir -p "/home/root/${MODEL}_firmware"
 
 # Extracting the firmware
-unzip -o "${MODEL}_firmware.zip" -d "/home/root/${MODEL}_firmware"
+unzip -o "${MODEL}_firmware.zip" -d "/home/root/${MODEL}_firmware" -x README*
 
 # If unzip was successful, delete the zip file
 if [ $? -eq 0 ]; then
@@ -369,6 +369,15 @@ else
     else
         firmware_file="$pure_file"
     fi
+fi
+
+if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
+	fw_sig="$(openssl sha256 $firmware_file | cut -d' ' -f2)"
+	dl_sig="$(grep $firmware_file sha256sum.sha256 | cut -d' ' -f1)"
+	if [ "$fw_sig" != "$dl_sig" ]; then
+		Say "Extracted firmware does not match the SHA256 signature! Aborting"
+		exit 1
+	fi
 fi
 
 # Flashing the chosen firmware
