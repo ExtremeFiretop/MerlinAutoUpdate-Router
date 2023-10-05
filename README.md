@@ -3,7 +3,7 @@ PREVIEW, NOT YET COMPLETE. PLEASE EXPECT ISSUES.
 
 ## SUPPORTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
 
- - GT-AXE11000 (Untested)
+ - GT-AXE11000 (Tested)
  - GT-AXE16000 (Untested)
  - GT-AX6000 (Untested)
  - GT-AX11000 (Untested)
