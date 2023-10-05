@@ -74,7 +74,7 @@ curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Route
   
 ## Usage
 
-The script can be run using various options. Here are some common use cases:
+The script can be run using the below options:
 
 - To update the firmware: (Run from Root of SSH location)
   ```bash
@@ -86,7 +86,7 @@ The script can be run using various options. Here are some common use cases:
 
 - Result should look something like: 
   ```bash
-  0 0 * * 0 /bin/sh /jffs/scripts/MerlinAutoUpdate.sh #MerlinUpdate#
+  0 0 * * 0 sh /jffs/scripts/MerlinAutoUpdate.sh run_now
 
 - (Cron calculator here: https://crontab.guru/)
 ## Contribution
