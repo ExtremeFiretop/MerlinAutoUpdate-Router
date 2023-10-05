@@ -3,7 +3,22 @@
 URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 URL_RELEASE_SUFFIX="Release"
 
-MODEL=$(nvram get model)
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-05] ##
+##-------------------------------------##
+_GetRouterModel_()
+{
+   local retCode=1  routerModelID=""
+   local nvramModelKeys="odmpid productid wps_modelnum wps_device_name model"
+   for nvramKey in $nvramModelKeys
+   do
+       routerModelID="$(nvram get "$nvramKey")"
+       [ -n "$routerModelID" ] && retCode=0 && break
+   done
+   echo "$routerModelID" ; return "$retCode"
+}
+
+MODEL="$(_GetRouterModel_)"
 URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
 SETTINGS_DIR="/jffs/addons/MerlinAutoUpdate"
 SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
@@ -16,13 +31,16 @@ Say(){
    echo -e $$ $@ | logger -st "($(basename $0))"
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-05] ##
+##----------------------------------------##
 # Function to check if the current router model is supported
 check_model_support() {
     # List of unsupported models as a space-separated string
     local unsupported_models="RT-AC1900 RT-AC87U RT-AC5300 RT-AC3200 RT-AC3100 RT-AC88U RT-AC68U RT-AC66U RT-AC56U RT-AC66U_B1 RT-N66U"
     
     # Get the current model
-    local current_model=$(nvram get model)
+    local current_model="$(_GetRouterModel_)"
     
     # Check if the current model is in the list of unsupported models
     if echo "$unsupported_models" | grep -wq "$current_model"; then
