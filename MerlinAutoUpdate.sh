@@ -296,7 +296,7 @@ release_link=$2
 mkdir -p "/home/root/${MODEL}_firmware"
 
 # Extracting the firmware
-unzip -o "${MODEL}_firmware.zip" -d "/home/root/${MODEL}_firmware"
+unzip -o "${MODEL}_firmware.zip" -d "/home/root/${MODEL}_firmware" -x README*
 
 # If unzip was successful, delete the zip file
 if [ $? -eq 0 ]; then
