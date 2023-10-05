@@ -421,6 +421,10 @@ curl_response=$(curl "http://${lan_ip}/login.cgi" \
 --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${previous_creds}" \
 --cookie-jar /tmp/cookie.txt)
 
+# IMPORTANT: Due to the nature of 'nohup' and the specific behavior of this 'curl' request,
+# the following 'curl' command MUST always be the last step in this block.
+# Do NOT insert any operations after it! (unless you understand the implications).
+
 if echo "$curl_response" | grep -q 'url=index.asp'; then
 nohup curl "http://$lan_ip/upgrade.cgi" \
     --referer http://$lan_ip/Advanced_FirmwareUpgrade_Content.asp \
