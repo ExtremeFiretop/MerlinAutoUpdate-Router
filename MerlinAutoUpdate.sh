@@ -272,8 +272,8 @@ run_now() {
 Say "Running the task now...Checking for updates..."
 
 # Get current firmware version
-#current_version=$(get_current_firmware)	
-current_version="388.3"
+current_version=$(get_current_firmware)	
+#current_version="388.3"
 
 # Use set to read the output of the function into variables
 set -- $(get_latest_firmware "$URL_RELEASE")
