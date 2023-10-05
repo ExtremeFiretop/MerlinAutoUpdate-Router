@@ -371,6 +371,15 @@ else
     fi
 fi
 
+if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
+	fw_sig="$(openssl sha256 $firmware_file | cut -d' ' -f2)"
+	dl_sig="$(grep $firmware_file sha256sum.sha256 | cut -d' ' -f1)"
+	if [ "$fw_sig" != "$dl_sig" ]; then
+		Say "Extracted firmware does not match the SHA256 signature! Aborting"
+		exit 1
+	fi
+fi
+
 # Flashing the chosen firmware
 
 # Use Get_Custom_Setting to retrieve the previous choice
