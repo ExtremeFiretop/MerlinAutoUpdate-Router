@@ -134,6 +134,9 @@ Update_Custom_Settings() {
     esac
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-05] ##
+##----------------------------------------##
 get_current_firmware() {
     local current_version="$(nvram get buildno).$(nvram get extendno)"
     echo "$current_version"
@@ -152,13 +155,19 @@ get_latest_firmware() {
     then echo "**ERROR** **NO_URL**" ; return 1 ; fi
 
     local latest="$(echo "$links_and_versions" | tail -n 1)"
-    local version="$(echo "$latest" | cut -d' ' -f1 | awk -F. '{print $(NF-1)"."$NF}')"
-    local link="$(echo "$latest" | cut -d' ' -f2-)"
+    local linkStr="$(echo "$latest" | cut -d' ' -f2-)"
+    local fileStr="$(echo "$linkStr" | grep -oE "/${MODEL}_[0-9]+.*.zip$")"
+    local versionStr
+
+    if [ -z "$fileStr" ]
+    then versionStr="$(echo "$latest" | cut -d ' ' -f1)"
+    else versionStr="$(echo ${fileStr%.*} | sed "s/\/${MODEL}_//" | sed 's/_/./g')"
+    fi
 
     # Extracting the correct link from the page
-    local correct_link="$(echo "$link" | sed 's|^/|https://sourceforge.net/|')"
+    local correct_link="$(echo "$linkStr" | sed 's|^/|https://sourceforge.net/|')"
 
-    echo "$version"
+    echo "$versionStr"
     echo "$correct_link"
 }
 
@@ -295,8 +304,29 @@ else
   echo "Cron job 'MerlinAutoUpdate' already exists."
 fi
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-06] ##
+##-------------------------------------##
+_VersionFormatToNumber_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo "" ; return 1 ; fi
+
+   local versionNum  versionStr="$1"
+
+   if [ "$(echo "$1" | awk -F '.' '{print NF}')" -lt "$2" ]
+   then versionStr="$(nvram get firmver | sed 's/\.//g').$1" ; fi
+
+   if [ "$2" -lt 4 ]
+   then versionNum="$(echo "$versionStr" | awk -F '.' '{printf ("%d%03d%03d\n", $1,$2,$3);}')"
+   else versionNum="$(echo "$versionStr" | awk -F '.' '{printf ("%d%d%03d%03d\n", $1,$2,$3,$4);}')"
+   fi
+
+   echo "$versionNum" ; return 0
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-05] ##
+## Modified by Martinski W. [2023-Oct-06] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 run_now() {
@@ -319,8 +349,12 @@ release_link="$2"
         return 1
     fi
 
+    local numFields="$(echo "$release_version" | awk -F '.' '{print NF}')"
+    local numCurrentVers="$(_VersionFormatToNumber_ "$current_version" "$numFields")"
+    local numReleaseVers="$(_VersionFormatToNumber_ "$release_version" "$numFields")"
+
     # Compare versions before deciding to download
-    if [ "$release_version" \> "$current_version" ]; then
+    if [ "$numReleaseVers" -gt "$numCurrentVers" ]; then
         Say "Latest release version is $release_version, downloading from $release_link"
         wget -O "${MODEL}_firmware.zip" "$release_link"
     else
