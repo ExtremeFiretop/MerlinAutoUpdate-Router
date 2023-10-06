@@ -1,9 +1,12 @@
 ---WORK IN PROGRESS--- 
 PREVIEW, NOT YET COMPLETE. PLEASE EXPECT ISSUES.
 
-## SUPPORTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
-
+## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w file
  - GT-AXE11000 (Tested)
+ - RT-AX88U (Tested)
+
+## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
+
  - GT-AXE16000 (Untested)
  - GT-AX6000 (Untested)
  - GT-AX11000 (Untested)
@@ -16,24 +19,23 @@ PREVIEW, NOT YET COMPLETE. PLEASE EXPECT ISSUES.
  - RT-AX56U (Untested)
  - RT-AX58U (Untested)
  - RT-AX3000 (Untested)
- - RT-AX88U (Untested)
  - RT-AC86U (Untested)
  - XT12 (Untested)
  
-## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
+## UNTESTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 
- - RT-AC86U (No)
- - RT-AC1900 (No)
- - RT-AC87U (No)
- - RT-AC5300 (No)
- - RT-AC3200 (No)
- - RT-AC3100 (No)
- - RT-AC88U (No)
- - RT-AC68U (No)
- - RT-AC66U (No)
- - RT-AC56U (No)
- - RT-AC66U_B1 (No)
- - RT-N66U (No)
+ - RT-AC86U (Untested)
+ - RT-AC1900 (Untested)
+ - RT-AC87U (Untested)
+ - RT-AC5300 (Untested)
+ - RT-AC3200 (Untested)
+ - RT-AC3100 (Untested)
+ - RT-AC88U (Untested)
+ - RT-AC68U (Untested)
+ - RT-AC66U (Untested)
+ - RT-AC56U (Untested)
+ - RT-AC66U_B1 (Untested)
+ - RT-N66U (Untested)
 
 ## Remaining/Planned Features:
 - ~~Log analysis to determine if a factory reset is recommended within a specified date range.~~ - Will need some kind of notification system for this
