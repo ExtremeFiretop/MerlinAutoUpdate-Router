@@ -43,9 +43,41 @@
  - RT-N66U (Untested)
 
 ## Remaining/Planned Features:
-- ~~Log analysis to determine if a factory reset is recommended within a specified date range.~~ - Will need some kind of notification system for this
-- ~~Add Install for AMTM.~~ - Will need some more research into AMTM
-- ~~Add Un-Install for AMTM.~~ - Will need some more research into AMTM
+
+Backup and Storage:
+
+ - If USB drive is connected to the router for storage.
+ -  - Save the following to the USB drive:
+ -  - Configuration files.
+ -  - JFFS backup.
+ -  - Newer firmware version.
+ - Note:
+ - Be aware that JFFS partitions may not work post-upgrades in some cases.
+ - New routers use UBIFS instead of JFFS2.
+
+Memory Management:
+
+ - Address the paradox of RAM usage:
+ - - Check RAM usage. 
+ - - If free RAM is less than the firmware file size, reboot the router.
+ - Note:
+ - USB cache consumes significant RAM when writing files.
+ - Firmware updates require RAM to cache the entire firmware.
+
+Firmware Management:
+
+- Implement a waiting period for firmware updates:
+- - Wait for a set duration after a new firmware release.
+- - If no newer firmware emerges, proceed with the update.
+- - If newer firmware appears, reset and reevaluate the waiting period.
+
+System Notifications:
+
+- Possibly modify the hardcoded notification in the GUI's upper right corner.
+- Trigger a firmware update notification using a script.
+
+LED Control:
+- Set up blinking LEDs as a visual indicator before starting the firmware update.
   
 
 ## MerlinAutoUpdate-Router
