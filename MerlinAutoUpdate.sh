@@ -3,13 +3,13 @@
 URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 URL_RELEASE_SUFFIX="Release"
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-05] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-05] ##
+##----------------------------------------------##
 _GetRouterModel_()
 {
    local retCode=1  routerModelID=""
-   local nvramModelKeys="odmpid productid wps_modelnum wps_device_name model"
+   local nvramModelKeys="productid build_name odmpid"
    for nvramKey in $nvramModelKeys
    do
        routerModelID="$(nvram get "$nvramKey")"
@@ -26,6 +26,12 @@ SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
 # Define the cron schedule and command to execute
 CRON_SCHEDULE="0 0 * * 0"
 COMMAND="sh /jffs/scripts/MerlinAutoUpdate.sh run_now"
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-05] ##
+##-------------------------------------##
+_WaitForEnterKey_()
+{ printf "\nPress Enter to continue..." ; read EnterKEY ; }
 
 # Function to get LAN IP
 get_lan_ip() {
@@ -129,23 +135,28 @@ Update_Custom_Settings() {
 }
 
 get_current_firmware() {
-    local current_version="$(nvram get buildno)_$(nvram get extendno)"
+    local current_version="$(nvram get buildno).$(nvram get extendno)"
     echo "$current_version"
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-05] ##
+##----------------------------------------##
 get_latest_firmware() {
     local url="$1"
-    local page=$(curl -s "$url")
 
-    local links_and_versions=$(echo "$page" | grep -o 'href="[^"]*'"$MODEL"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | 
-        awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)
+    local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$MODEL"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | 
+        awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
 
-    local latest=$(echo "$links_and_versions" | tail -n 1)
-    local version=$(echo "$latest" | cut -d' ' -f1 | awk -F. '{print $(NF-1)"."$NF}')
-    local link=$(echo "$latest" | cut -d' ' -f2-)
+    if [ -z "$links_and_versions" ]
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+
+    local latest="$(echo "$links_and_versions" | tail -n 1)"
+    local version="$(echo "$latest" | cut -d' ' -f1 | awk -F. '{print $(NF-1)"."$NF}')"
+    local link="$(echo "$latest" | cut -d' ' -f2-)"
 
     # Extracting the correct link from the page
-    local correct_link=$(echo "$link" | sed 's|^/|https://sourceforge.net/|')
+    local correct_link="$(echo "$link" | sed 's|^/|https://sourceforge.net/|')"
 
     echo "$version"
     echo "$correct_link"
@@ -196,7 +207,7 @@ pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
         Update_Custom_Settings "local" "n"
     fi
 
-    read -p "Press Enter to continue..."
+    _WaitForEnterKey_
 }
 
 # Function to translate cron schedule to English
@@ -284,19 +295,29 @@ else
   echo "Cron job 'MerlinAutoUpdate' already exists."
 fi
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-05] ##
+##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 run_now() {
 
 Say "Running the task now...Checking for updates..."
 
 # Get current firmware version
-current_version=$(get_current_firmware)	
+current_version="$(get_current_firmware)"	
 #current_version="388.3"
 
 # Use set to read the output of the function into variables
 set -- $(get_latest_firmware "$URL_RELEASE")
-release_version=$1
-release_link=$2
+release_version="$1"
+release_link="$2"
+
+    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
+    then
+        echo "**ERROR**: No firmware release URL was found for [$MODEL] router model."
+        _WaitForEnterKey_
+        return 1
+    fi
 
     # Compare versions before deciding to download
     if [ "$release_version" \> "$current_version" ]; then
@@ -445,7 +466,7 @@ else
     Say "Login failed. Please confirm credentials by selecting: 1. Configure Credentials"
 fi
 
-read -p "Press Enter to continue..."
+    _WaitForEnterKey_
 }
 
 if [[ -n "$1" && "$1" == "run_now" ]]; then
@@ -507,7 +528,7 @@ while true; do
     4) change_schedule ;;
     e) exit ;;
     *) echo "Invalid choice. Please try again."
-       read -p "Press Enter to continue..."  # Pauses script until Enter is pressed
+       _WaitForEnterKey_  # Pauses script until Enter is pressed
        ;;
   esac
 done
