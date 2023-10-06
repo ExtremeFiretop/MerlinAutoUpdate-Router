@@ -513,6 +513,7 @@ fi
 show_menu() {
   clear
   echo "===== Merlin Auto Update Main Menu ====="
+  echo "========== By ExtremFiretop ============"
   echo "1. Configure Credentials"
   echo "2. Run now"
   
