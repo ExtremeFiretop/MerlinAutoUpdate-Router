@@ -78,7 +78,9 @@ System Notifications:
 
 LED Control:
 - Set up blinking LEDs as a visual indicator before starting the firmware update.
-  
+
+AMTM Install and Uninstallation:
+- Only once it's been vetted through most routers.
 
 ## MerlinAutoUpdate-Router
 
