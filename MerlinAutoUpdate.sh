@@ -6,7 +6,7 @@
 # Last Modified: 2023-Oct-06
 ################################################################
 
-readonly SCRIPT_VERSION="0.2.0"
+readonly SCRIPT_VERSION="0.2.1"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
