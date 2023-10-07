@@ -1,7 +1,15 @@
 #!/bin/sh
+################################################################
+# MerlinAutoUpdate.sh
+#
+# Creation Date: 2023-Oct-01 by @ExtremeFiretop.
+# Last Modified: 2023-Oct-06
+################################################################
+set -u
 
-URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
-URL_RELEASE_SUFFIX="Release"
+readonly SCRIPT_VERSION="0.2.0"
+readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
+readonly URL_RELEASE_SUFFIX="Release"
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Oct-05] ##
@@ -18,30 +26,50 @@ _GetRouterModel_()
    echo "$routerModelID" ; return "$retCode"
 }
 
-MODEL="$(_GetRouterModel_)"
-URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
-SETTINGS_DIR="/jffs/addons/MerlinAutoUpdate"
-SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
+readonly MODEL="$(_GetRouterModel_)"
+readonly URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
+readonly SETTINGS_DIR="/jffs/addons/MerlinAutoUpdate"
+readonly SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
 
-# Define the cron schedule and command to execute
-CRON_SCHEDULE="0 0 * * 0"
-COMMAND="sh /jffs/scripts/MerlinAutoUpdate.sh run_now"
+# Define the cron schedule and job command to execute
+readonly CRON_SCHEDULE="0 0 * * 0"
+readonly CRON_JOB="sh /jffs/scripts/MerlinAutoUpdate.sh run_now"
+readonly CRON_TAG="MerlinAutoUpdate"
 
 ##-------------------------------------##
-## Added by Martinski W. [2023-Oct-05] ##
+## Added by Martinski W. [2023-Oct-06] ##
 ##-------------------------------------##
+loggerFlags="-t"
+isInteractive=false
+
+if [ -n "$(tty)" ] && [ -n "$PS1" ]
+then
+   loggerFlags="-st"
+   isInteractive=true
+fi
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-06] ##
+##----------------------------------------------##
 _WaitForEnterKey_()
-{ printf "\nPress Enter to continue..." ; read EnterKEY ; }
+{
+   ! "$isInteractive" && return 0
+   printf "\nPress Enter to continue..."
+   read EnterKEY
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-06] ##
+##----------------------------------------##
+Say(){
+   echo -e "$@" | logger $loggerFlags "[$(basename "$0")] $$"
+}
 
 # Function to get LAN IP
 get_lan_ip() {
     local lan_ip
     lan_ip=$(nvram get lan_ipaddr)
     echo "$lan_ip"  # This will return just the IP address
-}
-
-Say(){
-   echo -e $$ $@ | logger -st "($(basename $0))"
 }
 
 ##----------------------------------------##
@@ -240,7 +268,7 @@ change_schedule() {
   echo "Changing Schedule..."
   
   # Use crontab -l to retrieve all cron jobs and filter for the one containing the script's path
-  current_schedule_line=$(crontab -l | grep "$COMMAND")
+  current_schedule_line=$(crontab -l | grep "$CRON_JOB")
   
   
   if [ -n "$current_schedule_line" ]; then
@@ -252,7 +280,7 @@ change_schedule() {
     
     echo -e "\033[32mCurrent Schedule: $current_schedule_english \033[0m"
   else
-    echo "Cron job 'MerlinAutoUpdate' does not exist. It will be added."
+    echo "Cron job '${CRON_TAG}' does not exist. It will be added."
   fi
 
      while true; do  # Loop to keep asking for input
@@ -272,11 +300,14 @@ change_schedule() {
         fi
     done
 
-  # Update the cron job in the crontab
-  (crontab -l | grep -vF "$COMMAND" && echo "$new_schedule $COMMAND") | crontab -
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2023-Oct-06] ##
+    ##----------------------------------------##
+    # Update the cron job in the crontab using the built-in utility.
+    cru a "$CRON_TAG" "$new_schedule $CRON_JOB" ; sleep 1
 
-  if crontab -l | grep -qF "$COMMAND"; then
-    echo "Cron job 'MerlinAutoUpdate' updated successfully."
+  if crontab -l | grep -qF "$CRON_JOB"; then
+    echo "Cron job '${CRON_TAG}' updated successfully."
   else
     echo "Failed to update the cron job."
   fi
@@ -289,19 +320,24 @@ change_schedule() {
   read -p "Press Enter to return to the main menu..."
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-06] ##
+##----------------------------------------##
 # Check if the cron job command already exists
-if ! crontab -l | grep -qF "$COMMAND"; then
-  # Add the cron job if it doesn't exist
-  (crontab -l; echo "$CRON_SCHEDULE $COMMAND") | crontab -
-  
-  # Verify that the cron job has been added
-  if crontab -l | grep -qF "$COMMAND"; then
-    echo "Cron job 'MerlinAutoUpdate' added successfully."
-  else
-    echo "Failed to add the cron job."
-  fi
+if ! crontab -l | grep -qF "$CRON_JOB"; then
+   # Add the cron job if it doesn't exist
+   echo "Adding '${CRON_TAG}' cron job..."
+   cru a "$CRON_TAG" "$CRON_SCHEDULE $CRON_JOB" ; sleep 1
+
+   # Verify that the cron job has been added
+   if crontab -l | grep -qF "$CRON_JOB"; then
+      echo "Cron job '${CRON_TAG}' added successfully."
+   else
+      echo "Failed to add the cron job."
+   fi
+   _WaitForEnterKey_
 else
-  echo "Cron job 'MerlinAutoUpdate' already exists."
+   echo "Cron job '${CRON_TAG}' already exists."
 fi
 
 ##-------------------------------------##
@@ -344,7 +380,7 @@ release_link="$2"
 
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
     then
-        echo "**ERROR**: No firmware release URL was found for [$MODEL] router model."
+        Say "**ERROR**: No firmware release URL was found for [$MODEL] router model."
         _WaitForEnterKey_
         return 1
     fi
@@ -359,7 +395,7 @@ release_link="$2"
         wget -O "${MODEL}_firmware.zip" "$release_link"
     else
         Say "Current firmware version $current_version is up to date."
-        if [[ $1 != "run_now" ]]; then  # Check if the first argument is not "cron"
+        if [ "$1" != "run_now" ]; then  # Check if the first argument is not "cron"
             read -p "Press Enter to return to the main menu..."
         fi
         return  # Exit the function early as there's no newer firmware
@@ -411,10 +447,10 @@ pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
 
 local_value=$(Get_Custom_Setting "local")
 
-if [[ -z "$local_value" ]]; then
+if [ -z "$local_value" ]; then
     if [ ! -z "$rog_file" ]; then
         # Check if the first argument is "run_now"
-        if [ "$1" == "run_now" ]; then
+        if [ "$1" = "run_now" ]; then
             # If the argument is "run_now", default to the "Pure Build"
             firmware_file="$pure_file"
             Update_Custom_Settings "local" "n"
@@ -503,15 +539,18 @@ fi
     _WaitForEnterKey_
 }
 
-if [[ -n "$1" && "$1" == "run_now" ]]; then
+if [ $# -gt 0 ] && [ "$1" = "run_now" ]; then
     # If the argument is "run_now", call the run_now function and exit
     run_now
     exit 0
 fi
 
+rog_file=""
+
 # Function to display the menu
 show_menu() {
   clear
+  echo
   echo "===== Merlin Auto Update Main Menu ====="
   echo "========== By ExtremFiretop ============"
   echo "1. Configure Credentials"
