@@ -5,7 +5,6 @@
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Last Modified: 2023-Oct-06
 ################################################################
-set -u
 
 readonly SCRIPT_VERSION="0.2.0"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
