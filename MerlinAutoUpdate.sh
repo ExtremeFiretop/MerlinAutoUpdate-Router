@@ -74,18 +74,40 @@ get_lan_ip() {
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Oct-05] ##
 ##----------------------------------------##
+get_current_firmware() {
+    local current_version="$(nvram get buildno).$(nvram get extendno)"
+    echo "$current_version"
+}
+
+print_center() {
+    termwidth=$(stty size | cut -d ' ' -f 2)
+    paddingwidth=$(( (termwidth - ${#1} - 4) / 2 ))  # Added 4 for color codes
+    padding=$(printf "%0.s=" $(eval "echo {1..$paddingwidth}"))
+    printf '%s %s %s\n' "$padding" "$1" "$padding"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Oct-07] ##
+##------------------------------------------##
 # Function to check if the current router model is supported
 check_model_support() {
-    # List of unsupported models as a space-separated string
-    local unsupported_models="RT-AC1900 RT-AC87U RT-AC5300 RT-AC3200 RT-AC3100 RT-AC88U RT-AC68U RT-AC66U RT-AC56U RT-AC66U_B1 RT-N66U"
+    # Minimum supported firmware version
+    local minimum_supported_version="386.11.0"
     
-    # Get the current model
-    local current_model="$(_GetRouterModel_)"
+    # Get the current firmware version
+    local current_version="$(get_current_firmware)"
     
-    # Check if the current model is in the list of unsupported models
-    if echo "$unsupported_models" | grep -wq "$current_model"; then
-        # Output a message and exit the script if the model is unsupported
-        Say "The $current_model is an unsupported model. Exiting..."
+    # Compare the major and minor parts of the versions
+    local current_major=$(echo "$current_version" | cut -d'.' -f1)
+    local current_minor=$(echo "$current_version" | cut -d'.' -f2)
+    
+    local minimum_major=$(echo "$minimum_supported_version" | cut -d'.' -f1)
+    local minimum_minor=$(echo "$minimum_supported_version" | cut -d'.' -f2)
+
+    # If the current major version is less than the minimum, or the major versions are equal but the current minor version is less, exit.
+    if [ "$current_major" -lt "$minimum_major" ] || ([ "$current_major" -eq "$minimum_major" ] && [ "$current_minor" -lt "$minimum_minor" ]); then
+        Say "\033[31mThe installed firmware version $current_version is below the minimum supported version $minimum_supported_version.\033[0m" 
+		Say "\033[31mExiting...\033[0m"
         exit 1
     fi
 }
@@ -159,14 +181,6 @@ Update_Custom_Settings() {
             echo "Invalid setting type: $setting_type"
             ;;
     esac
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-05] ##
-##----------------------------------------##
-get_current_firmware() {
-    local current_version="$(nvram get buildno).$(nvram get extendno)"
-    echo "$current_version"
 }
 
 ##----------------------------------------##
@@ -500,7 +514,7 @@ lan_ip=$(get_lan_ip)
 echo "Debug: LAN IP is $lan_ip"
 
 
-Say "\033[32mFlashing $firmware_file...\033[0m"
+Say "\033[32mFlashing $firmware_file... Please Wait for reboot.\033[0m"
 curl_response=$(curl "http://${lan_ip}/login.cgi" \
 --referer http://$lan_ip/Main_Login.asp \
 --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -549,9 +563,14 @@ rog_file=""
 # Function to display the menu
 show_menu() {
   clear
-  echo
-  echo "===== Merlin Auto Update Main Menu ====="
-  echo "========== By ExtremFiretop ============"
+  echo -e "\033[1;36m===== Merlin Auto Update Main Menu =====\033[0m"
+  echo -e "\033[1;35m========== By ExtremeFiretop ===========\033[0m"
+  echo -e "\033[1;33m============ Contributors: =============\033[0m"
+  echo -e "\033[1;33m"
+  print_center 'Martinski W.'
+  print_center 'Dave14305'
+  echo -e "\033[0m"  # Reset color
+  echo "----------------------------------------"
   echo "1. Configure Credentials"
   echo "2. Run now"
   
