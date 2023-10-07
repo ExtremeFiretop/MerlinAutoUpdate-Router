@@ -545,6 +545,8 @@ if [ $# -gt 0 ] && [ "$1" = "run_now" ]; then
     exit 0
 fi
 
+rog_file=""
+
 # Function to display the menu
 show_menu() {
   clear
