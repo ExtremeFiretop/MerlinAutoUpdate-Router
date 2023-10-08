@@ -3,10 +3,11 @@
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Oct-06
+# Last Modified: 2023-Oct-08
 ################################################################
+## set -u
 
-readonly SCRIPT_VERSION="0.2.1"
+readonly SCRIPT_VERSION="0.2.2"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -30,6 +31,18 @@ readonly URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
 readonly SETTINGS_DIR="/jffs/addons/MerlinAutoUpdate"
 readonly SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-07] ##
+##-------------------------------------##
+# The directory variable could be set via an argument or a custom setting
+# depending on the available RAM & storage capacity of the target router.
+# One possibility is to require USB-attached storage for the ZIP file.
+#-------------------------------------------------------------------------
+FW_SETP_DIR="/home/root"
+readonly FW_FileName="${MODEL}_firmware"
+readonly FW_TEMP_DIR="${FW_SETP_DIR}/$FW_FileName"
+readonly FW_ZIP_FPATH="${FW_TEMP_DIR}/${FW_FileName}.zip"
+
 # Define the cron schedule and job command to execute
 readonly CRON_SCHEDULE="0 0 * * 0"
 readonly CRON_JOB="sh /jffs/scripts/MerlinAutoUpdate.sh run_now"
@@ -48,13 +61,18 @@ then
 fi
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-06] ##
+## Added/Modified by Martinski W. [2023-Oct-07] ##
 ##----------------------------------------------##
 _WaitForEnterKey_()
 {
    ! "$isInteractive" && return 0
-   printf "\nPress Enter to continue..."
-   read EnterKEY
+   local promptStr
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then promptStr="$1"
+   else promptStr="Press Enter to continue..."
+   fi
+   printf "\n%s" "$promptStr" ; read EnterKEY
 }
 
 ##----------------------------------------##
@@ -86,38 +104,61 @@ print_center() {
     printf '%s %s %s\n' "$padding" "$1" "$padding"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Oct-07] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-06] ##
+##-------------------------------------##
+_VersionFormatToNumber_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo "" ; return 1 ; fi
+
+   local versionNum  versionStr="$1"
+
+   if [ "$(echo "$1" | awk -F '.' '{print NF}')" -lt "$2" ]
+   then versionStr="$(nvram get firmver | sed 's/\.//g').$1" ; fi
+
+   if [ "$2" -lt 4 ]
+   then versionNum="$(echo "$versionStr" | awk -F '.' '{printf ("%d%03d%03d\n", $1,$2,$3);}')"
+   else versionNum="$(echo "$versionStr" | awk -F '.' '{printf ("%d%d%03d%03d\n", $1,$2,$3,$4);}')"
+   fi
+
+   echo "$versionNum" ; return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-07] ##
+##----------------------------------------##
 # Function to check if the current router model is supported
 check_model_support() {
     # Minimum supported firmware version
     local minimum_supported_version="386.11.0"
-    
+
     # Get the current firmware version
     local current_version="$(get_current_firmware)"
-    
-    # Compare the major and minor parts of the versions
-    local current_major=$(echo "$current_version" | cut -d'.' -f1)
-    local current_minor=$(echo "$current_version" | cut -d'.' -f2)
-    
-    local minimum_major=$(echo "$minimum_supported_version" | cut -d'.' -f1)
-    local minimum_minor=$(echo "$minimum_supported_version" | cut -d'.' -f2)
 
-    # If the current major version is less than the minimum, or the major versions are equal but the current minor version is less, exit.
-    if [ "$current_major" -lt "$minimum_major" ] || ([ "$current_major" -eq "$minimum_major" ] && [ "$current_minor" -lt "$minimum_minor" ]); then
-        Say "\033[31mThe installed firmware version $current_version is below the minimum supported version $minimum_supported_version.\033[0m" 
+    local numFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
+    local numCurrentVers="$(_VersionFormatToNumber_ "$current_version" "$numFields")"
+    local numMinimumVers="$(_VersionFormatToNumber_ "$minimum_supported_version" "$numFields")"
+
+    # If the current firmware version is lower than the minimum supported firmware version, exit.
+    if [ "$numCurrentVers" -lt "$numMinimumVers" ]
+    then
+        Say "\033[31mThe installed firmware version '$current_version' is below '$minimum_supported_version' which is the minimum supported version required.\033[0m" 
 		Say "\033[31mExiting...\033[0m"
         exit 1
     fi
 }
 
-check_model_support
-
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-07] ##
+##----------------------------------------##
 # Function to get custom setting value from the settings file
-Get_Custom_Setting() {
-    local setting_type="$1"
-    local default_value="$2"
+Get_Custom_Setting()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**" ; fi
+
+    local setting_type="$1"  default_value="N/A"
+    if [ $# -gt 1 ] ; then default_value="$2" ; fi
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
@@ -151,7 +192,7 @@ credentials_menu() {
     Update_Custom_Settings "credentials_base64" "$credentials_base64"
     
     echo "Credentials saved."
-    read -p "Press Enter to return to the main menu..."
+    _WaitForEnterKey_ "Press Enter to return to the main menu..."
 }
 
 Update_Custom_Settings() {
@@ -212,17 +253,20 @@ get_latest_firmware() {
     echo "$correct_link"
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-07] ##
+##----------------------------------------##
 change_build_type() {
     echo "Changing Build Type..."
     
-# Use Get_Custom_Setting to retrieve the previous choice
-previous_choice=$(Get_Custom_Setting "local" "n")
+    # Use Get_Custom_Setting to retrieve the previous choice
+    previous_choice="$(Get_Custom_Setting "local" "n")"
 
-# Logging user's choice
-# Check for the presence of "rog" in filenames in the extracted directory
-cd "/home/root/${MODEL}_firmware"
-rog_file=$(ls | grep -i '_rog_')
-pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
+    # Logging user's choice
+    # Check for the presence of "rog" in filenames in the extracted directory
+    cd "$FW_TEMP_DIR"
+    rog_file="$(ls | grep -i '_rog_')"
+    pure_file="$(ls | grep -i '_pureubi.w' | grep -iv 'rog')"
 
     if [ ! -z "$rog_file" ]; then
         echo -e "\033[31mFound ROG build: $rog_file. Would you like to use the ROG build? (y/n)\033[0m"
@@ -235,7 +279,7 @@ pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
             choice="${choice:-$previous_choice}"
 
             # Convert to lowercase to make comparison easier
-            choice=$(echo "$choice" | tr '[:upper:]' '[:lower:]')
+            choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
 
             # Check if the input is valid
             if [ "$choice" = "y" ] || [ "$choice" = "yes" ] || [ "$choice" = "n" ] || [ "$choice" = "no" ]; then
@@ -276,6 +320,9 @@ translate_schedule() {
   echo "$schedule_english"
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-07] ##
+##----------------------------------------##
 # Function to add or change the cron schedule
 change_schedule() {
   echo "Changing Schedule..."
@@ -300,38 +347,42 @@ change_schedule() {
         read -p "Enter new cron schedule (e.g., 0 0 * * 0 for every Sunday at midnight, or 'e' to exit): " new_schedule
     
         # If the user enters 'e', break out of the loop and return to the main menu
-        if [[ "$new_schedule" == "e" ]]; then
+        if [ "$new_schedule" = "e" ]; then
             echo "Returning to main menu..."
             return
         fi
-    
+
         # Validate the input using grep
-        if echo "$new_schedule" | grep -E -q '^([0-9\*\-\,\/]+[[:space:]]){4}[0-9\*\-\,\/]+$'; then
+        if echo "$new_schedule" | grep -qE '^([0-9,*\/-]+[[:space:]]+){4}[0-9,*\/-]+$'
+        then
+            new_schedule=$(echo "$new_schedule" | awk '{print $1, $2, $3, $4, $5}')
             break  # If valid input, break out of the loop
         else
             echo "Invalid schedule. Please try again or press 'e' to exit."
         fi
     done
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2023-Oct-06] ##
-    ##----------------------------------------##
     # Update the cron job in the crontab using the built-in utility.
+    echo "Adding '${CRON_TAG}' cron job..."
     cru a "$CRON_TAG" "$new_schedule $CRON_JOB" ; sleep 1
 
-  if crontab -l | grep -qF "$CRON_JOB"; then
-    echo "Cron job '${CRON_TAG}' updated successfully."
-  else
-    echo "Failed to update the cron job."
-  fi
-  
-  # Display the updated schedule
-  current_schedule_english=$(translate_schedule "$new_schedule")
-  echo -e "\033[32mUpdated Schedule: $current_schedule_english \033[0m"
-  
-  # Return to the main menu
-  read -p "Press Enter to return to the main menu..."
+    if crontab -l | grep -qF "$CRON_JOB"; then
+        echo "Cron job '${CRON_TAG}' updated successfully."
+    else
+        echo "Failed to update the cron job."
+    fi
+
+    # Display the updated schedule
+    current_schedule_english=$(translate_schedule "$new_schedule")
+    echo -e "\033[32mUpdated Schedule: $current_schedule_english \033[0m"
+
+    # Return to the main menu
+    _WaitForEnterKey_ "Press Enter to return to the main menu..."
 }
+
+# Check if the router model is supported OR if
+# it has the minimum firmware version supported.
+check_model_support
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Oct-06] ##
@@ -353,43 +404,22 @@ else
    echo "Cron job '${CRON_TAG}' already exists."
 fi
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-06] ##
-##-------------------------------------##
-_VersionFormatToNumber_()
-{
-   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
-   then echo "" ; return 1 ; fi
-
-   local versionNum  versionStr="$1"
-
-   if [ "$(echo "$1" | awk -F '.' '{print NF}')" -lt "$2" ]
-   then versionStr="$(nvram get firmver | sed 's/\.//g').$1" ; fi
-
-   if [ "$2" -lt 4 ]
-   then versionNum="$(echo "$versionStr" | awk -F '.' '{printf ("%d%03d%03d\n", $1,$2,$3);}')"
-   else versionNum="$(echo "$versionStr" | awk -F '.' '{printf ("%d%d%03d%03d\n", $1,$2,$3,$4);}')"
-   fi
-
-   echo "$versionNum" ; return 0
-}
-
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-06] ##
+## Modified by Martinski W. [2023-Oct-07] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 run_now() {
 
-Say "Running the task now...Checking for updates..."
+    Say "Running the task now...Checking for updates..."
 
-# Get current firmware version
-current_version="$(get_current_firmware)"	
-#current_version="388.3.0"
+    # Get current firmware version
+    current_version="$(get_current_firmware)"	
+    #current_version="388.3.0"
 
-# Use set to read the output of the function into variables
-set -- $(get_latest_firmware "$URL_RELEASE")
-release_version="$1"
-release_link="$2"
+    # Use set to read the output of the function into variables
+    set -- $(get_latest_firmware "$URL_RELEASE")
+    release_version="$1"
+    release_link="$2"
 
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
     then
@@ -402,31 +432,53 @@ release_link="$2"
     local numCurrentVers="$(_VersionFormatToNumber_ "$current_version" "$numFields")"
     local numReleaseVers="$(_VersionFormatToNumber_ "$release_version" "$numFields")"
 
+    # Create directory for downloading & extracting firmware #
+    mkdir -p "$FW_TEMP_DIR"
+    if [ -d "$FW_TEMP_DIR" ]
+    then
+        cd "$FW_TEMP_DIR"
+    else
+        Say "**ERROR**: Unable to create directory [$FW_TEMP_DIR] to download firmware."
+        _WaitForEnterKey_
+        return 1
+    fi
+    # Clear directory in case any previous files still exist #
+    rm -f "${FW_TEMP_DIR}"/*
+
     # Compare versions before deciding to download
     if [ "$numReleaseVers" -gt "$numCurrentVers" ]; then
         Say "Latest release version is $release_version, downloading from $release_link"
-        wget -O "${MODEL}_firmware.zip" "$release_link"
+        wget -O "$FW_ZIP_FPATH" "$release_link"
     else
         Say "Current firmware version $current_version is up to date."
         if [ "$1" != "run_now" ]; then  # Check if the first argument is not "cron"
-            read -p "Press Enter to return to the main menu..."
+            _WaitForEnterKey_ "Press Enter to return to the main menu..."
         fi
-        return  # Exit the function early as there's no newer firmware
+        return 0  # Exit the function early as there's no newer firmware
     fi
 
-# Create directory for extracting firmware
-mkdir -p "/home/root/${MODEL}_firmware"
+    if [ ! -f "$FW_ZIP_FPATH" ]
+    then
+        Say "**ERROR**: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
+        _WaitForEnterKey_
+        return 1
+    fi
 
-# Extracting the firmware
-unzip -o "${MODEL}_firmware.zip" -d "/home/root/${MODEL}_firmware" -x README*
+    # Extracting the firmware
+    unzip -o "$FW_ZIP_FPATH" -d "$FW_TEMP_DIR" -x README*
 
-# If unzip was successful, delete the zip file
-if [ $? -eq 0 ]; then
-    rm -f "${MODEL}_firmware.zip"
-fi
+    # If unzip was successful delete the zip file, else error out.
+    if [ $? -eq 0 ]
+    then
+        rm -f "$FW_ZIP_FPATH"
+    else
+        Say "**ERROR**: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
+        _WaitForEnterKey_
+        return 1
+    fi
 
 # Define the path to the log file
-#log_file="/home/root/${MODEL}_firmware/Changelog-NG.txt"
+#log_file="${FW_TEMP_DIR}/Changelog-NG.txt"
 
 # Check if the log file exists
 #if [ ! -f "$log_file" ]; then
@@ -449,16 +501,16 @@ fi
 #    echo "No reset is recommended according to the logs."
 #fi
 
-# Use Get_Custom_Setting to retrieve the previous choice
-previous_choice=$(Get_Custom_Setting "local")
+    # Use Get_Custom_Setting to retrieve the previous choice
+    previous_choice="$(Get_Custom_Setting "local" "n")"
 
-# Logging user's choice
-# Check for the presence of "rog" in filenames in the extracted directory
-cd "/home/root/${MODEL}_firmware"
-rog_file=$(ls | grep -i '_rog_')
-pure_file=$(ls | grep -i '_pureubi.w' | grep -iv 'rog')
+    # Logging user's choice
+    # Check for the presence of "rog" in filenames in the extracted directory
+    cd "$FW_TEMP_DIR"
+    rog_file="$(ls | grep -i '_rog_')"
+    pure_file="$(ls | grep -i '_pureubi.w' | grep -iv 'rog')"
 
-local_value=$(Get_Custom_Setting "local")
+    local_value="$(Get_Custom_Setting "local")"
 
 if [ -z "$local_value" ]; then
     if [ ! -z "$rog_file" ]; then
@@ -502,16 +554,16 @@ if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
 	fi
 fi
 
-# Flashing the chosen firmware
+    # Flashing the chosen firmware
 
-# Use Get_Custom_Setting to retrieve the previous choice
-previous_creds=$(Get_Custom_Setting "credentials_base64")
+    # Use Get_Custom_Setting to retrieve the previous choice
+    previous_creds="$(Get_Custom_Setting "credentials_base64")"
 
-# Assuming get_lan_ip is the function that sets lan_ip
-lan_ip=$(get_lan_ip)
+    # Assuming get_lan_ip is the function that sets lan_ip
+    lan_ip="$(get_lan_ip)"
 
-# Debug: Print the LAN IP to ensure it's being set correctly
-echo "Debug: LAN IP is $lan_ip"
+    # Debug: Print the LAN IP to ensure it's being set correctly
+    echo "Debug: LAN IP is $lan_ip"
 
 
 Say "\033[32mFlashing $firmware_file... Please Wait for reboot.\033[0m"
@@ -575,8 +627,8 @@ show_menu() {
   echo "2. Run now"
   
   # Check if the directory exists before attempting to navigate to it
-  if [ -d "/home/root/${MODEL}_firmware" ]; then
-    cd "/home/root/${MODEL}_firmware"
+  if [ -d "$FW_TEMP_DIR" ]; then
+    cd "$FW_TEMP_DIR"
     # Check for the presence of "rog" in filenames in the directory
     rog_file=$(ls | grep -i '_rog_')
     
@@ -599,8 +651,8 @@ show_menu() {
 while true; do
   show_menu
   # Check if the directory exists again before attempting to navigate to it
-  if [ -d "/home/root/${MODEL}_firmware" ]; then
-    cd "/home/root/${MODEL}_firmware"
+  if [ -d "$FW_TEMP_DIR" ]; then
+    cd "$FW_TEMP_DIR"
     # Check for the presence of "rog" in filenames in the directory again
     rog_file=$(ls | grep -i '_rog_')
     
