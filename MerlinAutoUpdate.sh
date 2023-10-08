@@ -3,7 +3,7 @@
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Oct-07
+# Last Modified: 2023-Oct-08
 ################################################################
 ## set -u
 
@@ -40,8 +40,8 @@ readonly SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
 #-------------------------------------------------------------------------
 FW_SETP_DIR="/home/root"
 readonly FW_FileName="${MODEL}_firmware"
-readonly FW_ZIP_FILE="${FW_FileName}.zip"
-FW_TEMP_DIR="${FW_SETP_DIR}/$FW_FileName"
+readonly FW_TEMP_DIR="${FW_SETP_DIR}/$FW_FileName"
+readonly FW_ZIP_FPATH="${FW_TEMP_DIR}/${FW_FileName}.zip"
 
 # Define the cron schedule and job command to execute
 readonly CRON_SCHEDULE="0 0 * * 0"
@@ -448,21 +448,33 @@ run_now() {
     # Compare versions before deciding to download
     if [ "$numReleaseVers" -gt "$numCurrentVers" ]; then
         Say "Latest release version is $release_version, downloading from $release_link"
-        wget -O "$FW_ZIP_FILE" "$release_link"
+        wget -O "$FW_ZIP_FPATH" "$release_link"
     else
         Say "Current firmware version $current_version is up to date."
         if [ "$1" != "run_now" ]; then  # Check if the first argument is not "cron"
             _WaitForEnterKey_ "Press Enter to return to the main menu..."
         fi
-        return  # Exit the function early as there's no newer firmware
+        return 0  # Exit the function early as there's no newer firmware
+    fi
+
+    if [ ! -f "$FW_ZIP_FPATH" ]
+    then
+        Say "**ERROR**: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
+        _WaitForEnterKey_
+        return 1
     fi
 
     # Extracting the firmware
-    unzip -o "$FW_ZIP_FILE" -d "$FW_TEMP_DIR" -x README*
+    unzip -o "$FW_ZIP_FPATH" -d "$FW_TEMP_DIR" -x README*
 
-    # If unzip was successful, delete the zip file
-    if [ $? -eq 0 ]; then
-       rm -f "$FW_ZIP_FILE"
+    # If unzip was successful delete the zip file, else error out.
+    if [ $? -eq 0 ]
+    then
+        rm -f "$FW_ZIP_FPATH"
+    else
+        Say "**ERROR**: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
+        _WaitForEnterKey_
+        return 1
     fi
 
 # Define the path to the log file
