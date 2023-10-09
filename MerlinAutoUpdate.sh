@@ -457,10 +457,6 @@ run_now() {
 
     # Compare versions before deciding to download
     if [ "$numReleaseVers" -gt "$numCurrentVers" ]; then
-
-		# Turn off LED before starting the update
-		nvram set led_disable=1
-		service restart_leds > /dev/null 2>&1
 	
 		# Start a loop to create a blinking LED effect while checking for updates
 		while true; do
@@ -603,13 +599,6 @@ curl_response=$(curl "http://${lan_ip}/login.cgi" \
 # IMPORTANT: Due to the nature of 'nohup' and the specific behavior of this 'curl' request,
 # the following 'curl' command MUST always be the last step in this block.
 # Do NOT insert any operations after it! (unless you understand the implications).
-	
-# Stop the LED blinking after the update is completed
-kill -15 "$Toggle_Led_pid" # Terminate the background toggle_led loop	
-	
-# Turn on the LED
-nvram set led_disable=0
-service restart_leds > /dev/null 2>&1
 
 if echo "$curl_response" | grep -q 'url=index.asp'; then
 nohup curl "http://$lan_ip/upgrade.cgi" \
@@ -630,6 +619,12 @@ nohup curl "http://$lan_ip/upgrade.cgi" \
 else
     Say "Login failed. Please confirm credentials by selecting: 1. Configure Credentials"
 fi
+	# Stop the LED blinking after the update is completed
+	kill -15 "$Toggle_Led_pid" # Terminate the background toggle_led loop	
+	
+	# Turn on the LED
+	nvram set led_disable=0
+	service restart_leds > /dev/null 2>&1
     _WaitForEnterKey_
 }
 
