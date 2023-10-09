@@ -3,13 +3,23 @@
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Oct-08
+# Last Modified: 2023-Oct-09
 ################################################################
-## set -u
+set -u
 
-readonly SCRIPT_VERSION="0.2.2"
+readonly SCRIPT_VERSION="0.2.3"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
+
+# Function to toggle LED state
+Toggle_Led() {
+	nvram set led_disable=0
+	service restart_leds > /dev/null 2>&1
+	sleep 2
+	nvram set led_disable=1
+	service restart_leds > /dev/null 2>&1
+	sleep 1
+}
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Oct-05] ##
@@ -447,6 +457,19 @@ run_now() {
 
     # Compare versions before deciding to download
     if [ "$numReleaseVers" -gt "$numCurrentVers" ]; then
+
+		# Turn off LED before starting the update
+		nvram set led_disable=1
+		service restart_leds > /dev/null 2>&1
+	
+		# Start a loop to create a blinking LED effect while checking for updates
+		while true; do
+			Toggle_Led
+		done &
+		
+		# Capture the background loop's PID
+		Toggle_Led_pid=$!
+		
         Say "Latest release version is $release_version, downloading from $release_link"
         wget -O "$FW_ZIP_FPATH" "$release_link"
     else
@@ -580,6 +603,13 @@ curl_response=$(curl "http://${lan_ip}/login.cgi" \
 # IMPORTANT: Due to the nature of 'nohup' and the specific behavior of this 'curl' request,
 # the following 'curl' command MUST always be the last step in this block.
 # Do NOT insert any operations after it! (unless you understand the implications).
+	
+# Stop the LED blinking after the update is completed
+kill -15 "$Toggle_Led_pid" # Terminate the background toggle_led loop	
+	
+# Turn on the LED
+nvram set led_disable=0
+service restart_leds > /dev/null 2>&1
 
 if echo "$curl_response" | grep -q 'url=index.asp'; then
 nohup curl "http://$lan_ip/upgrade.cgi" \
@@ -600,7 +630,6 @@ nohup curl "http://$lan_ip/upgrade.cgi" \
 else
     Say "Login failed. Please confirm credentials by selecting: 1. Configure Credentials"
 fi
-
     _WaitForEnterKey_
 }
 
