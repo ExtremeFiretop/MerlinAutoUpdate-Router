@@ -217,32 +217,34 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-09] ##
+## Modified by ExtremeFiretop [2023-Oct-10] ##
 ##----------------------------------------##
 credentials_menu() {
     echo "=== Credentials Menu ==="
-    
-    # Prompt the user for a username and password
-    read -p "Enter username: " username
-    read -s -p "Enter password: " password  # -s flag hides the password input
-    echo  # Output a newline
 
-    if [ -z "$username" ] || [ -z "$password" ]
+    # Get the username from nvram
+    local username=$(nvram get http_username)
+    
+    # Prompt the user only for a password
+    read -s -p "Enter password for user ${username}: " password  # -s flag hides the password input
+    echo  # Output a newline
+	
+	if [ -z "$password" ]
     then
         echo "The Username and Password cannot be empty. Credentials were not saved."
         _WaitForEnterKey_ "Press Enter to return to the main menu..."
         return 1
     fi
-
+    
     # Encode the username and password in Base64
-    credentials_base64="$(echo -n "$username:$password" | openssl base64)"
+    credentials_base64="$(echo -n "${username}:${password}" | openssl base64)"
     
     # Use Update_Custom_Settings to save the credentials to the SETTINGSFILE
     Update_Custom_Settings "credentials_base64" "$credentials_base64"
     
     echo "Credentials saved."
     _WaitForEnterKey_ "Press Enter to return to the main menu..."
-    return 0
+	return 0
 }
 
 Update_Custom_Settings() {
