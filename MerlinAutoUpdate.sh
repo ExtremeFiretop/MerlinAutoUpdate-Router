@@ -7,16 +7,28 @@
 ################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.4"
+readonly SCRIPT_VERSION="0.2.5"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-09] ##
+##-------------------------------------##
+# Save initial LED state to put it back later #
+readonly LED_InitState="$(nvram get led_disable)"
+LED_ToggleState="$LED_InitState"
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-09] ##
+##----------------------------------------##
 # Function to toggle LED state
 Toggle_Led() {
-	nvram set led_disable=0
+	LED_ToggleState="$((! LED_ToggleState))"
+	nvram set led_disable="$LED_ToggleState"
 	service restart_leds > /dev/null 2>&1
 	sleep 2
-	nvram set led_disable=1
+	LED_ToggleState="$((! LED_ToggleState))"
+	nvram set led_disable="$LED_ToggleState"
 	service restart_leds > /dev/null 2>&1
 	sleep 1
 }
@@ -204,6 +216,9 @@ Get_Custom_Setting()
     fi
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-09] ##
+##----------------------------------------##
 credentials_menu() {
     echo "=== Credentials Menu ==="
     
@@ -211,15 +226,23 @@ credentials_menu() {
     read -p "Enter username: " username
     read -s -p "Enter password: " password  # -s flag hides the password input
     echo  # Output a newline
-    
+
+    if [ -z "$username" ] || [ -z "$password" ]
+    then
+        echo "The Username and Password cannot be empty. Credentials were not saved."
+        _WaitForEnterKey_ "Press Enter to return to the main menu..."
+        return 1
+    fi
+
     # Encode the username and password in Base64
-    credentials_base64=$(echo -n "$username:$password" | openssl base64)
+    credentials_base64="$(echo -n "$username:$password" | openssl base64)"
     
     # Use Update_Custom_Settings to save the credentials to the SETTINGSFILE
     Update_Custom_Settings "credentials_base64" "$credentials_base64"
     
     echo "Credentials saved."
     _WaitForEnterKey_ "Press Enter to return to the main menu..."
+    return 0
 }
 
 Update_Custom_Settings() {
@@ -355,15 +378,15 @@ change_schedule() {
   echo "Changing Schedule..."
   
   # Use crontab -l to retrieve all cron jobs and filter for the one containing the script's path
-  current_schedule_line=$(crontab -l | grep "$CRON_JOB")
+  current_schedule_line="$(crontab -l | grep "$CRON_JOB")"
   
   
   if [ -n "$current_schedule_line" ]; then
     # Extract the schedule part (the first five fields) from the current cron job line
-    current_schedule=$(echo "$current_schedule_line" | awk '{print $1, $2, $3, $4, $5}')
+    current_schedule="$(echo "$current_schedule_line" | awk '{print $1, $2, $3, $4, $5}')"
     
     # Translate the current schedule to English
-    current_schedule_english=$(translate_schedule "$current_schedule")
+    current_schedule_english="$(translate_schedule "$current_schedule")"
     
     echo -e "\033[32mCurrent Schedule: $current_schedule_english \033[0m"
   else
@@ -382,7 +405,7 @@ change_schedule() {
         # Validate the input using grep
         if echo "$new_schedule" | grep -qE '^([0-9,*\/-]+[[:space:]]+){4}[0-9,*\/-]+$'
         then
-            new_schedule=$(echo "$new_schedule" | awk '{print $1, $2, $3, $4, $5}')
+            new_schedule="$(echo "$new_schedule" | awk '{print $1, $2, $3, $4, $5}')"
             break  # If valid input, break out of the loop
         else
             echo "Invalid schedule. Please try again or press 'e' to exit."
@@ -400,7 +423,7 @@ change_schedule() {
     fi
 
     # Display the updated schedule
-    current_schedule_english=$(translate_schedule "$new_schedule")
+    current_schedule_english="$(translate_schedule "$new_schedule")"
     echo -e "\033[32mUpdated Schedule: $current_schedule_english \033[0m"
 
     # Return to the main menu
@@ -432,7 +455,7 @@ else
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-07] ##
+## Modified by Martinski W. [2023-Oct-09] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 run_now() {
@@ -585,8 +608,9 @@ if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
 	fw_sig="$(openssl sha256 $firmware_file | cut -d' ' -f2)"
 	dl_sig="$(grep $firmware_file sha256sum.sha256 | cut -d' ' -f1)"
 	if [ "$fw_sig" != "$dl_sig" ]; then
-		Say "Extracted firmware does not match the SHA256 signature! Aborting"
-		exit 1
+		Say "**ERROR**: Extracted firmware does not match the SHA256 signature!"
+		_WaitForEnterKey_
+		return 1
 	fi
 fi
 
@@ -598,24 +622,24 @@ fi
     # Debug: Print the LAN IP to ensure it's being set correctly
     echo "Debug Web URL is: $(construct_url) "
 
+    Say "\033[32mFlashing $firmware_file... Please Wait for reboot.\033[0m"
 
-Say "\033[32mFlashing $firmware_file... Please Wait for reboot.\033[0m"
-curl_response=$(curl "$(construct_url)/login.cgi" \
---referer $(construct_url)/Main_Login.asp \
---user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
--H 'Accept-Language: en-US,en;q=0.5' \
--H 'Content-Type: application/x-www-form-urlencoded' \
--H "Origin: $(construct_url)/" \
--H 'Connection: keep-alive' \
---data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${previous_creds}" \
---cookie-jar /tmp/cookie.txt)
+    curl_response="$(curl "$(construct_url)/login.cgi" \
+    --referer $(construct_url)/Main_Login.asp \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: $(construct_url)/" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${previous_creds}" \
+    --cookie-jar /tmp/cookie.txt)"
 
 # IMPORTANT: Due to the nature of 'nohup' and the specific behavior of this 'curl' request,
 # the following 'curl' command MUST always be the last step in this block.
 # Do NOT insert any operations after it! (unless you understand the implications).
 
 if echo "$curl_response" | grep -q 'url=index.asp'; then
-nohup curl "$(construct_url)/upgrade.cgi" \
+    nohup curl "$(construct_url)/upgrade.cgi" \
     --referer $(construct_url)/Advanced_FirmwareUpgrade_Content.asp \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
@@ -631,13 +655,13 @@ nohup curl "$(construct_url)/upgrade.cgi" \
     --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
 	sleep 60
 else
-    Say "Login failed. Please confirm credentials by selecting: 1. Configure Credentials"
+    Say "**ERROR**: Login failed. Please confirm credentials by selecting: 1. Configure Credentials"
 fi
 	# Stop the LED blinking after the update is completed
 	kill -15 "$Toggle_Led_pid" # Terminate the background toggle_led loop	
-	
-	# Turn on the LED
-	nvram set led_disable=0
+
+	# Set LEDs to their "initial state" #
+	nvram set led_disable="$LED_InitState"
 	service restart_leds > /dev/null 2>&1
     _WaitForEnterKey_
 }
