@@ -21,6 +21,30 @@ Toggle_Led() {
 	sleep 1
 }
 
+construct_url() {
+    local urlproto urldomain urlport
+
+    if [ "$(nvram get http_enable)" = "1" ]; then
+        urlproto="https"
+    else
+        urlproto="http"
+    fi
+
+    if [ -n "$(nvram get lan_domain)" ]; then
+        urldomain="$(nvram get lan_hostname).$(nvram get lan_domain)"
+    else
+        urldomain="$(nvram get lan_ipaddr)"
+    fi
+
+    if [ "$(nvram get ${urlproto}_lanport)" = "80" ] || [ "$(nvram get ${urlproto}_lanport)" = "443" ]; then
+        urlport=""
+    else
+        urlport=":$(nvram get ${urlproto}_lanport)"
+    fi
+
+    echo "${urlproto}://${urldomain}${urlport}"
+}
+
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Oct-05] ##
 ##----------------------------------------------##
@@ -90,13 +114,6 @@ _WaitForEnterKey_()
 ##----------------------------------------##
 Say(){
    echo -e "$@" | logger $loggerFlags "[$(basename "$0")] $$"
-}
-
-# Function to get LAN IP
-get_lan_ip() {
-    local lan_ip
-    lan_ip=$(nvram get lan_ipaddr)
-    echo "$lan_ip"  # This will return just the IP address
 }
 
 ##----------------------------------------##
@@ -578,20 +595,17 @@ fi
     # Use Get_Custom_Setting to retrieve the previous choice
     previous_creds="$(Get_Custom_Setting "credentials_base64")"
 
-    # Assuming get_lan_ip is the function that sets lan_ip
-    lan_ip="$(get_lan_ip)"
-
     # Debug: Print the LAN IP to ensure it's being set correctly
-    echo "Debug: LAN IP is $lan_ip"
+    echo "Debug Web URL is: $(construct_url) "
 
 
 Say "\033[32mFlashing $firmware_file... Please Wait for reboot.\033[0m"
-curl_response=$(curl "http://${lan_ip}/login.cgi" \
---referer http://$lan_ip/Main_Login.asp \
+curl_response=$(curl "$(construct_url)/login.cgi" \
+--referer $(construct_url)/Main_Login.asp \
 --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
 -H 'Accept-Language: en-US,en;q=0.5' \
 -H 'Content-Type: application/x-www-form-urlencoded' \
--H "Origin: http://${lan_ip}/" \
+-H "Origin: $(construct_url)/" \
 -H 'Connection: keep-alive' \
 --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${previous_creds}" \
 --cookie-jar /tmp/cookie.txt)
@@ -601,11 +615,11 @@ curl_response=$(curl "http://${lan_ip}/login.cgi" \
 # Do NOT insert any operations after it! (unless you understand the implications).
 
 if echo "$curl_response" | grep -q 'url=index.asp'; then
-nohup curl "http://$lan_ip/upgrade.cgi" \
-    --referer http://$lan_ip/Advanced_FirmwareUpgrade_Content.asp \
+nohup curl "$(construct_url)/upgrade.cgi" \
+    --referer $(construct_url)/Advanced_FirmwareUpgrade_Content.asp \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
-    -H "Origin: http://${lan_ip}/" \
+    -H "Origin: $(construct_url)/" \
     -F 'current_page=Advanced_FirmwareUpgrade_Content.asp' \
     -F 'next_page=' \
     -F 'action_mode=' \
