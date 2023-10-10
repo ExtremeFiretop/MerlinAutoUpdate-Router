@@ -216,6 +216,9 @@ Get_Custom_Setting()
     fi
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-09] ##
+##----------------------------------------##
 credentials_menu() {
     echo "=== Credentials Menu ==="
     
@@ -223,7 +226,14 @@ credentials_menu() {
     read -p "Enter username: " username
     read -s -p "Enter password: " password  # -s flag hides the password input
     echo  # Output a newline
-    
+
+    if [ -z "$username" ] || [ -z "$password" ]
+    then
+        echo "The Username and Password cannot be empty. Credentials were not saved."
+        _WaitForEnterKey_ "Press Enter to return to the main menu..."
+        return 1
+    fi
+
     # Encode the username and password in Base64
     credentials_base64="$(echo -n "$username:$password" | openssl base64)"
     
@@ -232,6 +242,7 @@ credentials_menu() {
     
     echo "Credentials saved."
     _WaitForEnterKey_ "Press Enter to return to the main menu..."
+    return 0
 }
 
 Update_Custom_Settings() {
