@@ -3,11 +3,11 @@
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Oct-09
+# Last Modified: 2023-Oct-10
 ################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.5"
+readonly SCRIPT_VERSION="0.2.6"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
