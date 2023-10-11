@@ -7,7 +7,7 @@
 ################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.6"
+readonly SCRIPT_VERSION="0.2.7"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -134,6 +134,40 @@ Say(){
 get_current_firmware() {
     local current_version="$(nvram get buildno).$(nvram get extendno)"
     echo "$current_version"
+}
+
+get_free_ram() {
+    # Using awk to sum up the 'free', 'buffers', and 'cached' columns.
+    free | awk '/^Mem:/{print $4 + $6 + $7}'  # This will return the available memory in kilobytes.
+}
+
+check_memory_and_reboot() {
+    
+    if [ ! -f "$FW_TEMP_DIR/$firmware_file" ]; then
+        Say "**ERROR**: Firmware file [$FW_TEMP_DIR/$firmware_file] not found."
+        exit 1
+    fi
+    firmware_size_kb=$(du -k "$FW_TEMP_DIR/$firmware_file" | cut -f1)  # Get firmware file size in kilobytes
+    free_ram_kb=$(get_free_ram)
+
+    if [ "$free_ram_kb" -lt "$firmware_size_kb" ]; then
+        Say "Insufficient RAM available to proceed with the update. Rebooting router..."
+        reboot
+        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+    fi
+}
+
+cleanup() {
+    # Check if Toggle_Led_pid is set and if the process with that PID is still running
+    if [ -n "$Toggle_Led_pid" ] && kill -0 "$Toggle_Led_pid" 2>/dev/null; then
+        kill -15 "$Toggle_Led_pid"  # Terminate the background Toggle_Led process
+			# Set LEDs to their "initial state" #
+			nvram set led_disable="$LED_InitState"
+			service restart_leds > /dev/null 2>&1
+    fi
+    
+    # Additional cleanup operations can be added here if needed
+	exit 1
 }
 
 print_center() {
@@ -508,6 +542,8 @@ run_now() {
 		# Capture the background loop's PID
 		Toggle_Led_pid=$!
 		
+		trap cleanup EXIT INT TERM
+		
         Say "Latest release version is $release_version, downloading from $release_link"
         wget -O "$FW_ZIP_FPATH" "$release_link"
     else
@@ -623,6 +659,8 @@ fi
 
     # Debug: Print the LAN IP to ensure it's being set correctly
     echo "Debug Web URL is: $(construct_url) "
+	
+	check_memory_and_reboot
 
     Say "\033[32mFlashing $firmware_file... Please Wait for reboot.\033[0m"
 
