@@ -55,15 +55,6 @@ Backup and Storage:
  - Be aware that JFFS partitions may not work post-upgrades in some cases.
  - New routers use UBIFS instead of JFFS2.
 
-Memory Management:
-
- - Address the paradox of RAM usage:
- - - Check RAM usage. 
- - - If free RAM is less than the firmware file size, reboot the router.
- - Note:
- - USB cache consumes significant RAM when writing files.
- - Firmware updates require RAM to cache the entire firmware.
-
 Firmware Management:
 
 - Implement a waiting period for firmware updates:
@@ -89,7 +80,8 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Automatic router model detection.
 - Works with both ROG and non-ROG routers, if it's a ROG router simply select if you want to use the ROG or Pure Build.
 - Download and install the latest firmware for your router model from the Asuswrt-Merlin repository.
-- LED Control: Set up blinking LEDs as a visual indicator before starting the firmware update.
+- Set up blinking LEDs as a visual indicator before starting the firmware update.
+- Checks RAM usage. If free RAM is less than the firmware file size, reboots the router.
 
 ## Installation
 Before using MerlinAutoUpdate-Router, ensure the following prerequisites are met:
