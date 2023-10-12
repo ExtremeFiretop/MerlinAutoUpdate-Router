@@ -7,8 +7,13 @@
  - https://www.snbforums.com/threads/seeking-feedback-contributions-merlin-auto-update-solutions.87044/
 
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w file
+
  - GT-AXE11000 (Tested)
  - RT-AX88U (Tested)
+
+## TESTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
+
+ - RT-AC68U (Blocked)
 
 ## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
 
@@ -36,7 +41,6 @@
  - RT-AC3200 (Untested)
  - RT-AC3100 (Untested)
  - RT-AC88U (Untested)
- - RT-AC68U (Untested)
  - RT-AC66U (Untested)
  - RT-AC56U (Untested)
  - RT-AC66U_B1 (Untested)
