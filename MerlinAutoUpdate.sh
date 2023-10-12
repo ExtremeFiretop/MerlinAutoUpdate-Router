@@ -3,11 +3,11 @@
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Oct-10
+# Last Modified: 2023-Oct-11
 ################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.7"
+readonly SCRIPT_VERSION="0.2.8"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -77,22 +77,40 @@ readonly URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
 readonly SETTINGS_DIR="/jffs/addons/MerlinAutoUpdate"
 readonly SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-07] ##
-##-------------------------------------##
-# The directory variable could be set via an argument or a custom setting
-# depending on the available RAM & storage capacity of the target router.
-# One possibility is to require USB-attached storage for the ZIP file.
-#-------------------------------------------------------------------------
-FW_SETP_DIR="/home/root"
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-11] ##
+##----------------------------------------------##
+# NOTE:
+# The directory variables could be set via an argument or
+# a custom setting, depending on available RAM & storage
+# capacity of the target router. One possibility is to
+# require USB-attached storage for the ZIP file which is to
+# be downloaded in a separate directory from the firmware.
+#-----------------------------------------------------------
+FW_ZIP_SETUP_DIR="/home/root"
+FW_BIN_SETUP_DIR="/home/root"
+
+## To DEBUG/TEST routers with less than 512MB RAM ##
+##DEBUG## FW_ZIP_SETUP_DIR="/opt/var/tmp"
+
 readonly FW_FileName="${MODEL}_firmware"
-readonly FW_TEMP_DIR="${FW_SETP_DIR}/$FW_FileName"
-readonly FW_ZIP_FPATH="${FW_TEMP_DIR}/${FW_FileName}.zip"
+readonly FW_ZIP_DIR="${FW_ZIP_SETUP_DIR}/$FW_FileName"
+readonly FW_BIN_DIR="${FW_BIN_SETUP_DIR}/$FW_FileName"
+readonly FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
 
 # Define the cron schedule and job command to execute
 readonly CRON_SCHEDULE="0 0 * * 0"
 readonly CRON_JOB="sh /jffs/scripts/MerlinAutoUpdate.sh run_now"
 readonly CRON_TAG="MerlinAutoUpdate"
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-11] ##
+##-------------------------------------##
+# To postpone a firmware update for a few days #
+minimumUpdatePostponementDays=0
+defaultUpdatePostponementDays=7
+maximumUpdatePostponementDays=30
+updateNotifyDateFormat="%Y-%m-%d_12:00:00"
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Oct-06] ##
@@ -128,6 +146,26 @@ Say(){
    echo -e "$@" | logger $loggerFlags "[$(basename "$0")] $$"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-11] ##
+##-------------------------------------##
+# Directory for downloading & extracting firmware #
+_CreateDirectory_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+    mkdir -p "$1"
+    if [ ! -d "$1" ]
+    then
+        Say "**ERROR**: Unable to create directory [$1] to download firmware."
+        _WaitForEnterKey_
+        return 1
+    fi
+    # Clear directory in case any previous files still exist #
+    rm -f "${1}"/*
+    return 0
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Oct-05] ##
 ##----------------------------------------##
@@ -143,11 +181,11 @@ get_free_ram() {
 
 check_memory_and_reboot() {
     
-    if [ ! -f "$FW_TEMP_DIR/$firmware_file" ]; then
-        Say "**ERROR**: Firmware file [$FW_TEMP_DIR/$firmware_file] not found."
+    if [ ! -f "${FW_BIN_DIR}/$firmware_file" ]; then
+        Say "**ERROR**: Firmware file [${FW_BIN_DIR}/$firmware_file] not found."
         exit 1
     fi
-    firmware_size_kb=$(du -k "$FW_TEMP_DIR/$firmware_file" | cut -f1)  # Get firmware file size in kilobytes
+    firmware_size_kb=$(du -k "${FW_BIN_DIR}/$firmware_file" | cut -f1)  # Get firmware file size in kilobytes
     free_ram_kb=$(get_free_ram)
 
     if [ "$free_ram_kb" -lt "$firmware_size_kb" ]; then
@@ -217,26 +255,29 @@ check_model_support() {
     if [ "$numCurrentVers" -lt "$numMinimumVers" ]
     then
         Say "\033[31mThe installed firmware version '$current_version' is below '$minimum_supported_version' which is the minimum supported version required.\033[0m" 
-		Say "\033[31mExiting...\033[0m"
+        Say "\033[31mExiting...\033[0m"
         exit 1
     fi
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-07] ##
+## Modified by Martinski W. [2023-Oct-11] ##
 ##----------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
 {
-    if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**" ; fi
+    if [ $# -eq 0 ] || [ -z "$1" ] ; then echo "**ERROR**" ; return 1 ; fi
 
     local setting_type="$1"  default_value="N/A"
     if [ $# -gt 1 ] ; then default_value="$2" ; fi
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            credentials_base64)
-                grep -q "credentials_base64" "$SETTINGSFILE" && grep "credentials_base64" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
+            "credentials_base64" | \
+            "FW_New_Update_Notification_Date" | \
+            "FW_New_Update_Notification_Vers" | \
+            "FW_New_Update_Postponement_Days")
+                grep -q "$setting_type" "$SETTINGSFILE" && grep "$setting_type" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
                 ;;
             local)
                 grep -q "FirmwareVersion_setting" "$SETTINGSFILE" && grep "FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
@@ -251,37 +292,10 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by ExtremeFiretop [2023-Oct-10] ##
+## Modified by Martinski W. [2023-Oct-11] ##
 ##----------------------------------------##
-credentials_menu() {
-    echo "=== Credentials Menu ==="
-
-    # Get the username from nvram
-    local username=$(nvram get http_username)
-    
-    # Prompt the user only for a password
-    read -s -p "Enter password for user ${username}: " password  # -s flag hides the password input
-    echo  # Output a newline
-	
-	if [ -z "$password" ]
-    then
-        echo "The Username and Password cannot be empty. Credentials were not saved."
-        _WaitForEnterKey_ "Press Enter to return to the main menu..."
-        return 1
-    fi
-    
-    # Encode the username and password in Base64
-    credentials_base64="$(echo -n "${username}:${password}" | openssl base64)"
-    
-    # Use Update_Custom_Settings to save the credentials to the SETTINGSFILE
-    Update_Custom_Settings "credentials_base64" "$credentials_base64"
-    
-    echo "Credentials saved."
-    _WaitForEnterKey_ "Press Enter to return to the main menu..."
-	return 0
-}
-
-Update_Custom_Settings() {
+Update_Custom_Settings()
+{
     local setting_type="$1"
     local setting_value="$2"
 
@@ -291,7 +305,10 @@ Update_Custom_Settings() {
     fi
 
     case "$setting_type" in
-        local|credentials_base64)
+        "local" | "credentials_base64" | \
+        "FW_New_Update_Notification_Date" | \
+        "FW_New_Update_Notification_Vers" | \
+        "FW_New_Update_Postponement_Days")
             if [ -f "$SETTINGSFILE" ]; then
                 if [ "$(grep -c "$setting_type" "$SETTINGSFILE")" -gt 0 ]; then
                     if [ "$setting_value" != "$(grep "$setting_type" "$SETTINGSFILE" | cut -f2 -d' ')" ]; then
@@ -308,6 +325,37 @@ Update_Custom_Settings() {
             echo "Invalid setting type: $setting_type"
             ;;
     esac
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Oct-10] ##
+##------------------------------------------##
+credentials_menu() {
+    echo "=== Credentials Menu ==="
+
+    # Get the username from nvram
+    local username=$(nvram get http_username)
+    
+    # Prompt the user only for a password
+    read -s -p "Enter password for user ${username}: " password  # -s flag hides the password input
+    echo  # Output a newline
+	
+    if [ -z "$password" ]
+    then
+        echo "The Username and Password cannot be empty. Credentials were not saved."
+        _WaitForEnterKey_ "Press Enter to return to the main menu..."
+        return 1
+    fi
+    
+    # Encode the username and password in Base64
+    credentials_base64="$(echo -n "${username}:${password}" | openssl base64)"
+    
+    # Use Update_Custom_Settings to save the credentials to the SETTINGSFILE
+    Update_Custom_Settings "credentials_base64" "$credentials_base64"
+    
+    echo "Credentials saved."
+    _WaitForEnterKey_ "Press Enter to return to the main menu..."
+    return 0
 }
 
 ##----------------------------------------##
@@ -350,7 +398,7 @@ change_build_type() {
 
     # Logging user's choice
     # Check for the presence of "rog" in filenames in the extracted directory
-    cd "$FW_TEMP_DIR"
+    cd "$FW_BIN_DIR"
     rog_file="$(ls | grep -i '_rog_')"
     pure_file="$(ls | grep -i '_pureubi.w' | grep -iv 'rog')"
 
@@ -406,64 +454,130 @@ translate_schedule() {
   echo "$schedule_english"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-11] ##
+##-------------------------------------##
+_SetPostponementDays_()
+{
+   local newPostponementDays  postponeDaysStr
+   local theExitStr="e=Exit to main menu"
+   local validNumRegExp="([0-9]|[1-5][0-9]|60)"
+
+   newPostponementDays="$(Get_Custom_Setting "FW_New_Update_Postponement_Days" "DEFAULT")"
+   if [ -z "$newPostponementDays" ] || [ "$newPostponementDays" = "DEFAULT" ]
+   then
+       newPostponementDays="$defaultUpdatePostponementDays"
+       Update_Custom_Settings "FW_New_Update_Postponement_Days" "$newPostponementDays"
+       postponeDaysStr="Default Value: ${newPostponementDays}"
+   else
+       postponeDaysStr="Current Value: ${newPostponementDays}"
+   fi
+
+   while true
+   do
+       printf "\nEnter the number of days to postpone the update once a new firmware notification is made.\n"
+       printf "[Min=${minimumUpdatePostponementDays}, Max=${maximumUpdatePostponementDays}] [${theExitStr}] [${postponeDaysStr}]:  "
+       read -r userInput
+
+       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then newPostponementDays="DEFAULT" ; break ; fi
+
+       if echo "$userInput" | grep -qE "^${validNumRegExp}$" && \
+          [ "$userInput" -ge "$minimumUpdatePostponementDays" ] && \
+          [ "$userInput" -le "$maximumUpdatePostponementDays" ]
+       then newPostponementDays="$userInput" ; break ; fi
+
+       printf "INVALID input.\n"
+   done
+
+   if [ "$newPostponementDays" != "DEFAULT" ]
+   then
+       Update_Custom_Settings "FW_New_Update_Postponement_Days" "$newPostponementDays"
+       echo "The number of days to postpone was updated successfully."
+       
+   fi
+   return 0
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-07] ##
+## Modified by Martinski W. [2023-Oct-11] ##
 ##----------------------------------------##
 # Function to add or change the cron schedule
-change_schedule() {
-  echo "Changing Schedule..."
-  
-  # Use crontab -l to retrieve all cron jobs and filter for the one containing the script's path
-  current_schedule_line="$(crontab -l | grep "$CRON_JOB")"
-  
-  
-  if [ -n "$current_schedule_line" ]; then
-    # Extract the schedule part (the first five fields) from the current cron job line
-    current_schedule="$(echo "$current_schedule_line" | awk '{print $1, $2, $3, $4, $5}')"
-    
-    # Translate the current schedule to English
-    current_schedule_english="$(translate_schedule "$current_schedule")"
-    
-    echo -e "\033[32mCurrent Schedule: $current_schedule_english \033[0m"
-  else
-    echo "Cron job '${CRON_TAG}' does not exist. It will be added."
-  fi
+change_schedule()
+{
+   printf "\nChanging Firmware Update Schedule...\n"
 
-     while true; do  # Loop to keep asking for input
-        read -p "Enter new cron schedule (e.g., 0 0 * * 0 for every Sunday at midnight, or 'e' to exit): " new_schedule
-    
-        # If the user enters 'e', break out of the loop and return to the main menu
-        if [ "$new_schedule" = "e" ]; then
-            echo "Returning to main menu..."
-            return
+   local retCode=1  current_schedule=""  new_schedule=""  userInput
+   local current_schedule_line  theExitStr="e=Exit to main menu"
+
+   # Use crontab -l to retrieve all cron jobs and filter for the one containing the script's path
+   current_schedule_line="$(crontab -l | grep "$CRON_JOB")"
+
+   if [ -n "$current_schedule_line" ]; then
+       # Extract the schedule part (the first five fields) from the current cron job line
+       current_schedule="$(echo "$current_schedule_line" | awk '{print $1, $2, $3, $4, $5}')"
+       new_schedule="$current_schedule"
+
+       # Translate the current schedule to English
+       current_schedule_english="$(translate_schedule "$current_schedule")"
+
+       echo -e "\033[32mCurrent Schedule: ${current_schedule_english}\033[0m"
+   else
+       new_schedule="$CRON_SCHEDULE"
+       echo "Cron job '${CRON_TAG}' does not exist. It will be added."
+   fi
+
+    while true; do  # Loop to keep asking for input
+        printf "\nEnter new cron job schedule (e.g. '0 0 * * 0' for every Sunday at midnight)"
+        if [ -z "$current_schedule" ]
+        then printf "\n[${theExitStr}] [Default Schedule: $new_schedule]:  "
+        else printf "\n[${theExitStr}] [Current Schedule: $current_schedule]:  "
         fi
+        read -r userInput
+
+        # If the user enters 'e', break out of the loop and return to the main menu
+        if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+        then break ; fi
 
         # Validate the input using grep
-        if echo "$new_schedule" | grep -qE '^([0-9,*\/-]+[[:space:]]+){4}[0-9,*\/-]+$'
+        if echo "$userInput" | grep -qE '^([0-9,*\/-]+[[:space:]]+){4}[0-9,*\/-]+$'
         then
-            new_schedule="$(echo "$new_schedule" | awk '{print $1, $2, $3, $4, $5}')"
+            new_schedule="$(echo "$userInput" | awk '{print $1, $2, $3, $4, $5}')"
             break  # If valid input, break out of the loop
         else
-            echo "Invalid schedule. Please try again or press 'e' to exit."
+            echo "INVALID schedule. Please try again or press 'e' to exit."
         fi
     done
+
+    if [ "$new_schedule" = "$current_schedule" ]
+    then
+        if [ "$userInput" != "e" ]
+        then
+            _SetPostponementDays_ 
+            _WaitForEnterKey_ "Press Enter to return to the main menu..."
+        fi
+        return 0
+    fi
 
     # Update the cron job in the crontab using the built-in utility.
     echo "Adding '${CRON_TAG}' cron job..."
     cru a "$CRON_TAG" "$new_schedule $CRON_JOB" ; sleep 1
 
-    if crontab -l | grep -qF "$CRON_JOB"; then
-        echo "Cron job '${CRON_TAG}' updated successfully."
+    if crontab -l | grep -qF "$CRON_JOB"
+    then
+        retCode=0
+        echo "Cron job '${CRON_TAG}' was updated successfully."
+        current_schedule_english="$(translate_schedule "$new_schedule")"
+        echo -e "\033[32mJob Schedule: $current_schedule_english \033[0m"
+        _SetPostponementDays_
     else
+        retCode=1
         echo "Failed to update the cron job."
     fi
 
-    # Display the updated schedule
-    current_schedule_english="$(translate_schedule "$new_schedule")"
-    echo -e "\033[32mUpdated Schedule: $current_schedule_english \033[0m"
-
     # Return to the main menu
     _WaitForEnterKey_ "Press Enter to return to the main menu..."
+    return "$retCode"
 }
 
 # Check if the router model is supported OR if
@@ -471,32 +585,99 @@ change_schedule() {
 check_model_support
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-06] ##
+## Modified by Martinski W. [2023-Oct-11] ##
 ##----------------------------------------##
 # Check if the cron job command already exists
-if ! crontab -l | grep -qF "$CRON_JOB"; then
+if ! crontab -l | grep -qF "$CRON_JOB"
+then
    # Add the cron job if it doesn't exist
    echo "Adding '${CRON_TAG}' cron job..."
    cru a "$CRON_TAG" "$CRON_SCHEDULE $CRON_JOB" ; sleep 1
 
    # Verify that the cron job has been added
-   if crontab -l | grep -qF "$CRON_JOB"; then
-      echo "Cron job '${CRON_TAG}' added successfully."
+   if crontab -l | grep -qF "$CRON_JOB"
+   then
+       echo "Cron job '${CRON_TAG}' was added successfully."
+       current_schedule_english="$(translate_schedule "$CRON_SCHEDULE")"
+       echo -e "\033[32mJob Schedule: $current_schedule_english \033[0m"
+       _SetPostponementDays_
    else
-      echo "Failed to add the cron job."
+       echo "Failed to add the cron job."
    fi
    _WaitForEnterKey_
 else
    echo "Cron job '${CRON_TAG}' already exists."
 fi
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-11] ##
+##-------------------------------------##
+_CheckTimeToUpdateFirmware_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+   local numVersionFields  notifyTimeSecs  postponeTimeSecs  currentTimeSecs
+   local fwNewUpdateNotificationDate  fwNewUpdateNotificationVers  fwNewUpdatePostponementDays
+
+   numVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
+   currentVersionNum="$(_VersionFormatToNumber_ "$1" "$numVersionFields")"
+   releaseVersionNum="$(_VersionFormatToNumber_ "$2" "$numVersionFields")"
+
+   if [ "$currentVersionNum" -ge "$releaseVersionNum" ]
+   then
+       Say "Current firmware version '$1' is up to date."
+       Update_Custom_Settings "FW_New_Update_Notification_Date" "TBD"
+       Update_Custom_Settings "FW_New_Update_Notification_Vers" "TBD"
+       return 1
+   fi
+
+   fwNewUpdateNotificationDate="$(Get_Custom_Setting "FW_New_Update_Notification_Date" "TBD")"
+   fwNewUpdateNotificationVers="$(Get_Custom_Setting "FW_New_Update_Notification_Vers" "TBD")"
+   fwNewUpdatePostponementDays="$(Get_Custom_Setting "FW_New_Update_Postponement_Days" "TBD")"
+   
+   if [ -z "$fwNewUpdateNotificationDate" ] || [ "$fwNewUpdateNotificationDate" = "TBD" ]
+   then
+       fwNewUpdateNotificationDate="$(date +"$updateNotifyDateFormat")"
+       Update_Custom_Settings "FW_New_Update_Notification_Date" "$fwNewUpdateNotificationDate"
+   fi
+   if [ -z "$fwNewUpdateNotificationVers" ] || [ "$fwNewUpdateNotificationVers" = "TBD" ]
+   then
+       fwNewUpdateNotificationVers="$2"
+       Update_Custom_Settings "FW_New_Update_Notification_Vers" "$fwNewUpdateNotificationVers"
+   fi
+   if [ -z "$fwNewUpdatePostponementDays" ] || [ "$fwNewUpdatePostponementDays" = "TBD" ]
+   then
+       fwNewUpdatePostponementDays="$defaultUpdatePostponementDays"
+       Update_Custom_Settings "FW_New_Update_Postponement_Days" "$fwNewUpdatePostponementDays"
+   fi
+
+   if [ "$fwNewUpdatePostponementDays" -eq 0 ]
+   then return 0 ; fi
+
+   postponeTimeSecs="$((fwNewUpdatePostponementDays * 86400))"
+   currentTimeSecs="$(date +%s)"
+   notifyTimeStrn="$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')"
+   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+
+   if [ "$(($currentTimeSecs - $notifyTimeSecs))" -gt "$postponeTimeSecs" ]
+   then return 0 ; fi
+
+   upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
+   upfwDateTimeStrn="$(echo "$upfwDateTimeSecs" | awk '{print strftime("%Y-%b-%d",$1)}')"
+
+   Say "The firmware update to '${2}' version is postponed for '${fwNewUpdatePostponementDays}' day(s)."
+   Say "The firmware update is expected to occur on or after '${upfwDateTimeStrn}' depending on when your cron job is scheduled to check again."
+   return 1
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-09] ##
+## Modified by Martinski W. [2023-Oct-11] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
-run_now() {
-
-    Say "Running the task now...Checking for updates..."
+run_now()
+{
+    Say "Running the task now... Checking for updates..."
 
     # Get current firmware version
     current_version="$(get_current_firmware)"	
@@ -514,44 +695,38 @@ run_now() {
         return 1
     fi
 
-    local numFields="$(echo "$release_version" | awk -F '.' '{print NF}')"
-    local numCurrentVers="$(_VersionFormatToNumber_ "$current_version" "$numFields")"
-    local numReleaseVers="$(_VersionFormatToNumber_ "$release_version" "$numFields")"
+    local currentVersionNum  releaseVersionNum
+
+    if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
+    then
+        if [ "$1" != "run_now" ]; then  # Check if the first argument is not "cron"
+            _WaitForEnterKey_ "Press Enter to return to the main menu..."
+        fi
+        return 0
+    fi
 
     # Create directory for downloading & extracting firmware #
-    mkdir -p "$FW_TEMP_DIR"
-    if [ -d "$FW_TEMP_DIR" ]
-    then
-        cd "$FW_TEMP_DIR"
-    else
-        Say "**ERROR**: Unable to create directory [$FW_TEMP_DIR] to download firmware."
-        _WaitForEnterKey_
-        return 1
-    fi
-    # Clear directory in case any previous files still exist #
-    rm -f "${FW_TEMP_DIR}"/*
+    if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
+
+    # In case ZIP directory is different from BIN directory #
+    if [ "$FW_ZIP_DIR" != "$FW_BIN_DIR" ] && \
+       ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Compare versions before deciding to download
-    if [ "$numReleaseVers" -gt "$numCurrentVers" ]; then
-	
+    if [ "$releaseVersionNum" -gt "$currentVersionNum" ]; then
+
 		# Start a loop to create a blinking LED effect while checking for updates
 		while true; do
 			Toggle_Led
 		done &
-		
+
 		# Capture the background loop's PID
 		Toggle_Led_pid=$!
-		
+
 		trap cleanup EXIT INT TERM
-		
+
         Say "Latest release version is $release_version, downloading from $release_link"
         wget -O "$FW_ZIP_FPATH" "$release_link"
-    else
-        Say "Current firmware version $current_version is up to date."
-        if [ "$1" != "run_now" ]; then  # Check if the first argument is not "cron"
-            _WaitForEnterKey_ "Press Enter to return to the main menu..."
-        fi
-        return 0  # Exit the function early as there's no newer firmware
     fi
 
     if [ ! -f "$FW_ZIP_FPATH" ]
@@ -562,7 +737,7 @@ run_now() {
     fi
 
     # Extracting the firmware
-    unzip -o "$FW_ZIP_FPATH" -d "$FW_TEMP_DIR" -x README*
+    unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
 
     # If unzip was successful delete the zip file, else error out.
     if [ $? -eq 0 ]
@@ -575,7 +750,7 @@ run_now() {
     fi
 
 # Define the path to the log file
-#log_file="${FW_TEMP_DIR}/Changelog-NG.txt"
+#log_file="${FW_BIN_DIR}/Changelog-NG.txt"
 
 # Check if the log file exists
 #if [ ! -f "$log_file" ]; then
@@ -603,7 +778,7 @@ run_now() {
 
     # Logging user's choice
     # Check for the presence of "rog" in filenames in the extracted directory
-    cd "$FW_TEMP_DIR"
+    cd "$FW_BIN_DIR"
     rog_file="$(ls | grep -i '_rog_')"
     pure_file="$(ls | grep -i '_pureubi.w' | grep -iv 'rog')"
 
@@ -659,8 +834,8 @@ fi
 
     # Debug: Print the LAN IP to ensure it's being set correctly
     echo "Debug Web URL is: $(construct_url) "
-	
-	check_memory_and_reboot
+
+    check_memory_and_reboot
 
     Say "\033[32mFlashing $firmware_file... Please Wait for reboot.\033[0m"
 
@@ -697,12 +872,12 @@ if echo "$curl_response" | grep -q 'url=index.asp'; then
 else
     Say "**ERROR**: Login failed. Please confirm credentials by selecting: 1. Configure Credentials"
 fi
-	# Stop the LED blinking after the update is completed
-	kill -15 "$Toggle_Led_pid" # Terminate the background toggle_led loop	
+    # Stop the LED blinking after the update is completed
+    kill -15 "$Toggle_Led_pid" # Terminate the background toggle_led loop	
 
-	# Set LEDs to their "initial state" #
-	nvram set led_disable="$LED_InitState"
-	service restart_leds > /dev/null 2>&1
+    # Set LEDs to their "initial state" #
+    nvram set led_disable="$LED_InitState"
+    service restart_leds > /dev/null 2>&1
     _WaitForEnterKey_
 }
 
@@ -729,8 +904,8 @@ show_menu() {
   echo "2. Run now"
   
   # Check if the directory exists before attempting to navigate to it
-  if [ -d "$FW_TEMP_DIR" ]; then
-    cd "$FW_TEMP_DIR"
+  if [ -d "$FW_BIN_DIR" ]; then
+    cd "$FW_BIN_DIR"
     # Check for the presence of "rog" in filenames in the directory
     rog_file=$(ls | grep -i '_rog_')
     
@@ -753,8 +928,8 @@ show_menu() {
 while true; do
   show_menu
   # Check if the directory exists again before attempting to navigate to it
-  if [ -d "$FW_TEMP_DIR" ]; then
-    cd "$FW_TEMP_DIR"
+  if [ -d "$FW_BIN_DIR" ]; then
+    cd "$FW_BIN_DIR"
     # Check for the presence of "rog" in filenames in the directory again
     rog_file=$(ls | grep -i '_rog_')
     
