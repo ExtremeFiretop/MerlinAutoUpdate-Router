@@ -240,7 +240,7 @@ _VersionFormatToNumber_()
 ## Modified by Martinski W. [2023-Oct-07] ##
 ##----------------------------------------##
 # Function to check if the current router model is supported
-check_model_support() {
+check_version_support() {
     # Minimum supported firmware version
     local minimum_supported_version="386.11.0"
 
@@ -256,6 +256,21 @@ check_model_support() {
     then
         Say "\033[31mThe installed firmware version '$current_version' is below '$minimum_supported_version' which is the minimum supported version required.\033[0m" 
         Say "\033[31mExiting...\033[0m"
+        exit 1
+    fi
+}
+
+check_model_support() {
+    # List of unsupported models as a space-separated string
+    local unsupported_models="RT-AC68U"
+
+    # Get the current model
+    local current_model="$(_GetRouterModel_)"
+
+    # Check if the current model is in the list of unsupported models
+    if echo "$unsupported_models" | grep -wq "$current_model"; then
+        # Output a message and exit the script if the model is unsupported
+        Say "The $current_model is an unsupported model. Exiting..."
         exit 1
     fi
 }
@@ -583,6 +598,7 @@ change_schedule()
 # Check if the router model is supported OR if
 # it has the minimum firmware version supported.
 check_model_support
+check_version_support
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Oct-11] ##
@@ -748,30 +764,6 @@ run_now()
         _WaitForEnterKey_
         return 1
     fi
-
-# Define the path to the log file
-#log_file="${FW_BIN_DIR}/Changelog-NG.txt"
-
-# Check if the log file exists
-#if [ ! -f "$log_file" ]; then
-#    echo "Log file does not exist at $log_file"
-#    exit 1
-#fi
-
-# Checking the log file for reset recommendation between two dates
-#log_contents=$(awk '/2023-09-30 00:00:00/,/2023-10-01 23:59:59/' "$log_file")
-
-#if echo "$log_contents" | grep -q "reset recommended"; then
-#    echo -e "Factory Default Reset is recommended according to the logs. Would you like to continue anyways?"
-#	read choice
-#	if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-#       continue
-#    else
-#        exit
-#    fi
-#else
-#    echo "No reset is recommended according to the logs."
-#fi
 
     # Use Get_Custom_Setting to retrieve the previous choice
     previous_choice="$(Get_Custom_Setting "local" "n")"
