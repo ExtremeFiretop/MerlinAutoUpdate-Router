@@ -55,13 +55,6 @@ Backup and Storage:
  - Be aware that JFFS partitions may not work post-upgrades in some cases.
  - New routers use UBIFS instead of JFFS2.
 
-Firmware Management:
-
-- Implement a waiting period for firmware updates:
-- - Wait for a set duration after a new firmware release.
-- - If no newer firmware emerges, proceed with the update.
-- - If newer firmware appears, reset and reevaluate the waiting period.
-
 System Notifications:
 
 - Possibly modify the hardcoded notification in the GUI's upper right corner.
@@ -80,6 +73,7 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Automatic router model detection.
 - Works with both ROG and non-ROG routers, if it's a ROG router simply select if you want to use the ROG or Pure Build.
 - Download and install the latest firmware for your router model from the Asuswrt-Merlin repository.
+- Implemented a waiting period for firmware updates: Wait for a set duration after a new firmware release.
 - Set up blinking LEDs as a visual indicator before starting the firmware update.
 - Checks RAM usage. If free RAM is less than the firmware file size, reboots the router.
 
