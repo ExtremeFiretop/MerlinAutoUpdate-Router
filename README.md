@@ -34,13 +34,15 @@
  
 ## UNTESTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 
+ - RT-AC88U (Untested)
  - RT-AC86U (Untested)
+ - RT-AC5300 (Untested)
+ - RT-AC3100 (Untested)
+ - 
  - RT-AC1900 (Untested)
  - RT-AC87U (Untested)
- - RT-AC5300 (Untested)
  - RT-AC3200 (Untested)
  - RT-AC3100 (Untested)
- - RT-AC88U (Untested)
  - RT-AC66U (Untested)
  - RT-AC56U (Untested)
  - RT-AC66U_B1 (Untested)
