@@ -7,7 +7,7 @@
 ################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.10"
+readonly SCRIPT_VERSION="0.2.11"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -824,8 +824,8 @@ _RunNowFirmwareUpdate_()
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(get_current_firmware)"	
-    ## current_version="388.3.0"
+    #current_version="$(get_current_firmware)"	
+    current_version="388.3.0"
 
     #---------------------------------------------------------
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -857,6 +857,11 @@ _RunNowFirmwareUpdate_()
     set -- $(_GetLatestFWversionFromWebsite_ "$URL_RELEASE")
     release_version="$1"
     release_link="$2"
+
+	# Extracting the first octet to use in the curl
+    firstOctet=$(echo "$release_version" | cut -d'.' -f1)
+	# Inserting dots between each number
+	dottedVersion=$(echo "$firstOctet" | sed 's/./&./g' | sed 's/.$//')
 
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
     then
@@ -1000,7 +1005,7 @@ if echo "$curl_response" | grep -q 'url=index.asp'; then
     -F 'action_script=' \
     -F 'action_wait=' \
     -F 'preferred_lang=EN' \
-    -F 'firmver=3.0.0.4' \
+    -F "firmver=${dottedVersion}" \
     -F "file=@${firmware_file}" \
     --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
 	sleep 60
