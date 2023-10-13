@@ -7,16 +7,20 @@
 ################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.9"
+readonly SCRIPT_VERSION="0.2.10"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-09] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-12] ##
+##----------------------------------------------##
 # Save initial LED state to put it back later #
 readonly LED_InitState="$(nvram get led_disable)"
 LED_ToggleState="$LED_InitState"
+
+# To enable/disable the built-in "F/W Update Check" #
+FW_UpdateCheckState="TBD"
+FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Oct-09] ##
@@ -112,20 +116,19 @@ defaultUpdatePostponementDays=7
 maximumUpdatePostponementDays=30
 updateNotifyDateFormat="%Y-%m-%d_12:00:00"
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-06] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-12] ##
+##----------------------------------------------##
 loggerFlags="-t"
+inMenuMode=true
 isInteractive=false
+menuReturnPromptStr="Press Enter to return to the main menu..."
 
 if [ -n "$(tty)" ] && [ -n "$PS1" ]
-then
-   loggerFlags="-st"
-   isInteractive=true
-fi
+then isInteractive=true ; fi
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-07] ##
+## Added/Modified by Martinski W. [2023-Oct-12] ##
 ##----------------------------------------------##
 _WaitForEnterKey_()
 {
@@ -136,18 +139,35 @@ _WaitForEnterKey_()
    then promptStr="$1"
    else promptStr="Press Enter to continue..."
    fi
-   printf "\n%s" "$promptStr" ; read EnterKEY
+
+   printf "\n%s" "$promptStr"
+   read -s EnterKEY ; echo
+}
+
+##----------------------------------##
+## Added Martinski W. [2023-Oct-12] ##
+##----------------------------------##
+_WaitForYESorNO_()
+{
+   ! "$isInteractive" && return 0
+   printf "$1 [yY|nN] N? "
+   read YESorNO
+   if echo "$YESorNO" | grep -qE "^([Yy](es)?)$"
+   then echo "OK" ; return 0
+   else echo "NO" ; return 1
+   fi
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-06] ##
+## Modified by Martinski W. [2023-Oct-12] ##
 ##----------------------------------------##
 Say(){
    echo -e "$@" | logger $loggerFlags "[$(basename "$0")] $$"
+   "$isInteractive" && echo -e "$@"
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2023-Oct-11] ##
+## Added by Martinski W. [2023-Oct-12] ##
 ##-------------------------------------##
 # Directory for downloading & extracting firmware #
 _CreateDirectory_()
@@ -158,7 +178,7 @@ _CreateDirectory_()
     if [ ! -d "$1" ]
     then
         Say "**ERROR**: Unable to create directory [$1] to download firmware."
-        _WaitForEnterKey_
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
     # Clear directory in case any previous files still exist #
@@ -179,6 +199,9 @@ get_free_ram() {
     free | awk '/^Mem:/{print $4 + $6 + $7}'  # This will return the available memory in kilobytes.
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-12] ##
+##----------------------------------------##
 check_memory_and_reboot() {
     
     if [ ! -f "${FW_BIN_DIR}/$firmware_file" ]; then
@@ -189,8 +212,14 @@ check_memory_and_reboot() {
     free_ram_kb=$(get_free_ram)
 
     if [ "$free_ram_kb" -lt "$firmware_size_kb" ]; then
-        Say "Insufficient RAM available to proceed with the update. Rebooting router..."
-        reboot
+        Say "Insufficient RAM available to proceed with the firmware update."
+
+        # During an interactive shell session, ask user to confirm reboot #
+        if _WaitForYESorNO_ "Reboot router now"
+        then
+            Say "Rebooting router..."
+            /sbin/service reboot
+        fi
         exit 1  # Although the reboot command should end the script, it's good practice to exit after.
     fi
 }
@@ -358,7 +387,7 @@ credentials_menu() {
     if [ -z "$password" ]
     then
         echo "The Username and Password cannot be empty. Credentials were not saved."
-        _WaitForEnterKey_ "Press Enter to return to the main menu..."
+        _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
     
@@ -369,14 +398,31 @@ credentials_menu() {
     Update_Custom_Settings "credentials_base64" "$credentials_base64"
     
     echo "Credentials saved."
-    _WaitForEnterKey_ "Press Enter to return to the main menu..."
+    _WaitForEnterKey_ "$menuReturnPromptStr"
     return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-12] ##
+##-------------------------------------##
+_GetLatestFWversionFromRouter_()
+{
+   local retCode=0  newVersionStr
+   if [ "$(nvram get webs_state_flag)" -eq 0 ]
+   then echo "" ; return 1 ; fi
+
+   newVersionStr="$(echo "$(nvram get webs_state_info)" | sed 's/_/./g')"
+   if [ -z "$newVersionStr" ]
+   then echo "" ; return 1
+   else echo "$newVersionStr"
+   fi
+   return "$retCode"
 }
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Oct-05] ##
 ##----------------------------------------##
-get_latest_firmware() {
+_GetLatestFWversionFromWebsite_() {
     local url="$1"
 
     local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$MODEL"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | 
@@ -403,7 +449,7 @@ get_latest_firmware() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-07] ##
+## Modified by Martinski W. [2023-Oct-12] ##
 ##----------------------------------------##
 change_build_type() {
     echo "Changing Build Type..."
@@ -415,9 +461,9 @@ change_build_type() {
     # Check for the presence of "rog" in filenames in the extracted directory
     cd "$FW_BIN_DIR"
     rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls | grep -i '_pureubi.w' | grep -iv 'rog')"
+    pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
 
-    if [ ! -z "$rog_file" ]; then
+    if [ -n "$rog_file" ]; then
         echo -e "\033[31mFound ROG build: $rog_file. Would you like to use the ROG build? (y/n)\033[0m"
 
         while true; do
@@ -450,7 +496,7 @@ change_build_type() {
         Update_Custom_Settings "local" "n"
     fi
 
-    _WaitForEnterKey_
+    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
 # Function to translate cron schedule to English
@@ -470,32 +516,44 @@ translate_schedule() {
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2023-Oct-11] ##
+## Added by Martinski W. [2023-Oct-12] ##
 ##-------------------------------------##
+_CheckPostponementDays_()
+{
+   local newPostponementDays
+   newPostponementDays="$(Get_Custom_Setting "FW_New_Update_Postponement_Days" "TBD")"
+   if [ -z "$newPostponementDays" ] || [ "$newPostponementDays" = "TBD" ]
+   then retCode=1 ; else retCode=0 ; fi
+   return "$retCode"
+}
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-12] ##
+##----------------------------------------------##
 _SetPostponementDays_()
 {
-   local newPostponementDays  postponeDaysStr
    local theExitStr="e=Exit to main menu"
-   local validNumRegExp="([0-9]|[1-5][0-9]|60)"
+   local validNumRegExp="([0-9]|[1-9][0-9])"
+   local oldPostponementDays  newPostponementDays  postponeDaysStr  userInput
 
-   newPostponementDays="$(Get_Custom_Setting "FW_New_Update_Postponement_Days" "DEFAULT")"
-   if [ -z "$newPostponementDays" ] || [ "$newPostponementDays" = "DEFAULT" ]
+   oldPostponementDays="$(Get_Custom_Setting "FW_New_Update_Postponement_Days" "DEFAULT")"
+   if [ -z "$oldPostponementDays" ] || [ "$oldPostponementDays" = "DEFAULT" ]
    then
        newPostponementDays="$defaultUpdatePostponementDays"
-       Update_Custom_Settings "FW_New_Update_Postponement_Days" "$newPostponementDays"
        postponeDaysStr="Default Value: ${newPostponementDays}"
    else
+       newPostponementDays="$oldPostponementDays"
        postponeDaysStr="Current Value: ${newPostponementDays}"
    fi
 
    while true
    do
        printf "\nEnter the number of days to postpone the update once a new firmware notification is made.\n"
-       printf "[Min=${minimumUpdatePostponementDays}, Max=${maximumUpdatePostponementDays}] [${theExitStr}] [${postponeDaysStr}]:  "
+       printf "[${theExitStr}] [Min=${minimumUpdatePostponementDays}, Max=${maximumUpdatePostponementDays}] [${postponeDaysStr}]:  "
        read -r userInput
 
        if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
-       then newPostponementDays="DEFAULT" ; break ; fi
+       then break ; fi
 
        if echo "$userInput" | grep -qE "^${validNumRegExp}$" && \
           [ "$userInput" -ge "$minimumUpdatePostponementDays" ] && \
@@ -505,22 +563,21 @@ _SetPostponementDays_()
        printf "INVALID input.\n"
    done
 
-   if [ "$newPostponementDays" != "DEFAULT" ]
+   if [ "$newPostponementDays" != "$oldPostponementDays" ]
    then
        Update_Custom_Settings "FW_New_Update_Postponement_Days" "$newPostponementDays"
        echo "The number of days to postpone was updated successfully."
-       
    fi
    return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-11] ##
+## Modified by Martinski W. [2023-Oct-12] ##
 ##----------------------------------------##
 # Function to add or change the cron schedule
 change_schedule()
 {
-   printf "\nChanging Firmware Update Schedule...\n"
+   printf "Changing Firmware Update Schedule...\n"
 
    local retCode=1  current_schedule=""  new_schedule=""  userInput
    local current_schedule_line  theExitStr="e=Exit to main menu"
@@ -569,7 +626,7 @@ change_schedule()
         if [ "$userInput" != "e" ]
         then
             _SetPostponementDays_ 
-            _WaitForEnterKey_ "Press Enter to return to the main menu..."
+            _WaitForEnterKey_ "$menuReturnPromptStr"
         fi
         return 0
     fi
@@ -591,7 +648,7 @@ change_schedule()
     fi
 
     # Return to the main menu
-    _WaitForEnterKey_ "Press Enter to return to the main menu..."
+    _WaitForEnterKey_ "$menuReturnPromptStr"
     return "$retCode"
 }
 
@@ -601,7 +658,7 @@ check_model_support
 check_version_support
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-11] ##
+## Modified by Martinski W. [2023-Oct-12] ##
 ##----------------------------------------##
 # Check if the cron job command already exists
 if ! crontab -l | grep -qF "$CRON_JOB"
@@ -623,18 +680,22 @@ then
    _WaitForEnterKey_
 else
    echo "Cron job '${CRON_TAG}' already exists."
+   if ! _CheckPostponementDays_
+   then
+       _SetPostponementDays_
+       _WaitForEnterKey_
+   fi
 fi
 
 ##-------------------------------------##
-## Added by Martinski W. [2023-Oct-11] ##
+## Added by Martinski W. [2023-Oct-12] ##
 ##-------------------------------------##
-_CheckTimeToUpdateFirmware_()
+_CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local numVersionFields  notifyTimeSecs  postponeTimeSecs  currentTimeSecs
-   local fwNewUpdateNotificationDate  fwNewUpdateNotificationVers  fwNewUpdatePostponementDays
+   local numVersionFields  fwNewUpdateVersNum
 
    numVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
    currentVersionNum="$(_VersionFormatToNumber_ "$1" "$numVersionFields")"
@@ -648,20 +709,52 @@ _CheckTimeToUpdateFirmware_()
        return 1
    fi
 
-   fwNewUpdateNotificationDate="$(Get_Custom_Setting "FW_New_Update_Notification_Date" "TBD")"
    fwNewUpdateNotificationVers="$(Get_Custom_Setting "FW_New_Update_Notification_Vers" "TBD")"
-   fwNewUpdatePostponementDays="$(Get_Custom_Setting "FW_New_Update_Postponement_Days" "TBD")"
-   
+   if [ -z "$fwNewUpdateNotificationVers" ] || [ "$fwNewUpdateNotificationVers" = "TBD" ]
+   then
+       fwNewUpdateNotificationVers="$2"
+       Update_Custom_Settings "FW_New_Update_Notification_Vers" "$fwNewUpdateNotificationVers"
+   else
+       numVersionFields="$(echo "$fwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
+       fwNewUpdateVersNum="$(_VersionFormatToNumber_ "$fwNewUpdateNotificationVers" "$numVersionFields")"
+       if [ "$releaseVersionNum" -gt "$fwNewUpdateVersNum" ]
+       then
+           fwNewUpdateNotificationVers="$2"
+           fwNewUpdateNotificationDate="$(date +"$updateNotifyDateFormat")"
+           Update_Custom_Settings "FW_New_Update_Notification_Vers" "$fwNewUpdateNotificationVers"
+           Update_Custom_Settings "FW_New_Update_Notification_Date" "$fwNewUpdateNotificationDate"
+       fi
+   fi
+
+   fwNewUpdateNotificationDate="$(Get_Custom_Setting "FW_New_Update_Notification_Date" "TBD")"
    if [ -z "$fwNewUpdateNotificationDate" ] || [ "$fwNewUpdateNotificationDate" = "TBD" ]
    then
        fwNewUpdateNotificationDate="$(date +"$updateNotifyDateFormat")"
        Update_Custom_Settings "FW_New_Update_Notification_Date" "$fwNewUpdateNotificationDate"
    fi
-   if [ -z "$fwNewUpdateNotificationVers" ] || [ "$fwNewUpdateNotificationVers" = "TBD" ]
+   return 0
+}
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-12] ##
+##----------------------------------------------##
+_CheckTimeToUpdateFirmware_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+   local notifyTimeSecs  postponeTimeSecs  currentTimeSecs
+   local fwNewUpdateNotificationDate  fwNewUpdateNotificationVers  fwNewUpdatePostponementDays
+
+   _CheckNewUpdateFirmwareNotification_ "$1" "$2"
+
+   if [ "$currentVersionNum" -ge "$releaseVersionNum" ]
    then
-       fwNewUpdateNotificationVers="$2"
-       Update_Custom_Settings "FW_New_Update_Notification_Vers" "$fwNewUpdateNotificationVers"
+       Say "Current firmware version '$1' is up to date."
+       return 1
    fi
+
+   fwNewUpdatePostponementDays="$(Get_Custom_Setting "FW_New_Update_Postponement_Days" "TBD")"
    if [ -z "$fwNewUpdatePostponementDays" ] || [ "$fwNewUpdatePostponementDays" = "TBD" ]
    then
        fwNewUpdatePostponementDays="$defaultUpdatePostponementDays"
@@ -687,39 +780,42 @@ _CheckTimeToUpdateFirmware_()
    return 1
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-12] ##
+##-------------------------------------##
+_ToggleFirmwareUpdateCheck_()
+{
+   local fwUpdateCheckStateStr  runfwUpdateCheck=false
+
+   if [ "$FW_UpdateCheckState" -eq 1 ]
+   then
+       runfwUpdateCheck=false
+       FW_UpdateCheckState=0
+       fwUpdateCheckStateStr="DISABLED"
+   else
+       if [ -x "$FW_UpdateCheckScript" ]
+       then runfwUpdateCheck=true ; fi
+       FW_UpdateCheckState=1
+       fwUpdateCheckStateStr="ENABLED"
+   fi
+
+   nvram set firmware_check_enable="$FW_UpdateCheckState"
+   echo "Firmware Update Check is now ${fwUpdateCheckStateStr}."
+   nvram commit
+   "$runfwUpdateCheck" && sh $FW_UpdateCheckScript &
+   _WaitForEnterKey_ "$menuReturnPromptStr"
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-11] ##
+## Modified by Martinski W. [2023-Oct-12] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
-run_now()
+_RunNowFirmwareUpdate_()
 {
     Say "Running the task now... Checking for updates..."
 
-    # Get current firmware version
-    current_version="$(get_current_firmware)"	
-    #current_version="388.3.0"
-
-    # Use set to read the output of the function into variables
-    set -- $(get_latest_firmware "$URL_RELEASE")
-    release_version="$1"
-    release_link="$2"
-
-    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
-    then
-        Say "**ERROR**: No firmware release URL was found for [$MODEL] router model."
-        _WaitForEnterKey_
-        return 1
-    fi
-
     local currentVersionNum  releaseVersionNum
-
-    if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
-    then
-        if [ "$1" != "run_now" ]; then  # Check if the first argument is not "cron"
-            _WaitForEnterKey_ "Press Enter to return to the main menu..."
-        fi
-        return 0
-    fi
+    local current_version=""  release_version=""
 
     # Create directory for downloading & extracting firmware #
     if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
@@ -727,6 +823,54 @@ run_now()
     # In case ZIP directory is different from BIN directory #
     if [ "$FW_ZIP_DIR" != "$FW_BIN_DIR" ] && \
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
+
+    # Get current firmware version #
+    current_version="$(get_current_firmware)"	
+    ## current_version="388.3.0"
+
+    #---------------------------------------------------------
+    # If the "F/W Update Check" in the WebGUI is disabled 
+    # exit without further actions. This allows users to 
+    # control the "F/W Auto-Update" feature from one place.
+    #---------------------------------------------------------   
+    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+    if [ "$FW_UpdateCheckState" -eq 0 ]
+    then
+        Say "Firmware update check is currently disabled."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
+
+    #------------------------------------------------------
+    # If the "New F/W Update" flag has been set get the
+    # "New F/W Release Version" from the router itself.
+    # If no new F/W version update is available exit.
+    #------------------------------------------------------
+    if release_version="$(_GetLatestFWversionFromRouter_)" && \
+       ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+    then
+        Say "No new firmware version update is found for [$MODEL] router model."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
+
+    # Use set to read the output of the function into variables
+    set -- $(_GetLatestFWversionFromWebsite_ "$URL_RELEASE")
+    release_version="$1"
+    release_link="$2"
+
+    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
+    then
+        Say "**ERROR**: No firmware release URL was found for [$MODEL] router model."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
+
+    if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
+    then
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 0
+    fi
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]; then
@@ -748,7 +892,7 @@ run_now()
     if [ ! -f "$FW_ZIP_FPATH" ]
     then
         Say "**ERROR**: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
-        _WaitForEnterKey_
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
 
@@ -761,7 +905,7 @@ run_now()
         rm -f "$FW_ZIP_FPATH"
     else
         Say "**ERROR**: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-        _WaitForEnterKey_
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
 
@@ -772,15 +916,15 @@ run_now()
     # Check for the presence of "rog" in filenames in the extracted directory
     cd "$FW_BIN_DIR"
     rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls | grep -i '_pureubi.w' | grep -iv 'rog')"
+    pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
 
     local_value="$(Get_Custom_Setting "local")"
 
 if [ -z "$local_value" ]; then
-    if [ ! -z "$rog_file" ]; then
-        # Check if the first argument is "run_now"
-        if [ "$1" = "run_now" ]; then
-            # If the argument is "run_now", default to the "Pure Build"
+    if [ -n "$rog_file" ]; then
+        # Check if the first argument is 'run_now'
+        if ! "$inMenuMode" ; then
+            # If the argument is 'run_now' default to the "Pure Build"
             firmware_file="$pure_file"
             Update_Custom_Settings "local" "n"
         else
@@ -814,7 +958,7 @@ if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
 	dl_sig="$(grep $firmware_file sha256sum.sha256 | cut -d' ' -f1)"
 	if [ "$fw_sig" != "$dl_sig" ]; then
 		Say "**ERROR**: Extracted firmware does not match the SHA256 signature!"
-		_WaitForEnterKey_
+		"$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
 		return 1
 	fi
 fi
@@ -862,7 +1006,7 @@ if echo "$curl_response" | grep -q 'url=index.asp'; then
     --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
 	sleep 60
 else
-    Say "**ERROR**: Login failed. Please confirm credentials by selecting: 1. Configure Credentials"
+    Say "**ERROR**: Login failed. Please confirm credentials by selecting: 1. Configure Login Credentials"
 fi
     # Stop the LED blinking after the update is completed
     kill -15 "$Toggle_Led_pid" # Terminate the background toggle_led loop	
@@ -870,78 +1014,91 @@ fi
     # Set LEDs to their "initial state" #
     nvram set led_disable="$LED_InitState"
     service restart_leds > /dev/null 2>&1
-    _WaitForEnterKey_
+    "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
 if [ $# -gt 0 ] && [ "$1" = "run_now" ]; then
-    # If the argument is "run_now", call the run_now function and exit
-    run_now
+    # If the argument is 'run_now' call the run_now function and exit
+    inMenuMode=false
+    _RunNowFirmwareUpdate_
     exit 0
 fi
 
 rog_file=""
+SEPstr="----------------------------------------"
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-12] ##
+##----------------------------------------##
 # Function to display the menu
 show_menu() {
-  clear
-  echo -e "\033[1;36m===== Merlin Auto Update Main Menu =====\033[0m"
-  echo -e "\033[1;35m========== By ExtremeFiretop ===========\033[0m"
-  echo -e "\033[1;33m============ Contributors: =============\033[0m"
-  echo -e "\033[1;33m"
-  print_center 'Martinski W.'
-  print_center 'Dave14305'
-  echo -e "\033[0m"  # Reset color
-  echo "----------------------------------------"
-  echo "1. Configure Credentials"
-  echo "2. Run now"
-  
-  # Check if the directory exists before attempting to navigate to it
-  if [ -d "$FW_BIN_DIR" ]; then
-    cd "$FW_BIN_DIR"
-    # Check for the presence of "rog" in filenames in the directory
-    rog_file=$(ls | grep -i '_rog_')
-    
-    # If a file with "_rog_" in its name is found, display the "Change Build Type" option
-    if [ ! -z "$rog_file" ]; then
-      echo "3. Change Build Type"
-      echo "4. Change Schedule"
-      echo "e. Exit"
-    else
-      echo "3. Change Schedule"
-      echo "e. Exit"
-    fi
-  else
-    echo "3. Change Schedule"
-    echo "e. Exit"
-  fi
+   clear
+   echo -e "\033[1;36m===== Merlin Auto Update Main Menu =====\033[0m"
+   echo -e "\033[1;35m========== By ExtremeFiretop ===========\033[0m"
+   echo -e "\033[1;33m============ Contributors: =============\033[0m"
+   echo -e "\033[1;33m"
+   print_center 'Martinski W.'
+   print_center 'Dave14305'
+   echo -e "\033[0m"  # Reset color
+   printf "${SEPstr}\n"
+   echo "1. Configure Login Credentials"
+   echo "2. Run Firmware Update Now"
+   echo "3. Change Firmware Update Schedule"
+
+   # Enable/Disable "F/W Update Check" done by the router itself #
+   FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+   if [ "$FW_UpdateCheckState" -eq 1 ]
+   then echo "4. Disable Firmware Update Check"
+   else echo "4. Enable Firmware Update Check"
+   fi
+
+   # Check if the directory exists before attempting to navigate to it
+   if [ -d "$FW_BIN_DIR" ]; then
+      cd "$FW_BIN_DIR"
+      # Check for the presence of "rog" in filenames in the directory
+      rog_file="$(ls | grep -i '_rog_')"
+
+      # If a file with "_rog_" in its name is found, display the "Change Build Type" option
+      if [ -n "$rog_file" ]; then
+          echo "5. Change Update Build Type"
+      fi
+   fi
+   echo "e. Exit"
+   printf "${SEPstr}\n"
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-12] ##
+##----------------------------------------##
 # Main loop
 while true; do
-  show_menu
-  # Check if the directory exists again before attempting to navigate to it
-  if [ -d "$FW_BIN_DIR" ]; then
-    cd "$FW_BIN_DIR"
-    # Check for the presence of "rog" in filenames in the directory again
-    rog_file=$(ls | grep -i '_rog_')
+   show_menu
+   
+   promptStr="Enter your choice [1-4 | e]: "
+
+   # Check if the directory exists again before attempting to navigate to it
+   if [ -d "$FW_BIN_DIR" ]; then
+       cd "$FW_BIN_DIR"
+       # Check for the presence of "rog" in filenames in the directory again
+       rog_file="$(ls | grep -i '_rog_')"
     
-    if [ ! -z "$rog_file" ]; then
-      read -p "Enter your choice (1/2/3/4/e): " choice
-    else
-      read -p "Enter your choice (1/2/3/e): " choice
-    fi
-  else
-    read -p "Enter your choice (1/2/3/e): " choice
-  fi
-  
-  case $choice in
-    1) credentials_menu ;;
-    2) run_now ;;
-    3) [ ! -z "$rog_file" ] && change_build_type || change_schedule ;;
-    4) change_schedule ;;
-    e) exit ;;
-    *) echo "Invalid choice. Please try again."
-       _WaitForEnterKey_  # Pauses script until Enter is pressed
-       ;;
-  esac
+       if [ -n "$rog_file" ]; then
+           promptStr="Enter your choice [1-5 | e]: "
+       fi
+   fi
+   read -p "$promptStr" userChoice
+   echo
+   case $userChoice in
+       1) credentials_menu ;;
+       2) _RunNowFirmwareUpdate_ ;;
+       3) change_schedule ;;
+       4) _ToggleFirmwareUpdateCheck_ ;;
+       5) [ -n "$rog_file" ] && change_build_type ;;
+       e) exit 0 ;;
+       *) echo "Invalid choice. Please try again."
+          _WaitForEnterKey_  # Pauses script until Enter is pressed
+          ;;
+   esac
 done
+
+#EOF#
