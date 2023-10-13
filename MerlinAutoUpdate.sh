@@ -824,8 +824,8 @@ _RunNowFirmwareUpdate_()
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    #current_version="$(get_current_firmware)"	
-    current_version="388.3.0"
+    current_version="$(get_current_firmware)"	
+    ##current_version="388.3.0"
 
     #---------------------------------------------------------
     # If the "F/W Update Check" in the WebGUI is disabled 
