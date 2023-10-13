@@ -750,7 +750,6 @@ _CheckTimeToUpdateFirmware_()
 
    if [ "$currentVersionNum" -ge "$releaseVersionNum" ]
    then
-       Say "Current firmware version '$1' is up to date."
        return 1
    fi
 
