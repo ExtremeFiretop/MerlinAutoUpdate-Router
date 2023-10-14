@@ -3,11 +3,11 @@
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Oct-12
+# Last Modified: 2023-Oct-13
 ################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.11"
+readonly SCRIPT_VERSION="0.2.12"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -208,8 +208,8 @@ check_memory_and_reboot() {
         Say "**ERROR**: Firmware file [${FW_BIN_DIR}/$firmware_file] not found."
         exit 1
     fi
-    firmware_size_kb=$(du -k "${FW_BIN_DIR}/$firmware_file" | cut -f1)  # Get firmware file size in kilobytes
-    free_ram_kb=$(get_free_ram)
+    firmware_size_kb="$(du -k "${FW_BIN_DIR}/$firmware_file" | cut -f1)"  # Get firmware file size in kilobytes
+    free_ram_kb="$(get_free_ram)"
 
     if [ "$free_ram_kb" -lt "$firmware_size_kb" ]; then
         Say "Insufficient RAM available to proceed with the firmware update."
@@ -378,7 +378,7 @@ credentials_menu() {
     echo "=== Credentials Menu ==="
 
     # Get the username from nvram
-    local username=$(nvram get http_username)
+    local username="$(nvram get http_username)"
     
     # Prompt the user only for a password
     read -s -p "Enter password for user ${username}: " password  # -s flag hides the password input
@@ -402,18 +402,18 @@ credentials_menu() {
     return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-12] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-13] ##
+##----------------------------------------------##
 _GetLatestFWversionFromRouter_()
 {
    local retCode=0  newVersionStr
    if [ "$(nvram get webs_state_flag)" -eq 0 ]
-   then echo "" ; return 1 ; fi
+   then retCode=1 ; fi
 
    newVersionStr="$(echo "$(nvram get webs_state_info)" | sed 's/_/./g')"
    if [ -z "$newVersionStr" ]
-   then echo "" ; return 1
+   then echo "" ; retCode=1
    else echo "$newVersionStr"
    fi
    return "$retCode"
@@ -520,7 +520,7 @@ translate_schedule() {
 ##-------------------------------------##
 _CheckPostponementDays_()
 {
-   local newPostponementDays
+   local retCode  newPostponementDays
    newPostponementDays="$(Get_Custom_Setting "FW_New_Update_Postponement_Days" "TBD")"
    if [ -z "$newPostponementDays" ] || [ "$newPostponementDays" = "TBD" ]
    then retCode=1 ; else retCode=0 ; fi
@@ -806,14 +806,14 @@ _ToggleFirmwareUpdateCheck_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-12] ##
+## Modified by Martinski W. [2023-Oct-13] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunNowFirmwareUpdate_()
 {
     Say "Running the task now... Checking for updates..."
 
-    local currentVersionNum  releaseVersionNum
+    local currentVersionNum=""  releaseVersionNum=""
     local current_version=""  release_version=""
 
     # Create directory for downloading & extracting firmware #
@@ -845,7 +845,7 @@ _RunNowFirmwareUpdate_()
     # "New F/W Release Version" from the router itself.
     # If no new F/W version update is available exit.
     #------------------------------------------------------
-    if release_version="$(_GetLatestFWversionFromRouter_)" && \
+    if ! release_version="$(_GetLatestFWversionFromRouter_)" || \
        ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
     then
         Say "No new firmware version update is found for [$MODEL] router model."
@@ -858,10 +858,10 @@ _RunNowFirmwareUpdate_()
     release_version="$1"
     release_link="$2"
 
-	# Extracting the first octet to use in the curl
-    firstOctet=$(echo "$release_version" | cut -d'.' -f1)
-	# Inserting dots between each number
-	dottedVersion=$(echo "$firstOctet" | sed 's/./&./g' | sed 's/.$//')
+    # Extracting the first octet to use in the curl
+    firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
+    # Inserting dots between each number
+    dottedVersion="$(echo "$firstOctet" | sed 's/./&./g' | sed 's/.$//')"
 
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
     then
@@ -958,8 +958,8 @@ else
 fi
 
 if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
-	fw_sig="$(openssl sha256 $firmware_file | cut -d' ' -f2)"
-	dl_sig="$(grep $firmware_file sha256sum.sha256 | cut -d' ' -f1)"
+	fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+	dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
 	if [ "$fw_sig" != "$dl_sig" ]; then
 		Say "**ERROR**: Extracted firmware does not match the SHA256 signature!"
 		"$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
@@ -1044,6 +1044,7 @@ show_menu() {
    print_center 'Martinski W.'
    print_center 'Dave14305'
    echo -e "\033[0m"  # Reset color
+
    printf "${SEPstr}\n"
    echo "1. Configure Login Credentials"
    echo "2. Run Firmware Update Now"
@@ -1077,7 +1078,7 @@ show_menu() {
 # Main loop
 while true; do
    show_menu
-   
+
    promptStr="Enter your choice [1-4 | e]: "
 
    # Check if the directory exists again before attempting to navigate to it
