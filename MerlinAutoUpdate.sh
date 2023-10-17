@@ -3,11 +3,11 @@
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Oct-13
+# Last Modified: 2023-Oct-16
 ################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.12"
+readonly SCRIPT_VERSION="0.2.13"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -76,10 +76,28 @@ _GetRouterModel_()
    echo "$routerModelID" ; return "$retCode"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-16] ##
+##-------------------------------------##
+readonly ADDONS_PATH="/jffs/addons"
+readonly SCRIPTS_PATH="/jffs/scripts"
+
+readonly ScriptFileName="${0##*/}"
+readonly ScriptFNameTag="${ScriptFileName%.*}"
+
+ScriptsDirPath="$(/usr/bin/dirname "$0")"
+if [ "$ScriptsDirPath" != "." ]
+then
+   ScriptFilePath="$0"
+else
+   ScriptsDirPath="$(pwd)"
+   ScriptFilePath="$(pwd)/$ScriptFileName"
+fi
+
 readonly MODEL="$(_GetRouterModel_)"
 readonly URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
-readonly SETTINGS_DIR="/jffs/addons/MerlinAutoUpdate"
-readonly SETTINGSFILE="$SETTINGS_DIR/custom_settings.txt"
+readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
+readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Oct-11] ##
@@ -95,17 +113,32 @@ FW_ZIP_SETUP_DIR="/home/root"
 FW_BIN_SETUP_DIR="/home/root"
 
 ## To DEBUG/TEST routers with less than 512MB RAM ##
-##DEBUG## FW_ZIP_SETUP_DIR="/opt/var/tmp"
+##DEBUG ONLY## FW_ZIP_SETUP_DIR="/opt/var/tmp"
 
 readonly FW_FileName="${MODEL}_firmware"
 readonly FW_ZIP_DIR="${FW_ZIP_SETUP_DIR}/$FW_FileName"
 readonly FW_BIN_DIR="${FW_BIN_SETUP_DIR}/$FW_FileName"
 readonly FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
 
-# Define the cron schedule and job command to execute
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-16] ##
+##----------------------------------------------##
+# The built-in F/W hook script file to be used for
+# setting up persistent jobs to run after a reboot.
+readonly hookScriptFName="services-start"
+readonly hookScriptFPath="${SCRIPTS_PATH}/$hookScriptFName"
+readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
+
+# Define the cron schedule and job command to execute #
 readonly CRON_SCHEDULE="0 0 * * 0"
-readonly CRON_JOB="sh /jffs/scripts/MerlinAutoUpdate.sh run_now"
-readonly CRON_TAG="MerlinAutoUpdate"
+readonly CRON_JOB_RUN="sh $ScriptFilePath run_now"
+readonly CRON_JOB_TAG="$ScriptFNameTag"
+readonly CRON_SCRIPT_JOB="sh $ScriptFilePath addCronJob &  $hookScriptTagStr"
+readonly CRON_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $CRON_SCRIPT_JOB"
+
+# Define post-reboot run job command to execute #
+readonly POST_REBOOT_SCRIPT_JOB="sh $ScriptFilePath postRebootRun &  $hookScriptTagStr"
+readonly POST_REBOOT_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_REBOOT_SCRIPT_JOB"
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Oct-11] ##
@@ -186,6 +219,66 @@ _CreateDirectory_()
     return 0
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-16] ##
+##-------------------------------------##
+_DelPostRebootRunScriptHook_()
+{
+   local hookScriptFile
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then hookScriptFile="$1"
+   else hookScriptFile="$hookScriptFPath"
+   fi
+   if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
+
+   if grep -qE "$POST_REBOOT_SCRIPT_JOB" "$hookScriptFile"
+   then
+       sed -i -e '/\/'"$ScriptFileName"' postRebootRun &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       if [ $? -eq 0 ]
+       then
+           Say "Post-reboot run hook was deleted successfully from '$hookScriptFile' script."
+       fi
+   else
+       echo "Post-reboot run hook does not exist in '$hookScriptFile' script."
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-16] ##
+##-------------------------------------##
+_AddPostRebootRunScriptHook_()
+{
+   local hookScriptFile  jobHookAdded=false
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then hookScriptFile="$1"
+   else hookScriptFile="$hookScriptFPath"
+   fi
+
+   if [ ! -f "$hookScriptFile" ]
+   then
+      jobHookAdded=true
+      {
+        echo "#!/bin/sh"
+        echo "# $hookScriptFName"
+        echo "#"
+        echo "$POST_REBOOT_SCRIPT_HOOK"
+      } > "$hookScriptFile"
+   #
+   elif ! grep -qE "$POST_REBOOT_SCRIPT_JOB" "$hookScriptFile"
+   then
+      jobHookAdded=true
+      echo "$POST_REBOOT_SCRIPT_HOOK" >> "$hookScriptFile"
+   fi
+
+   if "$jobHookAdded"
+   then Say "Post-reboot run hook was added successfully to '$hookScriptFile' script."
+   else Say "Post-reboot run hook already exists in '$hookScriptFile' script."
+   fi
+   _WaitForEnterKey_
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Oct-05] ##
 ##----------------------------------------##
@@ -200,7 +293,7 @@ get_free_ram() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-12] ##
+## Modified by Martinski W. [2023-Oct-16] ##
 ##----------------------------------------##
 check_memory_and_reboot() {
     
@@ -217,6 +310,7 @@ check_memory_and_reboot() {
         # During an interactive shell session, ask user to confirm reboot #
         if _WaitForYESorNO_ "Reboot router now"
         then
+            _AddPostRebootRunScriptHook_
             Say "Rebooting router..."
             /sbin/service reboot
         fi
@@ -305,7 +399,7 @@ check_model_support() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-11] ##
+## Modified by Martinski W. [2023-Oct-16] ##
 ##----------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
@@ -321,10 +415,16 @@ Get_Custom_Setting()
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers" | \
             "FW_New_Update_Postponement_Days")
-                grep -q "$setting_type" "$SETTINGSFILE" && grep "$setting_type" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
+                grep -q "^$setting_type" "$SETTINGSFILE" && grep "^$setting_type" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
                 ;;
             local)
-                grep -q "FirmwareVersion_setting" "$SETTINGSFILE" && grep "FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
+                grep -q "^FirmwareVersion_setting" "$SETTINGSFILE" && grep "^FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
+                ;;
+            "FW_New_Update_Cron_Job_Schedule")
+                if ! grep -q "^${setting_type}=" "$SETTINGSFILE"
+                then echo "$default_value"
+                else echo "$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                fi
                 ;;
             *)
                 echo "$default_value"
@@ -336,12 +436,14 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-11] ##
+## Modified by Martinski W. [2023-Oct-16] ##
 ##----------------------------------------##
 Update_Custom_Settings()
 {
-    local setting_type="$1"
-    local setting_value="$2"
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
+
+    local fixedVal  oldVal=""
+    local setting_type="$1"  setting_value="$2"
 
     # Check if the directory exists, and if not, create it
     if [ ! -d "$SETTINGS_DIR" ]; then
@@ -355,14 +457,32 @@ Update_Custom_Settings()
         "FW_New_Update_Postponement_Days")
             if [ -f "$SETTINGSFILE" ]; then
                 if [ "$(grep -c "$setting_type" "$SETTINGSFILE")" -gt 0 ]; then
-                    if [ "$setting_value" != "$(grep "$setting_type" "$SETTINGSFILE" | cut -f2 -d' ')" ]; then
+                    if [ "$setting_value" != "$(grep "^$setting_type" "$SETTINGSFILE" | cut -f2 -d' ')" ]; then
                         sed -i "s/$setting_type.*/$setting_type $setting_value/" "$SETTINGSFILE"
                     fi
                 else
                     echo "$setting_type $setting_value" >> "$SETTINGSFILE"
                 fi
             else
-                echo "$setting_type $setting_value" >> "$SETTINGSFILE"
+                echo "$setting_type $setting_value" > "$SETTINGSFILE"
+            fi
+            ;;
+        "FW_New_Update_Cron_Job_Schedule")
+            if [ -f "$SETTINGSFILE" ]
+            then
+                if grep -q "^${setting_type}=" "$SETTINGSFILE"
+                then
+                    oldVal="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                    if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
+                    then
+                        fixedVal="$(echo "$setting_value" | sed 's/[\/.,*-]/\\&/g')"
+                        sed -i "s/${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$SETTINGSFILE"
+                    fi
+                else
+                    echo "$setting_type=\"${setting_value}\"" >> "$SETTINGSFILE"
+                fi
+            else
+                echo "$setting_type=\"${setting_value}\"" > "$SETTINGSFILE"
             fi
             ;;
         *)
@@ -516,6 +636,66 @@ translate_schedule() {
 }
 
 ##-------------------------------------##
+## Added by Martinski W. [2023-Oct-16] ##
+##-------------------------------------##
+_AddCronJobEntry_()
+{
+   local newSchedule  newSetting  retCode=1
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then
+       newSetting=true
+       newSchedule="$1"
+   else
+       newSetting=false
+       newSchedule="$(Get_Custom_Setting "FW_New_Update_Cron_Job_Schedule" "TBD")"
+   fi
+   if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD"  ]
+   then
+       newSetting=true
+       newSchedule="$CRON_SCHEDULE"
+   fi
+
+   cru a "$CRON_JOB_TAG" "$newSchedule $CRON_JOB_RUN"
+   sleep 1
+   if crontab -l | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   then
+       retCode=0
+       if "$newSetting"
+       then
+           Update_Custom_Settings "FW_New_Update_Cron_Job_Schedule" "$newSchedule"
+       fi
+   else
+       ! "$newSetting" && \
+       echo "**ERROR**: Failed to add the cron job [${CRON_JOB_TAG}]."
+   fi
+   echo "$newSchedule" ; return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-16] ##
+##-------------------------------------##
+_DelCronJobEntry_()
+{
+   local retCode
+   if crontab -l | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   then
+       cru d "$CRON_JOB_TAG" ; sleep 1
+       if crontab -l | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+       then
+           retCode=1
+           echo "**ERROR**: Failed to remove cron job [${CRON_JOB_TAG}]."
+       else
+           retCode=0
+           echo "Cron job '${CRON_JOB_TAG}' was removed successfully."
+       fi
+   else
+       retCode=0
+       echo "Cron job '${CRON_JOB_TAG}' does not exist."
+   fi
+   return "$retCode"
+}
+
+##-------------------------------------##
 ## Added by Martinski W. [2023-Oct-12] ##
 ##-------------------------------------##
 _CheckPostponementDays_()
@@ -572,32 +752,32 @@ _SetPostponementDays_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-12] ##
+## Modified by Martinski W. [2023-Oct-16] ##
 ##----------------------------------------##
 # Function to add or change the cron schedule
 change_schedule()
 {
-   printf "Changing Firmware Update Schedule...\n"
+    printf "Changing Firmware Update Schedule...\n"
 
-   local retCode=1  current_schedule=""  new_schedule=""  userInput
-   local current_schedule_line  theExitStr="e=Exit to main menu"
+    local retCode=1  current_schedule=""  new_schedule=""  userInput
+    local current_schedule_line  theExitStr="e=Exit to main menu"
 
-   # Use crontab -l to retrieve all cron jobs and filter for the one containing the script's path
-   current_schedule_line="$(crontab -l | grep "$CRON_JOB")"
+    current_schedule_line="$(Get_Custom_Setting "FW_New_Update_Cron_Job_Schedule" "TBD")"
+    if [ "$current_schedule_line" = "TBD" ] ; then current_schedule_line="" ; fi
 
-   if [ -n "$current_schedule_line" ]; then
-       # Extract the schedule part (the first five fields) from the current cron job line
-       current_schedule="$(echo "$current_schedule_line" | awk '{print $1, $2, $3, $4, $5}')"
-       new_schedule="$current_schedule"
+    if [ -n "$current_schedule_line" ]
+    then
+        # Extract the schedule part (the first five fields) from the current cron job line
+        current_schedule="$(echo "$current_schedule_line" | awk '{print $1, $2, $3, $4, $5}')"
+        new_schedule="$current_schedule"
 
-       # Translate the current schedule to English
-       current_schedule_english="$(translate_schedule "$current_schedule")"
+        # Translate the current schedule to English
+        current_schedule_english="$(translate_schedule "$current_schedule")"
 
-       echo -e "\033[32mCurrent Schedule: ${current_schedule_english}\033[0m"
-   else
-       new_schedule="$CRON_SCHEDULE"
-       echo "Cron job '${CRON_TAG}' does not exist. It will be added."
-   fi
+        echo -e "\033[32mCurrent Schedule: ${current_schedule_english}\033[0m"
+    else
+        new_schedule="$CRON_SCHEDULE"
+    fi
 
     while true; do  # Loop to keep asking for input
         printf "\nEnter new cron job schedule (e.g. '0 0 * * 0' for every Sunday at midnight)"
@@ -631,61 +811,32 @@ change_schedule()
         return 0
     fi
 
-    # Update the cron job in the crontab using the built-in utility.
-    echo "Adding '${CRON_TAG}' cron job..."
-    cru a "$CRON_TAG" "$new_schedule $CRON_JOB" ; sleep 1
-
-    if crontab -l | grep -qF "$CRON_JOB"
+    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+    if [ "$FW_UpdateCheckState" -eq 1 ]
     then
-        retCode=0
-        echo "Cron job '${CRON_TAG}' was updated successfully."
-        current_schedule_english="$(translate_schedule "$new_schedule")"
-        echo -e "\033[32mJob Schedule: $current_schedule_english \033[0m"
-        _SetPostponementDays_
+        # Add/Update cron job ONLY if "F/W Update Check" is enabled #
+        echo "Updating '${CRON_JOB_TAG}' cron job..."
+        if new_schedule="$(_AddCronJobEntry_ "$new_schedule")"
+        then
+            retCode=0
+            echo "Cron job '${CRON_JOB_TAG}' was updated successfully."
+            current_schedule_english="$(translate_schedule "$new_schedule")"
+            echo -e "\033[32mJob Schedule: $current_schedule_english \033[0m"
+            _SetPostponementDays_
+        else
+            retCode=1
+            echo "Failed to update the cron job."
+        fi
     else
-        retCode=1
-        echo "Failed to update the cron job."
+        _SetPostponementDays_
+        Update_Custom_Settings "FW_New_Update_Cron_Job_Schedule" "$new_schedule"
+        echo "Cron job '${CRON_JOB_TAG}' was configured but not added."
+        echo "Firmware Update Check is currently DISABLED."
     fi
 
-    # Return to the main menu
     _WaitForEnterKey_ "$menuReturnPromptStr"
     return "$retCode"
 }
-
-# Check if the router model is supported OR if
-# it has the minimum firmware version supported.
-check_model_support
-check_version_support
-
-##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-12] ##
-##----------------------------------------##
-# Check if the cron job command already exists
-if ! crontab -l | grep -qF "$CRON_JOB"
-then
-   # Add the cron job if it doesn't exist
-   echo "Adding '${CRON_TAG}' cron job..."
-   cru a "$CRON_TAG" "$CRON_SCHEDULE $CRON_JOB" ; sleep 1
-
-   # Verify that the cron job has been added
-   if crontab -l | grep -qF "$CRON_JOB"
-   then
-       echo "Cron job '${CRON_TAG}' was added successfully."
-       current_schedule_english="$(translate_schedule "$CRON_SCHEDULE")"
-       echo -e "\033[32mJob Schedule: $current_schedule_english \033[0m"
-       _SetPostponementDays_
-   else
-       echo "Failed to add the cron job."
-   fi
-   _WaitForEnterKey_
-else
-   echo "Cron job '${CRON_TAG}' already exists."
-   if ! _CheckPostponementDays_
-   then
-       _SetPostponementDays_
-       _WaitForEnterKey_
-   fi
-fi
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Oct-12] ##
@@ -779,11 +930,12 @@ _CheckTimeToUpdateFirmware_()
    return 1
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-12] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-16] ##
+##----------------------------------------------##
 _ToggleFirmwareUpdateCheck_()
 {
+   local newJobSchedule
    local fwUpdateCheckStateStr  runfwUpdateCheck=false
 
    if [ "$FW_UpdateCheckState" -eq 1 ]
@@ -791,11 +943,18 @@ _ToggleFirmwareUpdateCheck_()
        runfwUpdateCheck=false
        FW_UpdateCheckState=0
        fwUpdateCheckStateStr="DISABLED"
+       _DelCronJobEntry_
+       _DelCronJobRunScriptHook_
    else
        if [ -x "$FW_UpdateCheckScript" ]
        then runfwUpdateCheck=true ; fi
        FW_UpdateCheckState=1
        fwUpdateCheckStateStr="ENABLED"
+       if newJobSchedule="$(_AddCronJobEntry_)"
+       then
+           echo "Cron job '${CRON_JOB_TAG}' was added successfully."
+           _AddCronJobRunScriptHook_
+       fi
    fi
 
    nvram set firmware_check_enable="$FW_UpdateCheckState"
@@ -1021,11 +1180,157 @@ fi
     "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-if [ $# -gt 0 ] && [ "$1" = "run_now" ]; then
-    # If the argument is 'run_now' call the run_now function and exit
-    inMenuMode=false
-    _RunNowFirmwareUpdate_
-    exit 0
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-16] ##
+##-------------------------------------##
+_PostRebootRunNow_()
+{
+   _DelPostRebootRunScriptHook_
+
+   local theWaitDelaySecs=10
+   local maxWaitDelaySecs=360  #6 minutes#
+   local curWaitDelaySecs=0
+   #------------------------------------------------------
+   # Wait until all services are started, including NTP
+   # so the system clock is updated with correct time.
+   # By this time the USB drive should be mounted.
+   #------------------------------------------------------
+   while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   do
+      if [ "$(nvram get ntp_ready)" -eq 1 ] && \
+         [ "$(nvram get start_service_ready)" -eq 1 ] && \
+         [ "$(nvram get success_start_service)" -eq 1 ]
+      then break; fi
+
+      echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
+      sleep $theWaitDelaySecs
+      curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
+   done
+
+   _RunNowFirmwareUpdate_
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-16] ##
+##-------------------------------------##
+_DelCronJobRunScriptHook_()
+{
+   local hookScriptFile
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then hookScriptFile="$1"
+   else hookScriptFile="$hookScriptFPath"
+   fi
+   if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
+
+   if grep -qE "$CRON_SCRIPT_JOB" "$hookScriptFile"
+   then
+       sed -i -e '/\/'"$ScriptFileName"' addCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       if [ $? -eq 0 ]
+       then
+           Say "Cron job hook was deleted successfully from '$hookScriptFile' script."
+       fi
+   else
+       echo "Cron job hook does not exist in '$hookScriptFile' script."
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-16] ##
+##-------------------------------------##
+_AddCronJobRunScriptHook_()
+{
+   local hookScriptFile  jobHookAdded=false
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then hookScriptFile="$1"
+   else hookScriptFile="$hookScriptFPath"
+   fi
+
+   if [ ! -f "$hookScriptFile" ]
+   then
+      jobHookAdded=true
+      {
+        echo "#!/bin/sh"
+        echo "# $hookScriptFName"
+        echo "#"
+        echo "$CRON_SCRIPT_HOOK"
+      } > "$hookScriptFile"
+   #
+   elif ! grep -qE "$CRON_SCRIPT_JOB" "$hookScriptFile"
+   then
+      jobHookAdded=true
+      echo "$CRON_SCRIPT_HOOK" >> "$hookScriptFile"
+   fi
+
+   if "$jobHookAdded"
+   then Say "Cron job hook was added successfully to '$hookScriptFile' script."
+   else Say "Cron job hook already exists in '$hookScriptFile' script."
+   fi
+   _WaitForEnterKey_
+}
+
+# Check if the router model is supported OR if
+# it has the minimum firmware version supported.
+check_model_support
+check_version_support
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-16] ##
+##----------------------------------------##
+if [ $# -gt 0 ]
+then
+   inMenuMode=false
+   case $1 in
+       run_now) _RunNowFirmwareUpdate_ ; exit 0
+           ;;
+       addCronJob) _AddCronJobEntry_ ; exit 0
+           ;;
+       postRebootRun) _PostRebootRunNow_ ; exit 0
+           ;;
+
+##FOR TEST/DEBUG ONLY##
+       addPostRebootHook) _AddPostRebootRunScriptHook_ ; exit 0
+           ;;
+##FOR TEST/DEBUG ONLY##
+       delPostRebootHook) _DelPostRebootRunScriptHook_ ; exit 0
+           ;;
+
+       *) echo "INVALID Parameter" ; exit 1
+           ;;
+   esac
+fi
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Oct-16] ##
+##----------------------------------------##
+FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+if [ "$FW_UpdateCheckState" -eq 1 ]
+then
+    # Add cron job ONLY if "F/W Update Check" is enabled #
+    if ! crontab -l | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+    then
+        # Add the cron job if it doesn't exist
+        echo "Adding '${CRON_JOB_TAG}' cron job..."
+        if newJobSchedule="$(_AddCronJobEntry_)"
+        then
+            echo "Cron job '${CRON_JOB_TAG}' was added successfully."
+            current_schedule_english="$(translate_schedule "$newJobSchedule")"
+            echo -e "\033[32mJob Schedule: $current_schedule_english \033[0m"
+            _SetPostponementDays_
+        else
+            echo "Failed to add the cron job."
+        fi
+        _WaitForEnterKey_
+    else
+        echo "Cron job '${CRON_JOB_TAG}' already exists."
+        if ! _CheckPostponementDays_
+        then
+            _SetPostponementDays_
+            _WaitForEnterKey_
+        fi
+    fi
+    _AddCronJobRunScriptHook_
 fi
 
 rog_file=""
