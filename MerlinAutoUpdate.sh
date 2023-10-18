@@ -3,11 +3,11 @@
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Oct-16
+# Last Modified: 2023-Oct-17
 ################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.13"
+readonly SCRIPT_VERSION="0.2.14"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -244,9 +244,9 @@ _DelPostRebootRunScriptHook_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-16] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-17] ##
+##----------------------------------------------##
 _AddPostRebootRunScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
@@ -271,6 +271,7 @@ _AddPostRebootRunScriptHook_()
       jobHookAdded=true
       echo "$POST_REBOOT_SCRIPT_HOOK" >> "$hookScriptFile"
    fi
+   chmod 0755 "$hookScriptFile"
 
    if "$jobHookAdded"
    then Say "Post-reboot run hook was added successfully to '$hookScriptFile' script."
@@ -1235,9 +1236,9 @@ _DelCronJobRunScriptHook_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-16] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Oct-17] ##
+##----------------------------------------------##
 _AddCronJobRunScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
@@ -1262,6 +1263,7 @@ _AddCronJobRunScriptHook_()
       jobHookAdded=true
       echo "$CRON_SCRIPT_HOOK" >> "$hookScriptFile"
    fi
+   chmod 0755 "$hookScriptFile"
 
    if "$jobHookAdded"
    then Say "Cron job hook was added successfully to '$hookScriptFile' script."
