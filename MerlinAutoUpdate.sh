@@ -1,10 +1,10 @@
 #!/bin/sh
-################################################################
+###################################################################
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Nov-19
-################################################################
+# Last Modified: 2023-Nov-20
+###################################################################
 set -u
 
 readonly SCRIPT_VERSION="0.2.15"
@@ -408,7 +408,7 @@ _WaitForEnterKey_()
    fi
 
    printf "\n%s" "$promptStr"
-   read -s EnterKEY ; echo
+   read -rs EnterKEY ; echo
 }
 
 ##----------------------------------##
@@ -418,7 +418,7 @@ _WaitForYESorNO_()
 {
    ! "$isInteractive" && return 0
    printf "$1 [yY|nN] N? "
-   read YESorNO
+   read -r YESorNO
    if echo "$YESorNO" | grep -qE "^([Yy](es)?)$"
    then echo "OK" ; return 0
    else echo "NO" ; return 1
@@ -430,7 +430,7 @@ _WaitForYESorNO_()
 ##----------------------------------------##
 Say(){
    echo -e "$@" | logger $loggerFlags "[$(basename "$0")] $$"
-   "$isInteractive" && printf "${@}\n"
+   "$isInteractive" && printf "${*}\n"
 }
 
 ##-------------------------------------##
@@ -645,7 +645,7 @@ _GetLoginCredentials_()
 
     # Prompt the user only for a password [-s flag hides the password input]
     printf "Enter password for user ${GRNct}${username}${NOct}: "
-    read -s password
+    read -rs password
     echo
     if [ -z "$password" ]
     then
@@ -701,7 +701,7 @@ _GetLatestFWversionFromWebsite_() {
 
     if [ -z "$fileStr" ]
     then versionStr="$(echo "$latest" | cut -d ' ' -f1)"
-    else versionStr="$(echo ${fileStr%.*} | sed "s/\/${MODEL}_//" | sed 's/_/./g')"
+    else versionStr="$(echo "${fileStr%.*}" | sed "s/\/${MODEL}_//" | sed 's/_/./g')"
     fi
 
     # Extracting the correct link from the page
@@ -731,7 +731,7 @@ change_build_type() {
 
         while true; do
             # Use the previous_choice as the default value
-            read -p "Enter your choice [$previous_choice]: " choice
+            read -rp "Enter your choice [$previous_choice]: " choice
 
             # Use the entered choice or the default value if the input is empty
             choice="${choice:-$previous_choice}"
@@ -1043,7 +1043,7 @@ _CheckTimeToUpdateFirmware_()
    notifyTimeStrn="$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')"
    notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
 
-   if [ "$(($currentTimeSecs - $notifyTimeSecs))" -gt "$postponeTimeSecs" ]
+   if [ "$((currentTimeSecs - notifyTimeSecs))" -gt "$postponeTimeSecs" ]
    then return 0 ; fi
 
    upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
@@ -1233,7 +1233,7 @@ if [ -z "$local_value" ]; then
         else
             # Otherwise, prompt the user for their choice
             echo -e "\033[31mFound ROG build: $rog_file. Would you like to use the ROG build? (y/n)\033[0m"
-            read -p "Enter your choice [$previous_choice]: " choice
+            read -rp "Enter your choice [$previous_choice]: " choice
             choice="${choice:-$previous_choice}"
             if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
                 firmware_file="$rog_file"
@@ -1411,15 +1411,15 @@ _AddCronJobRunScriptHook_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-18] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-20] ##
+##----------------------------------------------##
 _DoUninstall_()
 {
    _DelCronJobEntry_
    _DelCronJobRunScriptHook_
    _DelPostRebootRunScriptHook_
-   rm -rf "$SETTINGS_DIR"
+   rm -fr "$SETTINGS_DIR" "$FW_ZIP_DIR" "$FW_BIN_DIR"
    rm -f "$ScriptFilePath"
    echo "Uninstall completed."
    exit 0
