@@ -85,9 +85,9 @@ _GetRouterURL_()
 {
     local urlProto  urlDomain  urlPort
 
-    if [ "$(nvram get http_enable)" = "0" ]
-    then urlProto="http"
-    else urlProto="https"
+    if [ "$(nvram get http_enable)" = "1" ]
+    then urlProto="https"
+    else urlProto="http"
     fi
 
     urlDomain="$(nvram get lan_domain)"
