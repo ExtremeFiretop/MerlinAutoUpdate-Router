@@ -3,11 +3,11 @@
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Nov-20
+# Last Modified: 2023-Nov-21
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.15"
+readonly SCRIPT_VERSION="0.2.16"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -42,58 +42,97 @@ FW_UpdateCheckState="TBD"
 FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-09] ##
+## Modified by Martinski W. [2023-Nov-21] ##
 ##----------------------------------------##
-# Function to toggle LEDs state
+# Background function to create a blinking LED effect #
 Toggle_LEDs()
 {
-	LED_ToggleState="$((! LED_ToggleState))"
-	nvram set led_disable="$LED_ToggleState"
-	service restart_leds > /dev/null 2>&1
-	sleep 2
-	LED_ToggleState="$((! LED_ToggleState))"
-	nvram set led_disable="$LED_ToggleState"
-	service restart_leds > /dev/null 2>&1
-	sleep 1
+   while true
+   do
+      LED_ToggleState="$((! LED_ToggleState))"
+      nvram set led_disable="$LED_ToggleState"
+      service restart_leds > /dev/null 2>&1
+      sleep 2
+      LED_ToggleState="$((! LED_ToggleState))"
+      nvram set led_disable="$LED_ToggleState"
+      service restart_leds > /dev/null 2>&1
+      sleep 2
+   done
 }
 
-construct_url() {
-    local urlproto urldomain urlport
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-21] ##
+##----------------------------------------##
+_Reset_LEDs_()
+{
+   # Check if the process with that PID is still running #
+   if [ -n "$Toggle_LEDs_PID" ] && \
+      kill -EXIT "$Toggle_LEDs_PID" 2>/dev/null
+   then
+       kill -TERM $Toggle_LEDs_PID
+       wait $Toggle_LEDs_PID
+       # Set LEDs to their "initial state" #
+       nvram set led_disable="$LED_InitState"
+       service restart_leds >/dev/null 2>&1
+   fi
+   Toggle_LEDs_PID=""
+}
 
-    if [ "$(nvram get http_enable)" = "1" ]; then
-        urlproto="https"
-    else
-        urlproto="http"
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-21] ##
+##----------------------------------------##
+_GetRouterURL_()
+{
+    local urlProto  urlDomain  urlPort
+
+    if [ "$(nvram get http_enable)" = "0" ]
+    then urlProto="http"
+    else urlProto="https"
     fi
 
-    if [ -n "$(nvram get lan_domain)" ]; then
-        urldomain="$(nvram get lan_hostname).$(nvram get lan_domain)"
-    else
-        urldomain="$(nvram get lan_ipaddr)"
+    urlDomain="$(nvram get lan_domain)"
+    if [ -z "$urlDomain" ]
+    then urlDomain="$(nvram get lan_ipaddr)"
+    else urlDomain="$(nvram get lan_hostname).$urlDomain"
     fi
 
-    if [ "$(nvram get ${urlproto}_lanport)" = "80" ] || [ "$(nvram get ${urlproto}_lanport)" = "443" ]; then
-        urlport=""
-    else
-        urlport=":$(nvram get ${urlproto}_lanport)"
+    urlPort="$(nvram get "${urlProto}_lanport")"
+    if [ "$urlPort" -eq 80 ] || [ "$urlPort" -eq 443 ]
+    then urlPort=""
+    else urlPort=":$urlPort"
     fi
 
-    echo "${urlproto}://${urldomain}${urlport}"
+    echo "${urlProto}://${urlDomain}${urlPort}"
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-05] ##
+## Added/Modified by Martinski W. [2023-Nov-20] ##
 ##----------------------------------------------##
-_GetRouterModel_()
+_GetRouterModelID_()
 {
    local retCode=1  routerModelID=""
-   local nvramModelKeys="productid build_name odmpid"
+   local nvramModelKeys="odmpid wps_modelnum model build_name"
    for nvramKey in $nvramModelKeys
    do
        routerModelID="$(nvram get "$nvramKey")"
        [ -n "$routerModelID" ] && retCode=0 && break
    done
    echo "$routerModelID" ; return "$retCode"
+}
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-20] ##
+##----------------------------------------------##
+_GetRouterProductID_()
+{
+   local retCode=1  routerProductID=""
+   local nvramProductKeys="productid build_name odmpid"
+   for nvramKey in $nvramProductKeys
+   do
+       routerProductID="$(nvram get "$nvramKey")"
+       [ -n "$routerProductID" ] && retCode=0 && break
+   done
+   echo "$routerProductID" ; return "$retCode"
 }
 
 ##-------------------------------------##
@@ -108,8 +147,9 @@ readonly FW_UpdateDefaultPostponementDays=7
 readonly FW_UpdateMaximumPostponementDays=30
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_12:00:00"
 
-readonly MODEL="$(_GetRouterModel_)"
-readonly URL_RELEASE="${URL_BASE}/${MODEL}/${URL_RELEASE_SUFFIX}/"
+readonly MODEL_ID="$(_GetRouterModelID_)"
+readonly PRODUCT_ID="$(_GetRouterProductID_)"
+readonly URL_RELEASE="${URL_BASE}/${PRODUCT_ID}/${URL_RELEASE_SUFFIX}/"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 
@@ -152,14 +192,14 @@ _Init_Custom_Settings_Config_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-18] ##
+## Modified by Martinski W. [2023-Nov-20] ##
 ##----------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
 {
     if [ $# -eq 0 ] || [ -z "$1" ] ; then echo "**ERROR**" ; return 1 ; fi
 
-    local setting_type="$1"  default_value="TBD"
+    local setting_value  setting_type="$1"  default_value="TBD"
 
     [ $# -gt 1 ] && default_value="$2"
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -178,9 +218,12 @@ Get_Custom_Setting()
             "FW_New_Update_Cron_Job_Schedule" | \
             "FW_New_Update_ZIP_Directory_Path")
                 if ! grep -q "^${setting_type}=" "$SETTINGSFILE"
-                then echo "$default_value"
-                else echo "$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                then
+                    setting_value="$default_value"
+                else
+                    setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
                 fi
+                echo "$setting_value"
                 ;;
             *)
                 echo "$default_value"
@@ -347,7 +390,7 @@ _Init_Custom_Settings_Config_
 FW_BIN_SETUP_DIR="$FW_Update_ZIP_DefaultSetupDIR"
 FW_ZIP_SETUP_DIR="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)"
 
-readonly FW_FileName="${MODEL}_firmware"
+readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_BIN_DIR="${FW_BIN_SETUP_DIR}/$FW_FileName"
 
 FW_ZIP_DIR="${FW_ZIP_SETUP_DIR}/$FW_FileName"
@@ -395,7 +438,7 @@ if [ -n "$(tty)" ] && [ -n "$PS1" ]
 then isInteractive=true ; fi
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-12] ##
+## Added/Modified by Martinski W. [2023-Nov-20] ##
 ##----------------------------------------------##
 _WaitForEnterKey_()
 {
@@ -407,7 +450,7 @@ _WaitForEnterKey_()
    else promptStr="Press Enter to continue..."
    fi
 
-   printf "\n%s" "$promptStr"
+   printf "\n${promptStr}"
    read -rs EnterKEY ; echo
 }
 
@@ -429,7 +472,7 @@ _WaitForYESorNO_()
 ## Modified by Martinski W. [2023-Oct-12] ##
 ##----------------------------------------##
 Say(){
-   echo -e "$@" | logger $loggerFlags "[$(basename "$0")] $$"
+   printf "$@" | logger $loggerFlags "[$(basename "$0")] $$"
    "$isInteractive" && printf "${*}\n"
 }
 
@@ -514,12 +557,27 @@ _AddPostRebootRunScriptHook_()
    _WaitForEnterKey_
 }
 
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-20] ##
+##----------------------------------------------##
+_GetCurrentFWLongVersionInstalled_()
+{
+   local theBranchVers  theVersionStr
+
+   theBranchVers="$(nvram get firmver | sed 's/\.//g')"
+   theVersionStr="$(nvram get buildno).$(nvram get extendno)"
+   [ -n "$theBranchVers" ] && theVersionStr="${theBranchVers}.${theVersionStr}"
+
+   echo "$theVersionStr" ; return 0
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-05] ##
+## Modified by Martinski W. [2023-Nov-20] ##
 ##----------------------------------------##
-get_current_firmware() {
-    local current_version="$(nvram get buildno).$(nvram get extendno)"
-    echo "$current_version"
+_GetCurrentFWShortVersionInstalled_()
+{
+    local theVersionStr="$(nvram get buildno).$(nvram get extendno)"
+    echo "$theVersionStr"
 }
 
 get_free_ram() {
@@ -553,17 +611,16 @@ check_memory_and_reboot() {
     fi
 }
 
-cleanup() {
-    # Check if Toggle_LEDs_PID is set and if the process with that PID is still running
-    if [ -n "$Toggle_LEDs_PID" ] && kill -0 "$Toggle_LEDs_PID" 2>/dev/null; then
-        kill -15 "$Toggle_LEDs_PID"  # Terminate the background Toggle_LEDs process
-        # Set LEDs to their "initial state" #
-        nvram set led_disable="$LED_InitState"
-        service restart_leds > /dev/null 2>&1
-    fi
-    
-    # Additional cleanup operations can be added here if needed
-	exit 1
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-20] ##
+##----------------------------------------##
+_DoCleanUp_()
+{
+   # Stop the LEDs blinking #
+   _Reset_LEDs_
+
+   # Additional cleanup operations can be added here if needed #
+   exit 1
 }
 
 print_center() {
@@ -603,7 +660,7 @@ check_version_support() {
     local minimum_supported_version="386.11.0"
 
     # Get the current firmware version
-    local current_version="$(get_current_firmware)"
+    local current_version="$(_GetCurrentFWShortVersionInstalled_)"
 
     local numFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
     local numCurrentVers="$(_VersionFormatToNumber_ "$current_version" "$numFields")"
@@ -612,8 +669,8 @@ check_version_support() {
     # If the current firmware version is lower than the minimum supported firmware version, exit.
     if [ "$numCurrentVers" -lt "$numMinimumVers" ]
     then
-        Say "\033[31mThe installed firmware version '$current_version' is below '$minimum_supported_version' which is the minimum supported version required.\033[0m" 
-        Say "\033[31mExiting...\033[0m"
+        Say "${REDct}The installed firmware version '$current_version' is below '$minimum_supported_version' which is the minimum supported version required.${NOct}" 
+        Say "${REDct}Exiting...${NOct}"
         exit 1
     fi
 }
@@ -623,7 +680,7 @@ check_model_support() {
     local unsupported_models="RT-AC68U"
 
     # Get the current model
-    local current_model="$(_GetRouterModel_)"
+    local current_model="$(_GetRouterProductID_)"
 
     # Check if the current model is in the list of unsupported models
     if echo "$unsupported_models" | grep -wq "$current_model"; then
@@ -634,14 +691,15 @@ check_model_support() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-19] ##
+## Modified by Martinski W. [2023-Nov-20] ##
 ##----------------------------------------##
 _GetLoginCredentials_()
 {
     echo "=== Login Credentials ==="
+    local username  password  credsBase64
 
     # Get the username from nvram
-    local username="$(nvram get http_username)"
+    username="$(nvram get http_username)"
 
     # Prompt the user only for a password [-s flag hides the password input]
     printf "Enter password for user ${GRNct}${username}${NOct}: "
@@ -654,27 +712,27 @@ _GetLoginCredentials_()
         return 1
     fi
 
-    # Encode the username and password in Base64
-    credentials_base64="$(echo -n "${username}:${password}" | openssl base64)"
-    
-    # Use Update_Custom_Settings to save the credentials to the SETTINGSFILE
-    Update_Custom_Settings "credentials_base64" "$credentials_base64"
-    
+    # Encode the username and password in Base64 #
+    credsBase64="$(echo -n "${username}:${password}" | openssl base64 -A)"
+
+    # Save the credentials to the SETTINGSFILE #
+    Update_Custom_Settings credentials_base64 "$credsBase64"
+
     echo "Credentials saved."
     _WaitForEnterKey_ "$menuReturnPromptStr"
     return 0
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-13] ##
+## Added/Modified by Martinski W. [2023-Nov-20] ##
 ##----------------------------------------------##
-_GetLatestFWversionFromRouter_()
+_GetLatestFWUpdateVersionFromRouter_()
 {
    local retCode=0  newVersionStr
    if [ "$(nvram get webs_state_flag)" -eq 0 ]
    then retCode=1 ; fi
 
-   newVersionStr="$(echo "$(nvram get webs_state_info)" | sed 's/_/./g')"
+   newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
    if [ -z "$newVersionStr" ]
    then echo "" ; retCode=1
    else echo "$newVersionStr"
@@ -683,12 +741,13 @@ _GetLatestFWversionFromRouter_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-05] ##
+## Modified by Martinski W. [2023-Nov-20] ##
 ##----------------------------------------##
-_GetLatestFWversionFromWebsite_() {
+_GetLatestFWUpdateVersionFromWebsite_()
+{
     local url="$1"
 
-    local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$MODEL"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | 
+    local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | 
         awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
 
     if [ -z "$links_and_versions" ]
@@ -696,12 +755,12 @@ _GetLatestFWversionFromWebsite_() {
 
     local latest="$(echo "$links_and_versions" | tail -n 1)"
     local linkStr="$(echo "$latest" | cut -d' ' -f2-)"
-    local fileStr="$(echo "$linkStr" | grep -oE "/${MODEL}_[0-9]+.*.zip$")"
+    local fileStr="$(echo "$linkStr" | grep -oE "/${PRODUCT_ID}_[0-9]+.*.zip$")"
     local versionStr
 
     if [ -z "$fileStr" ]
     then versionStr="$(echo "$latest" | cut -d ' ' -f1)"
-    else versionStr="$(echo "${fileStr%.*}" | sed "s/\/${MODEL}_//" | sed 's/_/./g')"
+    else versionStr="$(echo "${fileStr%.*}" | sed "s/\/${PRODUCT_ID}_//" | sed 's/_/./g')"
     fi
 
     # Extracting the correct link from the page
@@ -727,7 +786,7 @@ change_build_type() {
     pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
 
     if [ -n "$rog_file" ]; then
-        echo -e "\033[31mFound ROG build: $rog_file. Would you like to use the ROG build? (y/n)\033[0m"
+        printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
 
         while true; do
             # Use the previous_choice as the default value
@@ -792,7 +851,7 @@ _AddCronJobEntry_()
        newSetting=false
        newSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
    fi
-   if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD"  ]
+   if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD" ]
    then
        newSchedule="$FW_Update_CRON_DefaultSchedule"
    fi
@@ -1103,13 +1162,14 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-18] ##
+## Modified by Martinski W. [2023-Nov-21] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
-    Say "Running the task now... Checking for updates..."
+    Say "Running the task now... Checking for F/W updates..."
 
+    local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
     local current_version=""  release_version=""
 
@@ -1121,7 +1181,7 @@ _RunFirmwareUpdateNow_()
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(get_current_firmware)"	
+    current_version="$(_GetCurrentFWShortVersionInstalled_)"	
     ###current_version="388.3.0"
 
     #---------------------------------------------------------#
@@ -1144,16 +1204,16 @@ _RunFirmwareUpdateNow_()
     # "New F/W Release Version" from the router itself.
     # If no new F/W version update is available exit.
     #------------------------------------------------------
-    if ! release_version="$(_GetLatestFWversionFromRouter_)" || \
+    if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
        ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
     then
-        Say "No new firmware version update is found for [$MODEL] router model."
+        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
 
     # Use set to read the output of the function into variables
-    set -- $(_GetLatestFWversionFromWebsite_ "$URL_RELEASE")
+    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$URL_RELEASE")
     release_version="$1"
     release_link="$2"
 
@@ -1164,7 +1224,7 @@ _RunFirmwareUpdateNow_()
 
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
     then
-        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$MODEL] router model."
+        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
@@ -1175,16 +1235,21 @@ _RunFirmwareUpdateNow_()
         return 0
     fi
 
+    ## Check for Login Credentials ##
+    credsBase64="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
+
     # Compare versions before deciding to download
-    if [ "$releaseVersionNum" -gt "$currentVersionNum" ]; then
-
-		# Start a loop to create a blinking LED effect while checking for updates
-		while true ; do Toggle_LEDs ; done &
-
-		# Capture the background loop's PID
-		Toggle_LEDs_PID=$!
-
-		trap cleanup EXIT INT TERM
+    if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
+    then
+        # Background function to create a blinking LED effect #
+        Toggle_LEDs & Toggle_LEDs_PID=$!
+        trap "_DoCleanUp_; exit 0" EXIT HUP INT QUIT TERM
 
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
@@ -1199,11 +1264,8 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-    # Extracting the firmware
-    unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
-
-    # If unzip was successful delete the zip file, else error out.
-    if [ $? -eq 0 ]
+    # Extracting the firmware binary image
+    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
     then
         rm -f "$FW_ZIP_FPATH"
     else
@@ -1232,7 +1294,7 @@ if [ -z "$local_value" ]; then
             Update_Custom_Settings "local" "n"
         else
             # Otherwise, prompt the user for their choice
-            echo -e "\033[31mFound ROG build: $rog_file. Would you like to use the ROG build? (y/n)\033[0m"
+            printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
             read -rp "Enter your choice [$previous_choice]: " choice
             choice="${choice:-$previous_choice}"
             if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
@@ -1266,39 +1328,36 @@ fi
         fi
     fi
 
-    # Flashing the chosen firmware
-
-    # Use Get_Custom_Setting to retrieve the previous choice
-    previous_creds="$(Get_Custom_Setting "credentials_base64")"
-
-    # Debug: Print the LAN IP to ensure it's being set correctly
-    echo "Debug Web URL is: $(construct_url) "
+    routerURLstr="$(_GetRouterURL_)"
+    # DEBUG: Print the LAN IP to ensure it's being set correctly
+    printf "\n**DEBUG**: Router Web URL is: ${routerURLstr}\n"
 
     check_memory_and_reboot
 
     Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please Wait for Reboot.${NOct}"
     echo
 
-    curl_response="$(curl "$(construct_url)/login.cgi" \
-    --referer $(construct_url)/Main_Login.asp \
+    curl_response="$(curl "${routerURLstr}/login.cgi" \
+    --referer ${routerURLstr}/Main_Login.asp \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
     -H 'Content-Type: application/x-www-form-urlencoded' \
-    -H "Origin: $(construct_url)/" \
+    -H "Origin: ${routerURLstr}/" \
     -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${previous_creds}" \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsBase64}" \
     --cookie-jar /tmp/cookie.txt)"
 
     # IMPORTANT: Due to the nature of 'nohup' and the specific behavior of this 'curl' request,
     # the following 'curl' command MUST always be the last step in this block.
     # Do NOT insert any operations after it! (unless you understand the implications).
 
-    if echo "$curl_response" | grep -q 'url=index.asp'; then
-        nohup curl "$(construct_url)/upgrade.cgi" \
-        --referer $(construct_url)/Advanced_FirmwareUpgrade_Content.asp \
+    if echo "$curl_response" | grep -q 'url=index.asp'
+    then
+        nohup curl "${routerURLstr}/upgrade.cgi" \
+        --referer ${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
         -H 'Accept-Language: en-US,en;q=0.5' \
-        -H "Origin: $(construct_url)/" \
+        -H "Origin: ${routerURLstr}/" \
         -F 'current_page=Advanced_FirmwareUpgrade_Content.asp' \
         -F 'next_page=' \
         -F 'action_mode=' \
@@ -1310,19 +1369,18 @@ fi
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
         sleep 60
     else
-        Say "${REDct}**ERROR**${NOct}: Login failed. Please confirm credentials by selecting: 1. Configure Login Credentials"
+        Say "${REDct}**ERROR**${NOct}: Login failed. Please confirm credentials by selecting \"1. Configure Router Login Credentials\" from the Main Menu."
+        rm -f "${FW_BIN_DIR}"/*  #Cleanup directory#
     fi
-    # Stop the LED blinking after the update is completed
-    kill -15 "$Toggle_LEDs_PID" # Terminate the background toggle_led loop	
 
-    # Set LEDs to their "initial state" #
-    nvram set led_disable="$LED_InitState"
-    service restart_leds > /dev/null 2>&1
+    # Stop the LEDs blinking #
+    _Reset_LEDs_
+
     "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2023-Nov-19] ##
+## Added by Martinski W. [2023-Nov-20] ##
 ##-------------------------------------##
 _PostRebootRunNow_()
 {
@@ -1338,7 +1396,8 @@ _PostRebootRunNow_()
    #---------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
-      if [ "$(nvram get ntp_ready)" -eq 1 ] && \
+      if [ -d "$FW_ZIP_SETUP_DIR" ] && \
+         [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
       then sleep 30 ; break; fi
@@ -1425,6 +1484,18 @@ _DoUninstall_()
    exit 0
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Nov-21] ##
+##-------------------------------------##
+# Prevent running this script multiple times simultaneously #
+procCount="$(ps -w | grep "$ScriptFileName" | grep -vE "grep ${ScriptFileName}|^[[:blank:]]*$$[[:blank:]]+" | wc -l)"
+if [ "$procCount" -gt 1 ]
+then
+    printf "\n${REDct}**ERROR**${NOct}: The shell script '${ScriptFileName}' is already running [$procCount]. Exiting..."
+    _WaitForEnterKey_
+    exit 1
+fi
+
 # Check if the router model is supported OR if
 # it has the minimum firmware version supported.
 check_model_support
@@ -1490,22 +1561,42 @@ fi
 
 rog_file=""
 
+FW_RouterProductID="${GRNct}${PRODUCT_ID}${NOct}"
+if [ "$PRODUCT_ID" = "$MODEL_ID" ]
+then FW_RouterModelID="${FW_RouterProductID}"
+else FW_RouterModelID="${FW_RouterProductID}/${GRNct}${MODEL_ID}${NOct}"
+fi
+
+FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
+FW_InstalledVersion="${GRNct}$(_GetCurrentFWLongVersionInstalled_)${NOct}"
+
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-19] ##
+## Modified by Martinski W. [2023-Nov-21] ##
 ##----------------------------------------##
 show_menu()
 {
    clear
    SEPstr="---------------------------------------------------"
-   echo -e "\033[1;36m===== Merlin Auto Update Main Menu =====\033[0m"
-   echo -e "\033[1;35m========== By ExtremeFiretop ===========\033[0m"
-   echo -e "\033[1;33m============ Contributors: =============\033[0m"
-   echo -e "\033[1;33m"
+   printf "\033[1;36m===== Merlin Auto Update Main Menu =====${NOct}\n"
+   printf "\033[1;35m========== By ExtremeFiretop ===========${NOct}\n"
+   printf "\033[1;33m============ Contributors: =============${NOct}\n"
+   printf "\033[1;33m"
    print_center 'Martinski W.'
    print_center 'Dave14305'
-   echo -e "\033[0m"  # Reset color
+   printf "${NOct}\n"
 
+   padStr="      "
    printf "${SEPstr}"
+
+   if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
+   then FW_NewUpdateVersion="${REDct}NONE FOUND${NOct}"
+   else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}"
+   fi
+   printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID"
+   printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
+   printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
+
+   printf "\n\n${SEPstr}"
    printf "\n  ${GRNct}1${NOct}.  Configure Router Login Credentials\n"
    printf "\n  ${GRNct}2${NOct}.  Run Update F/W Check Now\n"
 
@@ -1590,7 +1681,7 @@ do
            else _WaitForEnterKey_
            fi
            ;;
-       e) exit 0
+       e|exit) exit 0
           ;;
        *) printf "${REDct}INVALID selection.${NOct} Please try again."
           _WaitForEnterKey_
