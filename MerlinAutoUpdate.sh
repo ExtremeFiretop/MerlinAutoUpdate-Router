@@ -2,12 +2,13 @@
 ###################################################################
 # MerlinAutoUpdate.sh
 #
-# Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Nov-22
+# Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
+# Official Co-Author: @Martinski W. - Date: 2021-Nov-01
+# Last Modified: 2023-Nov-23
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.16"
+readonly SCRIPT_VERSION="0.2.17"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -145,10 +146,11 @@ _GetRouterProductID_()
    echo "$routerProductID" ; return "$retCode"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-18] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-23] ##
+##------------------------------------------##
 readonly FW_Update_ZIP_DefaultSetupDIR="/home/root"
+readonly FW_LOG_DIR_DefaultDIR="/jffs/logs"
 readonly FW_Update_CRON_DefaultSchedule="0 0 * * 0"
 
 # To postpone a firmware update for a few days #
@@ -163,9 +165,9 @@ readonly URL_RELEASE="${URL_BASE}/${PRODUCT_ID}/${URL_RELEASE_SUFFIX}/"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-18] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-23] ##
+##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -178,6 +180,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays"
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
+		 echo "FW_New_Log_Directory_Path=\"${FW_LOG_DIR_DefaultDIR}\""
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -198,12 +201,18 @@ _Init_Custom_Settings_Config_()
        sed -i "3 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^FW_New_Log_Directory_Path=" "$SETTINGSFILE"
+   then
+       sed -i "4 i FW_New_Log_Directory_Path=\"${FW_LOG_DIR_DefaultDIR}\"" "$SETTINGSFILE"
+       retCode=1
+       # Default log directory path can be changed as needed
+   fi
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-20] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-23] ##
+##------------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
 {
@@ -226,7 +235,8 @@ Get_Custom_Setting()
                 ;;
             "FW_New_Update_Postponement_Days" | \
             "FW_New_Update_Cron_Job_Schedule" | \
-            "FW_New_Update_ZIP_Directory_Path")
+            "FW_New_Update_ZIP_Directory_Path" | \
+            "FW_New_Log_Directory_Path")  # Added this line
                 if ! grep -q "^${setting_type}=" "$SETTINGSFILE"
                 then
                     setting_value="$default_value"
@@ -244,9 +254,9 @@ Get_Custom_Setting()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-23] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -275,7 +285,8 @@ Update_Custom_Settings()
             ;;
         "FW_New_Update_Postponement_Days" | \
         "FW_New_Update_Cron_Job_Schedule" | \
-        "FW_New_Update_ZIP_Directory_Path")
+        "FW_New_Update_ZIP_Directory_Path" | \
+        "FW_New_Log_Directory_Path")  # Added this line
             if [ -f "$SETTINGSFILE" ]
             then
                 if grep -q "^${setting_type}=" "$SETTINGSFILE"
@@ -305,6 +316,9 @@ Update_Custom_Settings()
             elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
             then
                 FW_UpdateCronJobSchedule="$setting_value"
+			elif [ "$setting_type" = "FW_New_Log_Directory_Path" ] # Addition for handling log directory path
+			then
+				LOG_BASE_DIR="$setting_value"
             fi
             ;;
         *)
@@ -313,9 +327,73 @@ Update_Custom_Settings()
     esac
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-19] ##
-##-------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2023-Nov-23] ##
+##---------------------------------------##
+
+_Set_Log_DirectoryPath_()
+{
+   local newLogDirPath="$LOG_BASE_DIR"  newLogFileDirPath=""
+
+   while true
+   do
+      printf "\nEnter the directory path where the log files will be stored.\n"
+      printf "[${theExitStr}] [CURRENT: ${GRNct}${LOG_BASE_DIR}${NOct}]:  "
+      read -r userInput
+
+      if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+      then break ; fi
+	  
+      if echo "$userInput" | grep -q '/$'
+      then userInput="${userInput%/*}" ; fi
+
+      if echo "$userInput" | grep -q '//'   || \
+         echo "$userInput" | grep -q '/$'   || \
+         ! echo "$userInput" | grep -q '^/' || \
+         [ "${#userInput}" -lt 4 ]          || \
+         [ "$(echo "$userInput" | awk -F '/' '{print NF-1}')" -lt 2 ]
+      then
+          printf "${REDct}INVALID input.${NOct}\n"
+          continue
+      fi
+
+      if [ -d "$userInput" ]
+      then newLogDirPath="$userInput" ; break ; fi
+
+      rootDir="${userInput%/*}"
+      if [ ! -d "$rootDir" ]
+      then
+          printf "\n${REDct}**ERROR**${NOct}: Root directory path [${REDct}${rootDir}${NOct}] does NOT exist.\n\n"
+          printf "${REDct}INVALID input.${NOct}\n"
+          continue
+      fi
+
+      printf "The directory path '${REDct}${userInput}${NOct}' does NOT exist.\n\n"
+      if ! _WaitForYESorNO_ "Do you want to create it now"
+      then
+          printf "Directory was ${REDct}NOT${NOct} created.\n\n"
+      else
+          mkdir -m 755 "$userInput" 2>/dev/null
+          if [ -d "$userInput" ]
+          then newLogDirPath="$userInput" ; break
+          else printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${userInput}${NOct}].\n\n"
+          fi
+      fi
+   done
+
+  if [ "$newLogDirPath" != "$LOG_BASE_DIR" ] && [ -d "$newLogDirPath" ]
+  then
+  # Update the log directory path after validation
+   Update_Custom_Settings FW_New_Log_Directory_Path "$newLogDirPath"
+   echo "The directory path for the log files was updated successfully."
+       _WaitForEnterKey_ "$menuReturnPromptStr"
+   fi
+   return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-23] ##
+##------------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
    local newZIP_SetupDirPath="$FW_ZIP_SETUP_DIR"  newZIP_FileDirPath="" 
@@ -323,7 +401,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
    while true
    do
       printf "\nEnter the directory path where the Firmware ZIP file will be stored.\n"
-      printf "[${theExitStr}] [DEFAULT: ${GRNct}${FW_ZIP_SETUP_DIR}${NOct}]:  "
+      printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_ZIP_SETUP_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
@@ -388,9 +466,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
 _Init_Custom_Settings_Config_
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-18] ##
-##----------------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-23] ##
+##------------------------------------------##
 # NOTE:
 # Depending on available RAM & storage capacity of the 
 # target router, it may be required to have USB-attached 
@@ -399,6 +477,7 @@ _Init_Custom_Settings_Config_
 #-----------------------------------------------------------
 FW_BIN_SETUP_DIR="$FW_Update_ZIP_DefaultSetupDIR"
 FW_ZIP_SETUP_DIR="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)"
+LOG_BASE_DIR="$(Get_Custom_Setting FW_New_Log_Directory_Path)"
 
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_BIN_DIR="${FW_BIN_SETUP_DIR}/$FW_FileName"
@@ -1198,19 +1277,23 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-21] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-23] ##
+##------------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
+	 # Define log file
+    LOG_BASE_DIR="$(Get_Custom_Setting FW_New_Log_Directory_Path)"
+    LOG_FILE="${LOG_BASE_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+
     Say "Running the task now... Checking for F/W updates..."
 
     local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
     local current_version=""  release_version=""
-
-    # Create directory for downloading & extracting firmware #
+	    
+	# Create directory for downloading & extracting firmware #
     if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
 
     # In case ZIP directory is different from BIN directory #
@@ -1249,6 +1332,9 @@ _RunFirmwareUpdateNow_()
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
+
+    # Redirect output and error to log file
+    {
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$URL_RELEASE")
@@ -1416,6 +1502,8 @@ fi
         Say "${REDct}**ERROR**${NOct}: Login failed. Please confirm credentials by selecting \"1. Configure Router Login Credentials\" from the Main Menu."
         _DoCleanUp_ 1
     fi
+
+	} 2>&1 | tee -a "$LOG_FILE"  # Redirect both stdout and stderr to tee
 
     # Stop the LEDs blinking #
     _Reset_LEDs_
@@ -1613,18 +1701,18 @@ fi
 FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-21] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-23] ##
+##------------------------------------------##
 show_menu()
 {
    clear
    SEPstr="---------------------------------------------------"
    printf "\033[1;36m===== Merlin Auto Update Main Menu =====${NOct}\n"
    printf "\033[1;35m========== By ExtremeFiretop ===========${NOct}\n"
+   printf "\033[1;35m============ & Martinski W. ============${NOct}\n"
    printf "\033[1;33m============ Contributors: =============${NOct}\n"
    printf "\033[1;33m"
-   print_center 'Martinski W.'
    print_center 'Dave14305'
    printf "${NOct}\n"
 
@@ -1663,6 +1751,9 @@ show_menu()
 
    printf "\n  ${GRNct}6${NOct}.  Set Directory Path for F/W Update ZIP File"
    printf "\n      [Current Path: ${GRNct}${FW_ZIP_SETUP_DIR}${NOct}]\n"
+   
+   printf "\n  ${GRNct}7${NOct}.  Set Directory Path for Log Files"
+   printf "\n      [Current Path: ${GRNct}${LOG_BASE_DIR}${NOct}]\n"
 
    # Check if the directory exists before attempting to navigate to it
    if [ -d "$FW_BIN_DIR" ]
@@ -1682,9 +1773,9 @@ show_menu()
    printf "${SEPstr}\n"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-19] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-23] ##
+##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
 theExitStr="${GRNct}e${NOct}=Exit to main menu"
@@ -1715,7 +1806,9 @@ do
           ;;
        6) _Set_FW_UpdateZIP_DirectoryPath_
           ;;
-       7) if [ -n "$rog_file" ]
+	   7) _Set_Log_DirectoryPath_
+		  ;;
+       8) if [ -n "$rog_file" ]
           then change_build_type ; break ; fi
           printf "${REDct}INVALID selection.${NOct} Please try again."
           _WaitForEnterKey_
