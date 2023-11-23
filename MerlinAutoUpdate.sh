@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.17"
+readonly SCRIPT_VERSION="0.2.18"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -146,11 +146,29 @@ _GetRouterProductID_()
    echo "$routerProductID" ; return "$retCode"
 }
 
+##---------------------------------------##
+## Added by Martinski W. [2023-Nov-18]   ##
+## Moved by ExtremeFiretop [2023-Nov-23] ##
+##---------------------------------------##
+readonly NOct="\033[0m"  
+readonly REDct="\033[0;31m\033[1m"  
+readonly GRNct="\033[1;32m\033[1m"
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2023-Nov-23] ##
 ##------------------------------------------##
-readonly FW_Update_ZIP_DefaultSetupDIR="/home/root"
-readonly FW_LOG_DIR_DefaultDIR="/jffs/logs"
+# Check /proc/mounts for any mounted USB drives and get their device names
+usb_devices=$(grep '/mnt/' /proc/mounts | awk '{print $2}')
+
+if [ -n "$usb_devices" ]; then
+	USBConnected="${GRNct}True"
+	readonly FW_Update_ZIP_DefaultSetupDIR="$usb_devices/MerlinAutoUpdate"
+	readonly FW_LOG_DIR_DefaultDIR="$usb_devices/MerlinAutoUpdate/logs"
+else
+    USBConnected="${REDct}False"
+	readonly FW_Update_ZIP_DefaultSetupDIR="/home/root"
+	readonly FW_LOG_DIR_DefaultDIR="/jffs/addons/MerlinAutoUpdate/logs"
+fi
 readonly FW_Update_CRON_DefaultSchedule="0 0 * * 0"
 
 # To postpone a firmware update for a few days #
@@ -508,12 +526,13 @@ readonly CRON_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $CRON_SCRIPT_JOB"
 readonly POST_REBOOT_SCRIPT_JOB="sh $ScriptFilePath postRebootRun &  $hookScriptTagStr"
 readonly POST_REBOOT_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_REBOOT_SCRIPT_JOB"
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-18] ##
-##-------------------------------------##
-readonly NOct="\033[0m"  
-readonly REDct="\033[0;31m\033[1m"  
-readonly GRNct="\033[1;32m\033[1m"
+if [ ! -d "$FW_LOG_DIR_DefaultDIR" ]
+    then
+	 mkdir -p -m 755 "$FW_LOG_DIR_DefaultDIR"
+	else
+	# Log rotation - delete logs older than 30 days
+	find "$LOG_BASE_DIR" -name '*.log' -mtime +30 -exec rm {} \;
+    fi
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Oct-12] ##
@@ -1333,30 +1352,30 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-    # Redirect output and error to log file
-    {
-
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$URL_RELEASE")
     release_version="$1"
     release_link="$2"
-
+	
     # Extracting the first octet to use in the curl
     firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
     # Inserting dots between each number
     dottedVersion="$(echo "$firstOctet" | sed 's/./&./g' | sed 's/.$//')"
+	
+	if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
+    then
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 0
+    fi
+	
+	# Redirect output and error to log file
+    {
 
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
     then
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
-    fi
-
-    if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
-    then
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 0
     fi
 
     ## Check for Login Credentials ##
@@ -1726,6 +1745,7 @@ show_menu()
    printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID"
    printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
    printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
+   printf "\n${padStr}USB Storage Connected: $USBConnected"
 
    printf "\n\n${SEPstr}"
    printf "\n  ${GRNct}1${NOct}.  Configure Router Login Credentials\n"
