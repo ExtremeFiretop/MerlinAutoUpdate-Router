@@ -3,7 +3,7 @@
 # MerlinAutoUpdate.sh
 #
 # Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Last Modified: 2023-Nov-21
+# Last Modified: 2023-Nov-22
 ###################################################################
 set -u
 
@@ -29,6 +29,9 @@ else
    ScriptFilePath="$(pwd)/$ScriptFileName"
 fi
 
+cronCmd="$(which crontab) -l"
+[ "$cronCmd" = " -l" ] && cronCmd="$(which cru) l"
+
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Nov-18] ##
 ##----------------------------------------------##
@@ -42,11 +45,17 @@ FW_UpdateCheckState="TBD"
 FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-21] ##
+## Modified by Martinski W. [2023-Nov-22] ##
 ##----------------------------------------##
 # Background function to create a blinking LED effect #
 Toggle_LEDs()
 {
+   if [ -z "$LED_ToggleState" ]
+   then
+       sleep 1
+       Toggle_LEDs_PID=""
+       return 1
+   fi
    while true
    do
       LED_ToggleState="$((! LED_ToggleState))"
@@ -58,6 +67,7 @@ Toggle_LEDs()
       service restart_leds > /dev/null 2>&1
       sleep 2
    done
+   return 0
 }
 
 ##----------------------------------------##
@@ -211,7 +221,7 @@ Get_Custom_Setting()
             "FW_New_Update_Notification_Vers")
                 grep -q "^$setting_type" "$SETTINGSFILE" && grep "^$setting_type" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
                 ;;
-            local)
+            "local")
                 grep -q "^FirmwareVersion_setting" "$SETTINGSFILE" && grep "^FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
                 ;;
             "FW_New_Update_Postponement_Days" | \
@@ -450,18 +460,24 @@ _WaitForEnterKey_()
    else promptStr="Press Enter to continue..."
    fi
 
-   printf "\n${promptStr}"
+   printf "\n$promptStr"
    read -rs EnterKEY ; echo
 }
 
 ##----------------------------------##
-## Added Martinski W. [2023-Oct-12] ##
+## Added Martinski W. [2023-Nov-22] ##
 ##----------------------------------##
 _WaitForYESorNO_()
 {
    ! "$isInteractive" && return 0
-   printf "$1 [yY|nN] N? "
-   read -r YESorNO
+   local promptStr
+
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then promptStr="[yY|nN] N? "
+   else promptStr="$1 [yY|nN] N? "
+   fi
+
+   printf "$promptStr" ; read -r YESorNO
    if echo "$YESorNO" | grep -qE "^([Yy](es)?)$"
    then echo "OK" ; return 0
    else echo "NO" ; return 1
@@ -558,25 +574,34 @@ _AddPostRebootRunScriptHook_()
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-20] ##
+## Added/Modified by Martinski W. [2023-Nov-22] ##
 ##----------------------------------------------##
-_GetCurrentFWLongVersionInstalled_()
+_GetCurrentFWInstalledLongVersion_()
 {
-   local theBranchVers  theVersionStr
+   local theBranchVers  theVersionStr  extVersNum
 
    theBranchVers="$(nvram get firmver | sed 's/\.//g')"
-   theVersionStr="$(nvram get buildno).$(nvram get extendno)"
+
+   extVersNum="$(nvram get extendno)"
+   [ -z "$extVersNum" ] && extVersNum=0
+
+   theVersionStr="$(nvram get buildno).$extVersNum"
    [ -n "$theBranchVers" ] && theVersionStr="${theBranchVers}.${theVersionStr}"
 
-   echo "$theVersionStr" ; return 0
+   echo "$theVersionStr"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-20] ##
+## Modified by Martinski W. [2023-Nov-22] ##
 ##----------------------------------------##
-_GetCurrentFWShortVersionInstalled_()
+_GetCurrentFWInstalledShortVersion_()
 {
-    local theVersionStr="$(nvram get buildno).$(nvram get extendno)"
+    local theVersionStr  extVersNum
+
+    extVersNum="$(nvram get extendno | awk -F '-' '{print $1}')"
+    [ -z "$extVersNum" ] && extVersNum=0
+
+    theVersionStr="$(nvram get buildno).$extVersNum"
     echo "$theVersionStr"
 }
 
@@ -586,15 +611,20 @@ get_free_ram() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-16] ##
+## Modified by Martinski W. [2023-Oct-22] ##
 ##----------------------------------------##
-check_memory_and_reboot() {
-    
+check_memory_and_reboot()
+{
     if [ ! -f "${FW_BIN_DIR}/$firmware_file" ]; then
         Say "${REDct}**ERROR**${NOct}: Firmware file [${FW_BIN_DIR}/$firmware_file] not found."
         exit 1
     fi
-    firmware_size_kb="$(du -k "${FW_BIN_DIR}/$firmware_file" | cut -f1)"  # Get firmware file size in kilobytes
+
+    # sync cached data to permanent storage to prevent data loss #
+    sync ; sleep 1 ; sync
+
+    # Get firmware file size in kilobytes #
+    firmware_size_kb="$(du -k "${FW_BIN_DIR}/$firmware_file" | cut -f1)"
     free_ram_kb="$(get_free_ram)"
 
     if [ "$free_ram_kb" -lt "$firmware_size_kb" ]; then
@@ -612,7 +642,7 @@ check_memory_and_reboot() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-20] ##
+## Modified by Martinski W. [2023-Nov-22] ##
 ##----------------------------------------##
 _DoCleanUp_()
 {
@@ -620,7 +650,9 @@ _DoCleanUp_()
    _Reset_LEDs_
 
    # Additional cleanup operations can be added here if needed #
-   exit 1
+   rm -f "${FW_ZIP_DIR}"/*
+   if [ $# -gt 0 ] && [ "$1" -eq 1 ]
+   then rm -f "${FW_BIN_DIR}"/* ; fi
 }
 
 print_center() {
@@ -660,7 +692,7 @@ check_version_support() {
     local minimum_supported_version="386.11.0"
 
     # Get the current firmware version
-    local current_version="$(_GetCurrentFWShortVersionInstalled_)"
+    local current_version="$(_GetCurrentFWInstalledShortVersion_)"
 
     local numFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
     local numCurrentVers="$(_VersionFormatToNumber_ "$current_version" "$numFields")"
@@ -724,20 +756,24 @@ _GetLoginCredentials_()
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-20] ##
+## Added/Modified by Martinski W. [2023-Nov-22] ##
 ##----------------------------------------------##
 _GetLatestFWUpdateVersionFromRouter_()
 {
-   local retCode=0  newVersionStr
-   if [ "$(nvram get webs_state_flag)" -eq 0 ]
+   local retCode=0  webState  newVersionStr
+
+   webState="$(nvram get webs_state_flag)"
+   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
    then retCode=1 ; fi
 
    newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
-   if [ -z "$newVersionStr" ]
-   then echo "" ; retCode=1
-   else echo "$newVersionStr"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
    fi
-   return "$retCode"
+
+   [ -z "$newVersionStr" ] && retCode=1
+   echo "$newVersionStr" ; return "$retCode"
 }
 
 ##----------------------------------------##
@@ -858,7 +894,7 @@ _AddCronJobEntry_()
 
    cru a "$CRON_JOB_TAG" "$newSchedule $CRON_JOB_RUN"
    sleep 1
-   if crontab -l | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        retCode=0
        "$newSetting" && \
@@ -873,10 +909,10 @@ _AddCronJobEntry_()
 _DelCronJobEntry_()
 {
    local retCode
-   if crontab -l | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        cru d "$CRON_JOB_TAG" ; sleep 1
-       if crontab -l | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+       if $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
        then
            retCode=1
            printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
@@ -999,6 +1035,7 @@ _Set_FW_UpdateCronSchedule_()
     [ "$new_schedule" = "$current_schedule" ] && return 0
 
     FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
     if [ "$FW_UpdateCheckState" -eq 1 ]
     then
         # Add/Update cron job ONLY if "F/W Update Check" is enabled #
@@ -1114,7 +1151,7 @@ _CheckTimeToUpdateFirmware_()
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-19] ##
+## Added/Modified by Martinski W. [2023-Nov-22] ##
 ##----------------------------------------------##
 _Toggle_FW_UpdateCheckSetting_()
 {
@@ -1141,8 +1178,7 @@ _Toggle_FW_UpdateCheckSetting_()
        _DelCronJobEntry_
        _DelCronJobRunScriptHook_
    else
-       if [ -x "$FW_UpdateCheckScript" ]
-       then runfwUpdateCheck=true ; fi
+       [ -x "$FW_UpdateCheckScript" ] && runfwUpdateCheck=true
        FW_UpdateCheckState=1
        fwUpdateCheckNewStateStr="ENABLED"
        if _AddCronJobEntry_
@@ -1157,7 +1193,8 @@ _Toggle_FW_UpdateCheckSetting_()
    nvram set firmware_check_enable="$FW_UpdateCheckState"
    printf "Router's built-in Firmware Update Check is now ${GRNct}${fwUpdateCheckNewStateStr}${NOct}.\n"
    nvram commit
-   "$runfwUpdateCheck" && sh $FW_UpdateCheckScript &
+
+   "$runfwUpdateCheck" && sh $FW_UpdateCheckScript 2>&1 &
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
@@ -1181,7 +1218,7 @@ _RunFirmwareUpdateNow_()
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(_GetCurrentFWShortVersionInstalled_)"	
+    current_version="$(_GetCurrentFWInstalledShortVersion_)"	
     ###current_version="388.3.0"
 
     #---------------------------------------------------------#
@@ -1193,6 +1230,7 @@ _RunFirmwareUpdateNow_()
     # regardless of the state of the "F/W Update Check."
     #---------------------------------------------------------#  
     FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
     if [ "$FW_UpdateCheckState" -eq 0 ]
     then
         Say "Firmware update check is currently disabled."
@@ -1334,9 +1372,6 @@ fi
 
     check_memory_and_reboot
 
-    Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please Wait for Reboot.${NOct}"
-    echo
-
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -1351,8 +1386,17 @@ fi
     # the following 'curl' command MUST always be the last step in this block.
     # Do NOT insert any operations after it! (unless you understand the implications).
 
+    printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
+    printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
+    printf "Once started, the flashing process CANNOT be interrupted.\n"
+    if ! _WaitForYESorNO_ "Continue"
+    then _DoCleanUp_ 1 ; return 1 ; fi
+
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
+        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please Wait for Reboot.${NOct}"
+        echo
+
         nohup curl "${routerURLstr}/upgrade.cgi" \
         --referer ${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -1370,7 +1414,7 @@ fi
         sleep 60
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please confirm credentials by selecting \"1. Configure Router Login Credentials\" from the Main Menu."
-        rm -f "${FW_BIN_DIR}"/*  #Cleanup directory#
+        _DoCleanUp_ 1
     fi
 
     # Stop the LEDs blinking #
@@ -1492,7 +1536,6 @@ procCount="$(ps -w | grep "$ScriptFileName" | grep -vE "grep ${ScriptFileName}|^
 if [ "$procCount" -gt 1 ]
 then
     printf "\n${REDct}**ERROR**${NOct}: The shell script '${ScriptFileName}' is already running [$procCount]. Exiting..."
-    _WaitForEnterKey_
     exit 1
 fi
 
@@ -1522,11 +1565,10 @@ then
            ;;
 
 ##FOR TEST/DEBUG ONLY##
-       addPostRebootHook) _AddPostRebootRunScriptHook_ ; exit 0
-           ;;
+##DBG##addPostRebootHook) _AddPostRebootRunScriptHook_ ; exit 0 ;;
+
 ##FOR TEST/DEBUG ONLY##
-       delPostRebootHook) _DelPostRebootRunScriptHook_ ; exit 0
-           ;;
+##DBG##delPostRebootHook) _DelPostRebootRunScriptHook_ ; exit 0 ;;
 
        *) printf "${REDct}INVALID Parameter.${NOct}\n" ; exit 1
            ;;
@@ -1537,10 +1579,11 @@ fi
 ## Modified by Martinski W. [2023-Nov-19] ##
 ##----------------------------------------##
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+[ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 if [ "$FW_UpdateCheckState" -eq 1 ]
 then
     # Add cron job ONLY if "F/W Update Check" is enabled #
-    if ! crontab -l | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+    if ! $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
     then
         # Add the cron job if it doesn't exist
         printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
@@ -1567,8 +1610,8 @@ then FW_RouterModelID="${FW_RouterProductID}"
 else FW_RouterModelID="${FW_RouterProductID}/${GRNct}${MODEL_ID}${NOct}"
 fi
 
-FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
-FW_InstalledVersion="${GRNct}$(_GetCurrentFWLongVersionInstalled_)${NOct}"
+FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Nov-21] ##
@@ -1588,7 +1631,7 @@ show_menu()
    padStr="      "
    printf "${SEPstr}"
 
-   if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
+   if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
    then FW_NewUpdateVersion="${REDct}NONE FOUND${NOct}"
    else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}"
    fi
@@ -1608,6 +1651,7 @@ show_menu()
 
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+   [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
    if [ "$FW_UpdateCheckState" -eq 0 ]
    then
        printf "\n  ${GRNct}5${NOct}.  Enable Router's F/W Update Check"
