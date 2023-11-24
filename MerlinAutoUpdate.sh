@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.18"
+readonly SCRIPT_VERSION="0.2.19"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -161,11 +161,11 @@ readonly GRNct="\033[1;32m\033[1m"
 usb_devices=$(grep '/mnt/' /proc/mounts | awk '{print $2}')
 
 if [ -n "$usb_devices" ]; then
-	USBConnected="${GRNct}True"
+	USBConnected="${GRNct}True${NOct}"
 	readonly FW_Update_ZIP_DefaultSetupDIR="$usb_devices/MerlinAutoUpdate"
 	readonly FW_LOG_DIR_DefaultDIR="$usb_devices/MerlinAutoUpdate/logs"
 else
-    USBConnected="${REDct}False"
+    USBConnected="${REDct}False${NOct}"
 	readonly FW_Update_ZIP_DefaultSetupDIR="/home/root"
 	readonly FW_LOG_DIR_DefaultDIR="/jffs/addons/MerlinAutoUpdate/logs"
 fi
@@ -751,13 +751,6 @@ _DoCleanUp_()
    rm -f "${FW_ZIP_DIR}"/*
    if [ $# -gt 0 ] && [ "$1" -eq 1 ]
    then rm -f "${FW_BIN_DIR}"/* ; fi
-}
-
-print_center() {
-    termwidth=$(stty size | cut -d ' ' -f 2)
-    paddingwidth=$(( (termwidth - ${#1} - 4) / 2 ))  # Added 4 for color codes
-    padding=$(printf "%0.s=" $(eval "echo {1..$paddingwidth}"))
-    printf '%s %s %s\n' "$padding" "$1" "$padding"
 }
 
 ##-------------------------------------##
@@ -1630,6 +1623,9 @@ _DoUninstall_()
    _DelCronJobRunScriptHook_
    _DelPostRebootRunScriptHook_
    rm -fr "$SETTINGS_DIR" "$FW_ZIP_DIR" "$FW_BIN_DIR"
+   if [ "$USBConnected" = "${GRNct}True${NOct}" ]; then
+	rm -fr "$FW_Update_ZIP_DefaultSetupDIR"
+   fi
    rm -f "$ScriptFilePath"
    echo "Uninstall completed."
    exit 0
@@ -1727,12 +1723,12 @@ show_menu()
 {
    clear
    SEPstr="---------------------------------------------------"
-   printf "\033[1;36m===== Merlin Auto Update Main Menu =====${NOct}\n"
-   printf "\033[1;35m========== By ExtremeFiretop ===========${NOct}\n"
-   printf "\033[1;35m============ & Martinski W. ============${NOct}\n"
-   printf "\033[1;33m============ Contributors: =============${NOct}\n"
+   printf "\033[1;36m=========== Merlin Auto Update Main Menu ==========${NOct}\n"
+   printf "\033[1;35m================ By ExtremeFiretop ================${NOct}\n"
+   printf "\033[1;35m================== & Martinski W. =================${NOct}\n"
+   printf "\033[1;33m=================== Contributors: =================${NOct}\n"
    printf "\033[1;33m"
-   print_center 'Dave14305'
+   printf "\033[1;33m===================== Dave14305 ===================${NOct}\n"
    printf "${NOct}\n"
 
    padStr="      "
