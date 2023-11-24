@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Nov-23
+# Last Modified: 2023-Nov-24
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.19"
+readonly SCRIPT_VERSION="0.2.20"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -19,7 +19,7 @@ readonly ADDONS_PATH="/jffs/addons"
 readonly SCRIPTS_PATH="/jffs/scripts"
 
 readonly ScriptFileName="${0##*/}"
-readonly ScriptFNameTag="${ScriptFileName%.*}"
+readonly ScriptFNameTag="${ScriptFileName%%.*}"
 
 ScriptsDirPath="$(/usr/bin/dirname "$0")"
 if [ "$ScriptsDirPath" != "." ]
@@ -154,21 +154,6 @@ readonly NOct="\033[0m"
 readonly REDct="\033[0;31m\033[1m"  
 readonly GRNct="\033[1;32m\033[1m"
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
-##------------------------------------------##
-# Check /proc/mounts for any mounted USB drives and get their device names
-usb_devices=$(grep '/mnt/' /proc/mounts | awk '{print $2}')
-
-if [ -n "$usb_devices" ]; then
-	USBConnected="${GRNct}True${NOct}"
-	readonly FW_Update_ZIP_DefaultSetupDIR="$usb_devices/MerlinAutoUpdate"
-	readonly FW_LOG_DIR_DefaultDIR="$usb_devices/MerlinAutoUpdate/logs"
-else
-    USBConnected="${REDct}False${NOct}"
-	readonly FW_Update_ZIP_DefaultSetupDIR="/home/root"
-	readonly FW_LOG_DIR_DefaultDIR="/jffs/addons/MerlinAutoUpdate/logs"
-fi
 readonly FW_Update_CRON_DefaultSchedule="0 0 * * 0"
 
 # To postpone a firmware update for a few days #
@@ -182,6 +167,42 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly URL_RELEASE="${URL_BASE}/${PRODUCT_ID}/${URL_RELEASE_SUFFIX}/"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
+
+##--------------------------------------##
+## Added by Martinski W. [22023-Nov-24] ##
+##--------------------------------------##
+#---------------------------------------------------------#
+# The USB-attached drives can have multiple partitions
+# with different file systems (NTFS, ext3, ext4, etc.),
+# which means that multiple mount points can be found.
+# So for the purpose of choosing a default value here
+# we will simply select the first mount point found.
+# Users can later on change it by typing a different
+# mount point path or directory using the Main Menu.
+#---------------------------------------------------------#
+_GetDefaultUSBMountPoint_()
+{
+   local mounPointPath  retCode=0
+   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+
+   mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mounPointPath" ] && retCode=1
+   echo "$mounPointPath" ; return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-24] ##
+##----------------------------------------##
+if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
+then
+    USBConnected="${GRNct}True${NOct}"
+    readonly FW_Update_ZIP_DefaultSetupDIR="$USBMountPoint"
+    readonly FW_Update_LOG_BASE_DefaultDIR="$USBMountPoint"
+else
+    USBConnected="${REDct}False${NOct}"
+    readonly FW_Update_ZIP_DefaultSetupDIR="/home/root"
+    readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
+fi
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2023-Nov-23] ##
@@ -198,7 +219,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays"
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
-		 echo "FW_New_Log_Directory_Path=\"${FW_LOG_DIR_DefaultDIR}\""
+         echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -219,9 +240,9 @@ _Init_Custom_Settings_Config_()
        sed -i "3 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
        retCode=1
    fi
-   if ! grep -q "^FW_New_Log_Directory_Path=" "$SETTINGSFILE"
+   if ! grep -q "^FW_New_Update_LOG_Directory_Path=" "$SETTINGSFILE"
    then
-       sed -i "4 i FW_New_Log_Directory_Path=\"${FW_LOG_DIR_DefaultDIR}\"" "$SETTINGSFILE"
+       sed -i "4 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
        retCode=1
        # Default log directory path can be changed as needed
    fi
@@ -235,11 +256,10 @@ _Init_Custom_Settings_Config_()
 Get_Custom_Setting()
 {
     if [ $# -eq 0 ] || [ -z "$1" ] ; then echo "**ERROR**" ; return 1 ; fi
+    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     local setting_value  setting_type="$1"  default_value="TBD"
-
     [ $# -gt 1 ] && default_value="$2"
-    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
@@ -251,10 +271,10 @@ Get_Custom_Setting()
             "local")
                 grep -q "^FirmwareVersion_setting" "$SETTINGSFILE" && grep "^FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
                 ;;
-            "FW_New_Update_Postponement_Days" | \
-            "FW_New_Update_Cron_Job_Schedule" | \
+            "FW_New_Update_Postponement_Days"  | \
+            "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
-            "FW_New_Log_Directory_Path")  # Added this line
+            "FW_New_Update_LOG_Directory_Path")  # Added this line
                 if ! grep -q "^${setting_type}=" "$SETTINGSFILE"
                 then
                     setting_value="$default_value"
@@ -272,9 +292,9 @@ Get_Custom_Setting()
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-24] ##
+##----------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -301,10 +321,10 @@ Update_Custom_Settings()
                 echo "$setting_type $setting_value" > "$SETTINGSFILE"
             fi
             ;;
-        "FW_New_Update_Postponement_Days" | \
-        "FW_New_Update_Cron_Job_Schedule" | \
+        "FW_New_Update_Postponement_Days"  | \
+        "FW_New_Update_Cron_Job_Schedule"  | \
         "FW_New_Update_ZIP_Directory_Path" | \
-        "FW_New_Log_Directory_Path")  # Added this line
+        "FW_New_Update_LOG_Directory_Path")  # Added this line
             if [ -f "$SETTINGSFILE" ]
             then
                 if grep -q "^${setting_type}=" "$SETTINGSFILE"
@@ -334,9 +354,11 @@ Update_Custom_Settings()
             elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
             then
                 FW_UpdateCronJobSchedule="$setting_value"
-			elif [ "$setting_type" = "FW_New_Log_Directory_Path" ] # Addition for handling log directory path
-			then
-				LOG_BASE_DIR="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_LOG_Directory_Path" ]
+            then  # Addition for handling log directory path
+                FW_LOG_BASE_DIR="$setting_value"
+                FW_LOG_DIR="${setting_value}/${ScriptFNameTag}/logs"
             fi
             ;;
         *)
@@ -345,18 +367,17 @@ Update_Custom_Settings()
     esac
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2023-Nov-23] ##
-##---------------------------------------##
-
-_Set_Log_DirectoryPath_()
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-24] ##
+##----------------------------------------##
+_Set_FW_UpdateLOG_DirectoryPath_()
 {
-   local newLogDirPath="$LOG_BASE_DIR"  newLogFileDirPath=""
+   local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
 
    while true
    do
-      printf "\nEnter the directory path where the log files will be stored.\n"
-      printf "[${theExitStr}] [CURRENT: ${GRNct}${LOG_BASE_DIR}${NOct}]:  "
+      printf "\nEnter the directory path where the LOG subdirectory [${GRNct}${ScriptFNameTag}${NOct}] will be stored.\n"
+      printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
@@ -376,7 +397,7 @@ _Set_Log_DirectoryPath_()
       fi
 
       if [ -d "$userInput" ]
-      then newLogDirPath="$userInput" ; break ; fi
+      then newLogBaseDirPath="$userInput" ; break ; fi
 
       rootDir="${userInput%/*}"
       if [ ! -d "$rootDir" ]
@@ -393,32 +414,45 @@ _Set_Log_DirectoryPath_()
       else
           mkdir -m 755 "$userInput" 2>/dev/null
           if [ -d "$userInput" ]
-          then newLogDirPath="$userInput" ; break
+          then newLogBaseDirPath="$userInput" ; break
           else printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${userInput}${NOct}].\n\n"
           fi
       fi
    done
 
-  if [ "$newLogDirPath" != "$LOG_BASE_DIR" ] && [ -d "$newLogDirPath" ]
-  then
-  # Update the log directory path after validation
-   Update_Custom_Settings FW_New_Log_Directory_Path "$newLogDirPath"
-   echo "The directory path for the log files was updated successfully."
+   if [ "$newLogBaseDirPath" != "$FW_LOG_BASE_DIR" ] && [ -d "$newLogBaseDirPath" ]
+   then
+       if  [ "${newLogBaseDirPath##*/}" != "logs" ] && \
+           [ "${newLogBaseDirPath##*/}" != "$ScriptFNameTag" ]
+       then newLogFileDirPath="${newLogBaseDirPath}/${ScriptFNameTag}/logs" ; fi
+       mkdir -p -m 755 "$newLogFileDirPath" 2>/dev/null
+       if [ ! -d "$newLogFileDirPath" ]
+       then
+           printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${newLogFileDirPath}${NOct}].\n"
+           _WaitForEnterKey_
+           return 1
+       fi
+       # Move any existing log files to new directory #
+       mv -f "${FW_LOG_DIR}"/*.log "$newLogFileDirPath" 2>/dev/null
+       rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag"
+       # Update the log directory path after validation #
+       Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
+       echo "The directory path for the log files was updated successfully."
        _WaitForEnterKey_ "$menuReturnPromptStr"
    fi
    return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-24] ##
+##----------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
    local newZIP_SetupDirPath="$FW_ZIP_SETUP_DIR"  newZIP_FileDirPath="" 
 
    while true
    do
-      printf "\nEnter the directory path where the Firmware ZIP file will be stored.\n"
+      printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_FileName}${NOct}] will be stored.\n"
       printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_ZIP_SETUP_DIR}${NOct}]:  "
       read -r userInput
 
@@ -484,9 +518,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
 _Init_Custom_Settings_Config_
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-24] ##
+##----------------------------------------##
 # NOTE:
 # Depending on available RAM & storage capacity of the 
 # target router, it may be required to have USB-attached 
@@ -495,16 +529,17 @@ _Init_Custom_Settings_Config_
 #-----------------------------------------------------------
 FW_BIN_SETUP_DIR="$FW_Update_ZIP_DefaultSetupDIR"
 FW_ZIP_SETUP_DIR="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)"
-LOG_BASE_DIR="$(Get_Custom_Setting FW_New_Log_Directory_Path)"
+FW_LOG_BASE_DIR="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
 
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_BIN_DIR="${FW_BIN_SETUP_DIR}/$FW_FileName"
 
 FW_ZIP_DIR="${FW_ZIP_SETUP_DIR}/$FW_FileName"
 FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+FW_LOG_DIR="${FW_LOG_BASE_DIR}/${ScriptFNameTag}/logs"
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-18] ##
+## Added/Modified by Martinski W. [2023-Nov-24] ##
 ##----------------------------------------------##
 # The built-in F/W hook script file to be used for
 # setting up persistent jobs to run after a reboot.
@@ -526,13 +561,13 @@ readonly CRON_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $CRON_SCRIPT_JOB"
 readonly POST_REBOOT_SCRIPT_JOB="sh $ScriptFilePath postRebootRun &  $hookScriptTagStr"
 readonly POST_REBOOT_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_REBOOT_SCRIPT_JOB"
 
-if [ ! -d "$FW_LOG_DIR_DefaultDIR" ]
-    then
-	 mkdir -p -m 755 "$FW_LOG_DIR_DefaultDIR"
-	else
-	# Log rotation - delete logs older than 30 days
-	find "$LOG_BASE_DIR" -name '*.log' -mtime +30 -exec rm {} \;
-    fi
+if [ ! -d "$FW_LOG_DIR" ]
+then
+    mkdir -p -m 755 "$FW_LOG_DIR"
+else
+    # Log rotation - delete logs older than 30 days #
+    find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
+fi
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Oct-12] ##
@@ -1289,23 +1324,22 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-24] ##
+##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
-	 # Define log file
-    LOG_BASE_DIR="$(Get_Custom_Setting FW_New_Log_Directory_Path)"
-    LOG_FILE="${LOG_BASE_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    # Define log file #
+    LOG_FILE="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
 
     Say "Running the task now... Checking for F/W updates..."
 
     local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
     local current_version=""  release_version=""
-	    
-	# Create directory for downloading & extracting firmware #
+
+    # Create directory for downloading & extracting firmware #
     if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
 
     # In case ZIP directory is different from BIN directory #
@@ -1349,19 +1383,19 @@ _RunFirmwareUpdateNow_()
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$URL_RELEASE")
     release_version="$1"
     release_link="$2"
-	
+
     # Extracting the first octet to use in the curl
     firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
     # Inserting dots between each number
     dottedVersion="$(echo "$firstOctet" | sed 's/./&./g' | sed 's/.$//')"
-	
-	if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
+
+    if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
     then
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 0
     fi
-	
-	# Redirect output and error to log file
+
+    #BEGIN: Redirect both stdout and stderr to log file #
     {
 
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
@@ -1515,7 +1549,8 @@ fi
         _DoCleanUp_ 1
     fi
 
-	} 2>&1 | tee -a "$LOG_FILE"  # Redirect both stdout and stderr to tee
+    } 2>&1 | tee -a "$LOG_FILE"
+    #END: Redirect both stdout and stderr to log file #
 
     # Stop the LEDs blinking #
     _Reset_LEDs_
@@ -1615,17 +1650,15 @@ _AddCronJobRunScriptHook_()
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-20] ##
+## Added/Modified by Martinski W. [2023-Nov-24] ##
 ##----------------------------------------------##
 _DoUninstall_()
 {
    _DelCronJobEntry_
    _DelCronJobRunScriptHook_
    _DelPostRebootRunScriptHook_
-   rm -fr "$SETTINGS_DIR" "$FW_ZIP_DIR" "$FW_BIN_DIR"
-   if [ "$USBConnected" = "${GRNct}True${NOct}" ]; then
-	rm -fr "$FW_ZIP_SETUP_DIR"
-   fi
+   rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag"
+   rm -fr "$SETTINGS_DIR" "$FW_BIN_DIR" "$FW_ZIP_DIR"
    rm -f "$ScriptFilePath"
    Say "${GRNct}Successfully Uninstalled.${NOct}"
    exit 0
@@ -1716,9 +1749,9 @@ fi
 FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-24] ##
+##----------------------------------------##
 show_menu()
 {
    clear
@@ -1766,10 +1799,10 @@ show_menu()
    fi
 
    printf "\n  ${GRNct}6${NOct}.  Set Directory Path for F/W Update ZIP File"
-   printf "\n      [Current Path: ${GRNct}${FW_ZIP_SETUP_DIR}${NOct}]\n"
-   
-   printf "\n  ${GRNct}7${NOct}.  Set Directory Path for Log Files"
-   printf "\n      [Current Path: ${GRNct}${LOG_BASE_DIR}${NOct}]\n"
+   printf "\n      [Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
+
+   printf "\n  ${GRNct}7${NOct}.  Set Directory Path for F/W Update Log Files"
+   printf "\n      [Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 
    # Check if the directory exists before attempting to navigate to it
    if [ -d "$FW_BIN_DIR" ]
@@ -1780,7 +1813,7 @@ show_menu()
 
       # If a file with "_rog_" in its name is found, display the "Change Build Type" option
       if [ -n "$rog_file" ]; then
-          printf "\n  ${GRNct}7${NOct}.  Change Update Build Type\n"
+          printf "\n  ${GRNct}8${NOct}.  Change Update Build Type\n"
       fi
    fi
 
@@ -1822,8 +1855,8 @@ do
           ;;
        6) _Set_FW_UpdateZIP_DirectoryPath_
           ;;
-	   7) _Set_Log_DirectoryPath_
-		  ;;
+       7) _Set_FW_UpdateLOG_DirectoryPath_
+          ;;
        8) if [ -n "$rog_file" ]
           then change_build_type ; break ; fi
           printf "${REDct}INVALID selection.${NOct} Please try again."
