@@ -631,7 +631,7 @@ _DelPostRebootRunScriptHook_()
            Say "Post-reboot run hook was deleted successfully from '$hookScriptFile' script."
        fi
    else
-       echo "Post-reboot run hook does not exist in '$hookScriptFile' script."
+       Say "${GRNct}Post-reboot run hook can no longer be found in '$hookScriptFile' script.${NOct}"
    fi
 }
 
@@ -1627,7 +1627,7 @@ _DoUninstall_()
 	rm -fr "$FW_Update_ZIP_DefaultSetupDIR"
    fi
    rm -f "$ScriptFilePath"
-   echo "Uninstall completed."
+   Say "${GRNct}Successfully Uninstalled.${NOct}"
    exit 0
 }
 
