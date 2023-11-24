@@ -1624,7 +1624,7 @@ _DoUninstall_()
    _DelPostRebootRunScriptHook_
    rm -fr "$SETTINGS_DIR" "$FW_ZIP_DIR" "$FW_BIN_DIR"
    if [ "$USBConnected" = "${GRNct}True${NOct}" ]; then
-	rm -fr "$FW_Update_ZIP_DefaultSetupDIR"
+	rm -fr "$FW_ZIP_SETUP_DIR"
    fi
    rm -f "$ScriptFilePath"
    Say "${GRNct}Successfully Uninstalled.${NOct}"
