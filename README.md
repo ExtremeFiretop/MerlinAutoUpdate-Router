@@ -53,8 +53,7 @@
 Backup and Storage:
 
  - If USB drive is connected to the router for storage.
- -  - Save the following to the USB drive:
- -  - Newer firmware version.
+ -  - Backup the new firmware version to the USB drive.
  - Note:
  - Be aware that JFFS partitions may not work post-upgrades in some cases.
  - New routers use UBIFS instead of JFFS2.
