@@ -54,8 +54,6 @@ Backup and Storage:
 
  - If USB drive is connected to the router for storage.
  -  - Save the following to the USB drive:
- -  - Configuration files.
- -  - JFFS backup.
  -  - Newer firmware version.
  - Note:
  - Be aware that JFFS partitions may not work post-upgrades in some cases.
@@ -64,7 +62,6 @@ Backup and Storage:
 System Notifications:
 
 - Possibly modify the hardcoded notification in the GUI's upper right corner.
-- Trigger a firmware update notification using a script.
 
 AMTM Install and Uninstallation:
 - Only once it's been vetted through most routers.
@@ -73,6 +70,9 @@ AMTM Install and Uninstallation:
 
 MerlinAutoUpdate-Router is a versatile shell script designed to automate the firmware update process for ASUS routers running Asuswrt-Merlin firmware. 
 It streamlines the firmware update procedure, automatically detects your router model, fetches the latest firmware, and offers options for installation. Moreover, it checks log files for reset recommendations before flashing the firmware.
+
+## NOTE: It is highly recommended to configure backups using BACKUPMON
+- https://github.com/ViktorJp/BACKUPMON/tree/main
 
 ## Features
 
