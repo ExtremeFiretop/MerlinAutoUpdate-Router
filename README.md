@@ -61,7 +61,7 @@ Backup and Storage:
 
 System Notifications:
 
-- Possibly modify the hardcoded notification in the GUI's upper right corner.
+- Possibly trigger the hardcoded notification in the GUI's upper right corner.
 
 AMTM Install and Uninstallation:
 - Only once it's been vetted through most routers.
