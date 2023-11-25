@@ -63,7 +63,7 @@ System Notifications:
 
 - Possibly trigger the hardcoded notification in the GUI's upper right corner.
 
-AMTM Install and Uninstallation:
+AMTM Install:
 - Only once it's been vetted through most routers.
 
 ## MerlinAutoUpdate-Router
