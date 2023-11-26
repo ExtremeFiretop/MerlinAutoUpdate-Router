@@ -51,6 +51,7 @@
 ## Remaining/Planned Features:
 
 Backup and Storage:
+ - Script Auto-Update Function
 
  - If USB drive is connected to the router for storage.
  -  - Backup the new firmware version to the USB drive.
