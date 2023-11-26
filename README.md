@@ -83,7 +83,7 @@ It streamlines the firmware update procedure, automatically detects your router 
 
 ## Features
 
-- Automatic router Mmdel detection.
+- Automatic router model detection.
 - Automatic update detection.
 - Automatically download and install the latest firmware for your router model from the Asuswrt-Merlin repository.
 - User configurable waiting period for firmware updates. (Wait for a set duration after a new firmware release.)
