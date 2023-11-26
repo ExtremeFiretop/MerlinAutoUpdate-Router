@@ -53,7 +53,7 @@
 Backup and Storage:
  - Script Auto-Update Function
 
- - If USB drive is connected to the router for storage.
+ - If USB drive is connected to the router for storage:
  -  - Backup the new firmware version to the USB drive.
  - Check Memory:
  - - Before downloading the ZIP file into the router's "$HOME" folder (instead of a USB-attached drive), the router may already be in a "low free RAM" state, depending on the number of processes & extra add-ons running as well as other factors that slowly consume RAM over time (more so if the router's uptime is several weeks or months).
