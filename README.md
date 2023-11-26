@@ -61,10 +61,10 @@
 
  - After just downloading the ZIP file into the router's "$HOME" folder, there may not be enough free RAM to continue to uncompress & extract the F/W files into the same $HOME folder. For such cases, we might need to check available free RAM before the ZIP file is downloaded, and then again before uncompressing/extracting the files, especially if using the router's "$HOME" directory for all of it, and not the USB drive at all.
  
- - Notes:
- - Might need to add some "overhead" to the file size comparison to account for the "ZIP + F/W" files being on the "$HOME" directory at the same time, even if just temporarily.
- - Be aware that JFFS partitions may not work post-upgrades in some cases.
- - New routers use UBIFS instead of JFFS2.
+ - - Notes:
+ - - Might need to add some "overhead" to the file size comparison to account for the "ZIP + F/W" files being on the "$HOME" directory at the same time, even if just temporarily.
+ - - Be aware that JFFS partitions may not work post-upgrades in some cases.
+ - - New routers use UBIFS instead of JFFS2.
 
 4. System Notifications:
 
