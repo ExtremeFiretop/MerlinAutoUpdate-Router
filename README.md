@@ -105,7 +105,7 @@ Use your preferred SSH client to connect to the router.
 Download the script to your router:
 Copy and paste:
 ```bash
-curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAutoUpdate.sh" -o "/jffs/scripts/MerlinAutoUpdate.sh" && chmod +x "/jffs/scripts/MerlinAutoUpdate.sh"
+curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "/jffs/scripts/MerlinAU.sh" && chmod +x "/jffs/scripts/MerlinAU.sh"
 ```
 - The script is now ready for use!
   
@@ -115,7 +115,7 @@ The script can be run using the below options:
 
 - To update the firmware: (Run from Root of SSH location)
   ```bash
-  /./jffs/scripts/MerlinAutoUpdate.sh
+  /./jffs/scripts/MerlinAU.sh
 
 - Check desired cru (cron) schedule has been created:
   ```bash
@@ -123,7 +123,7 @@ The script can be run using the below options:
 
 - Result should look something like: 
   ```bash
-  0 0 * * 0 sh /jffs/scripts/MerlinAutoUpdate.sh run_now
+  0 0 * * 0 sh /jffs/scripts/MerlinAU.sh run_now
 
 - (Cron calculator here: https://crontab.guru/)
 ## Contribution
