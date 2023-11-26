@@ -167,6 +167,7 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly URL_RELEASE="${URL_BASE}/${PRODUCT_ID}/${URL_RELEASE_SUFFIX}/"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
+readonly SCRIPTVERPATH="${ScriptFilePath}/version.txt"
 
 ##--------------------------------------##
 ## Added by Martinski W. [22023-Nov-24] ##
@@ -188,6 +189,18 @@ _GetDefaultUSBMountPoint_()
    mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
    [ -z "$mounPointPath" ] && retCode=1
    echo "$mounPointPath" ; return "$retCode"
+}
+
+logo() {
+  echo -e "${REDct}"
+  echo -e "    __  __           _ _               _    _ "
+  echo -e "   |  \/  |         | (_)         /\  | |  | |${GRNct}v$SCRIPT_VERSION${REDct}"
+  echo -e "   | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
+  echo -e "   | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
+  echo -e "   | |  | |  __| |  | | | | | |/ ____ | |__| |"
+  echo -e "   |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ "
+  echo -e "                                              "
+  echo -e "                                              ${NOct}"
 }
 
 ##----------------------------------------##
@@ -1756,12 +1769,9 @@ show_menu()
 {
    clear
    SEPstr="---------------------------------------------------"
-   printf "\033[1;36m=========== Merlin Auto Update Main Menu ==========${NOct}\n"
+   logo
    printf "\033[1;35m================ By ExtremeFiretop ================${NOct}\n"
    printf "\033[1;35m================== & Martinski W. =================${NOct}\n"
-   printf "\033[1;33m=================== Contributors: =================${NOct}\n"
-   printf "\033[1;33m"
-   printf "\033[1;33m===================== Dave14305 ===================${NOct}\n"
    printf "${NOct}\n"
 
    padStr="      "
