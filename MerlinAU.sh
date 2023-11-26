@@ -4,11 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Nov-24
+# Last Modified: 2023-Nov-26
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.20"
+readonly SCRIPT_VERSION="0.2.21"
+UpdateNotify=0 
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -146,13 +147,18 @@ _GetRouterProductID_()
    echo "$routerProductID" ; return "$retCode"
 }
 
-##---------------------------------------##
-## Added by Martinski W. [2023-Nov-18]   ##
-## Moved by ExtremeFiretop [2023-Nov-23] ##
-##---------------------------------------##
-readonly NOct="\033[0m"  
-readonly REDct="\033[0;31m\033[1m"  
-readonly GRNct="\033[1;32m\033[1m"
+##--------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-26]   ##
+##--------------------------------------------##
+readonly NOct="\e[0m"
+readonly REDct="\e[1;31m"
+readonly GRNct="\e[1;32m"
+readonly BLKct="\e[1;30m"
+readonly YLWct="\e[1;33m"
+readonly BLUEct="\e[1;34m"
+readonly MAGENTAct="\e[1;35m"
+readonly CYANct="\e[1;36m"
+readonly WHITEct="\e[1;37m"
 
 readonly FW_Update_CRON_DefaultSchedule="0 0 * * 0"
 
@@ -167,7 +173,105 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly URL_RELEASE="${URL_BASE}/${PRODUCT_ID}/${URL_RELEASE_SUFFIX}/"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
-readonly SCRIPTVERPATH="${ScriptFilePath}/version.txt"
+readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+
+
+##-----------------------------------------##
+## Added by ExtremeFiretop [2023-Nov-26]   ##
+##-----------------------------------------##
+_CheckForUpdates_ () {
+  # Download the latest version file from the source repository
+  curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "${SETTINGS_DIR}/version.txt"
+
+  if [ -f "$SCRIPTVERPATH" ]; then
+    # Read in its contents for the current version file
+    DLVersion=$(cat "$SCRIPTVERPATH")
+
+    # Splitting the downloaded version into major, minor, and patch numbers
+    OLD_IFS="$IFS"
+    IFS='.'
+    set -- $DLVersion
+    dl_major=$1
+    dl_minor=$2
+    dl_patch=$3
+
+    # Splitting the script version into major, minor, and patch numbers
+    set -- $SCRIPT_VERSION
+    script_major=$1
+    script_minor=$2
+    script_patch=$3
+    IFS="$OLD_IFS"
+
+    # Version comparison
+    if [ "$dl_major" -gt "$script_major" ] || [ "$dl_major" -eq "$script_major" ] && { [ "$dl_minor" -gt "$script_minor" ] || [ "$dl_minor" -eq "$script_minor" ] && [ "$dl_patch" -gt "$script_patch" ]; }; then
+      UpdateNotify="Update available: v$SCRIPT_VERSION -> v$DLVersion"
+      Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) MerlinAU[$$] - INFO: A new update (v$DLVersion) is available to download"
+    else
+      UpdateNotify=0
+    fi
+  fi
+}
+
+##-----------------------------------------##
+## Added by ExtremeFiretop [2023-Nov-26]   ##
+##-----------------------------------------##
+#a function that provides a UI to check for script updates and allows you to install the latest version...
+_SCRIPTUPDATE_ () {
+  _CheckForUpdates_ # Check for the latest version from source repository
+  clear
+  logo
+  echo ""
+  echo -e "${YLWct}Update Utility${NOct}"
+  echo ""
+  echo -e "${CYANct}Current Version: ${YLWct}$SCRIPT_VERSION${NOct}"
+  echo -e "${CYANct}Updated Version: ${YLWct}$DLVersion${NOct}"
+  echo ""
+  if [ "$SCRIPT_VERSION$" == "$DLVersion" ]
+    then
+      echo -e "${CYANct}You are on the latest version! Would you like to download anyways?${NOct}"
+      echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
+      if _WaitForYESorNO_ ; then
+        echo ""
+        echo ""
+        echo -e "${CYANct}Downloading MerlinAU ${CYANct}v$DLVersion${NOct}"
+		curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "${ScriptsDirPath}/MerlinAU.sh" && chmod +x "${ScriptsDirPath}/MerlinAU.sh"
+		curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "${SETTINGS_DIR}/version.txt"
+        echo ""
+        echo -e "${CYANct}Download successful!${NOct}"
+        echo -e "$(date) - MerlinAU - Successfully downloaded MerlinAU v$DLVersion"
+        echo ""
+        _WaitForEnterKey_
+        return
+      else
+        echo ""
+        echo ""
+        echo -e "${GRNct}Exiting Update Utility...${NOct}"
+        sleep 1
+        return
+      fi
+    else
+      echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
+      if _WaitForYESorNO_ ; then
+        echo ""
+        echo ""
+        echo -e "${CYANct}Downloading MerlinAU ${CYANct}v$DLVersion${NOct}"
+		curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "${ScriptsDirPath}/MerlinAU.sh" && chmod +x "${ScriptsDirPath}/MerlinAU.sh"
+		curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "${SETTINGS_DIR}/version.txt"
+        echo ""
+        echo -e "${CYANct}Download successful!${NOct}"
+        echo -e "$(date) - MerlinAU - Successfully downloaded MerlinAU v$DLVersion"
+        echo ""
+        _WaitForEnterKey_
+        return
+      else
+        echo ""
+        echo ""
+        echo -e "${GRNct}Exiting Update Utility...${NOct}"
+        sleep 1
+        return
+      fi
+  fi
+}
 
 ##--------------------------------------##
 ## Added by Martinski W. [22023-Nov-24] ##
@@ -191,14 +295,17 @@ _GetDefaultUSBMountPoint_()
    echo "$mounPointPath" ; return "$retCode"
 }
 
+##----------------------------------------##
+## Added by ExtremeFiretop [2023-Nov-26] ##
+##----------------------------------------##
 logo() {
-  echo -e "${REDct}"
+  echo -e "${YLWct}"
   echo -e "    __  __           _ _               _    _ "
-  echo -e "   |  \/  |         | (_)         /\  | |  | |${GRNct}v$SCRIPT_VERSION${REDct}"
+  echo -e "   |  \/  |         | (_)         /\  | |  | |"
   echo -e "   | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
   echo -e "   | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
   echo -e "   | |  | |  __| |  | | | | | |/ ____ | |__| |"
-  echo -e "   |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ "
+  echo -e "   |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v$SCRIPT_VERSION${REDct}"
   echo -e "                                              "
   echo -e "                                              ${NOct}"
 }
@@ -1289,9 +1396,9 @@ _CheckTimeToUpdateFirmware_()
    return 1
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-22] ##
-##----------------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-26] ##
+##------------------------------------------##
 _Toggle_FW_UpdateCheckSetting_()
 {
    local fwUpdateCheckEnabled  fwUpdateCheckNewStateStr
@@ -1303,7 +1410,7 @@ _Toggle_FW_UpdateCheckSetting_()
        fwUpdateCheckNewStateStr="${GRNct}ENABLE${NOct}"
    else
        fwUpdateCheckEnabled=true
-       fwUpdateCheckNewStateStr="${GRNct}DISABLE${NOct}"
+       fwUpdateCheckNewStateStr="${REDct}DISABLE${NOct}"
    fi
 
    if ! _WaitForYESorNO_ "Do you want to ${fwUpdateCheckNewStateStr} Router's F/W Update Check"
@@ -1313,13 +1420,13 @@ _Toggle_FW_UpdateCheckSetting_()
    then
        runfwUpdateCheck=false
        FW_UpdateCheckState=0
-       fwUpdateCheckNewStateStr="DISABLED"
+       fwUpdateCheckNewStateStr="${REDct}DISABLED${NOct}"
        _DelCronJobEntry_
        _DelCronJobRunScriptHook_
    else
        [ -x "$FW_UpdateCheckScript" ] && runfwUpdateCheck=true
        FW_UpdateCheckState=1
-       fwUpdateCheckNewStateStr="ENABLED"
+       fwUpdateCheckNewStateStr="${GRNct}ENABLED${NOct}"
        if _AddCronJobEntry_
        then
            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
@@ -1330,7 +1437,7 @@ _Toggle_FW_UpdateCheckSetting_()
    fi
 
    nvram set firmware_check_enable="$FW_UpdateCheckState"
-   printf "Router's built-in Firmware Update Check is now ${GRNct}${fwUpdateCheckNewStateStr}${NOct}.\n"
+   printf "Router's built-in Firmware Update Check is now ${fwUpdateCheckNewStateStr}${NOct}.\n"
    nvram commit
 
    "$runfwUpdateCheck" && sh $FW_UpdateCheckScript 2>&1 &
@@ -1727,6 +1834,7 @@ fi
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Nov-19] ##
 ##----------------------------------------##
+_CheckForUpdates_
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
 [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 if [ "$FW_UpdateCheckState" -eq 1 ]
@@ -1762,18 +1870,22 @@ fi
 FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-26] ##
+##------------------------------------------##
 show_menu()
 {
    clear
    SEPstr="---------------------------------------------------"
    logo
-   printf "\033[1;35m================ By ExtremeFiretop ================${NOct}\n"
-   printf "\033[1;35m================== & Martinski W. =================${NOct}\n"
+   printf "${YLWct}================ By ExtremeFiretop ================${NOct}\n"
+   printf "${YLWct}================== & Martinski W. =================${NOct}\n"
    printf "${NOct}\n"
-
+   # Check for updates
+   if [ "$UpdateNotify" != "0" ]; then
+	Say "${REDct}$UpdateNotify${NOct}"
+   fi
+   
    padStr="      "
    printf "${SEPstr}"
 
@@ -1802,7 +1914,7 @@ show_menu()
    if [ "$FW_UpdateCheckState" -eq 0 ]
    then
        printf "\n  ${GRNct}5${NOct}.  Enable Router's F/W Update Check"
-       printf "\n      [Currently ${GRNct}DISABLED${NOct}]\n"
+       printf "\n      [Currently ${REDct}DISABLED${NOct}]\n"
    else
        printf "\n  ${GRNct}5${NOct}.  Disable Router's F/W Update Check"
        printf "\n      [Currently ${GRNct}ENABLED${NOct}]\n"
@@ -1826,8 +1938,14 @@ show_menu()
           printf "\n  ${GRNct}8${NOct}.  Change Update Build Type\n"
       fi
    fi
+   
+   # Check for updates
+   if [ "$UpdateNotify" != "0" ]; then
+	printf "\n  ${GRNct}up${NOct}. Update MerlinAU Script Now"
+    printf "\n      [Version: ${GRNct}$DLVersion${NOct} Available for Download]\n"
+   fi
 
-   printf "\n ${GRNct}un${NOct}.  Uninstall\n"
+   printf "\n  ${GRNct}un${NOct}.  Uninstall\n"
    printf "\n  ${GRNct}e${NOct}.  Exit\n"
    printf "${SEPstr}\n"
 }
@@ -1872,6 +1990,8 @@ do
           printf "${REDct}INVALID selection.${NOct} Please try again."
           _WaitForEnterKey_
           ;;
+	   up)  _SCRIPTUPDATE_
+		  ;;
        un) if _WaitForYESorNO_ "Are you sure you want to uninstall ${GRNct}${ScriptFileName}${NOct}"
            then _DoUninstall_
            else _WaitForEnterKey_
