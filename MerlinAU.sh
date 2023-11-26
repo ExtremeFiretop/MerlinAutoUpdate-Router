@@ -1,6 +1,6 @@
 #!/bin/sh
 ###################################################################
-# MerlinAutoUpdate.sh
+# MerlinAU.sh (MerlinAutoUpdate)
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
