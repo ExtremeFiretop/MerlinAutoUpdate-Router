@@ -57,9 +57,9 @@ Backup and Storage:
  - Check Memory:
  - - Before downloading the ZIP file into the router's "$HOME" folder (instead of a USB-attached drive), the router may already be in a "low free RAM" state, depending on the number of processes & extra add-ons running as well as other factors that slowly consume RAM over time (more so if the router's uptime is several weeks or months).
 
- - - After just downloading the ZIP file into the router's "$HOME" folder, there may not be enough free RAM to continue to uncompress & extract the F/W files into the same $HOME folder.
+ - - After just downloading the ZIP file into the router's "$HOME" folder, there may not be enough free RAM to continue to uncompress & extract the F/W files into the same $HOME folder. For such cases, we might need to check available free RAM before the ZIP file is downloaded, and then again before uncompressing/extracting the files, especially if using the router's "$HOME" directory for all of it, and not the USB drive at all.
 
- - - For such cases, you might need to check available free RAM before the ZIP file is downloaded, and then again before uncompressing/extracting the files, especially if using the router's "$HOME" directory for all of it, and not the USB drive at all. Also, you might need to add some "overhead" to the file size comparison to account for the "ZIP + F/W" files being on the "$HOME" directory at the same time, even if just temporarily.
+ - - Might need to add some "overhead" to the file size comparison to account for the "ZIP + F/W" files being on the "$HOME" directory at the same time, even if just temporarily.
  
  - Note:
  - Be aware that JFFS partitions may not work post-upgrades in some cases.
