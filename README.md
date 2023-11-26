@@ -73,9 +73,9 @@
 5. AMTM Install:
 - Only once it's been vetted through most routers.
 
-## MerlinAutoUpdate-Router
+## Merlin(A)uto(U)pdate
 
-MerlinAutoUpdate-Router is a versatile shell script designed to automate the firmware update process for ASUS routers running Asuswrt-Merlin firmware. 
+MerlinAU.sh is a versatile shell script designed to automate the firmware update process for ASUS routers running Asuswrt-Merlin firmware. 
 It streamlines the firmware update procedure, automatically detects your router model, fetches the latest firmware, and offers options for installation. Moreover, it checks log files for reset recommendations before flashing the firmware.
 
 ## NOTE: It is highly recommended to configure backups using BACKUPMON
@@ -91,13 +91,13 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Checks RAM usage. If free RAM is less than the firmware file size, reboots the router.
 
 ## Installation
-Before using MerlinAutoUpdate-Router, ensure the following prerequisites are met:
+Before using MerlinAU, ensure the following prerequisites are met:
 
 An ASUS router running Asuswrt-Merlin firmware.
 Access to the router's command line interface (SSH or Telnet).
 A working internet connection on the router.
 
-To install MerlinAutoUpdate-Router, follow these steps:
+To install MerlinAutoUpdate, follow these steps:
 
 Enable SSH on your router if not already enabled.
 Use your preferred SSH client to connect to the router.
