@@ -4,14 +4,18 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Nov-26
+# Last Modified: 2023-Nov-28
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.21"
-UpdateNotify=0 
+readonly SCRIPT_NAME="MerlinAU"
+readonly SCRIPT_VERSION="0.2.22"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
+
+# For new script version updates from source repository #
+UpdateNotify=0
+DLRepoVersion=""
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Oct-16] ##
@@ -147,6 +151,41 @@ _GetRouterProductID_()
    echo "$routerProductID" ; return "$retCode"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Nov-28] ##
+##-------------------------------------##
+_ScriptVersionStrToNum_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then echo ; return 1 ; fi
+   local verNum  verStr
+
+   verStr="$(echo "$1" | awk -F '_' '{print $1}')"
+   verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%03d%03d\n", $1,$2,$3);}')"
+   verNum="$(echo "$verNum" | sed 's/^0*//')"
+   echo "$verNum" ; return 0
+}
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-28] ##
+##----------------------------------------------##
+_FWVersionStrToNum_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo ; return 1 ; fi
+
+   local verNum  verStr="$1"
+
+   if [ "$(echo "$1" | awk -F '.' '{print NF}')" -lt "$2" ]
+   then verStr="$(nvram get firmver | sed 's/\.//g').$1" ; fi
+
+   if [ "$2" -lt 4 ]
+   then verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%03d%03d\n", $1,$2,$3);}')"
+   else verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%d%03d%03d\n", $1,$2,$3,$4);}')"
+   fi
+
+   echo "$verNum" ; return 0
+}
+
 ##--------------------------------------------##
 ## Modified by ExtremeFiretop [2023-Nov-26]   ##
 ##--------------------------------------------##
@@ -175,102 +214,94 @@ readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
+##-----------------------------------------------##
+## Original Author: ExtremeFiretop [2023-Nov-26] ##
+## Modified by: Martinski W. [2023-Nov-28]       ##
+##-----------------------------------------------##
+_CheckForNewScriptUpdates_()
+{
+   local DLRepoVersionNum  ScriptVersionNum
 
-##-----------------------------------------##
-## Added by ExtremeFiretop [2023-Nov-26]   ##
-##-----------------------------------------##
-_CheckForUpdates_ () {
-  # Download the latest version file from the source repository
-  curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "${SETTINGS_DIR}/version.txt"
+   # Download the latest version file from the source repository
+   curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "$SCRIPTVERPATH"
 
-  if [ -f "$SCRIPTVERPATH" ]; then
-    # Read in its contents for the current version file
-    DLVersion=$(cat "$SCRIPTVERPATH")
+   if [ ! -f "$SCRIPTVERPATH" ] ; then UpdateNotify=0 ; return 1 ; fi
 
-    # Splitting the downloaded version into major, minor, and patch numbers
-    OLD_IFS="$IFS"
-    IFS='.'
-    set -- $DLVersion
-    dl_major=$1
-    dl_minor=$2
-    dl_patch=$3
+   # Read in its contents for the current version file
+   DLRepoVersion="$(cat "$SCRIPTVERPATH")"
 
-    # Splitting the script version into major, minor, and patch numbers
-    set -- $SCRIPT_VERSION
-    script_major=$1
-    script_minor=$2
-    script_patch=$3
-    IFS="$OLD_IFS"
+   DLRepoVersionNum="$(_ScriptVersionStrToNum_ "$DLRepoVersion")"
+   ScriptVersionNum="$(_ScriptVersionStrToNum_ "$SCRIPT_VERSION")"
 
-    # Version comparison
-    if [ "$dl_major" -gt "$script_major" ] || [ "$dl_major" -eq "$script_major" ] && { [ "$dl_minor" -gt "$script_minor" ] || [ "$dl_minor" -eq "$script_minor" ] && [ "$dl_patch" -gt "$script_patch" ]; }; then
-      UpdateNotify="Update available: v$SCRIPT_VERSION -> v$DLVersion"
-      Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) MerlinAU[$$] - INFO: A new update (v$DLVersion) is available to download"
-    else
+   # Version comparison
+   if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
+   then
+      UpdateNotify="New script update available: v$SCRIPT_VERSION -> v$DLRepoVersion"
+      Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
+   else
       UpdateNotify=0
-    fi
-  fi
+   fi
 }
 
-##-----------------------------------------##
-## Added by ExtremeFiretop [2023-Nov-26]   ##
-##-----------------------------------------##
+##-----------------------------------------------##
+## Original Author: ExtremeFiretop [2023-Nov-26] ##
+## Modified by: Martinski W. [2023-Nov-28]       ##
+##-----------------------------------------------##
 #a function that provides a UI to check for script updates and allows you to install the latest version...
-_SCRIPTUPDATE_ () {
-  _CheckForUpdates_ # Check for the latest version from source repository
-  clear
-  logo
-  echo ""
-  echo -e "${YLWct}Update Utility${NOct}"
-  echo ""
-  echo -e "${CYANct}Current Version: ${YLWct}$SCRIPT_VERSION${NOct}"
-  echo -e "${CYANct}Updated Version: ${YLWct}$DLVersion${NOct}"
-  echo ""
-  if [ "$SCRIPT_VERSION$" == "$DLVersion" ]
-    then
+_SCRIPTUPDATE_()
+{
+   # Check for the latest version from source repository
+   _CheckForNewScriptUpdates_
+   clear
+   logo
+   echo
+   echo -e "${YLWct}Update Utility${NOct}"
+   echo
+   echo -e "${CYANct}Current Version: ${YLWct}${SCRIPT_VERSION}${NOct}"
+   echo -e "${CYANct}Updated Version: ${YLWct}${DLRepoVersion}${NOct}"
+   echo
+   if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ]
+   then
       echo -e "${CYANct}You are on the latest version! Would you like to download anyways?${NOct}"
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
       if _WaitForYESorNO_ ; then
-        echo ""
-        echo ""
-        echo -e "${CYANct}Downloading MerlinAU ${CYANct}v$DLVersion${NOct}"
-		curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "${ScriptsDirPath}/MerlinAU.sh" && chmod +x "${ScriptsDirPath}/MerlinAU.sh"
-		curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "${SETTINGS_DIR}/version.txt"
-        echo ""
-        echo -e "${CYANct}Download successful!${NOct}"
-        echo -e "$(date) - MerlinAU - Successfully downloaded MerlinAU v$DLVersion"
-        echo ""
-        _WaitForEnterKey_
-        return
+         echo ; echo
+         echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
+         curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+         curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "$SCRIPTVERPATH"
+         echo
+         echo -e "${CYANct}Download successful!${NOct}"
+         echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+         echo
+         _WaitForEnterKey_
+         return
       else
-        echo ""
-        echo ""
-        echo -e "${GRNct}Exiting Update Utility...${NOct}"
-        sleep 1
-        return
+         echo ; echo
+         echo -e "${GRNct}Exiting Update Utility...${NOct}"
+         sleep 1
+         return
       fi
-    else
+   elif [ "$UpdateNotify" != "0" ]
+   then
       echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
       if _WaitForYESorNO_ ; then
-        echo ""
-        echo ""
-        echo -e "${CYANct}Downloading MerlinAU ${CYANct}v$DLVersion${NOct}"
-		curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "${ScriptsDirPath}/MerlinAU.sh" && chmod +x "${ScriptsDirPath}/MerlinAU.sh"
-		curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "${SETTINGS_DIR}/version.txt"
-        echo ""
-        echo -e "${CYANct}Download successful!${NOct}"
-        echo -e "$(date) - MerlinAU - Successfully downloaded MerlinAU v$DLVersion"
-        echo ""
-        _WaitForEnterKey_
-        return
+         echo ; echo
+         echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
+         curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+         curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "$SCRIPTVERPATH"
+         echo
+         echo -e "${CYANct}Download successful!${NOct}"
+         echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+         echo
+         _WaitForEnterKey_
+         return
       else
-        echo ""
-        echo ""
-        echo -e "${GRNct}Exiting Update Utility...${NOct}"
-        sleep 1
-        return
+         echo ; echo
+         echo -e "${GRNct}Exiting Update Utility...${NOct}"
+         sleep 1
+         return
       fi
-  fi
+   fi
 }
 
 ##--------------------------------------##
@@ -305,7 +336,7 @@ logo() {
   echo -e "   | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
   echo -e "   | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
   echo -e "   | |  | |  __| |  | | | | | |/ ____ | |__| |"
-  echo -e "   |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v$SCRIPT_VERSION${REDct}"
+  echo -e "   |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}${NOct}${REDct}"
   echo -e "                                              "
   echo -e "                                              ${NOct}"
 }
@@ -718,7 +749,7 @@ _WaitForEnterKey_()
 }
 
 ##----------------------------------##
-## Added Martinski W. [2023-Nov-22] ##
+## Added Martinski W. [2023-Nov-28] ##
 ##----------------------------------##
 _WaitForYESorNO_()
 {
@@ -726,7 +757,7 @@ _WaitForYESorNO_()
    local promptStr
 
    if [ $# -eq 0 ] || [ -z "$1" ]
-   then promptStr="[yY|nN] N? "
+   then promptStr=" [yY|nN] N? "
    else promptStr="$1 [yY|nN] N? "
    fi
 
@@ -765,9 +796,9 @@ _CreateDirectory_()
     return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-16] ##
-##-------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-28] ##
+##----------------------------------------------##
 _DelPostRebootRunScriptHook_()
 {
    local hookScriptFile
@@ -786,7 +817,7 @@ _DelPostRebootRunScriptHook_()
            Say "Post-reboot run hook was deleted successfully from '$hookScriptFile' script."
        fi
    else
-       Say "${GRNct}Post-reboot run hook can no longer be found in '$hookScriptFile' script.${NOct}"
+       Say "${GRNct}Post-reboot run hook is not found in '$hookScriptFile' script.${NOct}"
    fi
 }
 
@@ -908,27 +939,6 @@ _DoCleanUp_()
    then rm -f "${FW_BIN_DIR}"/* ; fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-06] ##
-##-------------------------------------##
-_VersionFormatToNumber_()
-{
-   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
-   then echo "" ; return 1 ; fi
-
-   local versionNum  versionStr="$1"
-
-   if [ "$(echo "$1" | awk -F '.' '{print NF}')" -lt "$2" ]
-   then versionStr="$(nvram get firmver | sed 's/\.//g').$1" ; fi
-
-   if [ "$2" -lt 4 ]
-   then versionNum="$(echo "$versionStr" | awk -F '.' '{printf ("%d%03d%03d\n", $1,$2,$3);}')"
-   else versionNum="$(echo "$versionStr" | awk -F '.' '{printf ("%d%d%03d%03d\n", $1,$2,$3,$4);}')"
-   fi
-
-   echo "$versionNum" ; return 0
-}
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Oct-07] ##
 ##----------------------------------------##
@@ -941,8 +951,8 @@ check_version_support() {
     local current_version="$(_GetCurrentFWInstalledShortVersion_)"
 
     local numFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
-    local numCurrentVers="$(_VersionFormatToNumber_ "$current_version" "$numFields")"
-    local numMinimumVers="$(_VersionFormatToNumber_ "$minimum_supported_version" "$numFields")"
+    local numCurrentVers="$(_FWVersionStrToNum_ "$current_version" "$numFields")"
+    local numMinimumVers="$(_FWVersionStrToNum_ "$minimum_supported_version" "$numFields")"
 
     # If the current firmware version is lower than the minimum supported firmware version, exit.
     if [ "$numCurrentVers" -lt "$numMinimumVers" ]
@@ -1317,8 +1327,8 @@ _CheckNewUpdateFirmwareNotification_()
    local numVersionFields  fwNewUpdateVersNum
 
    numVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
-   currentVersionNum="$(_VersionFormatToNumber_ "$1" "$numVersionFields")"
-   releaseVersionNum="$(_VersionFormatToNumber_ "$2" "$numVersionFields")"
+   currentVersionNum="$(_FWVersionStrToNum_ "$1" "$numVersionFields")"
+   releaseVersionNum="$(_FWVersionStrToNum_ "$2" "$numVersionFields")"
 
    if [ "$currentVersionNum" -ge "$releaseVersionNum" ]
    then
@@ -1335,7 +1345,7 @@ _CheckNewUpdateFirmwareNotification_()
        Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
    else
        numVersionFields="$(echo "$fwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
-       fwNewUpdateVersNum="$(_VersionFormatToNumber_ "$fwNewUpdateNotificationVers" "$numVersionFields")"
+       fwNewUpdateVersNum="$(_FWVersionStrToNum_ "$fwNewUpdateNotificationVers" "$numVersionFields")"
        if [ "$releaseVersionNum" -gt "$fwNewUpdateVersNum" ]
        then
            fwNewUpdateNotificationVers="$2"
@@ -1437,7 +1447,7 @@ _Toggle_FW_UpdateCheckSetting_()
    fi
 
    nvram set firmware_check_enable="$FW_UpdateCheckState"
-   printf "Router's built-in Firmware Update Check is now ${fwUpdateCheckNewStateStr}${NOct}.\n"
+   printf "Router's built-in Firmware Update Check is now ${fwUpdateCheckNewStateStr}.\n"
    nvram commit
 
    "$runfwUpdateCheck" && sh $FW_UpdateCheckScript 2>&1 &
@@ -1468,7 +1478,7 @@ _RunFirmwareUpdateNow_()
 
     # Get current firmware version #
     current_version="$(_GetCurrentFWInstalledShortVersion_)"	
-    ###current_version="388.3.0"
+    ##FOR DEBUG ONLY##current_version="388.3.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -1770,10 +1780,13 @@ _AddCronJobRunScriptHook_()
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-24] ##
+## Added/Modified by Martinski W. [2023-Nov-28] ##
 ##----------------------------------------------##
 _DoUninstall_()
 {
+   printf "Are you sure you want to uninstall $ScriptFileName script now"
+   ! _WaitForYESorNO_ && return 0
+
    _DelCronJobEntry_
    _DelCronJobRunScriptHook_
    _DelPostRebootRunScriptHook_
@@ -1801,7 +1814,7 @@ check_model_support
 check_version_support
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-18] ##
+## Modified by Martinski W. [2023-Nov-28] ##
 ##----------------------------------------##
 if [ $# -gt 0 ]
 then
@@ -1813,11 +1826,7 @@ then
            ;;
        postRebootRun) _PostRebootRunNow_ ; exit 0
            ;;
-       uninstall)
-           if _WaitForYESorNO_ "Are you sure you want to uninstall $ScriptFileName"
-           then _DoUninstall_
-           else exit 0
-           fi
+       uninstall) _DoUninstall_ ; exit 0
            ;;
 
 ##FOR TEST/DEBUG ONLY##
@@ -1831,10 +1840,13 @@ then
    esac
 fi
 
+# Download the latest version file from the source repository #
+# to check if there's a new version update to notify the user #
+_CheckForNewScriptUpdates_
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Nov-19] ##
 ##----------------------------------------##
-_CheckForUpdates_
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
 [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 if [ "$FW_UpdateCheckState" -eq 1 ]
@@ -1883,9 +1895,9 @@ show_menu()
    printf "${NOct}\n"
    # Check for updates
    if [ "$UpdateNotify" != "0" ]; then
-	Say "${REDct}$UpdateNotify${NOct}"
+      Say "${REDct}$UpdateNotify${NOct}"
    fi
-   
+
    padStr="      "
    printf "${SEPstr}"
 
@@ -1938,14 +1950,14 @@ show_menu()
           printf "\n  ${GRNct}8${NOct}.  Change Update Build Type\n"
       fi
    fi
-   
+
    # Check for updates
    if [ "$UpdateNotify" != "0" ]; then
-	printf "\n  ${GRNct}up${NOct}. Update MerlinAU Script Now"
-    printf "\n      [Version: ${GRNct}$DLVersion${NOct} Available for Download]\n"
+      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
+      printf "\n      [Version: ${GRNct}$DLRepoVersion${NOct} Available for Download]\n"
    fi
 
-   printf "\n  ${GRNct}un${NOct}.  Uninstall\n"
+   printf "\n ${GRNct}un${NOct}.  Uninstall\n"
    printf "\n  ${GRNct}e${NOct}.  Exit\n"
    printf "${SEPstr}\n"
 }
@@ -1990,13 +2002,10 @@ do
           printf "${REDct}INVALID selection.${NOct} Please try again."
           _WaitForEnterKey_
           ;;
-	   up)  _SCRIPTUPDATE_
-		  ;;
-       un) if _WaitForYESorNO_ "Are you sure you want to uninstall ${GRNct}${ScriptFileName}${NOct}"
-           then _DoUninstall_
-           else _WaitForEnterKey_
-           fi
-           ;;
+      up) _SCRIPTUPDATE_
+          ;;
+      un) _DoUninstall_ && _WaitForEnterKey_
+          ;;
        e|exit) exit 0
           ;;
        *) printf "${REDct}INVALID selection.${NOct} Please try again."
