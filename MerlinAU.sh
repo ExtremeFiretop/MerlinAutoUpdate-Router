@@ -1895,7 +1895,7 @@ show_menu()
    printf "${NOct}\n"
    # Check for updates
    if [ "$UpdateNotify" != "0" ]; then
-      Say "${REDct}$UpdateNotify${NOct}"
+      Say "${REDct}${UpdateNotify}${NOct}"
    fi
 
    padStr="      "
@@ -1954,7 +1954,7 @@ show_menu()
    # Check for updates
    if [ "$UpdateNotify" != "0" ]; then
       printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
-      printf "\n      [Version: ${GRNct}$DLRepoVersion${NOct} Available for Download]\n"
+      printf "\n      [Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
    fi
 
    printf "\n ${GRNct}un${NOct}.  Uninstall\n"
@@ -2006,7 +2006,7 @@ do
           ;;
       un) _DoUninstall_ && _WaitForEnterKey_
           ;;
-       e|exit) exit 0
+  e|exit) exit 0
           ;;
        *) printf "${REDct}INVALID selection.${NOct} Please try again."
           _WaitForEnterKey_
