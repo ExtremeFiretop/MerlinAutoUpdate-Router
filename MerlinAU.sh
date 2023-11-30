@@ -11,6 +11,7 @@
 #To Do:
 #Disable Cron Shedukle with Disabling of internal Firnmare check
 #if it's configured for USB location, and it's not connected at run time. Warn in UI and logs. Stop running script period.
+#Unplugging and replugging the USB live causes USB path to go from (i.e SDA to i.e SDA(1))
 ###################################################################
 set -u
 
