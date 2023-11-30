@@ -4,12 +4,18 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Nov-28
+# Last Modified: 2023-Nov-29
+###################################################################
+
+###################################################################
+#To Do:
+#Disable Cron Shedukle with Disabling of internal Firnmare check
+#if it's configured for USB location, and it's not connected at run time. Warn in UI and logs. Stop running script period.
 ###################################################################
 set -u
 
 readonly SCRIPT_NAME="MerlinAU"
-readonly SCRIPT_VERSION="0.2.22"
+readonly SCRIPT_VERSION="0.2.23"
 readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly URL_RELEASE_SUFFIX="Release"
 
@@ -336,23 +342,22 @@ logo() {
   echo -e "   | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
   echo -e "   | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
   echo -e "   | |  | |  __| |  | | | | | |/ ____ | |__| |"
-  echo -e "   |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}${NOct}${REDct}"
-  echo -e "                                              "
+  echo -e "   |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
   echo -e "                                              ${NOct}"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-29] ##
+##------------------------------------------##
 if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
 then
     USBConnected="${GRNct}True${NOct}"
-    readonly FW_Update_ZIP_DefaultSetupDIR="$USBMountPoint"
-    readonly FW_Update_LOG_BASE_DefaultDIR="$USBMountPoint"
+    readonly FW_Update_ZIP_DefaultSetupDIR="$USBMountPoint/$ScriptFNameTag"
+    readonly FW_Update_LOG_BASE_DefaultDIR="$USBMountPoint/$ScriptFNameTag"
 else
     USBConnected="${REDct}False${NOct}"
-    readonly FW_Update_ZIP_DefaultSetupDIR="/home/root"
-    readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
+    readonly FW_Update_ZIP_DefaultSetupDIR="/home/root/$ScriptFNameTag"
+    readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH/$ScriptFNameTag"
 fi
 
 ##------------------------------------------##
@@ -443,9 +448,9 @@ Get_Custom_Setting()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-29] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -509,7 +514,7 @@ Update_Custom_Settings()
             elif [ "$setting_type" = "FW_New_Update_LOG_Directory_Path" ]
             then  # Addition for handling log directory path
                 FW_LOG_BASE_DIR="$setting_value"
-                FW_LOG_DIR="${setting_value}/${ScriptFNameTag}/logs"
+                FW_LOG_DIR="${setting_value}/logs"
             fi
             ;;
         *)
@@ -518,16 +523,16 @@ Update_Custom_Settings()
     esac
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-29] ##
+##------------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
 {
    local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
 
    while true
    do
-      printf "\nEnter the directory path where the LOG subdirectory [${GRNct}${ScriptFNameTag}${NOct}] will be stored.\n"
+      printf "\nEnter the directory path where the LOG subdirectory [${GRNct}logs${NOct}] will be stored.\n"
       printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
       read -r userInput
 
@@ -573,9 +578,8 @@ _Set_FW_UpdateLOG_DirectoryPath_()
 
    if [ "$newLogBaseDirPath" != "$FW_LOG_BASE_DIR" ] && [ -d "$newLogBaseDirPath" ]
    then
-       if  [ "${newLogBaseDirPath##*/}" != "logs" ] && \
-           [ "${newLogBaseDirPath##*/}" != "$ScriptFNameTag" ]
-       then newLogFileDirPath="${newLogBaseDirPath}/${ScriptFNameTag}/logs" ; fi
+       if  [ "${newLogBaseDirPath##*/}" != "logs" ]
+       then newLogFileDirPath="${newLogBaseDirPath}/logs" ; fi
        mkdir -p -m 755 "$newLogFileDirPath" 2>/dev/null
        if [ ! -d "$newLogFileDirPath" ]
        then
@@ -585,7 +589,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
        fi
        # Move any existing log files to new directory #
        mv -f "${FW_LOG_DIR}"/*.log "$newLogFileDirPath" 2>/dev/null
-       rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag"
+       rm -fr "${FW_LOG_DIR}"
        # Update the log directory path after validation #
        Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
        echo "The directory path for the log files was updated successfully."
@@ -669,9 +673,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
 _Init_Custom_Settings_Config_
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-29] ##
+##------------------------------------------##
 # NOTE:
 # Depending on available RAM & storage capacity of the 
 # target router, it may be required to have USB-attached 
@@ -687,7 +691,7 @@ readonly FW_BIN_DIR="${FW_BIN_SETUP_DIR}/$FW_FileName"
 
 FW_ZIP_DIR="${FW_ZIP_SETUP_DIR}/$FW_FileName"
 FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
-FW_LOG_DIR="${FW_LOG_BASE_DIR}/${ScriptFNameTag}/logs"
+FW_LOG_DIR="${FW_LOG_BASE_DIR}/logs"
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Nov-24] ##
@@ -1779,9 +1783,9 @@ _AddCronJobRunScriptHook_()
    fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-28] ##
-##----------------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-29] ##
+##------------------------------------------##
 _DoUninstall_()
 {
    printf "Are you sure you want to uninstall $ScriptFileName script now"
@@ -1790,10 +1794,13 @@ _DoUninstall_()
    _DelCronJobEntry_
    _DelCronJobRunScriptHook_
    _DelPostRebootRunScriptHook_
-   rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag"
-   rm -fr "$SETTINGS_DIR" "$FW_BIN_DIR" "$FW_ZIP_DIR"
-   rm -f "$ScriptFilePath"
-   Say "${GRNct}Successfully Uninstalled.${NOct}"
+if rm -fr "${FW_LOG_DIR}" && \
+   rm -fr "$SETTINGS_DIR" "$FW_BIN_DIR" "$FW_ZIP_DIR" && \
+   rm -fr "$ScriptFilePath"; then
+    Say "${GRNct}Successfully Uninstalled.${NOct}"
+else
+    Say "${REDct}Error: Uninstallation failed.${NOct}"
+fi
    exit 0
 }
 
@@ -1883,15 +1890,14 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-26] ##
+## Modified by ExtremeFiretop [2023-Nov-29] ##
 ##------------------------------------------##
 show_menu()
 {
    clear
-   SEPstr="---------------------------------------------------"
+   SEPstr="-----------------------------------------------------"
    logo
-   printf "${YLWct}================ By ExtremeFiretop ================${NOct}\n"
-   printf "${YLWct}================== & Martinski W. =================${NOct}\n"
+   printf "${YLWct}========= By ExtremeFiretop & Martinski W. ==========${NOct}\n"
    printf "${NOct}\n"
    # Check for updates
    if [ "$UpdateNotify" != "0" ]; then
@@ -1910,9 +1916,9 @@ show_menu()
    printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
    printf "\n${padStr}USB Storage Connected: $USBConnected"
 
-   printf "\n\n${SEPstr}"
-   printf "\n  ${GRNct}1${NOct}.  Configure Router Login Credentials\n"
-   printf "\n  ${GRNct}2${NOct}.  Run Update F/W Check Now\n"
+   printf "\n${SEPstr}"
+   printf "\n  ${GRNct}1${NOct}.  Run Update F/W Check Now\n"
+   printf "\n  ${GRNct}2${NOct}.  Configure Router Login Credentials\n"
 
    printf "\n  ${GRNct}3${NOct}.  Set F/W Update Check Schedule"
    printf "\n      [Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
@@ -1963,7 +1969,7 @@ show_menu()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
+## Modified by ExtremeFiretop [2023-Nov-29] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -1983,9 +1989,9 @@ do
    printf "Enter selection:  " ; read -r userChoice
    echo
    case $userChoice in
-       1) _GetLoginCredentials_
+       1) _RunFirmwareUpdateNow_
           ;;
-       2) _RunFirmwareUpdateNow_
+       2) _GetLoginCredentials_
           ;;
        3) _Set_FW_UpdateCronSchedule_
           ;;
