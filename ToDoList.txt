@@ -2,7 +2,6 @@
 # TO-DO List
 # Last Modified: 2023-Nov-30
 #------------------------------------------------------------------
-- Disable Cron Schedule with Disabling of internal Firmware check
   if it's configured for USB location, and it's not connected at run time.
   Warn in UI and logs. Stop running script period.
 
