@@ -1496,7 +1496,6 @@ _RunFirmwareUpdateNow_()
 		    Say "Current Mount Point: $CurrentUSBMountPoint"
 			Say "Expected Mount Point: $ExpectedUSBMountPoint"
             Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-            Say "Required USB storage device is not connected or not mounted correctly."
             "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
             return 1
         fi
