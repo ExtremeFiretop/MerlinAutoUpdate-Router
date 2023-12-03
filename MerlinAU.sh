@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-01
+# Last Modified: 2023-Dec-03
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.25"
+readonly SCRIPT_VERSION="0.2.26"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1442,7 +1442,7 @@ _Toggle_FW_UpdateCheckSetting_()
        fwUpdateCheckNewStateStr="${REDct}DISABLE${NOct}"
    fi
 
-   if ! _WaitForYESorNO_ "Do you want to ${fwUpdateCheckNewStateStr} Router's F/W Update Check"
+   if ! _WaitForYESorNO_ "Do you want to ${fwUpdateCheckNewStateStr} the F/W Update Check?"
    then return 1 ; fi
 
    if "$fwUpdateCheckEnabled"
@@ -1473,9 +1473,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-03] ##
+##------------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
@@ -1483,6 +1483,24 @@ _RunFirmwareUpdateNow_()
     LOG_FILE="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
 
     Say "Running the task now... Checking for F/W updates..."
+	
+    # Retrieve the expected USB mount point from the settings
+    ExpectedUSBMountPoint="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)" 
+
+    # Use _GetDefaultUSBMountPoint_ to check the current USB mount point
+    CurrentUSBMountPoint="$(_GetDefaultUSBMountPoint_)"
+    Say "Current Mount Point: $CurrentUSBMountPoint"
+    Say "Expected Mount Point: $ExpectedUSBMountPoint"
+
+    # Check if the expected USB mount point matches the current mount point
+    if [ -n "$ExpectedUSBMountPoint" ] && [ "$ExpectedUSBMountPoint" != "/home/root" ]; then
+        if [ "$CurrentUSBMountPoint" != "$ExpectedUSBMountPoint" ]; then
+            Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+            echo "Required USB storage device is not connected or not mounted correctly." >> "$LOG_FILE"
+            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+            return 1
+        fi
+    fi
 
     local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
@@ -1694,7 +1712,9 @@ fi
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
         sleep 60
     else
-        Say "${REDct}**ERROR**${NOct}: Login failed. Please confirm credentials by selecting \"Configure Router Login Credentials\" from the Main Menu."
+        Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
+1. Confirm you are not already logged into the router with a browser.
+2. Update credentials by selecting \"Configure Router Login Credentials\" from the Main Menu."
         _DoCleanUp_ 1
     fi
 
@@ -1908,7 +1928,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-29] ##
+## Modified by ExtremeFiretop [2023-Dec-03] ##
 ##------------------------------------------##
 show_menu()
 {
@@ -1937,24 +1957,24 @@ show_menu()
    printf "\n${SEPstr}"
    printf "\n  ${GRNct}1${NOct}.  Run Update F/W Check Now\n"
    printf "\n  ${GRNct}2${NOct}.  Configure Router Login Credentials\n"
-
-   printf "\n  ${GRNct}3${NOct}.  Set F/W Update Check Schedule"
-   printf "\n      [Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
-
-   printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
-   printf "\n      [Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
-
+   
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
    if [ "$FW_UpdateCheckState" -eq 0 ]
    then
-       printf "\n  ${GRNct}5${NOct}.  Enable Router's F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  Enable F/W Update Check"
        printf "\n      [Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}5${NOct}.  Disable Router's F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  Disable F/W Update Check"
        printf "\n      [Currently ${GRNct}ENABLED${NOct}]\n"
    fi
+   
+   printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
+   printf "\n      [Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
+
+   printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
+   printf "\n      [Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
    printf "\n  ${GRNct}6${NOct}.  Set Directory Path for F/W Update ZIP File"
    printf "\n      [Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
@@ -1987,7 +2007,7 @@ show_menu()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-29] ##
+## Modified by ExtremeFiretop [2023-Dec-03] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -2011,11 +2031,11 @@ do
           ;;
        2) _GetLoginCredentials_
           ;;
-       3) _Set_FW_UpdateCronSchedule_
+       3) _Toggle_FW_UpdateCheckSetting_
           ;;
        4) _Set_FW_UpdatePostponementDays_
           ;;
-       5) _Toggle_FW_UpdateCheckSetting_
+       5) _Set_FW_UpdateCronSchedule_
           ;;
        6) _Set_FW_UpdateZIP_DirectoryPath_
           ;;
