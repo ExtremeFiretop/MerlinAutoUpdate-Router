@@ -1489,14 +1489,14 @@ _RunFirmwareUpdateNow_()
 
     # Use _GetDefaultUSBMountPoint_ to check the current USB mount point
     CurrentUSBMountPoint="$(_GetDefaultUSBMountPoint_)"
-    Say "Current Mount Point: $CurrentUSBMountPoint"
-    Say "Expected Mount Point: $ExpectedUSBMountPoint"
 
     # Check if the expected USB mount point matches the current mount point
     if [ -n "$ExpectedUSBMountPoint" ] && [ "$ExpectedUSBMountPoint" != "/home/root" ]; then
         if [ "$CurrentUSBMountPoint" != "$ExpectedUSBMountPoint" ]; then
+		    Say "Current Mount Point: $CurrentUSBMountPoint"
+			Say "Expected Mount Point: $ExpectedUSBMountPoint"
             Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-            echo "Required USB storage device is not connected or not mounted correctly." >> "$LOG_FILE"
+            Say "Required USB storage device is not connected or not mounted correctly."
             "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
             return 1
         fi
