@@ -337,6 +337,46 @@ _GetDefaultUSBMountPoint_()
    echo "$mounPointPath" ; return "$retCode"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Dec-03] ##
+##-------------------------------------##
+#-------------------------------------------------------------#
+# Since a list of current mount points can have a different
+# order after each reboot, or when USB drives are unmounted
+# (unplugged) & then mounted (plugged in) manually by users,
+# to validate a given mount point path selection we have to
+# go through the current list & check for the specific path.
+# We also make a special case for Entware "/opt/" paths.
+#-------------------------------------------------------------#
+_ValidateUSBMountPoint_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local mounPointPaths  expectedPath
+   local symbPath  realPath  foundPathOK
+   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+
+   mounPointPaths="$(grep "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mounPointPaths" ] && return 1
+
+   expectedPath="$1"
+   if echo "$1" | grep -qE "^(/opt/|/tmp/opt/)"
+   then
+       symbPath="$(ls -l /tmp/opt | awk -F ' ' '{print $9}')"
+       realPath="$(ls -l /tmp/opt | awk -F ' ' '{print $11}')"
+       [ -L "$symbPath" ] && [ -n "$realPath" ] && \
+       expectedPath="$(/usr/bin/dirname "$realPath")"
+   fi
+
+   foundPathOK=false
+   for thePATH in $mounPointPaths
+   do
+      if echo "${expectedPath}/" | grep -qE "^${thePATH}/"
+      then foundPathOK=true ; break ; fi
+   done
+   "$foundPathOK" && return 0 || return 1
+}
+
 ##----------------------------------------##
 ## Added by ExtremeFiretop [2023-Nov-26] ##
 ##----------------------------------------##
@@ -1442,7 +1482,7 @@ _Toggle_FW_UpdateCheckSetting_()
        fwUpdateCheckNewStateStr="${REDct}DISABLE${NOct}"
    fi
 
-   if ! _WaitForYESorNO_ "Do you want to ${fwUpdateCheckNewStateStr} the F/W Update Check?"
+   if ! _WaitForYESorNO_ "Do you want to ${fwUpdateCheckNewStateStr} the built-in F/W Update Check?"
    then return 1 ; fi
 
    if "$fwUpdateCheckEnabled"
@@ -1473,9 +1513,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-03] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-03] ##
+##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
@@ -1483,22 +1523,34 @@ _RunFirmwareUpdateNow_()
     LOG_FILE="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
 
     Say "Running the task now... Checking for F/W updates..."
-	
-    # Retrieve the expected USB mount point from the settings
-    ExpectedUSBMountPoint="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)" 
 
-    # Use _GetDefaultUSBMountPoint_ to check the current USB mount point
-    CurrentUSBMountPoint="$(_GetDefaultUSBMountPoint_)"
+    #---------------------------------------------------------------#
+    # Check if an expected USB-attached drive is still mounted.
+    # Make a special case when USB drive has Entware installed. 
+    #---------------------------------------------------------------#
+    if echo "$FW_ZIP_BASE_DIR" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
+       ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+    then
+        Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+        Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
 
-    # Check if the expected USB mount point matches the current mount point
-    if [ -n "$ExpectedUSBMountPoint" ] && [ "$ExpectedUSBMountPoint" != "/home/root" ]; then
-        if [ "$CurrentUSBMountPoint" != "$ExpectedUSBMountPoint" ]; then
-		    Say "Current Mount Point: $CurrentUSBMountPoint"
-			Say "Expected Mount Point: $ExpectedUSBMountPoint"
-            Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-            return 1
-        fi
+    #---------------------------------------------------------#
+    # If the expected directory path for the ZIP file is not
+    # found, we select the $HOME path instead as a temporary 
+    # fallback. This should work if free RAM is >= ~150MB.
+    #---------------------------------------------------------#
+    if [ ! -d "$FW_ZIP_BASE_DIR" ]
+    then
+        Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+        Say "Using temporary fallback directory: /home/root"
+        "$inMenuMode" && { _WaitForYESorNO_ "Continue" || return 1 ; }
+        # Continue #
+        FW_ZIP_BASE_DIR="/home/root"
+        FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
+        FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
     fi
 
     local credsBase64=""
@@ -1712,7 +1764,7 @@ fi
         sleep 60
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
-1. Confirm you are not already logged into the router with a browser.
+1. Confirm you are not already logged into the router using a web browser.
 2. Update credentials by selecting \"Configure Router Login Credentials\" from the Main Menu."
         _DoCleanUp_ 1
     fi
@@ -1956,7 +2008,7 @@ show_menu()
    printf "\n${SEPstr}"
    printf "\n  ${GRNct}1${NOct}.  Run Update F/W Check Now\n"
    printf "\n  ${GRNct}2${NOct}.  Configure Router Login Credentials\n"
-   
+
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
@@ -1968,7 +2020,7 @@ show_menu()
        printf "\n  ${GRNct}3${NOct}.  Disable F/W Update Check"
        printf "\n      [Currently ${GRNct}ENABLED${NOct}]\n"
    fi
-   
+
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n      [Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
 
