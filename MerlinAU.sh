@@ -918,16 +918,19 @@ get_free_ram() {
 ##----------------------------------------##
 check_memory_and_reboot()
 {
-    if [ ! -f "${FW_BIN_DIR}/$firmware_file" ]; then
-        Say "${REDct}**ERROR**${NOct}: Firmware file [${FW_BIN_DIR}/$firmware_file] not found."
+    # Ensure the firmware file path is passed to the function
+    if [ $# -eq 0 ] || [ ! -f "$1" ]; then
+        Say "${REDct}**ERROR**${NOct}: Firmware file path not provided or file does not exist."
         exit 1
     fi
+
+    local firmware_file_path="$1"
 
     # sync cached data to permanent storage to prevent data loss #
     sync ; sleep 1 ; sync
 
     # Get firmware file size in kilobytes #
-    firmware_size_kb="$(du -k "${FW_BIN_DIR}/$firmware_file" | cut -f1)"
+    firmware_size_kb="$(du -k "$firmware_file_path" | cut -f1)"
     free_ram_kb="$(get_free_ram)"
 
     if [ "$free_ram_kb" -lt "$firmware_size_kb" ]; then
@@ -1090,26 +1093,15 @@ change_build_type() {
     # Use Get_Custom_Setting to retrieve the previous choice
     previous_choice="$(Get_Custom_Setting "local" "n")"
 
-    # Logging user's choice
-    # Check for the presence of "rog" in filenames in the extracted directory
-    cd "$FW_BIN_DIR"
-    rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
-
-    if [ -n "$rog_file" ]; then
-        printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
+    # If running in interactive mode, ask for user's choice
+    if [ "$inMenuMode" = true ]; then
+        printf "${REDct}Would you like to use the ROG build? (current choice: $previous_choice) (y/n)${NOct}\n"
 
         while true; do
-            # Use the previous_choice as the default value
             read -rp "Enter your choice [$previous_choice]: " choice
-
-            # Use the entered choice or the default value if the input is empty
             choice="${choice:-$previous_choice}"
-
-            # Convert to lowercase to make comparison easier
             choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
 
-            # Check if the input is valid
             if [ "$choice" = "y" ] || [ "$choice" = "yes" ] || [ "$choice" = "n" ] || [ "$choice" = "no" ]; then
                 break
             else
@@ -1118,15 +1110,17 @@ change_build_type() {
         done
 
         if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
-            firmware_file="$rog_file"
             Update_Custom_Settings "local" "y"
         else
-            firmware_file="$pure_file"
             Update_Custom_Settings "local" "n"
         fi
     else
-        firmware_file="$pure_file"
-        Update_Custom_Settings "local" "n"
+        # If not in interactive mode, use the previous choice
+        if [ "$previous_choice" = "y" ]; then
+            echo "Using ROG build as per previous setting."
+        else
+            echo "Using pure build as per previous setting."
+        fi
     fi
 
     _WaitForEnterKey_ "$menuReturnPromptStr"
@@ -1505,16 +1499,27 @@ _RunFirmwareUpdateNow_()
     local currentVersionNum=""  releaseVersionNum=""
     local current_version=""  release_version=""
 
-    # Create directory for downloading & extracting firmware #
+	# Define the base directory for downloads based on user configuration
+    FW_ZIP_BASE_DIR="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)"
+    
+    # If no custom path is defined or it's not accessible, fall back to /home/root
+    if [ -z "$FW_ZIP_BASE_DIR" ] || [ ! -d "$FW_ZIP_BASE_DIR" ]; then
+        FW_ZIP_BASE_DIR="/home/root"
+        Say "Using fallback directory: $FW_ZIP_BASE_DIR"
+    fi
+
+    FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/${FW_ZIP_SUBDIR}"
+    FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+
+    # Ensure the ZIP directory exists
     if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
 
-    # In case ZIP directory is different from BIN directory #
-    if [ "$FW_ZIP_DIR" != "$FW_BIN_DIR" ] && \
-       ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
+    # In case ZIP directory is different from BIN directory
+    if [ "$FW_ZIP_DIR" != "$FW_BIN_DIR" ] && ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(_GetCurrentFWInstalledShortVersion_)"	
-    ##FOR DEBUG ONLY##current_version="388.3.0"
+    ##FOR DEBUG ONLY##current_version="$(_GetCurrentFWInstalledShortVersion_)"	
+    current_version="388.3.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -1537,13 +1542,13 @@ _RunFirmwareUpdateNow_()
     # "New F/W Release Version" from the router itself.
     # If no new F/W version update is available exit.
     #------------------------------------------------------
-    if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
-       ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-    then
-        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
-    fi
+    ##FOR DEBUG ONLY##if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+    ##FOR DEBUG ONLY##   ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+    ##FOR DEBUG ONLY##then
+    ##FOR DEBUG ONLY##    Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+    ##FOR DEBUG ONLY##    "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+    ##FOR DEBUG ONLY##    return 1
+    ##FOR DEBUG ONLY##fi
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
@@ -1561,21 +1566,21 @@ _RunFirmwareUpdateNow_()
         return 0
     fi
 
-    #BEGIN: Redirect both stdout and stderr to log file #
-    {
-
-    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
-    then
-        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
-    fi
-
     ## Check for Login Credentials ##
     credsBase64="$(Get_Custom_Setting credentials_base64)"
     if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
     then
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
+	
+	    #BEGIN: Redirect both stdout and stderr to log file #
+    {
+	
+	if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
+    then
+        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
@@ -1601,7 +1606,7 @@ _RunFirmwareUpdateNow_()
     fi
 
     # Extracting the firmware binary image
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
+    if unzip -o "$FW_ZIP_FPATH" -d "$FW_ZIP_DIR" -x README*
     then
         rm -f "$FW_ZIP_FPATH"
     else
@@ -1610,29 +1615,51 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
+    # Identify the exact name of the extracted firmware file
+    cd "$FW_ZIP_DIR"
+    firmware_file=$(ls | grep -i '.trx\|.w\|.chk\|.bin' | head -n 1)
+
+    if [ -z "$firmware_file" ]; then
+        Say "${REDct}**ERROR**${NOct}: Extracted firmware file not found in $FW_ZIP_DIR."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
+
+    # Construct the full path of the firmware file
+    firmware_file_path="${FW_ZIP_DIR}/${firmware_file}"
+
+    # Check if the firmware file exists
+    if [ ! -f "$firmware_file_path" ]; then
+        Say "${REDct}**ERROR**${NOct}: Firmware file not found at $firmware_file_path."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
+
+    # Pass the firmware file path to the check_memory_and_reboot function
+    check_memory_and_reboot "$firmware_file_path"
+
     # Use Get_Custom_Setting to retrieve the previous choice
     previous_choice="$(Get_Custom_Setting "local" "n")"
 
     # Logging user's choice
     # Check for the presence of "rog" in filenames in the extracted directory
-    cd "$FW_BIN_DIR"
-    rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
+    cd "$FW_ZIP_DIR"
 
-    local_value="$(Get_Custom_Setting "local")"
+    # Identify the ROG and pure firmware files
+    rog_file="$(ls | grep -i '_rog_' | head -n 1)"
+    pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog' | head -n 1)"
 
-if [ -z "$local_value" ]; then
+    # Get the user's previous choice (if any)
+    previous_choice="$(Get_Custom_Setting "local" "n")"
+
     if [ -n "$rog_file" ]; then
-        # Check if the first argument is 'run_now'
-        if ! "$inMenuMode" ; then
-            # If the argument is 'run_now' default to the "Pure Build"
-            firmware_file="$pure_file"
-            Update_Custom_Settings "local" "n"
-        else
-            # Otherwise, prompt the user for their choice
+        # If a ROG file is found
+        if [ "$inMenuMode" = true ] || [ "$previous_choice" = "n" ]; then
+            # If running in menu mode or if the previous choice was pure build
             printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
             read -rp "Enter your choice [$previous_choice]: " choice
             choice="${choice:-$previous_choice}"
+
             if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
                 firmware_file="$rog_file"
                 Update_Custom_Settings "local" "y"
@@ -1640,19 +1667,15 @@ if [ -z "$local_value" ]; then
                 firmware_file="$pure_file"
                 Update_Custom_Settings "local" "n"
             fi
+        elif [ "$previous_choice" = "y" ]; then
+            # If the previous choice was the ROG build
+            firmware_file="$rog_file"
         fi
     else
+        # Default to pure build if no ROG build is found
         firmware_file="$pure_file"
         Update_Custom_Settings "local" "n"
     fi
-else
-	# On subsequent runs, use the stored choice without prompting
-    if [ "$previous_choice" = "y" ]; then
-        firmware_file="$rog_file"
-    else
-        firmware_file="$pure_file"
-    fi
-fi
 
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
@@ -1668,7 +1691,7 @@ fi
     # DEBUG: Print the LAN IP to ensure it's being set correctly
     printf "\n**DEBUG**: Router Web URL is: ${routerURLstr}\n"
 
-    check_memory_and_reboot
+    check_memory_and_reboot "$firmware_file_path"
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
@@ -1981,18 +2004,18 @@ show_menu()
    printf "\n  ${GRNct}7${NOct}.  Set Directory Path for F/W Update Log Files"
    printf "\n      [Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 
-   # Check if the directory exists before attempting to navigate to it
-   if [ -d "$FW_BIN_DIR" ]
-   then
-      cd "$FW_BIN_DIR"
-      # Check for the presence of "rog" in filenames in the directory
-      rog_file="$(ls | grep -i '_rog_')"
+    # Check the current build type setting
+    local current_build_setting="$(Get_Custom_Setting "local" "n")"
 
-      # If a file with "_rog_" in its name is found, display the "Change Build Type" option
-      if [ -n "$rog_file" ]; then
-          printf "\n  ${GRNct}8${NOct}.  Change Update Build Type\n"
-      fi
-   fi
+    # Check if the directory exists before attempting to navigate to it
+    if [ -d "$FW_BIN_DIR" ]; then
+        cd "$FW_BIN_DIR"
+
+        # Display the "Change Build Type" option based on the current build setting
+        if [ "$current_build_setting" = "y" ] || [ "$current_build_setting" = "n" ]; then
+            printf "\n  ${GRNct}8${NOct}.  Change Update Build Type\n"
+        fi
+    fi
 
    # Check for new script updates #
    if [ "$UpdateNotify" != "0" ]; then
@@ -2014,6 +2037,8 @@ theExitStr="${GRNct}e${NOct}=Exit to main menu"
 
 while true
 do
+   # Check the current build type setting
+   current_build_setting="$(Get_Custom_Setting "local" "n")"
    show_menu
 
    # Check if the directory exists again before attempting to navigate to it
@@ -2040,10 +2065,13 @@ do
           ;;
        7) _Set_FW_UpdateLOG_DirectoryPath_
           ;;
-       8) if [ -n "$rog_file" ]
-          then change_build_type ; break ; fi
-          printf "${REDct}INVALID selection.${NOct} Please try again."
-          _WaitForEnterKey_
+       8) 
+          if [ "$current_build_setting" = "y" ] || [ "$current_build_setting" = "n" ]; then
+              change_build_type
+          else
+              printf "${REDct}The option to change the build type is not available.${NOct}\n"
+              _WaitForEnterKey_
+          fi
           ;;
       up) _SCRIPTUPDATE_
           ;;
