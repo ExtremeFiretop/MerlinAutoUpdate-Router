@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.26"
+readonly SCRIPT_VERSION="0.2.27"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1518,8 +1518,8 @@ _RunFirmwareUpdateNow_()
     if [ "$FW_ZIP_DIR" != "$FW_BIN_DIR" ] && ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    ##FOR DEBUG ONLY##current_version="$(_GetCurrentFWInstalledShortVersion_)"	
-    current_version="388.3.0"
+    current_version="$(_GetCurrentFWInstalledShortVersion_)"	
+    ##FOR DEBUG ONLY##current_version="388.3.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -1542,13 +1542,13 @@ _RunFirmwareUpdateNow_()
     # "New F/W Release Version" from the router itself.
     # If no new F/W version update is available exit.
     #------------------------------------------------------
-    ##FOR DEBUG ONLY##if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
-    ##FOR DEBUG ONLY##   ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-    ##FOR DEBUG ONLY##then
-    ##FOR DEBUG ONLY##    Say "No new firmware version update is found for [$PRODUCT_ID] router model."
-    ##FOR DEBUG ONLY##    "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-    ##FOR DEBUG ONLY##    return 1
-    ##FOR DEBUG ONLY##fi
+    if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+       ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+    then
+        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
