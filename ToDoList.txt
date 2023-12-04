@@ -2,6 +2,4 @@
 # TO-DO List
 # Last Modified: 2023-Nov-30
 #------------------------------------------------------------------
-- Unplugging and replugging the USB live causes USB path to go from (i.e SDA to i.e SDA(1))
 -Rog build validation no longer works? (I'm Assuming because it deletes the builds from the directory when doing the cleanup, meaning it doesn't know about the rog build and to display the option)
--Script always downloads to home directory, even if USB is setup as the zip bath. It should download into the directory we selected for the zip path. (If thats USB, use USB, else use home)
