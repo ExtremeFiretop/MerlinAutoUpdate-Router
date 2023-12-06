@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-03
+# Last Modified: 2023-Dec-05
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.26"
+readonly SCRIPT_VERSION="0.2.27"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -451,51 +451,52 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
 ##------------------------------------------##
 # Function to get custom setting value from the settings file
-Get_Custom_Setting()
-{
-    if [ $# -eq 0 ] || [ -z "$1" ] ; then echo "**ERROR**" ; return 1 ; fi
+Get_Custom_Setting() {
+    if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
-    local setting_value  setting_type="$1"  default_value="TBD"
+    local setting_value setting_type="$1" default_value="TBD"
     [ $# -gt 1 ] && default_value="$2"
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
+            "ROGBuild")
+                # Handle the 'ROGBuild' setting
+                setting_value=$(grep "^${setting_type} " "$SETTINGSFILE" | awk '{print $2}')
+                ;;
             "credentials_base64" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
-                grep -q "^$setting_type" "$SETTINGSFILE" && grep "^$setting_type" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
-                ;;
-            "local")
-                grep -q "^FirmwareVersion_setting" "$SETTINGSFILE" && grep "^FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
-                ;;
+				setting_value=$(grep "^$setting_type" "$SETTINGSFILE" | cut -f2 -d' ')
+				[ -z "$setting_value" ] && setting_value="$default_value"
+				;;
             "FW_New_Update_Postponement_Days"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
-            "FW_New_Update_LOG_Directory_Path")  # Added this line
+            "FW_New_Update_LOG_Directory_Path")
                 if ! grep -q "^${setting_type}=" "$SETTINGSFILE"
                 then
                     setting_value="$default_value"
                 else
                     setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
                 fi
-                echo "$setting_value"
                 ;;
             *)
                 echo "$default_value"
                 ;;
         esac
+        [ -z "$setting_value" ] && echo "$default_value" || echo "$setting_value"
     else
         echo "$default_value"
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -507,7 +508,7 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "local" | "credentials_base64" | \
+        "ROGBuild" | "credentials_base64" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
@@ -1121,56 +1122,55 @@ _GetLatestFWUpdateVersionFromWebsite_()
     echo "$correct_link"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-12] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
+##------------------------------------------##
 change_build_type() {
     echo "Changing Build Type..."
     
     # Use Get_Custom_Setting to retrieve the previous choice
-    previous_choice="$(Get_Custom_Setting "local" "n")"
+    previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
-    # Logging user's choice
-    # Check for the presence of "rog" in filenames in the extracted directory
-    cd "$FW_BIN_DIR"
-    rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
-
-    if [ -n "$rog_file" ]; then
-        printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
-
-        while true; do
-            # Use the previous_choice as the default value
-            read -rp "Enter your choice [$previous_choice]: " choice
-
-            # Use the entered choice or the default value if the input is empty
-            choice="${choice:-$previous_choice}"
-
-            # Convert to lowercase to make comparison easier
-            choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
-
-            # Check if the input is valid
-            if [ "$choice" = "y" ] || [ "$choice" = "yes" ] || [ "$choice" = "n" ] || [ "$choice" = "no" ]; then
-                break
-            else
-                echo "Invalid input! Please enter 'y', 'yes', 'n', or 'no'."
-            fi
-        done
-
-        if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
-            firmware_file="$rog_file"
-            Update_Custom_Settings "local" "y"
-        else
-            firmware_file="$pure_file"
-            Update_Custom_Settings "local" "n"
-        fi
+    # If the previous choice is not set, default to 'n'
+    if [ "$previous_choice" = "TBD" ]; then
+        previous_choice="n"
+    fi
+	
+	# Convert previous choice to a descriptive text
+    if [ "$previous_choice" = "y" ]; then
+        display_choice="ROG Build"
     else
-        firmware_file="$pure_file"
-        Update_Custom_Settings "local" "n"
+        display_choice="Pure Build"
     fi
 
-    _WaitForEnterKey_ "$menuReturnPromptStr"
+    printf "Current Build Type: ${GRNct}$display_choice. ${REDct}Use ROG build? (y/n)${NOct}\n"
+
+	while true; do
+		read -rp "Enter your choice (y/n) or e=Exit to main menu: " choice
+		choice="${choice:-$previous_choice}"
+		choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
+
+		if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
+			Update_Custom_Settings "ROGBuild" "y"
+			break
+		elif [ "$choice" = "n" ] || [ "$choice" = "no" ]; then
+			Update_Custom_Settings "ROGBuild" "n"
+			break
+		elif [ "$choice" = "exit" ] || [ "$choice" = "e" ]; then
+			echo "Exiting without changing the build type."
+			break
+		else
+			echo "Invalid input! Please enter 'y', 'yes', 'n', 'no', or 'exit'."
+		fi
+	done
+
+    if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
+        Update_Custom_Settings "ROGBuild" "y"
+    else
+        Update_Custom_Settings "ROGBuild" "n"
+    fi
 }
+
 
 # Function to translate cron schedule to English
 translate_schedule() {
@@ -1513,9 +1513,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-03] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
+##------------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
@@ -1536,7 +1536,7 @@ _RunFirmwareUpdateNow_()
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
-
+	
     #---------------------------------------------------------#
     # If the expected directory path for the ZIP file is not
     # found, we select the $HOME path instead as a temporary 
@@ -1613,21 +1613,21 @@ _RunFirmwareUpdateNow_()
         return 0
     fi
 
-    #BEGIN: Redirect both stdout and stderr to log file #
-    {
-
-    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
-    then
-        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
-    fi
-
     ## Check for Login Credentials ##
     credsBase64="$(Get_Custom_Setting credentials_base64)"
     if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
     then
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
+	
+	    #BEGIN: Redirect both stdout and stderr to log file #
+    {
+
+    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
+    then
+        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
@@ -1652,59 +1652,63 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-    # Extracting the firmware binary image
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
-    then
-        rm -f "$FW_ZIP_FPATH"
-    else
-        Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
-    fi
+	# Extracting the firmware binary image
+	if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
+	then
+		# Get the default USB mount point path
+		usbMountPoint="$(_GetDefaultUSBMountPoint_)"
+		if [ $? -eq 1 ]; then
+			Say "${REDct}**ERROR**${NOct}: Failed to get the default USB mount point path."
+			# Consider how to handle this error. For now, we'll not delete the ZIP file.
+		else
+			# Check if the ZIP file path is not under the USB mount directory
+			if ! echo "$FW_ZIP_FPATH" | grep -qE "^${usbMountPoint}"
+			then
+				# It's not on the USB path, so it's safe to delete the ZIP file
+				rm -f "$FW_ZIP_FPATH"
+			fi
+		fi
+	else
+		Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
+		"$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+		return 1
+	fi
 
-    # Use Get_Custom_Setting to retrieve the previous choice
-    previous_choice="$(Get_Custom_Setting "local" "n")"
+	# Use Get_Custom_Setting to retrieve the previous choice
+	previous_choice="$(Get_Custom_Setting "ROGBuild" "n")"
 
-    # Logging user's choice
-    # Check for the presence of "rog" in filenames in the extracted directory
-    cd "$FW_BIN_DIR"
-    rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
+	# Navigate to the firmware directory
+	cd "$FW_BIN_DIR"
 
-    local_value="$(Get_Custom_Setting "local")"
+	# Detect ROG and pure firmware files
+	rog_file="$(ls | grep -i '_rog_')"
+	pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
 
-if [ -z "$local_value" ]; then
-    if [ -n "$rog_file" ]; then
-        # Check if the first argument is 'run_now'
-        if ! "$inMenuMode" ; then
-            # If the argument is 'run_now' default to the "Pure Build"
-            firmware_file="$pure_file"
-            Update_Custom_Settings "local" "n"
-        else
-            # Otherwise, prompt the user for their choice
-            printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
-            read -rp "Enter your choice [$previous_choice]: " choice
-            choice="${choice:-$previous_choice}"
-            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-                firmware_file="$rog_file"
-                Update_Custom_Settings "local" "y"
-            else
-                firmware_file="$pure_file"
-                Update_Custom_Settings "local" "n"
-            fi
-        fi
-    else
-        firmware_file="$pure_file"
-        Update_Custom_Settings "local" "n"
-    fi
-else
-	# On subsequent runs, use the stored choice without prompting
-    if [ "$previous_choice" = "y" ]; then
-        firmware_file="$rog_file"
-    else
-        firmware_file="$pure_file"
-    fi
-fi
+	# Check if a ROG build is present
+	if [ -n "$rog_file" ]; then
+		# If in interactive mode, prompt the user for their choice
+		if [ "$inMenuMode" = true ]; then
+			printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
+			read -rp "Enter your choice: " choice
+			if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+				firmware_file="$rog_file"
+				Update_Custom_Settings "ROGBuild" "y"
+			else
+				firmware_file="$pure_file"
+				Update_Custom_Settings "ROGBuild" "n"
+			fi
+		else
+			# Use previous choice or default to Pure Build in non-interactive mode
+			if [ "$previous_choice" = "y" ]; then
+				firmware_file="$rog_file"
+			else
+				firmware_file="$pure_file"
+			fi
+		fi
+	else
+		# No ROG build found, use the pure build
+		firmware_file="$pure_file"
+	fi
 
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
@@ -1979,7 +1983,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-03] ##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
 ##------------------------------------------##
 show_menu()
 {
@@ -2032,18 +2036,23 @@ show_menu()
 
    printf "\n  ${GRNct}7${NOct}.  Set Directory Path for F/W Update Log Files"
    printf "\n      [Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+   
+   # Retrieve the current build type setting
+   local current_build_type=$(Get_Custom_Setting "ROGBuild")
+    
+   # Convert the setting to a descriptive text
+   if [ "$current_build_type" = "y" ]; then
+        current_build_type_menu="ROG Build"
+   elif [ "$current_build_type" = "n" ]; then
+        current_build_type_menu="Pure Build"
+   else
+        current_build_type_menu="Not Set"
+   fi
 
-   # Check if the directory exists before attempting to navigate to it
-   if [ -d "$FW_BIN_DIR" ]
-   then
-      cd "$FW_BIN_DIR"
-      # Check for the presence of "rog" in filenames in the directory
-      rog_file="$(ls | grep -i '_rog_')"
-
-      # If a file with "_rog_" in its name is found, display the "Change Build Type" option
-      if [ -n "$rog_file" ]; then
-          printf "\n  ${GRNct}8${NOct}.  Change Update Build Type\n"
-      fi
+   if [ "$current_build_type" = "y" ] || [ "$current_build_type" = "n" ]; then
+      # Display the option with the current build type
+      printf "\n  ${GRNct}8${NOct}.  Change Update Build Type"
+      printf "\n      [Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
    fi
 
    # Check for new script updates #
@@ -2058,7 +2067,7 @@ show_menu()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-03] ##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -2066,6 +2075,7 @@ theExitStr="${GRNct}e${NOct}=Exit to main menu"
 
 while true
 do
+   local_choice_set=$(Get_Custom_Setting "ROGBuild")
    show_menu
 
    # Check if the directory exists again before attempting to navigate to it
@@ -2092,10 +2102,8 @@ do
           ;;
        7) _Set_FW_UpdateLOG_DirectoryPath_
           ;;
-       8) if [ -n "$rog_file" ]
-          then change_build_type ; break ; fi
-          printf "${REDct}INVALID selection.${NOct} Please try again."
-          _WaitForEnterKey_
+       8) if [ "$local_choice_set" = "y" ] || [ "$local_choice_set" = "n" ]; then
+          change_build_type && _WaitForEnterKey_ ; fi
           ;;
       up) _SCRIPTUPDATE_
           ;;
