@@ -81,14 +81,14 @@ It streamlines the firmware update procedure, automatically detects your router 
 
 - Automatic router model detection.
 - Automatic update detection.
-- Automatically download and install the latest firmware for your router model from the Asuswrt-Merlin repository.
+- Automatically updates your router with the latest firmware from the Asuswrt-Merlin repository.
 - User configurable waiting period for firmware updates. (Wait for a set duration after a new firmware release.)
 - Easy Enable/Disable switch for automatic update checking
 - Easy uninstall.
 - Logs update process in desired path.
 - Set up blinking LEDs as a visual indicator before starting the firmware update.
 - Checks RAM usage. If free RAM is less than the firmware file size, reboots the router.
-- Works with both ROG and non-ROG routers, if it's a ROG router simply select if you want to use the ROG or Pure Build.
+- Compatible with ROG and non-ROG routers; select ROG or Pure Build for ROG routers.
 - Backup the new firmware version to the USB drive. (If USB is selected for storage)
 
 ## Installation
