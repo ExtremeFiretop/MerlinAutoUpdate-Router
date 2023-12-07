@@ -32,7 +32,6 @@
  - RT-AX56U (Untested)
  - RT-AX58U (Untested)
  - RT-AX3000 (Untested)
- - RT-AC86U (Untested)
  - XT12 (Untested)
  
 ## UNTESTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
