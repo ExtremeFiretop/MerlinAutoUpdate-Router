@@ -1,6 +1,8 @@
 ---WORK IN PROGRESS--- 
 - PREVIEW, NOT YET COMPLETE. PLEASE EXPECT BUGS.
 
+![image](https://github.com/Firetop/MerlinAutoUpdate-Router/assets/1971404/3bfbd8da-1557-41e2-a208-471ba342d902)
+
 ---TESTERS NEEDED!--- 
  - If you see your router listed as untested below, feel free to test and report any issues.
  - If the test was successful on your model, feel free to leave a comment on snb forums or open an issue with your successful test and router model.
@@ -10,6 +12,8 @@
 
  - GT-AXE11000 (Tested)
  - RT-AX88U (Tested)
+ - RT-AC86U (Tested)
+ - RT-AX86U (Tested)
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 
@@ -25,17 +29,14 @@
  - RT-AX88U_PRO (Untested)
  - RT-AX86U_PRO (Untested)
  - RT-AX68U (Untested)
- - RT-AX86U (Untested)
  - RT-AX56U (Untested)
  - RT-AX58U (Untested)
  - RT-AX3000 (Untested)
- - RT-AC86U (Untested)
  - XT12 (Untested)
  
 ## UNTESTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 
  - RT-AC88U (Untested)
- - RT-AC86U (Untested)
  - RT-AC5300 (Untested)
  - RT-AC3100 (Untested)
  - 
@@ -49,13 +50,8 @@
  - RT-N66U (Untested)
 
 ## Remaining/Planned Features:
-
-1. Backup and Storage:
-
- - If USB drive is connected to the router for storage:
- -  - Backup the new firmware version to the USB drive.
       
-2. Check Memory:
+1. Check Memory:
  - Before downloading the ZIP file into the router's "$HOME" folder (instead of a USB-attached drive), the router may already be in a "low free RAM" state, depending on the number of processes & extra add-ons running as well as other factors that slowly consume RAM over time (more so if the router's uptime is several weeks or months).
 
  - After just downloading the ZIP file into the router's "$HOME" folder, there may not be enough free RAM to continue to uncompress & extract the F/W files into the same $HOME folder. For such cases, we might need to check available free RAM before the ZIP file is downloaded, and then again before uncompressing/extracting the files, especially if using the router's "$HOME" directory for all of it, and not the USB drive at all.
@@ -65,11 +61,11 @@
  - - Be aware that JFFS partitions may not work post-upgrades in some cases.
  - - New routers use UBIFS instead of JFFS2.
 
-3. System Notifications:
+2. System Notifications:
 
 - Possibly trigger the hardcoded notification in the GUI's upper right corner.
 
-4. AMTM Install:
+3. AMTM Install:
 - Only once it's been vetted through most routers.
 
 ## Merlin(A)uto(U)pdate
@@ -84,14 +80,15 @@ It streamlines the firmware update procedure, automatically detects your router 
 
 - Automatic router model detection.
 - Automatic update detection.
-- Automatically download and install the latest firmware for your router model from the Asuswrt-Merlin repository.
+- Automatically updates your router with the latest firmware from the Asuswrt-Merlin repository.
 - User configurable waiting period for firmware updates. (Wait for a set duration after a new firmware release.)
 - Easy Enable/Disable switch for automatic update checking
 - Easy uninstall.
 - Logs update process in desired path.
 - Set up blinking LEDs as a visual indicator before starting the firmware update.
 - Checks RAM usage. If free RAM is less than the firmware file size, reboots the router.
-- Works with both ROG and non-ROG routers, if it's a ROG router simply select if you want to use the ROG or Pure Build.
+- Compatible with ROG and non-ROG routers; select ROG or Pure Build for ROG routers.
+- Backup the new firmware version to the USB drive. (If USB is selected for storage)
 
 ## Installation
 Before using MerlinAU, ensure the following prerequisites are met:

@@ -4,20 +4,23 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Nov-29
-###################################################################
-
-###################################################################
-#To Do:
-#Disable Cron Shedukle with Disabling of internal Firnmare check
-#if it's configured for USB location, and it's not connected at run time. Warn in UI and logs. Stop running script period.
+# Last Modified: 2023-Dec-06
 ###################################################################
 set -u
 
+readonly SCRIPT_VERSION="0.2.28"
 readonly SCRIPT_NAME="MerlinAU"
-readonly SCRIPT_VERSION="0.2.23"
-readonly URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
-readonly URL_RELEASE_SUFFIX="Release"
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Dec-01] ##
+##-------------------------------------##
+# Script URL Info #
+readonly SCRIPT_BRANCH="master"
+readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
+
+# Firmware URL Info #
+readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
+readonly FW_URL_RELEASE_SUFFIX="Release"
 
 # For new script version updates from source repository #
 UpdateNotify=0
@@ -215,21 +218,23 @@ readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_12:00:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
-readonly URL_RELEASE="${URL_BASE}/${PRODUCT_ID}/${URL_RELEASE_SUFFIX}/"
+readonly FW_FileName="${PRODUCT_ID}_firmware"
+readonly FW_URL_RELEASE="${FW_URL_BASE}/${PRODUCT_ID}/${FW_URL_RELEASE_SUFFIX}/"
+
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
 ##-----------------------------------------------##
 ## Original Author: ExtremeFiretop [2023-Nov-26] ##
-## Modified by: Martinski W. [2023-Nov-28]       ##
+## Modified by: Martinski W. [2023-Dec-01]       ##
 ##-----------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
    local DLRepoVersionNum  ScriptVersionNum
 
    # Download the latest version file from the source repository
-   curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "$SCRIPTVERPATH"
+   curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
 
    if [ ! -f "$SCRIPTVERPATH" ] ; then UpdateNotify=0 ; return 1 ; fi
 
@@ -251,7 +256,7 @@ _CheckForNewScriptUpdates_()
 
 ##-----------------------------------------------##
 ## Original Author: ExtremeFiretop [2023-Nov-26] ##
-## Modified by: Martinski W. [2023-Nov-28]       ##
+## Modified by: Martinski W. [2023-Dec-01]       ##
 ##-----------------------------------------------##
 #a function that provides a UI to check for script updates and allows you to install the latest version...
 _SCRIPTUPDATE_()
@@ -273,8 +278,8 @@ _SCRIPTUPDATE_()
       if _WaitForYESorNO_ ; then
          echo ; echo
          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-         curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
-         curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "$SCRIPTVERPATH"
+         curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+         curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
          echo
          echo -e "${CYANct}Download successful!${NOct}"
          echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
@@ -293,8 +298,8 @@ _SCRIPTUPDATE_()
       if _WaitForYESorNO_ ; then
          echo ; echo
          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-         curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
-         curl --silent --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/version.txt" -o "$SCRIPTVERPATH"
+         curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+         curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
          echo
          echo -e "${CYANct}Download successful!${NOct}"
          echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
@@ -332,6 +337,46 @@ _GetDefaultUSBMountPoint_()
    echo "$mounPointPath" ; return "$retCode"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Dec-03] ##
+##-------------------------------------##
+#-------------------------------------------------------------#
+# Since a list of current mount points can have a different
+# order after each reboot, or when USB drives are unmounted
+# (unplugged) & then mounted (plugged in) manually by users,
+# to validate a given mount point path selection we have to
+# go through the current list & check for the specific path.
+# We also make a special case for Entware "/opt/" paths.
+#-------------------------------------------------------------#
+_ValidateUSBMountPoint_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local mounPointPaths  expectedPath
+   local symbPath  realPath  foundPathOK
+   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+
+   mounPointPaths="$(grep "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mounPointPaths" ] && return 1
+
+   expectedPath="$1"
+   if echo "$1" | grep -qE "^(/opt/|/tmp/opt/)"
+   then
+       symbPath="$(ls -l /tmp/opt | awk -F ' ' '{print $9}')"
+       realPath="$(ls -l /tmp/opt | awk -F ' ' '{print $11}')"
+       [ -L "$symbPath" ] && [ -n "$realPath" ] && \
+       expectedPath="$(/usr/bin/dirname "$realPath")"
+   fi
+
+   foundPathOK=false
+   for thePATH in $mounPointPaths
+   do
+      if echo "${expectedPath}/" | grep -qE "^${thePATH}/"
+      then foundPathOK=true ; break ; fi
+   done
+   "$foundPathOK" && return 0 || return 1
+}
+
 ##----------------------------------------##
 ## Added by ExtremeFiretop [2023-Nov-26] ##
 ##----------------------------------------##
@@ -346,18 +391,18 @@ logo() {
   echo -e "                                              ${NOct}"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-29] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-24] ##
+##----------------------------------------##
 if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
 then
     USBConnected="${GRNct}True${NOct}"
-    readonly FW_Update_ZIP_DefaultSetupDIR="$USBMountPoint/$ScriptFNameTag"
-    readonly FW_Update_LOG_BASE_DefaultDIR="$USBMountPoint/$ScriptFNameTag"
+    readonly FW_Update_ZIP_DefaultSetupDIR="$USBMountPoint"
+    readonly FW_Update_LOG_BASE_DefaultDIR="$USBMountPoint"
 else
     USBConnected="${REDct}False${NOct}"
-    readonly FW_Update_ZIP_DefaultSetupDIR="/home/root/$ScriptFNameTag"
-    readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH/$ScriptFNameTag"
+    readonly FW_Update_ZIP_DefaultSetupDIR="/home/root"
+    readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
 ##------------------------------------------##
@@ -405,51 +450,44 @@ _Init_Custom_Settings_Config_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-06] ##
+##----------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
 {
-    if [ $# -eq 0 ] || [ -z "$1" ] ; then echo "**ERROR**" ; return 1 ; fi
+    if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
-    local setting_value  setting_type="$1"  default_value="TBD"
+    local setting_value="" setting_type="$1" default_value="TBD"
     [ $# -gt 1 ] && default_value="$2"
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "credentials_base64" | \
+            "ROGBuild" | "credentials_base64" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
-                grep -q "^$setting_type" "$SETTINGSFILE" && grep "^$setting_type" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
-                ;;
-            "local")
-                grep -q "^FirmwareVersion_setting" "$SETTINGSFILE" && grep "^FirmwareVersion_setting" "$SETTINGSFILE" | cut -f2 -d' ' || echo "$default_value"
+                setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
                 ;;
             "FW_New_Update_Postponement_Days"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
-            "FW_New_Update_LOG_Directory_Path")  # Added this line
-                if ! grep -q "^${setting_type}=" "$SETTINGSFILE"
-                then
-                    setting_value="$default_value"
-                else
-                    setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
-                fi
-                echo "$setting_value"
+            "FW_New_Update_LOG_Directory_Path")
+                grep -q "^${setting_type}=" "$SETTINGSFILE" && \
+                setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
                 ;;
             *)
-                echo "$default_value"
+                setting_value="**ERROR**"
                 ;;
         esac
+        [ -z "$setting_value" ] && echo "$default_value" || echo "$setting_value"
     else
         echo "$default_value"
     fi
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-29] ##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -462,7 +500,7 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "local" | "credentials_base64" | \
+        "ROGBuild" | "credentials_base64" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
@@ -497,13 +535,7 @@ Update_Custom_Settings()
             else
                 echo "$setting_type=\"${setting_value}\"" > "$SETTINGSFILE"
             fi
-            if [ "$setting_type" = "FW_New_Update_ZIP_Directory_Path" ]
-            then
-                FW_ZIP_SETUP_DIR="$setting_value"
-                FW_ZIP_DIR="${setting_value}/$FW_FileName"
-                FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
-            #
-            elif [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
+            if [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
             then
                 FW_UpdatePostponementDays="$setting_value"
             #
@@ -511,10 +543,16 @@ Update_Custom_Settings()
             then
                 FW_UpdateCronJobSchedule="$setting_value"
             #
+            elif [ "$setting_type" = "FW_New_Update_ZIP_Directory_Path" ]
+            then
+                FW_ZIP_BASE_DIR="$setting_value"
+                FW_ZIP_DIR="${setting_value}/$FW_ZIP_SUBDIR"
+                FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+            #
             elif [ "$setting_type" = "FW_New_Update_LOG_Directory_Path" ]
             then  # Addition for handling log directory path
                 FW_LOG_BASE_DIR="$setting_value"
-                FW_LOG_DIR="${setting_value}/logs"
+                FW_LOG_DIR="${setting_value}/$FW_LOG_SUBDIR"
             fi
             ;;
         *)
@@ -523,22 +561,22 @@ Update_Custom_Settings()
     esac
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-29] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-01] ##
+##----------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
 {
    local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
 
    while true
    do
-      printf "\nEnter the directory path where the LOG subdirectory [${GRNct}logs${NOct}] will be stored.\n"
+      printf "\nEnter the directory path where the LOG subdirectory [${GRNct}${FW_LOG_SUBDIR}${NOct}] will be stored.\n"
       printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
       then break ; fi
-	  
+
       if echo "$userInput" | grep -q '/$'
       then userInput="${userInput%/*}" ; fi
 
@@ -578,8 +616,8 @@ _Set_FW_UpdateLOG_DirectoryPath_()
 
    if [ "$newLogBaseDirPath" != "$FW_LOG_BASE_DIR" ] && [ -d "$newLogBaseDirPath" ]
    then
-       if  [ "${newLogBaseDirPath##*/}" != "logs" ]
-       then newLogFileDirPath="${newLogBaseDirPath}/logs" ; fi
+       if ! echo "$newLogBaseDirPath" | grep -qE "${FW_LOG_SUBDIR}$"
+       then newLogFileDirPath="${newLogBaseDirPath}/$FW_LOG_SUBDIR" ; fi
        mkdir -p -m 755 "$newLogFileDirPath" 2>/dev/null
        if [ ! -d "$newLogFileDirPath" ]
        then
@@ -589,7 +627,11 @@ _Set_FW_UpdateLOG_DirectoryPath_()
        fi
        # Move any existing log files to new directory #
        mv -f "${FW_LOG_DIR}"/*.log "$newLogFileDirPath" 2>/dev/null
-       rm -fr "${FW_LOG_DIR}"
+       # Remove now the obsolete directory path #
+       if [ "$FW_LOG_BASE_DIR" = "$FW_ZIP_BASE_DIR" ]
+       then rm -fr "$FW_LOG_DIR"
+       else rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag"
+       fi
        # Update the log directory path after validation #
        Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
        echo "The directory path for the log files was updated successfully."
@@ -599,16 +641,16 @@ _Set_FW_UpdateLOG_DirectoryPath_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-24] ##
+## Modified by Martinski W. [2023-Dec-01] ##
 ##----------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
-   local newZIP_SetupDirPath="$FW_ZIP_SETUP_DIR"  newZIP_FileDirPath="" 
+   local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath="" 
 
    while true
    do
-      printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_FileName}${NOct}] will be stored.\n"
-      printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_ZIP_SETUP_DIR}${NOct}]:  "
+      printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
+      printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
@@ -628,7 +670,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
       fi
 
       if [ -d "$userInput" ]
-      then newZIP_SetupDirPath="$userInput" ; break ; fi
+      then newZIP_BaseDirPath="$userInput" ; break ; fi
 
       rootDir="${userInput%/*}"
       if [ ! -d "$rootDir" ]
@@ -645,26 +687,30 @@ _Set_FW_UpdateZIP_DirectoryPath_()
       else
           mkdir -m 755 "$userInput" 2>/dev/null
           if [ -d "$userInput" ]
-          then newZIP_SetupDirPath="$userInput" ; break
+          then newZIP_BaseDirPath="$userInput" ; break
           else printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${userInput}${NOct}].\n\n"
           fi
       fi
    done
 
-   if [ "$newZIP_SetupDirPath" != "$FW_ZIP_SETUP_DIR" ] && [ -d "$newZIP_SetupDirPath" ]
+   if [ "$newZIP_BaseDirPath" != "$FW_ZIP_BASE_DIR" ] && [ -d "$newZIP_BaseDirPath" ]
    then
-       if  [ "${newZIP_SetupDirPath##*/}" != "$FW_FileName" ]
-       then newZIP_FileDirPath="${newZIP_SetupDirPath}/$FW_FileName" ; fi
-       mkdir -m 755 "$newZIP_FileDirPath" 2>/dev/null
+       if ! echo "$newZIP_BaseDirPath" | grep -qE "${FW_ZIP_SUBDIR}$"
+       then newZIP_FileDirPath="${newZIP_BaseDirPath}/$FW_ZIP_SUBDIR" ; fi
+       mkdir -p -m 755 "$newZIP_FileDirPath" 2>/dev/null
        if [ ! -d "$newZIP_FileDirPath" ]
        then
            printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${newZIP_FileDirPath}${NOct}].\n"
            _WaitForEnterKey_
            return 1
        fi
-       rm -fr "$FW_ZIP_DIR"
+       # Remove now the obsolete directory path #
+       if [ "$FW_ZIP_BASE_DIR" = "$FW_LOG_BASE_DIR" ]
+       then rm -fr "$FW_ZIP_DIR"
+       else rm -fr "${FW_ZIP_BASE_DIR}/$ScriptFNameTag"
+       fi
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
-       Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_SetupDirPath"
+       Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
        _WaitForEnterKey_ "$menuReturnPromptStr"
    fi
@@ -673,25 +719,27 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
 _Init_Custom_Settings_Config_
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-29] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-01] ##
+##----------------------------------------##
 # NOTE:
 # Depending on available RAM & storage capacity of the 
 # target router, it may be required to have USB-attached 
 # storage for the ZIP file so that it can be downloaded
 # in a separate directory from the firmware bin file.
 #-----------------------------------------------------------
-FW_BIN_SETUP_DIR="$FW_Update_ZIP_DefaultSetupDIR"
-FW_ZIP_SETUP_DIR="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)"
+FW_BIN_BASE_DIR="/home/root"
+FW_ZIP_BASE_DIR="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)"
 FW_LOG_BASE_DIR="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
 
-readonly FW_FileName="${PRODUCT_ID}_firmware"
-readonly FW_BIN_DIR="${FW_BIN_SETUP_DIR}/$FW_FileName"
+readonly FW_LOG_SUBDIR="${ScriptFNameTag}/logs"
+readonly FW_BIN_SUBDIR="${ScriptFNameTag}/$FW_FileName"
+readonly FW_ZIP_SUBDIR="${ScriptFNameTag}/$FW_FileName"
 
-FW_ZIP_DIR="${FW_ZIP_SETUP_DIR}/$FW_FileName"
+FW_BIN_DIR="${FW_BIN_BASE_DIR}/$FW_BIN_SUBDIR"
+FW_LOG_DIR="${FW_LOG_BASE_DIR}/$FW_LOG_SUBDIR"
+FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
 FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
-FW_LOG_DIR="${FW_LOG_BASE_DIR}/logs"
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Nov-24] ##
@@ -930,17 +978,28 @@ check_memory_and_reboot()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-22] ##
+## Modified by Martinski W. [2023-Dec-06] ##
 ##----------------------------------------##
 _DoCleanUp_()
 {
+   local keepZIPfile=false  delBINfiles=false
+
+   [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
+   [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
+
    # Stop the LEDs blinking #
    _Reset_LEDs_
 
-   # Additional cleanup operations can be added here if needed #
+   # Move file temporarily to save it from deletion #
+   "$keepZIPfile" && \
+   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptFNameTag"
+
    rm -f "${FW_ZIP_DIR}"/*
-   if [ $# -gt 0 ] && [ "$1" -eq 1 ]
-   then rm -f "${FW_BIN_DIR}"/* ; fi
+   "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
+
+   # Move file back to original location #
+   "$keepZIPfile" && \
+   mv -f "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
 }
 
 ##----------------------------------------##
@@ -1066,55 +1125,53 @@ _GetLatestFWUpdateVersionFromWebsite_()
     echo "$correct_link"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-12] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
+##------------------------------------------##
 change_build_type() {
     echo "Changing Build Type..."
-    
+
     # Use Get_Custom_Setting to retrieve the previous choice
-    previous_choice="$(Get_Custom_Setting "local" "n")"
+    previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
-    # Logging user's choice
-    # Check for the presence of "rog" in filenames in the extracted directory
-    cd "$FW_BIN_DIR"
-    rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
-
-    if [ -n "$rog_file" ]; then
-        printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
-
-        while true; do
-            # Use the previous_choice as the default value
-            read -rp "Enter your choice [$previous_choice]: " choice
-
-            # Use the entered choice or the default value if the input is empty
-            choice="${choice:-$previous_choice}"
-
-            # Convert to lowercase to make comparison easier
-            choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
-
-            # Check if the input is valid
-            if [ "$choice" = "y" ] || [ "$choice" = "yes" ] || [ "$choice" = "n" ] || [ "$choice" = "no" ]; then
-                break
-            else
-                echo "Invalid input! Please enter 'y', 'yes', 'n', or 'no'."
-            fi
-        done
-
-        if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
-            firmware_file="$rog_file"
-            Update_Custom_Settings "local" "y"
-        else
-            firmware_file="$pure_file"
-            Update_Custom_Settings "local" "n"
-        fi
-    else
-        firmware_file="$pure_file"
-        Update_Custom_Settings "local" "n"
+    # If the previous choice is not set, default to 'n'
+    if [ "$previous_choice" = "TBD" ]; then
+        previous_choice="n"
     fi
 
-    _WaitForEnterKey_ "$menuReturnPromptStr"
+    # Convert previous choice to a descriptive text
+    if [ "$previous_choice" = "y" ]; then
+        display_choice="ROG Build"
+    else
+        display_choice="Pure Build"
+    fi
+
+    printf "Current Build Type: ${GRNct}$display_choice. ${REDct}Use ROG build? (y/n)${NOct}\n"
+
+	while true; do
+		read -rp "Enter your choice (y/n) or e=Exit to main menu: " choice
+		choice="${choice:-$previous_choice}"
+		choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
+
+		if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
+			Update_Custom_Settings "ROGBuild" "y"
+			break
+		elif [ "$choice" = "n" ] || [ "$choice" = "no" ]; then
+			Update_Custom_Settings "ROGBuild" "n"
+			break
+		elif [ "$choice" = "exit" ] || [ "$choice" = "e" ]; then
+			echo "Exiting without changing the build type."
+			break
+		else
+			echo "Invalid input! Please enter 'y', 'yes', 'n', 'no', or 'exit'."
+		fi
+	done
+
+    if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
+        Update_Custom_Settings "ROGBuild" "y"
+    else
+        Update_Custom_Settings "ROGBuild" "n"
+    fi
 }
 
 # Function to translate cron schedule to English
@@ -1427,7 +1484,7 @@ _Toggle_FW_UpdateCheckSetting_()
        fwUpdateCheckNewStateStr="${REDct}DISABLE${NOct}"
    fi
 
-   if ! _WaitForYESorNO_ "Do you want to ${fwUpdateCheckNewStateStr} Router's F/W Update Check"
+   if ! _WaitForYESorNO_ "Do you want to ${fwUpdateCheckNewStateStr} the built-in F/W Update Check?"
    then return 1 ; fi
 
    if "$fwUpdateCheckEnabled"
@@ -1458,9 +1515,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
+##------------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
@@ -1469,7 +1526,36 @@ _RunFirmwareUpdateNow_()
 
     Say "Running the task now... Checking for F/W updates..."
 
-    local credsBase64=""
+    #---------------------------------------------------------------#
+    # Check if an expected USB-attached drive is still mounted.
+    # Make a special case when USB drive has Entware installed. 
+    #---------------------------------------------------------------#
+    if echo "$FW_ZIP_BASE_DIR" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
+       ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+    then
+        Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+        Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
+
+    #---------------------------------------------------------#
+    # If the expected directory path for the ZIP file is not
+    # found, we select the $HOME path instead as a temporary 
+    # fallback. This should work if free RAM is >= ~150MB.
+    #---------------------------------------------------------#
+    if [ ! -d "$FW_ZIP_BASE_DIR" ]
+    then
+        Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+        Say "Using temporary fallback directory: /home/root"
+        "$inMenuMode" && { _WaitForYESorNO_ "Continue" || return 1 ; }
+        # Continue #
+        FW_ZIP_BASE_DIR="/home/root"
+        FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
+        FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+    fi
+
+    local credsBase64=""  keepZIPfile=0
     local currentVersionNum=""  releaseVersionNum=""
     local current_version=""  release_version=""
 
@@ -1481,7 +1567,7 @@ _RunFirmwareUpdateNow_()
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(_GetCurrentFWInstalledShortVersion_)"	
+    current_version="$(_GetCurrentFWInstalledShortVersion_)"
     ##FOR DEBUG ONLY##current_version="388.3.0"
 
     #---------------------------------------------------------#
@@ -1514,7 +1600,7 @@ _RunFirmwareUpdateNow_()
     fi
 
     # Use set to read the output of the function into variables
-    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$URL_RELEASE")
+    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
     release_version="$1"
     release_link="$2"
 
@@ -1529,6 +1615,15 @@ _RunFirmwareUpdateNow_()
         return 0
     fi
 
+    ## Check for Login Credentials ##
+    credsBase64="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
+
     #BEGIN: Redirect both stdout and stderr to log file #
     {
 
@@ -1539,21 +1634,12 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-    ## Check for Login Credentials ##
-    credsBase64="$(Get_Custom_Setting credentials_base64)"
-    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
-    then
-        Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
-    fi
-
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
     then
         # Background function to create a blinking LED effect #
         Toggle_LEDs & Toggle_LEDs_PID=$!
-        trap "_DoCleanUp_; exit 0" EXIT HUP INT QUIT TERM
+        trap "_DoCleanUp_ 0 "$keepZIPfile" ; exit 0" HUP INT QUIT TERM
 
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
@@ -1568,59 +1654,79 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-    # Extracting the firmware binary image
+    # Extracting the firmware binary image #
     if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
     then
-        rm -f "$FW_ZIP_FPATH"
+        #---------------------------------------------------------------#
+        # Check if ZIP file was downloaded to a USB-attached drive.
+        # Take into account special case for Entware "/opt/" paths. 
+        #---------------------------------------------------------------#
+        if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+        then
+            # It's not on a USB drive, so it's safe to delete it #
+            rm -f "$FW_ZIP_FPATH"
+        #
+        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+        then
+            #-------------------------------------------------------------#
+            # This should not happen because we already checked for it
+            # at the very beginning of this function, but just in case
+            # it does (drive going bad suddenly?) we'll report it here.
+            #-------------------------------------------------------------#
+            Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+            Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+            "$inMenuMode" && _WaitForEnterKey_
+            # Consider how to handle this error. For now, we'll not delete the ZIP file.
+        else
+            keepZIPfile=1
+        fi
     else
+        #------------------------------------------------------------#
+        # Remove ZIP file here because it may have been corrupted.
+        # Better to download it again and start all over, instead
+        # of trying to figure out why uncompressing it failed.
+        #------------------------------------------------------------#
+        rm -f "$FW_ZIP_FPATH"
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
 
-    # Use Get_Custom_Setting to retrieve the previous choice
-    previous_choice="$(Get_Custom_Setting "local" "n")"
+	# Use Get_Custom_Setting to retrieve the previous choice
+	previous_choice="$(Get_Custom_Setting "ROGBuild" "n")"
 
-    # Logging user's choice
-    # Check for the presence of "rog" in filenames in the extracted directory
-    cd "$FW_BIN_DIR"
-    rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
+	# Navigate to the firmware directory
+	cd "$FW_BIN_DIR"
 
-    local_value="$(Get_Custom_Setting "local")"
+	# Detect ROG and pure firmware files
+	rog_file="$(ls | grep -i '_rog_')"
+	pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
 
-if [ -z "$local_value" ]; then
-    if [ -n "$rog_file" ]; then
-        # Check if the first argument is 'run_now'
-        if ! "$inMenuMode" ; then
-            # If the argument is 'run_now' default to the "Pure Build"
-            firmware_file="$pure_file"
-            Update_Custom_Settings "local" "n"
-        else
-            # Otherwise, prompt the user for their choice
-            printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
-            read -rp "Enter your choice [$previous_choice]: " choice
-            choice="${choice:-$previous_choice}"
-            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-                firmware_file="$rog_file"
-                Update_Custom_Settings "local" "y"
-            else
-                firmware_file="$pure_file"
-                Update_Custom_Settings "local" "n"
-            fi
-        fi
-    else
-        firmware_file="$pure_file"
-        Update_Custom_Settings "local" "n"
-    fi
-else
-	# On subsequent runs, use the stored choice without prompting
-    if [ "$previous_choice" = "y" ]; then
-        firmware_file="$rog_file"
-    else
-        firmware_file="$pure_file"
-    fi
-fi
+	# Check if a ROG build is present
+	if [ -n "$rog_file" ]; then
+		# If in interactive mode, prompt the user for their choice
+		if [ "$inMenuMode" = true ]; then
+			printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
+			read -rp "Enter your choice: " choice
+			if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+				firmware_file="$rog_file"
+				Update_Custom_Settings "ROGBuild" "y"
+			else
+				firmware_file="$pure_file"
+				Update_Custom_Settings "ROGBuild" "n"
+			fi
+		else
+			# Use previous choice or default to Pure Build in non-interactive mode
+			if [ "$previous_choice" = "y" ]; then
+				firmware_file="$rog_file"
+			else
+				firmware_file="$pure_file"
+			fi
+		fi
+	else
+		# No ROG build found, use the pure build
+		firmware_file="$pure_file"
+	fi
 
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
@@ -1656,7 +1762,7 @@ fi
     printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
     printf "Once started, the flashing process CANNOT be interrupted.\n"
     if ! _WaitForYESorNO_ "Continue"
-    then _DoCleanUp_ 1 ; return 1 ; fi
+    then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
 
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
@@ -1679,8 +1785,10 @@ fi
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
         sleep 60
     else
-        Say "${REDct}**ERROR**${NOct}: Login failed. Please confirm credentials by selecting \"1. Configure Router Login Credentials\" from the Main Menu."
-        _DoCleanUp_ 1
+        Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
+1. Confirm you are not already logged into the router using a web browser.
+2. Update credentials by selecting \"Configure Router Login Credentials\" from the Main Menu."
+        _DoCleanUp_ 1 "$keepZIPfile"
     fi
 
     } 2>&1 | tee -a "$LOG_FILE"
@@ -1709,7 +1817,7 @@ _PostRebootRunNow_()
    #---------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
-      if [ -d "$FW_ZIP_SETUP_DIR" ] && \
+      if [ -d "$FW_ZIP_BASE_DIR" ] && \
          [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
@@ -1783,9 +1891,9 @@ _AddCronJobRunScriptHook_()
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-29] ##
-##------------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Dec-01] ##
+##----------------------------------------------##
 _DoUninstall_()
 {
    printf "Are you sure you want to uninstall $ScriptFileName script now"
@@ -1794,13 +1902,16 @@ _DoUninstall_()
    _DelCronJobEntry_
    _DelCronJobRunScriptHook_
    _DelPostRebootRunScriptHook_
-if rm -fr "${FW_LOG_DIR}" && \
-   rm -fr "$SETTINGS_DIR" "$FW_BIN_DIR" "$FW_ZIP_DIR" && \
-   rm -fr "$ScriptFilePath"; then
-    Say "${GRNct}Successfully Uninstalled.${NOct}"
-else
-    Say "${REDct}Error: Uninstallation failed.${NOct}"
-fi
+   if rm -fr "$SETTINGS_DIR" && \
+      rm -fr "${FW_BIN_BASE_DIR}/$ScriptFNameTag" && \
+      rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag" && \
+      rm -fr "${FW_ZIP_BASE_DIR}/$ScriptFNameTag" && \
+      rm -f "$ScriptFilePath"
+   then
+       Say "${GRNct}Successfully Uninstalled.${NOct}"
+   else
+       Say "${REDct}Error: Uninstallation failed.${NOct}"
+   fi
    exit 0
 }
 
@@ -1890,26 +2001,26 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-29] ##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
 ##------------------------------------------##
 show_menu()
 {
    clear
    SEPstr="-----------------------------------------------------"
    logo
-   printf "${YLWct}========= By ExtremeFiretop & Martinski W. ==========${NOct}\n"
-   printf "${NOct}\n"
-   # Check for updates
+   printf "${YLWct}========= By ExtremeFiretop & Martinski W. ==========${NOct}\n\n"
+
+   # New Script Update Notification #
    if [ "$UpdateNotify" != "0" ]; then
       Say "${REDct}${UpdateNotify}${NOct}"
    fi
 
-   padStr="      "
-   printf "${SEPstr}"
+   padStr="      "  arrowStr=" ${REDct}<<---${NOct}"
 
+   printf "${SEPstr}"
    if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
    then FW_NewUpdateVersion="${REDct}NONE FOUND${NOct}"
-   else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}"
+   else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
    fi
    printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID"
    printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
@@ -1920,23 +2031,23 @@ show_menu()
    printf "\n  ${GRNct}1${NOct}.  Run Update F/W Check Now\n"
    printf "\n  ${GRNct}2${NOct}.  Configure Router Login Credentials\n"
 
-   printf "\n  ${GRNct}3${NOct}.  Set F/W Update Check Schedule"
-   printf "\n      [Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
-
-   printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
-   printf "\n      [Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
-
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
    if [ "$FW_UpdateCheckState" -eq 0 ]
    then
-       printf "\n  ${GRNct}5${NOct}.  Enable Router's F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  Enable F/W Update Check"
        printf "\n      [Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}5${NOct}.  Disable Router's F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  Disable F/W Update Check"
        printf "\n      [Currently ${GRNct}ENABLED${NOct}]\n"
    fi
+
+   printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
+   printf "\n      [Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
+
+   printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
+   printf "\n      [Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
    printf "\n  ${GRNct}6${NOct}.  Set Directory Path for F/W Update ZIP File"
    printf "\n      [Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
@@ -1944,20 +2055,25 @@ show_menu()
    printf "\n  ${GRNct}7${NOct}.  Set Directory Path for F/W Update Log Files"
    printf "\n      [Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 
-   # Check if the directory exists before attempting to navigate to it
-   if [ -d "$FW_BIN_DIR" ]
-   then
-      cd "$FW_BIN_DIR"
-      # Check for the presence of "rog" in filenames in the directory
-      rog_file="$(ls | grep -i '_rog_')"
-
-      # If a file with "_rog_" in its name is found, display the "Change Build Type" option
-      if [ -n "$rog_file" ]; then
-          printf "\n  ${GRNct}8${NOct}.  Change Update Build Type\n"
-      fi
+   # Retrieve the current build type setting
+   local current_build_type=$(Get_Custom_Setting "ROGBuild")
+    
+   # Convert the setting to a descriptive text
+   if [ "$current_build_type" = "y" ]; then
+        current_build_type_menu="ROG Build"
+   elif [ "$current_build_type" = "n" ]; then
+        current_build_type_menu="Pure Build"
+   else
+        current_build_type_menu="Not Set"
    fi
 
-   # Check for updates
+   if [ "$current_build_type" = "y" ] || [ "$current_build_type" = "n" ]; then
+      # Display the option with the current build type
+      printf "\n  ${GRNct}8${NOct}.  Change Firmware Build Type"
+      printf "\n      [Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+   fi
+
+   # Check for new script updates #
    if [ "$UpdateNotify" != "0" ]; then
       printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
       printf "\n      [Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
@@ -1969,7 +2085,7 @@ show_menu()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-29] ##
+## Modified by ExtremeFiretop [2023-Dec-05] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -1977,6 +2093,7 @@ theExitStr="${GRNct}e${NOct}=Exit to main menu"
 
 while true
 do
+   local_choice_set="$(Get_Custom_Setting "ROGBuild")"
    show_menu
 
    # Check if the directory exists again before attempting to navigate to it
@@ -1993,20 +2110,18 @@ do
           ;;
        2) _GetLoginCredentials_
           ;;
-       3) _Set_FW_UpdateCronSchedule_
+       3) _Toggle_FW_UpdateCheckSetting_
           ;;
        4) _Set_FW_UpdatePostponementDays_
           ;;
-       5) _Toggle_FW_UpdateCheckSetting_
+       5) _Set_FW_UpdateCronSchedule_
           ;;
        6) _Set_FW_UpdateZIP_DirectoryPath_
           ;;
        7) _Set_FW_UpdateLOG_DirectoryPath_
           ;;
-       8) if [ -n "$rog_file" ]
-          then change_build_type ; break ; fi
-          printf "${REDct}INVALID selection.${NOct} Please try again."
-          _WaitForEnterKey_
+       8) if [ "$local_choice_set" = "y" ] || [ "$local_choice_set" = "n" ]; then
+          change_build_type && _WaitForEnterKey_ ; fi
           ;;
       up) _SCRIPTUPDATE_
           ;;
