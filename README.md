@@ -13,6 +13,7 @@
  - GT-AXE11000 (Tested)
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
+ - RT-AX86U (Tested)
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 
@@ -28,7 +29,6 @@
  - RT-AX88U_PRO (Untested)
  - RT-AX86U_PRO (Untested)
  - RT-AX68U (Untested)
- - RT-AX86U (Untested)
  - RT-AX56U (Untested)
  - RT-AX58U (Untested)
  - RT-AX3000 (Untested)
