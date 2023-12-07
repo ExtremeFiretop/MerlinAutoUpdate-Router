@@ -71,7 +71,7 @@
 ## Merlin(A)uto(U)pdate
 
 MerlinAU.sh is a versatile shell script designed to automate the firmware update process for ASUS routers running Asuswrt-Merlin firmware. 
-It streamlines the firmware update procedure, automatically detects your router model, fetches the latest firmware, and offers options for installation. Moreover, it checks log files for reset recommendations before flashing the firmware.
+It streamlines the firmware update procedure, automatically detects your router model, fetches the latest firmware, and offers options for installation.
 
 ## NOTE: It is highly recommended to configure backups using BACKUPMON
 - https://github.com/ViktorJp/BACKUPMON/tree/main
