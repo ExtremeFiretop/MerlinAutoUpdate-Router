@@ -1,5 +1,0 @@
-###################################################################
-# TO-DO List
-# Last Modified: 2023-Nov-30
-#------------------------------------------------------------------
--Rog build validation no longer works? (I'm Assuming because it deletes the builds from the directory when doing the cleanup, meaning it doesn't know about the rog build and to display the option)
