@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-05
+# Last Modified: 2023-Dec-06
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.27"
+readonly SCRIPT_VERSION="0.2.28"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -450,42 +450,34 @@ _Init_Custom_Settings_Config_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-06] ##
+##----------------------------------------##
 # Function to get custom setting value from the settings file
-Get_Custom_Setting() {
+Get_Custom_Setting()
+{
     if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
-    local setting_value setting_type="$1" default_value="TBD"
+    local setting_value="" setting_type="$1" default_value="TBD"
     [ $# -gt 1 ] && default_value="$2"
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "ROGBuild")
-                # Handle the 'ROGBuild' setting
-                setting_value=$(grep "^${setting_type} " "$SETTINGSFILE" | awk '{print $2}')
-                ;;
-            "credentials_base64" | \
+            "ROGBuild" | "credentials_base64" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
-				setting_value=$(grep "^$setting_type" "$SETTINGSFILE" | cut -f2 -d' ')
-				[ -z "$setting_value" ] && setting_value="$default_value"
-				;;
+                setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
+                ;;
             "FW_New_Update_Postponement_Days"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
             "FW_New_Update_LOG_Directory_Path")
-                if ! grep -q "^${setting_type}=" "$SETTINGSFILE"
-                then
-                    setting_value="$default_value"
-                else
-                    setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
-                fi
+                grep -q "^${setting_type}=" "$SETTINGSFILE" && \
+                setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
                 ;;
             *)
-                echo "$default_value"
+                setting_value="**ERROR**"
                 ;;
         esac
         [ -z "$setting_value" ] && echo "$default_value" || echo "$setting_value"
@@ -584,7 +576,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
       then break ; fi
-	  
+
       if echo "$userInput" | grep -q '/$'
       then userInput="${userInput%/*}" ; fi
 
@@ -986,17 +978,28 @@ check_memory_and_reboot()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-22] ##
+## Modified by Martinski W. [2023-Dec-06] ##
 ##----------------------------------------##
 _DoCleanUp_()
 {
+   local keepZIPfile=false  delBINfiles=false
+
+   [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
+   [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
+
    # Stop the LEDs blinking #
    _Reset_LEDs_
 
-   # Additional cleanup operations can be added here if needed #
+   # Move file temporarily to save it from deletion #
+   "$keepZIPfile" && \
+   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptFNameTag"
+
    rm -f "${FW_ZIP_DIR}"/*
-   if [ $# -gt 0 ] && [ "$1" -eq 1 ]
-   then rm -f "${FW_BIN_DIR}"/* ; fi
+   "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
+
+   # Move file back to original location #
+   "$keepZIPfile" && \
+   mv -f "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
 }
 
 ##----------------------------------------##
@@ -1127,7 +1130,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
 ##------------------------------------------##
 change_build_type() {
     echo "Changing Build Type..."
-    
+
     # Use Get_Custom_Setting to retrieve the previous choice
     previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
@@ -1135,8 +1138,8 @@ change_build_type() {
     if [ "$previous_choice" = "TBD" ]; then
         previous_choice="n"
     fi
-	
-	# Convert previous choice to a descriptive text
+
+    # Convert previous choice to a descriptive text
     if [ "$previous_choice" = "y" ]; then
         display_choice="ROG Build"
     else
@@ -1170,7 +1173,6 @@ change_build_type() {
         Update_Custom_Settings "ROGBuild" "n"
     fi
 }
-
 
 # Function to translate cron schedule to English
 translate_schedule() {
@@ -1536,7 +1538,7 @@ _RunFirmwareUpdateNow_()
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
-	
+
     #---------------------------------------------------------#
     # If the expected directory path for the ZIP file is not
     # found, we select the $HOME path instead as a temporary 
@@ -1553,7 +1555,7 @@ _RunFirmwareUpdateNow_()
         FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
     fi
 
-    local credsBase64=""
+    local credsBase64=""  keepZIPfile=0
     local currentVersionNum=""  releaseVersionNum=""
     local current_version=""  release_version=""
 
@@ -1565,7 +1567,7 @@ _RunFirmwareUpdateNow_()
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(_GetCurrentFWInstalledShortVersion_)"	
+    current_version="$(_GetCurrentFWInstalledShortVersion_)"
     ##FOR DEBUG ONLY##current_version="388.3.0"
 
     #---------------------------------------------------------#
@@ -1621,8 +1623,8 @@ _RunFirmwareUpdateNow_()
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
-	
-	    #BEGIN: Redirect both stdout and stderr to log file #
+
+    #BEGIN: Redirect both stdout and stderr to log file #
     {
 
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
@@ -1637,7 +1639,7 @@ _RunFirmwareUpdateNow_()
     then
         # Background function to create a blinking LED effect #
         Toggle_LEDs & Toggle_LEDs_PID=$!
-        trap "_DoCleanUp_; exit 0" EXIT HUP INT QUIT TERM
+        trap "_DoCleanUp_ 0 "$keepZIPfile" ; exit 0" HUP INT QUIT TERM
 
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
@@ -1652,27 +1654,43 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-	# Extracting the firmware binary image
-	if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
-	then
-		# Get the default USB mount point path
-		usbMountPoint="$(_GetDefaultUSBMountPoint_)"
-		if [ $? -eq 1 ]; then
-			Say "${REDct}**ERROR**${NOct}: Failed to get the default USB mount point path."
-			# Consider how to handle this error. For now, we'll not delete the ZIP file.
-		else
-			# Check if the ZIP file path is not under the USB mount directory
-			if ! echo "$FW_ZIP_FPATH" | grep -qE "^${usbMountPoint}"
-			then
-				# It's not on the USB path, so it's safe to delete the ZIP file
-				rm -f "$FW_ZIP_FPATH"
-			fi
-		fi
-	else
-		Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-		"$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-		return 1
-	fi
+    # Extracting the firmware binary image #
+    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
+    then
+        #---------------------------------------------------------------#
+        # Check if ZIP file was downloaded to a USB-attached drive.
+        # Take into account special case for Entware "/opt/" paths. 
+        #---------------------------------------------------------------#
+        if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+        then
+            # It's not on a USB drive, so it's safe to delete it #
+            rm -f "$FW_ZIP_FPATH"
+        #
+        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+        then
+            #-------------------------------------------------------------#
+            # This should not happen because we already checked for it
+            # at the very beginning of this function, but just in case
+            # it does (drive going bad suddenly?) we'll report it here.
+            #-------------------------------------------------------------#
+            Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+            Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+            "$inMenuMode" && _WaitForEnterKey_
+            # Consider how to handle this error. For now, we'll not delete the ZIP file.
+        else
+            keepZIPfile=1
+        fi
+    else
+        #------------------------------------------------------------#
+        # Remove ZIP file here because it may have been corrupted.
+        # Better to download it again and start all over, instead
+        # of trying to figure out why uncompressing it failed.
+        #------------------------------------------------------------#
+        rm -f "$FW_ZIP_FPATH"
+        Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
+    fi
 
 	# Use Get_Custom_Setting to retrieve the previous choice
 	previous_choice="$(Get_Custom_Setting "ROGBuild" "n")"
@@ -1744,7 +1762,7 @@ _RunFirmwareUpdateNow_()
     printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
     printf "Once started, the flashing process CANNOT be interrupted.\n"
     if ! _WaitForYESorNO_ "Continue"
-    then _DoCleanUp_ 1 ; return 1 ; fi
+    then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
 
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
@@ -1770,7 +1788,7 @@ _RunFirmwareUpdateNow_()
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
 1. Confirm you are not already logged into the router using a web browser.
 2. Update credentials by selecting \"Configure Router Login Credentials\" from the Main Menu."
-        _DoCleanUp_ 1
+        _DoCleanUp_ 1 "$keepZIPfile"
     fi
 
     } 2>&1 | tee -a "$LOG_FILE"
@@ -2036,7 +2054,7 @@ show_menu()
 
    printf "\n  ${GRNct}7${NOct}.  Set Directory Path for F/W Update Log Files"
    printf "\n      [Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
-   
+
    # Retrieve the current build type setting
    local current_build_type=$(Get_Custom_Setting "ROGBuild")
     
@@ -2075,7 +2093,7 @@ theExitStr="${GRNct}e${NOct}=Exit to main menu"
 
 while true
 do
-   local_choice_set=$(Get_Custom_Setting "ROGBuild")
+   local_choice_set="$(Get_Custom_Setting "ROGBuild")"
    show_menu
 
    # Check if the directory exists again before attempting to navigate to it
