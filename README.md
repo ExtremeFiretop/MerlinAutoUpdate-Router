@@ -1,7 +1,7 @@
 ---WORK IN PROGRESS--- 
 - PREVIEW, NOT YET COMPLETE. PLEASE EXPECT BUGS.
 
-![image](https://github.com/Firetop/MerlinAutoUpdate-Router/assets/1971404/3bfbd8da-1557-41e2-a208-471ba342d902)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/24496690-8156-41a2-b7fb-5200e76fcdd3)
 
 ---TESTERS NEEDED!--- 
  - If you see your router listed as untested below, feel free to test and report any issues.
@@ -105,7 +105,7 @@ Use your preferred SSH client to connect to the router.
 Download the script to your router:
 Copy and paste:
 ```bash
-curl --retry 3 "https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "/jffs/scripts/MerlinAU.sh" && chmod +x "/jffs/scripts/MerlinAU.sh"
+curl --retry 3 "https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "/jffs/scripts/MerlinAU.sh" && chmod +x "/jffs/scripts/MerlinAU.sh"
 ```
 - The script is now ready for use!
   
