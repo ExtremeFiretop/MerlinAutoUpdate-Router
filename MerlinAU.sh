@@ -16,7 +16,7 @@ readonly SCRIPT_NAME="MerlinAU"
 ##-------------------------------------##
 # Script URL Info #
 readonly SCRIPT_BRANCH="master"
-readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/Firetop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
+readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
 
 # Firmware URL Info #
 readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
