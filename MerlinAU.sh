@@ -2069,7 +2069,7 @@ show_menu()
 
    if [ "$current_build_type" = "y" ] || [ "$current_build_type" = "n" ]; then
       # Display the option with the current build type
-      printf "\n  ${GRNct}8${NOct}.  Change Firmware Build Type"
+      printf "\n  ${GRNct}8${NOct}.  Change F/W Build Type"
       printf "\n      [Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
    fi
 
