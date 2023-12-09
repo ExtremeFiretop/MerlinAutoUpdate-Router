@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-06
+# Last Modified: 2023-Dec-09
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.28"
+readonly SCRIPT_VERSION="0.2.29"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -944,37 +944,22 @@ _GetCurrentFWInstalledShortVersion_()
 get_free_ram() {
     # Using awk to sum up the 'free', 'buffers', and 'cached' columns.
     free | awk '/^Mem:/{print $4 + $6 + $7}'  # This will return the available memory in kilobytes.
+	##FOR DEBUG ONLY##echo 1000
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-22] ##
-##----------------------------------------##
-check_memory_and_reboot()
-{
-    if [ ! -f "${FW_BIN_DIR}/$firmware_file" ]; then
-        Say "${REDct}**ERROR**${NOct}: Firmware file [${FW_BIN_DIR}/$firmware_file] not found."
-        exit 1
-    fi
-
-    # sync cached data to permanent storage to prevent data loss #
-    sync ; sleep 1 ; sync
-
-    # Get firmware file size in kilobytes #
-    firmware_size_kb="$(du -k "${FW_BIN_DIR}/$firmware_file" | cut -f1)"
-    free_ram_kb="$(get_free_ram)"
-
-    if [ "$free_ram_kb" -lt "$firmware_size_kb" ]; then
-        Say "Insufficient RAM available to proceed with the firmware update."
-
-        # During an interactive shell session, ask user to confirm reboot #
-        if _WaitForYESorNO_ "Reboot router now"
-        then
-            _AddPostRebootRunScriptHook_
-            Say "Rebooting router..."
-            /sbin/service reboot
-        fi
-        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
-    fi
+##---------------------------------------##
+## Added by ExtremeFiretop [2023-Dec-09] ##
+##---------------------------------------##
+get_required_space() {
+    local url="$1"
+    local zip_file_size_kb extracted_file_size_buffer_kb overhead_kb=10240  # 10 MB overhead
+    # Size of the ZIP file in bytes
+    local zip_file_size_bytes=$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')
+    # Convert bytes to kilobytes
+    zip_file_size_kb=$((zip_file_size_bytes / 1024))
+    # Calculate total required space
+    local total_required_kb=$((zip_file_size_kb + overhead_kb))
+    echo "$total_required_kb"
 }
 
 ##----------------------------------------##
@@ -1603,7 +1588,7 @@ _RunFirmwareUpdateNow_()
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
     release_version="$1"
     release_link="$2"
-
+	
     # Extracting the first octet to use in the curl
     firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
     # Inserting dots between each number
@@ -1633,6 +1618,26 @@ _RunFirmwareUpdateNow_()
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
+	
+	##---------------------------------------##
+	## Added by ExtremeFiretop [2023-Dec-09] ##
+	##---------------------------------------##
+	# Get the required space for the firmware download and extraction
+	required_space_kb=$(get_required_space "$release_link")
+	free_ram_kb=$(get_free_ram)
+
+	# Check if there is enough memory to download and extract the firmware
+	if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
+		Say "Insufficient RAM available. Required: ${required_space_kb}KB, Available: ${free_ram_kb}KB."
+        # During an interactive shell session, ask user to confirm reboot #
+        if _WaitForYESorNO_ "Reboot router now"
+        then
+            _AddPostRebootRunScriptHook_
+            Say "Rebooting router..."
+            /sbin/service reboot
+        fi
+        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+	fi
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
@@ -1653,6 +1658,22 @@ _RunFirmwareUpdateNow_()
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
+	
+	##---------------------------------------##
+	## Added by ExtremeFiretop [2023-Dec-09] ##
+	##---------------------------------------##	
+	free_ram_kb=$(get_free_ram)
+	if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
+		Say "Insufficient RAM available. Required: ${required_space_kb}KB, Available: ${free_ram_kb}KB."
+        # During an interactive shell session, ask user to confirm reboot #
+        if _WaitForYESorNO_ "Reboot router now"
+        then
+            _AddPostRebootRunScriptHook_
+            Say "Rebooting router..."
+            /sbin/service reboot
+        fi
+        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+	fi
 
     # Extracting the firmware binary image #
     if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
@@ -1737,12 +1758,26 @@ _RunFirmwareUpdateNow_()
             return 1
         fi
     fi
+	
+	##------------------------------------------##
+	## Modified by ExtremeFiretop [2023-Dec-09] ##
+	##------------------------------------------##
+	free_ram_kb=$(get_free_ram)
+	if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
+		Say "Insufficient RAM available. Required: ${required_space_kb}KB, Available: ${free_ram_kb}KB."
+		# During an interactive shell session, ask user to confirm reboot #
+		if _WaitForYESorNO_ "Reboot router now"
+		then
+			_AddPostRebootRunScriptHook_
+			Say "Rebooting router..."
+			/sbin/service reboot
+			fi
+		exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+	fi
 
     routerURLstr="$(_GetRouterURL_)"
     # DEBUG: Print the LAN IP to ensure it's being set correctly
     printf "\n**DEBUG**: Router Web URL is: ${routerURLstr}\n"
-
-    check_memory_and_reboot
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
