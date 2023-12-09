@@ -962,6 +962,22 @@ get_required_space() {
     echo "$total_required_kb"
 }
 
+check_memory_and_prompt_reboot() {
+    local required_space_kb="$1"
+    local free_ram_kb="$2"
+
+    if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
+        Say "Insufficient RAM available. Required: ${required_space_kb}KB, Available: ${free_ram_kb}KB."
+        # During an interactive shell session, ask user to confirm reboot #
+        if _WaitForYESorNO_ "Reboot router now"; then
+            _AddPostRebootRunScriptHook_
+            Say "Rebooting router..."
+            /sbin/service reboot
+            exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+        fi
+    fi
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-06] ##
 ##----------------------------------------##
@@ -1625,19 +1641,7 @@ _RunFirmwareUpdateNow_()
 	# Get the required space for the firmware download and extraction
 	required_space_kb=$(get_required_space "$release_link")
 	free_ram_kb=$(get_free_ram)
-
-	# Check if there is enough memory to download and extract the firmware
-	if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
-		Say "Insufficient RAM available. Required: ${required_space_kb}KB, Available: ${free_ram_kb}KB."
-        # During an interactive shell session, ask user to confirm reboot #
-        if _WaitForYESorNO_ "Reboot router now"
-        then
-            _AddPostRebootRunScriptHook_
-            Say "Rebooting router..."
-            /sbin/service reboot
-        fi
-        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
-	fi
+	check_memory_and_prompt_reboot "$required_space_kb" "$free_ram_kb"
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
@@ -1663,17 +1667,7 @@ _RunFirmwareUpdateNow_()
 	## Added by ExtremeFiretop [2023-Dec-09] ##
 	##---------------------------------------##	
 	free_ram_kb=$(get_free_ram)
-	if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
-		Say "Insufficient RAM available. Required: ${required_space_kb}KB, Available: ${free_ram_kb}KB."
-        # During an interactive shell session, ask user to confirm reboot #
-        if _WaitForYESorNO_ "Reboot router now"
-        then
-            _AddPostRebootRunScriptHook_
-            Say "Rebooting router..."
-            /sbin/service reboot
-        fi
-        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
-	fi
+	check_memory_and_prompt_reboot "$required_space_kb" "$free_ram_kb"
 
     # Extracting the firmware binary image #
     if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
@@ -1763,17 +1757,7 @@ _RunFirmwareUpdateNow_()
 	## Modified by ExtremeFiretop [2023-Dec-09] ##
 	##------------------------------------------##
 	free_ram_kb=$(get_free_ram)
-	if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
-		Say "Insufficient RAM available. Required: ${required_space_kb}KB, Available: ${free_ram_kb}KB."
-		# During an interactive shell session, ask user to confirm reboot #
-		if _WaitForYESorNO_ "Reboot router now"
-		then
-			_AddPostRebootRunScriptHook_
-			Say "Rebooting router..."
-			/sbin/service reboot
-			fi
-		exit 1  # Although the reboot command should end the script, it's good practice to exit after.
-	fi
+	check_memory_and_prompt_reboot "$required_space_kb" "$free_ram_kb"
 
     routerURLstr="$(_GetRouterURL_)"
     # DEBUG: Print the LAN IP to ensure it's being set correctly
