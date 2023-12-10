@@ -1,7 +1,7 @@
 ---WORK IN PROGRESS--- 
 - PREVIEW, NOT YET COMPLETE. PLEASE EXPECT BUGS.
 
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/24496690-8156-41a2-b7fb-5200e76fcdd3)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/e948e3c3-9068-41ab-b8dc-3678a6eb4a68)
 
 ---TESTERS NEEDED!--- 
  - If you see your router listed as untested below, feel free to test and report any issues.
