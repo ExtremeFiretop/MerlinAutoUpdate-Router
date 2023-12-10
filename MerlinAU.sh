@@ -1162,7 +1162,7 @@ change_build_type() {
     fi
 
     printf "Current Build Type: ${GRNct}$display_choice${NOct}.\n"
-	printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
+    printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
 	
 	while true; do
 		printf "\n [${theExitStr}] Enter your choice (y/n): "
@@ -1611,7 +1611,7 @@ _RunFirmwareUpdateNow_()
     if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
        ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
     then
-       Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
