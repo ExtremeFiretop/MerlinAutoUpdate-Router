@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-06
+# Last Modified: 2023-Dec-10
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.28"
+readonly SCRIPT_VERSION="0.2.29"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -943,37 +943,52 @@ _GetCurrentFWInstalledShortVersion_()
 
 get_free_ram() {
     # Using awk to sum up the 'free', 'buffers', and 'cached' columns.
-    free | awk '/^Mem:/{print $4 + $6 + $7}'  # This will return the available memory in kilobytes.
+    free | awk '/^Mem:/{print $4}'  # This will return the available memory in kilobytes.
+    ##FOR DEBUG ONLY##echo 1000
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-22] ##
-##----------------------------------------##
-check_memory_and_reboot()
-{
-    if [ ! -f "${FW_BIN_DIR}/$firmware_file" ]; then
-        Say "${REDct}**ERROR**${NOct}: Firmware file [${FW_BIN_DIR}/$firmware_file] not found."
-        exit 1
-    fi
+##---------------------------------------##
+## Added by ExtremeFiretop [2023-Dec-09] ##
+##---------------------------------------##
+get_required_space() {
+    local url="$1"
+    local zip_file_size_kb extracted_file_size_buffer_kb overhead_kb=10240  # 10 MB overhead
+    # Size of the ZIP file in bytes
+    local zip_file_size_bytes=$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')
+    # Convert bytes to kilobytes
+    zip_file_size_kb=$((zip_file_size_bytes / 1024))
+    # Calculate total required space
+    local total_required_kb=$((zip_file_size_kb + overhead_kb))
+    echo "$total_required_kb"
+}
 
-    # sync cached data to permanent storage to prevent data loss #
-    sync ; sleep 1 ; sync
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-10] ##
+##------------------------------------------##
+check_memory_and_prompt_reboot() {
+    local required_space_kb="$1"
+    local free_ram_kb="$2"
 
-    # Get firmware file size in kilobytes #
-    firmware_size_kb="$(du -k "${FW_BIN_DIR}/$firmware_file" | cut -f1)"
-    free_ram_kb="$(get_free_ram)"
+    if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
+        Say "Insufficient RAM available. Required: ${required_space_kb}KB, Available: ${free_ram_kb}KB."
 
-    if [ "$free_ram_kb" -lt "$firmware_size_kb" ]; then
-        Say "Insufficient RAM available to proceed with the firmware update."
+        # Attempt to clear PageCache #
+        Say "Attempting to free up memory..."
+        sync; echo 1 > /proc/sys/vm/drop_caches
 
-        # During an interactive shell session, ask user to confirm reboot #
-        if _WaitForYESorNO_ "Reboot router now"
-        then
-            _AddPostRebootRunScriptHook_
-            Say "Rebooting router..."
-            /sbin/service reboot
+        # Check memory again #
+        free_ram_kb=$(free | awk '/^Mem:/{print $4 }')
+        if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
+            # During an interactive shell session, ask user to confirm reboot #
+            if _WaitForYESorNO_ "Reboot router now"; then
+                _AddPostRebootRunScriptHook_
+                Say "Rebooting router..."
+                /sbin/service reboot
+                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+            fi
+        else
+            Say "Successfully freed up memory. Available: ${free_ram_kb}KB."
         fi
-        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
     fi
 }
 
@@ -1126,7 +1141,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2023-Dec-10] ##
 ##------------------------------------------##
 change_build_type() {
     echo "Changing Build Type..."
@@ -1146,10 +1161,12 @@ change_build_type() {
         display_choice="Pure Build"
     fi
 
-    printf "Current Build Type: ${GRNct}$display_choice. ${REDct}Use ROG build? (y/n)${NOct}\n"
-
+    printf "Current Build Type: ${GRNct}$display_choice${NOct}.\n"
+    printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
+	
 	while true; do
-		read -rp "Enter your choice (y/n) or e=Exit to main menu: " choice
+		printf "\n [${theExitStr}] Enter your choice (y/n): "
+		read -r choice
 		choice="${choice:-$previous_choice}"
 		choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
 
@@ -1603,7 +1620,7 @@ _RunFirmwareUpdateNow_()
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
     release_version="$1"
     release_link="$2"
-
+	
     # Extracting the first octet to use in the curl
     firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
     # Inserting dots between each number
@@ -1633,6 +1650,15 @@ _RunFirmwareUpdateNow_()
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
+	
+	##---------------------------------------##
+	## Added by ExtremeFiretop [2023-Dec-09] ##
+	##---------------------------------------##
+	# Get the required space for the firmware download and extraction
+	required_space_kb=$(get_required_space "$release_link")
+	free_ram_kb=$(get_free_ram)
+	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${free_ram_kb}KB"
+	check_memory_and_prompt_reboot "$required_space_kb" "$free_ram_kb"
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
@@ -1653,6 +1679,13 @@ _RunFirmwareUpdateNow_()
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
+	
+	##---------------------------------------##
+	## Added by ExtremeFiretop [2023-Dec-09] ##
+	##---------------------------------------##	
+	free_ram_kb=$(get_free_ram)
+	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${free_ram_kb}KB"
+	check_memory_and_prompt_reboot "$required_space_kb" "$free_ram_kb"
 
     # Extracting the firmware binary image #
     if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
@@ -1737,12 +1770,17 @@ _RunFirmwareUpdateNow_()
             return 1
         fi
     fi
+	
+	##------------------------------------------##
+	## Modified by ExtremeFiretop [2023-Dec-09] ##
+	##------------------------------------------##
+	free_ram_kb=$(get_free_ram)
+	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${free_ram_kb}KB"
+	check_memory_and_prompt_reboot "$required_space_kb" "$free_ram_kb"
 
     routerURLstr="$(_GetRouterURL_)"
     # DEBUG: Print the LAN IP to ensure it's being set correctly
     printf "\n**DEBUG**: Router Web URL is: ${routerURLstr}\n"
-
-    check_memory_and_reboot
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
@@ -2001,7 +2039,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2023-Dec-10] ##
 ##------------------------------------------##
 show_menu()
 {
@@ -2028,7 +2066,7 @@ show_menu()
    printf "\n${padStr}USB Storage Connected: $USBConnected"
 
    printf "\n${SEPstr}"
-   printf "\n  ${GRNct}1${NOct}.  Run Update F/W Check Now\n"
+   printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
    printf "\n  ${GRNct}2${NOct}.  Configure Router Login Credentials\n"
 
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
@@ -2049,10 +2087,10 @@ show_menu()
    printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
    printf "\n      [Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
-   printf "\n  ${GRNct}6${NOct}.  Set Directory Path for F/W Update ZIP File"
+   printf "\n  ${GRNct}6${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n      [Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
-   printf "\n  ${GRNct}7${NOct}.  Set Directory Path for F/W Update Log Files"
+   printf "\n  ${GRNct}7${NOct}.  Set Directory for F/W Update Log Files"
    printf "\n      [Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 
    # Retrieve the current build type setting
