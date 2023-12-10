@@ -952,11 +952,17 @@ get_free_ram() {
 ##---------------------------------------##
 get_required_space() {
     local url="$1"
-    local zip_file_size_kb extracted_file_size_buffer_kb overhead_kb=10240  # 10 MB overhead
+    local zip_file_size_kb extracted_file_size_buffer_kb 
+    local overhead_percentage=20  # Overhead percentage (e.g., 20%)
+    
     # Size of the ZIP file in bytes
     local zip_file_size_bytes=$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')
     # Convert bytes to kilobytes
     zip_file_size_kb=$((zip_file_size_bytes / 1024))
+    
+    # Calculate overhead based on the percentage
+    local overhead_kb=$((zip_file_size_kb * overhead_percentage / 100))
+    
     # Calculate total required space
     local total_required_kb=$((zip_file_size_kb + overhead_kb))
     echo "$total_required_kb"
