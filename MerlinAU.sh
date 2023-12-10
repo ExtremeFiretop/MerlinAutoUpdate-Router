@@ -944,7 +944,7 @@ _GetCurrentFWInstalledShortVersion_()
 get_free_ram() {
     # Using awk to sum up the 'free', 'buffers', and 'cached' columns.
     free | awk '/^Mem:/{print $4}'  # This will return the available memory in kilobytes.
-	##FOR DEBUG ONLY##echo 1000
+    ##FOR DEBUG ONLY##echo 1000
 }
 
 ##---------------------------------------##
