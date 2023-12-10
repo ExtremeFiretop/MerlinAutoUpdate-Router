@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-09
+# Last Modified: 2023-Dec-10
 ###################################################################
 set -u
 
@@ -1127,7 +1127,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2023-Dec-10] ##
 ##------------------------------------------##
 change_build_type() {
     echo "Changing Build Type..."
@@ -1147,10 +1147,12 @@ change_build_type() {
         display_choice="Pure Build"
     fi
 
-    printf "Current Build Type: ${GRNct}$display_choice. ${REDct}Use ROG build? (y/n)${NOct}\n"
-
+    printf "Current Build Type: ${GRNct}$display_choice${NOct}.\n"
+	printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
+	
 	while true; do
-		read -rp "Enter your choice (y/n) or e=Exit to main menu: " choice
+		printf "\n [${theExitStr}] Enter your choice (y/n): "
+		read -r choice
 		choice="${choice:-$previous_choice}"
 		choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
 
@@ -2020,7 +2022,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2023-Dec-10] ##
 ##------------------------------------------##
 show_menu()
 {
@@ -2047,7 +2049,7 @@ show_menu()
    printf "\n${padStr}USB Storage Connected: $USBConnected"
 
    printf "\n${SEPstr}"
-   printf "\n  ${GRNct}1${NOct}.  Run Update F/W Check Now\n"
+   printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
    printf "\n  ${GRNct}2${NOct}.  Configure Router Login Credentials\n"
 
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
@@ -2068,10 +2070,10 @@ show_menu()
    printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
    printf "\n      [Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
-   printf "\n  ${GRNct}6${NOct}.  Set Directory Path for F/W Update ZIP File"
+   printf "\n  ${GRNct}6${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n      [Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
-   printf "\n  ${GRNct}7${NOct}.  Set Directory Path for F/W Update Log Files"
+   printf "\n  ${GRNct}7${NOct}.  Set Directory for F/W Update Log Files"
    printf "\n      [Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 
    # Retrieve the current build type setting
