@@ -970,7 +970,7 @@ check_memory_and_prompt_reboot() {
     local free_ram_kb="$2"
 
     if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
-        Say "Insufficient RAM available. Required: ${required_space_kb}KB, Available: ${free_ram_kb}KB."
+        Say "Insufficient RAM available."
 
         # Attempt to clear PageCache #
         Say "Attempting to free up memory..."
