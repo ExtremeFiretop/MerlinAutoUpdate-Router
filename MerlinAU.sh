@@ -943,7 +943,7 @@ _GetCurrentFWInstalledShortVersion_()
 
 get_free_ram() {
     # Using awk to sum up the 'free', 'buffers', and 'cached' columns.
-    free | awk '/^Mem:/{print $4 + $6 + $7}'  # This will return the available memory in kilobytes.
+    free | awk '/^Mem:/{print $4}'  # This will return the available memory in kilobytes.
 	##FOR DEBUG ONLY##echo 1000
 }
 
@@ -962,18 +962,32 @@ get_required_space() {
     echo "$total_required_kb"
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-10] ##
+##------------------------------------------##
 check_memory_and_prompt_reboot() {
     local required_space_kb="$1"
     local free_ram_kb="$2"
 
     if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
         Say "Insufficient RAM available. Required: ${required_space_kb}KB, Available: ${free_ram_kb}KB."
-        # During an interactive shell session, ask user to confirm reboot #
-        if _WaitForYESorNO_ "Reboot router now"; then
-            _AddPostRebootRunScriptHook_
-            Say "Rebooting router..."
-            /sbin/service reboot
-            exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+
+        # Attempt to clear PageCache #
+        Say "Attempting to free up memory..."
+        sync; echo 1 > /proc/sys/vm/drop_caches
+
+        # Check memory again #
+        free_ram_kb=$(free | awk '/^Mem:/{print $4 }')
+        if [ "$free_ram_kb" -lt "$required_space_kb" ]; then
+            # During an interactive shell session, ask user to confirm reboot #
+            if _WaitForYESorNO_ "Reboot router now"; then
+                _AddPostRebootRunScriptHook_
+                Say "Rebooting router..."
+                /sbin/service reboot
+                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+            fi
+        else
+            Say "Successfully freed up memory. Available: ${free_ram_kb}KB."
         fi
     fi
 }
@@ -1597,7 +1611,7 @@ _RunFirmwareUpdateNow_()
     if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
        ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
     then
-        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+       Say "No new firmware version update is found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
@@ -1643,6 +1657,7 @@ _RunFirmwareUpdateNow_()
 	# Get the required space for the firmware download and extraction
 	required_space_kb=$(get_required_space "$release_link")
 	free_ram_kb=$(get_free_ram)
+	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${free_ram_kb}KB"
 	check_memory_and_prompt_reboot "$required_space_kb" "$free_ram_kb"
 
     # Compare versions before deciding to download
@@ -1669,6 +1684,7 @@ _RunFirmwareUpdateNow_()
 	## Added by ExtremeFiretop [2023-Dec-09] ##
 	##---------------------------------------##	
 	free_ram_kb=$(get_free_ram)
+	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${free_ram_kb}KB"
 	check_memory_and_prompt_reboot "$required_space_kb" "$free_ram_kb"
 
     # Extracting the firmware binary image #
@@ -1759,6 +1775,7 @@ _RunFirmwareUpdateNow_()
 	## Modified by ExtremeFiretop [2023-Dec-09] ##
 	##------------------------------------------##
 	free_ram_kb=$(get_free_ram)
+	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${free_ram_kb}KB"
 	check_memory_and_prompt_reboot "$required_space_kb" "$free_ram_kb"
 
     routerURLstr="$(_GetRouterURL_)"
