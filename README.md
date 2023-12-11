@@ -18,6 +18,11 @@
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 
  - RT-AC68U (Blocked)
+ - RT-AC87U (Blocked)
+ - RT-AC56U (Blocked)
+ - RT-AC66U (Blocked)
+ - RT-AC3200 (Blocked)
+ - RT-N66U (Blocked)
 
 ## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
 
@@ -39,15 +44,9 @@
  - RT-AC88U (Untested)
  - RT-AC5300 (Untested)
  - RT-AC3100 (Untested)
- - 
  - RT-AC1900 (Untested)
- - RT-AC87U (Untested)
- - RT-AC3200 (Untested)
  - RT-AC3100 (Untested)
- - RT-AC66U (Untested)
- - RT-AC56U (Untested)
  - RT-AC66U_B1 (Untested)
- - RT-N66U (Untested)
 
 ## Remaining/Planned Features:
       
