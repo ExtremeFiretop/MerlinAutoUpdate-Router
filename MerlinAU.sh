@@ -1049,7 +1049,7 @@ check_version_support() {
 
 check_model_support() {
     # List of unsupported models as a space-separated string
-    local unsupported_models="RT-AC68U"
+    local unsupported_models="RT-AC68U RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
