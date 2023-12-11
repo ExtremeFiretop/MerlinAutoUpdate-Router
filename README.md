@@ -71,8 +71,7 @@ It streamlines the firmware update procedure, automatically detects your router 
 
 ## Features
 
-- Automatic router model detection.
-- Automatic update detection.
+- Automatic router model detection and Automatic update detection.
 - Automatically updates your router with the latest firmware from the Asuswrt-Merlin repository.
 - Credential Management: Functions to handle router login credentials required for the update process.
 - Cron Job Management: Logic to manage cron jobs for automated firmware update checks.
