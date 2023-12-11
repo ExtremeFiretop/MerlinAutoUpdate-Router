@@ -74,12 +74,15 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Automatic router model detection.
 - Automatic update detection.
 - Automatically updates your router with the latest firmware from the Asuswrt-Merlin repository.
-- User configurable waiting period for firmware updates. (Wait for a set duration after a new firmware release.)
-- Easy Enable/Disable switch for automatic update checking
-- Easy uninstall.
-- Logs update process in desired path.
-- Set up blinking LEDs as a visual indicator before starting the firmware update.
-- Checks RAM usage. If free RAM is less than the firmware file size, reboots the router.
+- Credential Management: Functions to handle router login credentials required for the update process.
+- Cron Job Management: Logic to manage cron jobs for automated firmware update checks.
+- Script Updates: Handling notifications for new script versions.
+- User configurable Wait Period: Wait for a set duration after a new firmware release.
+- Easy Enable/Disable: A menu switch for automatic update checking.
+- Easy Uninstall: A routine to cleanly uninstall the script, removing all related files and settings.
+- Logging and Cleanup: The script maintains logs for its operations and includes functions for cleanup tasks.
+- Blinking LEDs: As a visual indicator before starting the firmware update.
+- Checks RAM usage: Functions to check and manage available memory for firmware update operations.
 - Compatible with ROG and non-ROG routers; select ROG or Pure Build for ROG routers.
 - Backup the new firmware version to the USB drive. (If USB is selected for storage)
 
