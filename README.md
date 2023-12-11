@@ -17,12 +17,14 @@
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 
- - RT-AC68U (Blocked)
  - RT-AC87U (Blocked)
  - RT-AC56U (Blocked)
  - RT-AC66U (Blocked)
  - RT-AC3200 (Blocked)
  - RT-N66U (Blocked)
+ - RT-AC68U (Blocked)
+ - RT-AC66U_B1 (Blocked)
+ - RT-AC1900 (Blocked)
 
 ## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
 
