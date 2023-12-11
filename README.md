@@ -46,7 +46,6 @@
  - RT-AC88U (Untested)
  - RT-AC5300 (Untested)
  - RT-AC3100 (Untested)
- - RT-AC3100 (Untested)
 
 ## Remaining/Planned Features:
       
