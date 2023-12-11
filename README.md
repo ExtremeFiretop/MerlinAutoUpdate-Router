@@ -16,7 +16,7 @@
  - RT-AX86U (Tested)
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
-Blocked due to low RAM/ROM space. Also have not received updates in several years.
+Blocked due to low RAM/ROM space and/or have not received updates in several years.
    
  - RT-AC87U (Blocked)
  - RT-AC56U (Blocked)
