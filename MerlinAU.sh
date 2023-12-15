@@ -953,7 +953,7 @@ get_free_ram() {
 get_required_space() {
     local url="$1"
     local zip_file_size_kb extracted_file_size_buffer_kb 
-    local overhead_percentage=20  # Overhead percentage (e.g., 20%)
+    local overhead_percentage=50  # Overhead percentage (e.g., 50%)
     
     # Size of the ZIP file in bytes
     local zip_file_size_bytes=$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')
