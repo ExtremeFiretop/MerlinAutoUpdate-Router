@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.30"
+readonly SCRIPT_VERSION="0.2.27"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -247,7 +247,8 @@ _CheckForNewScriptUpdates_()
    # Version comparison
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
-      UpdateNotify="New script update available: v$SCRIPT_VERSION -> v$DLRepoVersion"
+      UpdateNotify="New script update available: 
+${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
       Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
    else
       UpdateNotify=0
@@ -946,9 +947,9 @@ _GetCurrentFWInstalledShortVersion_()
 ##-------------------------------------##
 _HasRouterMoreThan256MBtotalRAM_()
 {
-   local totalRAM_KB
-   totalRAM_KB="$(cat /proc/meminfo | awk -F ' ' '/^MemTotal: /{print $2}')"
-   [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 262144 ] && return 0
+   #local totalRAM_KB
+   #totalRAM_KB="$(cat /proc/meminfo | awk -F ' ' '/^MemTotal: /{print $2}')"
+   #[ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 262144 ] && return 0
    return 1
 }
 
@@ -1634,8 +1635,8 @@ _RunFirmwareUpdateNow_()
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    ##FOR DEBUG ONLY##current_version="388.3.0"
+    ##FOR DEBUG ONLYcurrent_version="$(_GetCurrentFWInstalledShortVersion_)"
+    current_version="388.3.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -1658,13 +1659,13 @@ _RunFirmwareUpdateNow_()
     # "New F/W Release Version" from the router itself.
     # If no new F/W version update is available exit.
     #------------------------------------------------------
-    if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
-       ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-    then
-        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
-    fi
+    ##FOR DEBUG ONLYif ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+    ##FOR DEBUG ONLY   ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+    ##FOR DEBUG ONLYthen
+    ##FOR DEBUG ONLY    Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+    ##FOR DEBUG ONLY    "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+    ##FOR DEBUG ONLY    return 1
+    ##FOR DEBUG ONLYfi
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
@@ -1796,7 +1797,8 @@ _RunFirmwareUpdateNow_()
 	if [ -n "$rog_file" ]; then
 		# If in interactive mode, prompt the user for their choice
 		if [ "$inMenuMode" = true ]; then
-			printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
+			printf "${REDct}Found ROG build: $rog_file. 
+Would you like to use the ROG build? (y/n)${NOct}\n"
 			read -rp "Enter your choice: " choice
 			if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
 				firmware_file="$rog_file"
