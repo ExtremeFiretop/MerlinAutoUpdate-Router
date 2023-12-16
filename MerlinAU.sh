@@ -1692,9 +1692,6 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-    #BEGIN: Redirect both stdout and stderr to log file #
-    {
-
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
     then
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
@@ -1714,6 +1711,10 @@ _RunFirmwareUpdateNow_()
 			return 1
 		fi
 	fi
+	
+	#BEGIN: Redirect both stdout and stderr to log file #
+    {
+	
 	availableRAM_kb=$(_GetAvailableRAM_KB_)
 	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${availableRAM_kb}KB"
 	check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
