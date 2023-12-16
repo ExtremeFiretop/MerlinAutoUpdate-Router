@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-15
+# Last Modified: 2023-Dec-16
 ###################################################################
 set -u
 
@@ -226,8 +226,7 @@ readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
 ##-----------------------------------------------##
-## Original Author: ExtremeFiretop [2023-Nov-26] ##
-## Modified by: Martinski W. [2023-Dec-01]       ##
+## Modified by: ExtremeFiretop [2023-Dec-16]     ##
 ##-----------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
@@ -247,7 +246,7 @@ _CheckForNewScriptUpdates_()
    # Version comparison
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
-      UpdateNotify="New script update available: 
+      UpdateNotify="New script update available.
 ${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
       Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
    else
@@ -256,7 +255,6 @@ ${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
 }
 
 ##-----------------------------------------------##
-## Original Author: ExtremeFiretop [2023-Nov-26] ##
 ## Modified by: Martinski W. [2023-Dec-01]       ##
 ##-----------------------------------------------##
 #a function that provides a UI to check for script updates and allows you to install the latest version...
@@ -1584,7 +1582,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2023-Dec-16] ##
 ##------------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
@@ -1740,7 +1738,7 @@ _RunFirmwareUpdateNow_()
     fi
 
 	##---------------------------------------##
-	## Added by ExtremeFiretop [2023-Dec-09] ##
+	## Added by ExtremeFiretop [2023-Dec-16] ##
 	##---------------------------------------##	
 	availableRAM_kb=$(_GetAvailableRAM_KB_)
 	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${availableRAM_kb}KB"
@@ -2099,7 +2097,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-10] ##
+## Modified by ExtremeFiretop [2023-Dec-16] ##
 ##------------------------------------------##
 show_menu()
 {
