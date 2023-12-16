@@ -58,7 +58,6 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
 - Only once it's been vetted through most routers.
 
 - Notes:
-  - Might need to add some "overhead" to the file size comparison to account for the "ZIP + F/W" files being on the "$HOME" directory at the same time, even if just temporarily.
   - New routers use UBIFS instead of JFFS2.
 
 ## Merlin(A)uto(U)pdate
