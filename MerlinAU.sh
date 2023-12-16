@@ -1706,6 +1706,13 @@ _RunFirmwareUpdateNow_()
 	##---------------------------------------##
 	# Get the required space for the firmware download and extraction
 	required_space_kb=$(get_required_space "$release_link")
+	if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]; then
+		if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+			Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
+			"$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+			return 1
+		fi
+	fi
 	availableRAM_kb=$(_GetAvailableRAM_KB_)
 	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${availableRAM_kb}KB"
 	check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
@@ -2100,7 +2107,12 @@ show_menu()
 
    # New Script Update Notification #
    if [ "$UpdateNotify" != "0" ]; then
-      Say "${REDct}${UpdateNotify}${NOct}"
+      Say "${REDct}WARNING:${NOct} ${UpdateNotify}${NOct}\n"
+   fi
+   
+   if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+      Say "${REDct}WARNING:${NOct} Limited RAM (256MB). 
+A USB drive is required for F/W updates.\n"
    fi
 
    padStr="      "  arrowStr=" ${REDct}<<---${NOct}"
