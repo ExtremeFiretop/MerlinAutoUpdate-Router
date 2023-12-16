@@ -2114,7 +2114,7 @@ show_menu()
    fi
    
    if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
-      Say "${REDct}WARNING:${NOct} Limited RAM (256MB). 
+      Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB). 
 A USB drive is required for F/W updates.\n"
    fi
 
