@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-16
+# Last Modified: 2023-Dec-17
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.31"
+readonly SCRIPT_VERSION="0.2.32"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -299,12 +299,17 @@ _SCRIPTUPDATE_()
          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
          curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
          curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+		if [ $? -eq 0 ]; then
          echo
-         echo -e "${CYANct}Download successful!${NOct}"
          echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+		 echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+		 exec "${ScriptsDirPath}/${SCRIPT_NAME}.sh"  # Re-execute the updated script
+         exit 0  # This line will not be executed as exec replaces the current process
+		else
          echo
-         _WaitForEnterKey_
-         return
+         echo -e "${REDct}Download failed.${NOct}"
+         # Handle download failure
+		fi
       else
          echo ; echo
          echo -e "${GRNct}Exiting Update Utility...${NOct}"
@@ -1830,7 +1835,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
     fi
 
 	##------------------------------------------##
-	## Modified by ExtremeFiretop [2023-Dec-09] ##
+	## Modified by ExtremeFiretop [2023-Dec-17] ##
 	##------------------------------------------##
 	availableRAM_kb=$(_GetAvailableRAM_KB_)
 	Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
@@ -1840,7 +1845,13 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
     # DEBUG: Print the LAN IP to ensure it's being set correctly
     printf "\n**DEBUG**: Router Web URL is: ${routerURLstr}\n"
 
-    curl_response="$(curl "${routerURLstr}/login.cgi" \
+    printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
+    printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
+    printf "Once started, the flashing process CANNOT be interrupted.\n"
+    if ! _WaitForYESorNO_ "Continue"
+    then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
+	
+	curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
@@ -1853,12 +1864,6 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
     # IMPORTANT: Due to the nature of 'nohup' and the specific behavior of this 'curl' request,
     # the following 'curl' command MUST always be the last step in this block.
     # Do NOT insert any operations after it! (unless you understand the implications).
-
-    printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
-    printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
-    printf "Once started, the flashing process CANNOT be interrupted.\n"
-    if ! _WaitForYESorNO_ "Continue"
-    then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
 
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
