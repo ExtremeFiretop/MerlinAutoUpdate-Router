@@ -255,7 +255,7 @@ ${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
 }
 
 ##-----------------------------------------------##
-## Modified by: Martinski W. [2023-Dec-01]       ##
+## ## Modified by: ExtremeFiretop [2023-Dec-17]  ##
 ##-----------------------------------------------##
 #a function that provides a UI to check for script updates and allows you to install the latest version...
 _SCRIPTUPDATE_()
@@ -1834,12 +1834,12 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         fi
     fi
 
-	##------------------------------------------##
-	## Modified by ExtremeFiretop [2023-Dec-17] ##
-	##------------------------------------------##
-	availableRAM_kb=$(_GetAvailableRAM_KB_)
-	Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
-	check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2023-Dec-17] ##
+    ##------------------------------------------##
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     routerURLstr="$(_GetRouterURL_)"
     # DEBUG: Print the LAN IP to ensure it's being set correctly
@@ -1851,7 +1851,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
     if ! _WaitForYESorNO_ "Continue"
     then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
 	
-	curl_response="$(curl "${routerURLstr}/login.cgi" \
+    curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
