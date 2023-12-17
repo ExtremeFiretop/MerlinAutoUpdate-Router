@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-15
+# Last Modified: 2023-Dec-16
 ###################################################################
 set -u
 
@@ -226,8 +226,7 @@ readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
 ##-----------------------------------------------##
-## Original Author: ExtremeFiretop [2023-Nov-26] ##
-## Modified by: Martinski W. [2023-Dec-01]       ##
+## Modified by: ExtremeFiretop [2023-Dec-16]     ##
 ##-----------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
@@ -247,7 +246,8 @@ _CheckForNewScriptUpdates_()
    # Version comparison
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
-      UpdateNotify="New script update available: v$SCRIPT_VERSION -> v$DLRepoVersion"
+      UpdateNotify="New script update available.
+${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
       Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
    else
       UpdateNotify=0
@@ -255,7 +255,6 @@ _CheckForNewScriptUpdates_()
 }
 
 ##-----------------------------------------------##
-## Original Author: ExtremeFiretop [2023-Nov-26] ##
 ## Modified by: Martinski W. [2023-Dec-01]       ##
 ##-----------------------------------------------##
 #a function that provides a UI to check for script updates and allows you to install the latest version...
@@ -1583,7 +1582,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2023-Dec-16] ##
 ##------------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
@@ -1691,9 +1690,6 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-    #BEGIN: Redirect both stdout and stderr to log file #
-    {
-
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
     then
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
@@ -1706,6 +1702,17 @@ _RunFirmwareUpdateNow_()
 	##---------------------------------------##
 	# Get the required space for the firmware download and extraction
 	required_space_kb=$(get_required_space "$release_link")
+	if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]; then
+		if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+			Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
+			"$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+			return 1
+		fi
+	fi
+	
+	#BEGIN: Redirect both stdout and stderr to log file #
+    {
+	
 	availableRAM_kb=$(_GetAvailableRAM_KB_)
 	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${availableRAM_kb}KB"
 	check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
@@ -1731,7 +1738,7 @@ _RunFirmwareUpdateNow_()
     fi
 
 	##---------------------------------------##
-	## Added by ExtremeFiretop [2023-Dec-09] ##
+	## Added by ExtremeFiretop [2023-Dec-16] ##
 	##---------------------------------------##	
 	availableRAM_kb=$(_GetAvailableRAM_KB_)
 	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${availableRAM_kb}KB"
@@ -1789,7 +1796,8 @@ _RunFirmwareUpdateNow_()
 	if [ -n "$rog_file" ]; then
 		# If in interactive mode, prompt the user for their choice
 		if [ "$inMenuMode" = true ]; then
-			printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
+			printf "${REDct}Found ROG build: $rog_file. 
+Would you like to use the ROG build? (y/n)${NOct}\n"
 			read -rp "Enter your choice: " choice
 			if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
 				firmware_file="$rog_file"
@@ -2089,7 +2097,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-10] ##
+## Modified by ExtremeFiretop [2023-Dec-16] ##
 ##------------------------------------------##
 show_menu()
 {
@@ -2100,7 +2108,12 @@ show_menu()
 
    # New Script Update Notification #
    if [ "$UpdateNotify" != "0" ]; then
-      Say "${REDct}${UpdateNotify}${NOct}"
+      Say "${REDct}WARNING:${NOct} ${UpdateNotify}${NOct}\n"
+   fi
+   
+   if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+      Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB). 
+A USB drive is required for F/W updates.\n"
    fi
 
    padStr="      "  arrowStr=" ${REDct}<<---${NOct}"

@@ -1,7 +1,6 @@
----WORK IN PROGRESS--- 
-- PREVIEW, NOT YET COMPLETE. PLEASE EXPECT BUGS.
+---WORK IN PROGRESS---
 
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/e948e3c3-9068-41ab-b8dc-3678a6eb4a68)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/3d3a0a27-4871-4ca6-be76-249b35b95899)
 
 ---TESTERS NEEDED!--- 
  - If you see your router listed as untested below, feel free to test and report any issues.
@@ -58,7 +57,6 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
 - Only once it's been vetted through most routers.
 
 - Notes:
-  - Might need to add some "overhead" to the file size comparison to account for the "ZIP + F/W" files being on the "$HOME" directory at the same time, even if just temporarily.
   - New routers use UBIFS instead of JFFS2.
 
 ## Merlin(A)uto(U)pdate
