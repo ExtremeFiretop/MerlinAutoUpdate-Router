@@ -1885,7 +1885,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         -F "file=@${firmware_file}" \
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
         sleep 180
-		reboot
+        reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
 1. Confirm you are not already logged into the router using a web browser.
