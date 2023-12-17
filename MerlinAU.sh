@@ -1743,7 +1743,7 @@ _RunFirmwareUpdateNow_()
     fi
 
     ##---------------------------------------##
-    ## Added by ExtremeFiretop [2023-Dec-16] ##
+    ## Added by ExtremeFiretop [2023-Dec-17] ##
     ##---------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
