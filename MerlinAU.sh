@@ -1795,7 +1795,7 @@ _RunFirmwareUpdateNow_()
 
 	# Detect ROG and pure firmware files
 	rog_file="$(ls | grep -i '_rog_')"
-	pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
+	pure_file="$(ls | grep -iE '(_pureubi\.w|_ubi\.w|.*_nand_squashfs\.pkgtb)$' | grep -iv 'rog')"
 
 	# Check if a ROG build is present
 	if [ -n "$rog_file" ]; then
