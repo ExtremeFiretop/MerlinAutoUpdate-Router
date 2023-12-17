@@ -1867,7 +1867,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
 
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
-        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please Wait for Reboot.${NOct}"
+        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in 3 minutes or less.${NOct}"
         echo
 
         nohup curl "${routerURLstr}/upgrade.cgi" \
@@ -1884,7 +1884,8 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         -F "firmver=${dottedVersion}" \
         -F "file=@${firmware_file}" \
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
-        sleep 60
+        sleep 180
+		reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
 1. Confirm you are not already logged into the router using a web browser.
