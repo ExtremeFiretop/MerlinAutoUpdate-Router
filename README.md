@@ -7,9 +7,10 @@
  - If the test was successful on your model, feel free to leave a comment on snb forums or open an issue with your successful test and router model.
  - https://www.snbforums.com/threads/seeking-feedback-contributions-merlin-auto-update-solutions.87044/
 
-## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w file
+## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
  - GT-AXE11000 (Tested)
+ - RT-AX88U_PRO (Tested)
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
  - RT-AX86U (Tested)
@@ -26,14 +27,13 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AC66U_B1 (Blocked)
  - RT-AC1900 (Blocked)
 
-## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
+## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
  - GT-AXE16000 (Untested)
  - GT-AX6000 (Untested)
  - GT-AX11000 (Untested)
  - GT-AX11000_PRO (Untested)
  - GT-AC2900 (Untested)
- - RT-AX88U_PRO (Untested)
  - RT-AX86U_PRO (Untested)
  - RT-AX68U (Untested)
  - RT-AX56U (Untested)
