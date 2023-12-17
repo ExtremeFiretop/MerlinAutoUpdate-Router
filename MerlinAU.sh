@@ -299,17 +299,17 @@ _SCRIPTUPDATE_()
          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
          curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
          curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-		if [ $? -eq 0 ]; then
+       if [ $? -eq 0 ]; then
          echo
          echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-		 echo -e "${CYANct}Update successful! Restarting script...${NOct}"
-		 exec "${ScriptsDirPath}/${SCRIPT_NAME}.sh"  # Re-execute the updated script
+	 echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+	 exec "${ScriptsDirPath}/${SCRIPT_NAME}.sh"  # Re-execute the updated script
          exit 0  # This line will not be executed as exec replaces the current process
-		else
+       else
          echo
          echo -e "${REDct}Download failed.${NOct}"
          # Handle download failure
-		fi
+       fi
       else
          echo ; echo
          echo -e "${GRNct}Exiting Update Utility...${NOct}"
