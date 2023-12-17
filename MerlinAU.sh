@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.30"
+readonly SCRIPT_VERSION="0.2.31"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1106,7 +1106,7 @@ check_model_support() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-20] ##
+## Modified by Martinski W. [2023-Dec-16] ##
 ##----------------------------------------##
 _GetLoginCredentials_()
 {
@@ -1122,7 +1122,7 @@ _GetLoginCredentials_()
     echo
     if [ -z "$password" ]
     then
-        echo "The Username and Password cannot be empty. Credentials were not saved."
+        echo "Password cannot be empty. Credentials were not saved."
         _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
@@ -1697,25 +1697,25 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-	##---------------------------------------##
-	## Added by ExtremeFiretop [2023-Dec-09] ##
-	##---------------------------------------##
-	# Get the required space for the firmware download and extraction
-	required_space_kb=$(get_required_space "$release_link")
-	if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]; then
-		if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
-			Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
-			"$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-			return 1
-		fi
-	fi
-	
-	#BEGIN: Redirect both stdout and stderr to log file #
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2023-Dec-09] ##
+    ##---------------------------------------##
+    # Get the required space for the firmware download and extraction
+    required_space_kb=$(get_required_space "$release_link")
+    if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]; then
+        if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+            Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
+            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+            return 1
+        fi
+    fi
+
+    #BEGIN: Redirect both stdout and stderr to log file #
     {
-	
-	availableRAM_kb=$(_GetAvailableRAM_KB_)
-	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${availableRAM_kb}KB"
-	check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
@@ -1737,12 +1737,12 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-	##---------------------------------------##
-	## Added by ExtremeFiretop [2023-Dec-16] ##
-	##---------------------------------------##	
-	availableRAM_kb=$(_GetAvailableRAM_KB_)
-	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${availableRAM_kb}KB"
-	check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2023-Dec-16] ##
+    ##---------------------------------------##
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Extracting the firmware binary image #
     if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
@@ -1833,7 +1833,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
 	## Modified by ExtremeFiretop [2023-Dec-09] ##
 	##------------------------------------------##
 	availableRAM_kb=$(_GetAvailableRAM_KB_)
-	Say "Required RAM: ${required_space_kb}KB - Available RAM: ${availableRAM_kb}KB"
+	Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
 	check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     routerURLstr="$(_GetRouterURL_)"
@@ -2110,7 +2110,7 @@ show_menu()
    if [ "$UpdateNotify" != "0" ]; then
       Say "${REDct}WARNING:${NOct} ${UpdateNotify}${NOct}\n"
    fi
-   
+
    if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
       Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB). 
 A USB drive is required for F/W updates.\n"
