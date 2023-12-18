@@ -309,7 +309,7 @@ _SCRIPTUPDATE_()
          echo
          echo -e "${REDct}Download failed.${NOct}"
          # Handle download failure
-		 _WaitForEnterKey_
+         _WaitForEnterKey_
          return
        fi
       else
