@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-06
+# Last Modified: 2023-Dec-17
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.28"
+readonly SCRIPT_VERSION="0.2.33"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -226,8 +226,7 @@ readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
 ##-----------------------------------------------##
-## Original Author: ExtremeFiretop [2023-Nov-26] ##
-## Modified by: Martinski W. [2023-Dec-01]       ##
+## Modified by: ExtremeFiretop [2023-Dec-16]     ##
 ##-----------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
@@ -247,17 +246,17 @@ _CheckForNewScriptUpdates_()
    # Version comparison
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
-      UpdateNotify="New script update available: v$SCRIPT_VERSION -> v$DLRepoVersion"
+      UpdateNotify="New script update available.
+${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
       Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
    else
       UpdateNotify=0
    fi
 }
 
-##-----------------------------------------------##
-## Original Author: ExtremeFiretop [2023-Nov-26] ##
-## Modified by: Martinski W. [2023-Dec-01]       ##
-##-----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-17] ##
+##----------------------------------------##
 #a function that provides a UI to check for script updates and allows you to install the latest version...
 _SCRIPTUPDATE_()
 {
@@ -276,41 +275,49 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}You are on the latest version! Would you like to download anyways?${NOct}"
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
       if _WaitForYESorNO_ ; then
-         echo ; echo
-         echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-         curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
-         curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-         echo
-         echo -e "${CYANct}Download successful!${NOct}"
-         echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-         echo
-         _WaitForEnterKey_
-         return
+          echo ; echo
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
+          curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+          curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+          echo
+          echo -e "${CYANct}Download successful!${NOct}"
+          echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+          echo
+          _WaitForEnterKey_
+          return
       else
-         echo ; echo
-         echo -e "${GRNct}Exiting Update Utility...${NOct}"
-         sleep 1
-         return
+          echo ; echo
+          echo -e "${GRNct}Exiting Update Utility...${NOct}"
+          sleep 1
+          return
       fi
    elif [ "$UpdateNotify" != "0" ]
    then
       echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
       if _WaitForYESorNO_ ; then
-         echo ; echo
-         echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-         curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
-         curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-         echo
-         echo -e "${CYANct}Download successful!${NOct}"
-         echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-         echo
-         _WaitForEnterKey_
-         return
+          echo ; echo
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
+          curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+          curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+          if [ $? -eq 0 ]; then
+              chmod a+x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+              echo
+              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+              echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+              exec "${ScriptsDirPath}/${SCRIPT_NAME}.sh"  # Re-execute the updated script
+              exit 0  # This line will not be executed as exec replaces the current process
+          else
+              echo
+              echo -e "${REDct}Download failed.${NOct}"
+              # Handle download failure
+              _WaitForEnterKey_
+              return
+          fi
       else
-         echo ; echo
-         echo -e "${GRNct}Exiting Update Utility...${NOct}"
-         sleep 1
-         return
+          echo ; echo
+          echo -e "${GRNct}Exiting Update Utility...${NOct}"
+          sleep 1
+          return
       fi
    fi
 }
@@ -821,11 +828,14 @@ _WaitForYESorNO_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-12] ##
+## Modified by Martinski W. [2023-Dec-17] ##
 ##----------------------------------------##
-Say(){
-   printf "$@" | logger $loggerFlags "[$(basename "$0")] $$"
-   "$isInteractive" && printf "${*}\n"
+Say()
+{
+   "$isInteractive" && printf "${1}\n"
+   # Clean out the "color escape sequences" from the log file #
+   local logMsg="$(echo "$1" | sed 's/\\\e\[0m//g ; s/\\\e\[[0-1];3[0-9]m//g')"
+   printf "$logMsg" | logger $loggerFlags "[$(basename "$0")] $$"
 }
 
 ##-------------------------------------##
@@ -941,39 +951,104 @@ _GetCurrentFWInstalledShortVersion_()
     echo "$theVersionStr"
 }
 
-get_free_ram() {
-    # Using awk to sum up the 'free', 'buffers', and 'cached' columns.
-    free | awk '/^Mem:/{print $4 + $6 + $7}'  # This will return the available memory in kilobytes.
+##-------------------------------------##
+## Added by Martinski W. [2023-Dec-15] ##
+##-------------------------------------##
+_HasRouterMoreThan256MBtotalRAM_()
+{
+   local totalRAM_KB
+   totalRAM_KB="$(cat /proc/meminfo | awk -F ' ' '/^MemTotal: /{print $2}')"
+   [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 262144 ] && return 0
+   return 1
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-22] ##
-##----------------------------------------##
-check_memory_and_reboot()
+##-------------------------------------##
+## Added by Martinski W. [2023-Dec-15] ##
+##-------------------------------------##
+#---------------------------------------------------------------------#
+# The actual amount of RAM that is available for any new process
+# (*without* using the swap file) can be roughly estimated from
+# "MemFree" & "Page Cache" (i.e. Active files + Inactive files),
+# This estimate must take into account that the overall system 
+# (kernel + native services + tmpfs) needs a minimum amount of RAM
+# to continue to work, and that not all reclaimable Page Cache can
+# be reclaimed because some may actually be in used at the time.
+#---------------------------------------------------------------------#
+_GetAvailableRAM_KB_()
 {
-    if [ ! -f "${FW_BIN_DIR}/$firmware_file" ]; then
-        Say "${REDct}**ERROR**${NOct}: Firmware file [${FW_BIN_DIR}/$firmware_file] not found."
-        exit 1
-    fi
+   local theMemAvailable_KB  theMemFree_KB
+   local activeFiles_KB  inactiveFiles_KB  thePageCache_KB
 
-    # sync cached data to permanent storage to prevent data loss #
-    sync ; sleep 1 ; sync
+   theMemAvailable_KB="$(cat /proc/meminfo | awk -F ' ' '/^MemAvailable: /{print $2}')"
+   [ -n "$theMemAvailable_KB" ] && echo "$theMemAvailable_KB" && return 0
 
-    # Get firmware file size in kilobytes #
-    firmware_size_kb="$(du -k "${FW_BIN_DIR}/$firmware_file" | cut -f1)"
-    free_ram_kb="$(get_free_ram)"
+   theMemFree_KB="$(cat /proc/meminfo | awk -F ' ' '/^MemFree: /{print $2}')"
+   activeFiles_KB="$(cat /proc/meminfo | awk -F ' ' '/^Active\(file\): /{print $2}')"
+   inactiveFiles_KB="$(cat /proc/meminfo | awk -F ' ' '/^Inactive\(file\): /{print $2}')"
+   thePageCache_KB="$((activeFiles_KB + inactiveFiles_KB))"
 
-    if [ "$free_ram_kb" -lt "$firmware_size_kb" ]; then
-        Say "Insufficient RAM available to proceed with the firmware update."
+   #----------------------------------------------------------------#
+   # Since not all Page Cache is guaranteed to be reclaimed at any
+   # moment, we simply estimate that only half will be reclaimable.
+   #----------------------------------------------------------------#
+   theMemAvailable_KB="$((theMemFree_KB + ((thePageCache_KB / 2))))"
+   echo "$theMemAvailable_KB" ; return 0
+}
 
-        # During an interactive shell session, ask user to confirm reboot #
-        if _WaitForYESorNO_ "Reboot router now"
-        then
-            _AddPostRebootRunScriptHook_
-            Say "Rebooting router..."
-            /sbin/service reboot
+get_free_ram() {
+    # Using awk to sum up the 'free', 'buffers', and 'cached' columns.
+    free | awk '/^Mem:/{print $4}'  # This will return the available memory in kilobytes.
+    ##FOR DEBUG ONLY##echo 1000
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2023-Dec-09] ##
+##---------------------------------------##
+get_required_space() {
+    local url="$1"
+    local zip_file_size_kb extracted_file_size_buffer_kb 
+    local overhead_percentage=50  # Overhead percentage (e.g., 50%)
+    
+    # Size of the ZIP file in bytes
+    local zip_file_size_bytes=$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')
+    # Convert bytes to kilobytes
+    zip_file_size_kb=$((zip_file_size_bytes / 1024))
+    
+    # Calculate overhead based on the percentage
+    local overhead_kb=$((zip_file_size_kb * overhead_percentage / 100))
+    
+    # Calculate total required space
+    local total_required_kb=$((zip_file_size_kb + overhead_kb))
+    echo "$total_required_kb"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-10] ##
+##------------------------------------------##
+check_memory_and_prompt_reboot() {
+    local required_space_kb="$1"
+    local availableRAM_kb="$2"
+
+    if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
+        Say "Insufficient RAM available."
+
+        # Attempt to clear PageCache #
+        Say "Attempting to free up memory..."
+        sync; echo 1 > /proc/sys/vm/drop_caches
+
+        # Check available memory again #
+        availableRAM_kb=$(_GetAvailableRAM_KB_)
+        if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
+            # During an interactive shell session, ask user to confirm reboot #
+            if _WaitForYESorNO_ "Reboot router now"; then
+                _AddPostRebootRunScriptHook_
+                Say "Rebooting router..."
+                /sbin/service reboot
+                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+            fi
+        else
+            Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
         fi
-        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
     fi
 }
 
@@ -1028,7 +1103,7 @@ check_version_support() {
 
 check_model_support() {
     # List of unsupported models as a space-separated string
-    local unsupported_models="RT-AC68U"
+    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
@@ -1042,7 +1117,7 @@ check_model_support() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-20] ##
+## Modified by Martinski W. [2023-Dec-16] ##
 ##----------------------------------------##
 _GetLoginCredentials_()
 {
@@ -1058,7 +1133,7 @@ _GetLoginCredentials_()
     echo
     if [ -z "$password" ]
     then
-        echo "The Username and Password cannot be empty. Credentials were not saved."
+        echo "Password cannot be empty. Credentials were not saved."
         _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
@@ -1126,7 +1201,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2023-Dec-10] ##
 ##------------------------------------------##
 change_build_type() {
     echo "Changing Build Type..."
@@ -1146,10 +1221,12 @@ change_build_type() {
         display_choice="Pure Build"
     fi
 
-    printf "Current Build Type: ${GRNct}$display_choice. ${REDct}Use ROG build? (y/n)${NOct}\n"
+    printf "Current Build Type: ${GRNct}$display_choice${NOct}.\n"
+    printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
 
-	while true; do
-		read -rp "Enter your choice (y/n) or e=Exit to main menu: " choice
+    while true; do
+		printf "\n [${theExitStr}] Enter your choice (y/n): "
+		read -r choice
 		choice="${choice:-$previous_choice}"
 		choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
 
@@ -1165,7 +1242,7 @@ change_build_type() {
 		else
 			echo "Invalid input! Please enter 'y', 'yes', 'n', 'no', or 'exit'."
 		fi
-	done
+    done
 
     if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
         Update_Custom_Settings "ROGBuild" "y"
@@ -1515,9 +1592,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-17] ##
+##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
@@ -1624,15 +1701,32 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-    #BEGIN: Redirect both stdout and stderr to log file #
-    {
-
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
     then
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
+
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2023-Dec-09] ##
+    ##---------------------------------------##
+    # Get the required space for the firmware download and extraction
+    required_space_kb=$(get_required_space "$release_link")
+    if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]; then
+        if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+            Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
+            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+            return 1
+        fi
+    fi
+
+    #BEGIN: Redirect both stdout and stderr to log file #
+    {
+
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
@@ -1653,6 +1747,13 @@ _RunFirmwareUpdateNow_()
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
+
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2023-Dec-17] ##
+    ##---------------------------------------##
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Extracting the firmware binary image #
     if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
@@ -1692,21 +1793,22 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-	# Use Get_Custom_Setting to retrieve the previous choice
-	previous_choice="$(Get_Custom_Setting "ROGBuild" "n")"
+    # Use Get_Custom_Setting to retrieve the previous choice
+    previous_choice="$(Get_Custom_Setting "ROGBuild" "n")"
 
-	# Navigate to the firmware directory
-	cd "$FW_BIN_DIR"
+    # Navigate to the firmware directory
+    cd "$FW_BIN_DIR"
 
-	# Detect ROG and pure firmware files
-	rog_file="$(ls | grep -i '_rog_')"
-	pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
+    # Detect ROG and pure firmware files
+    rog_file="$(ls | grep -i '_rog_')"
+    pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb|trx)$' | grep -iv 'rog')"
 
-	# Check if a ROG build is present
-	if [ -n "$rog_file" ]; then
+    # Check if a ROG build is present
+    if [ -n "$rog_file" ]; then
 		# If in interactive mode, prompt the user for their choice
 		if [ "$inMenuMode" = true ]; then
-			printf "${REDct}Found ROG build: $rog_file. Would you like to use the ROG build? (y/n)${NOct}\n"
+			printf "${REDct}Found ROG build: $rog_file. 
+Would you like to use the ROG build? (y/n)${NOct}\n"
 			read -rp "Enter your choice: " choice
 			if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
 				firmware_file="$rog_file"
@@ -1723,10 +1825,10 @@ _RunFirmwareUpdateNow_()
 				firmware_file="$pure_file"
 			fi
 		fi
-	else
+    else
 		# No ROG build found, use the pure build
 		firmware_file="$pure_file"
-	fi
+    fi
 
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
@@ -1738,11 +1840,22 @@ _RunFirmwareUpdateNow_()
         fi
     fi
 
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2023-Dec-17] ##
+    ##------------------------------------------##
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+
     routerURLstr="$(_GetRouterURL_)"
     # DEBUG: Print the LAN IP to ensure it's being set correctly
     printf "\n**DEBUG**: Router Web URL is: ${routerURLstr}\n"
 
-    check_memory_and_reboot
+    printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
+    printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
+    printf "Once started, the flashing process CANNOT be interrupted.\n"
+    if ! _WaitForYESorNO_ "Continue"
+    then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
@@ -1758,15 +1871,9 @@ _RunFirmwareUpdateNow_()
     # the following 'curl' command MUST always be the last step in this block.
     # Do NOT insert any operations after it! (unless you understand the implications).
 
-    printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
-    printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
-    printf "Once started, the flashing process CANNOT be interrupted.\n"
-    if ! _WaitForYESorNO_ "Continue"
-    then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
-
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
-        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please Wait for Reboot.${NOct}"
+        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 3 minutes or less.${NOct}"
         echo
 
         nohup curl "${routerURLstr}/upgrade.cgi" \
@@ -1783,7 +1890,13 @@ _RunFirmwareUpdateNow_()
         -F "firmver=${dottedVersion}" \
         -F "file=@${firmware_file}" \
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
-        sleep 60
+        curlPID=$! ; wait $curlPID
+        #----------------------------------------------------------#
+        # Let's wait for 30 seconds here. If the router does not 
+        # reboot by itself after the process returns, do it now.
+        #----------------------------------------------------------#
+        _Reset_LEDs_ ; sleep 30
+        /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
 1. Confirm you are not already logged into the router using a web browser.
@@ -2001,7 +2114,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2023-Dec-16] ##
 ##------------------------------------------##
 show_menu()
 {
@@ -2012,7 +2125,12 @@ show_menu()
 
    # New Script Update Notification #
    if [ "$UpdateNotify" != "0" ]; then
-      Say "${REDct}${UpdateNotify}${NOct}"
+      Say "${REDct}WARNING:${NOct} ${UpdateNotify}${NOct}\n"
+   fi
+
+   if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+      Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB). 
+A USB drive is required for F/W updates.\n"
    fi
 
    padStr="      "  arrowStr=" ${REDct}<<---${NOct}"
@@ -2028,7 +2146,7 @@ show_menu()
    printf "\n${padStr}USB Storage Connected: $USBConnected"
 
    printf "\n${SEPstr}"
-   printf "\n  ${GRNct}1${NOct}.  Run Update F/W Check Now\n"
+   printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
    printf "\n  ${GRNct}2${NOct}.  Configure Router Login Credentials\n"
 
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
@@ -2049,10 +2167,10 @@ show_menu()
    printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
    printf "\n      [Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
-   printf "\n  ${GRNct}6${NOct}.  Set Directory Path for F/W Update ZIP File"
+   printf "\n  ${GRNct}6${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n      [Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
-   printf "\n  ${GRNct}7${NOct}.  Set Directory Path for F/W Update Log Files"
+   printf "\n  ${GRNct}7${NOct}.  Set Directory for F/W Update Log Files"
    printf "\n      [Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 
    # Retrieve the current build type setting
@@ -2069,7 +2187,7 @@ show_menu()
 
    if [ "$current_build_type" = "y" ] || [ "$current_build_type" = "n" ]; then
       # Display the option with the current build type
-      printf "\n  ${GRNct}8${NOct}.  Change Firmware Build Type"
+      printf "\n  ${GRNct}8${NOct}.  Change F/W Build Type"
       printf "\n      [Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
    fi
 

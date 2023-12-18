@@ -1,32 +1,36 @@
----WORK IN PROGRESS--- 
-- PREVIEW, NOT YET COMPLETE. PLEASE EXPECT BUGS.
+## ---WORK IN PROGRESS---
 
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/24496690-8156-41a2-b7fb-5200e76fcdd3)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/ffa9fed4-86fc-40b4-ac42-ba9ffe3dc264)
 
----TESTERS NEEDED!--- 
+## TESTERS NEEDED!
  - If you see your router listed as untested below, feel free to test and report any issues.
  - If the test was successful on your model, feel free to leave a comment on snb forums or open an issue with your successful test and router model.
  - https://www.snbforums.com/threads/seeking-feedback-contributions-merlin-auto-update-solutions.87044/
 
-## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w file
+## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
  - GT-AXE11000 (Tested)
+ - RT-AX88U_PRO (Tested)
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
  - RT-AX86U (Tested)
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
+Blocked due to low RAM/ROM space and/or have not received updates in several years.
+   
+ - RT-AC87U (Blocked)
+ - RT-AC56U (Blocked)
+ - RT-AC66U (Blocked)
+ - RT-AC3200 (Blocked)
+ - RT-N66U (Blocked)
 
- - RT-AC68U (Blocked)
-
-## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w file
+## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
  - GT-AXE16000 (Untested)
  - GT-AX6000 (Untested)
  - GT-AX11000 (Untested)
  - GT-AX11000_PRO (Untested)
  - GT-AC2900 (Untested)
- - RT-AX88U_PRO (Untested)
  - RT-AX86U_PRO (Untested)
  - RT-AX68U (Untested)
  - RT-AX56U (Untested)
@@ -39,33 +43,21 @@
  - RT-AC88U (Untested)
  - RT-AC5300 (Untested)
  - RT-AC3100 (Untested)
- - 
- - RT-AC1900 (Untested)
- - RT-AC87U (Untested)
- - RT-AC3200 (Untested)
- - RT-AC3100 (Untested)
- - RT-AC66U (Untested)
- - RT-AC56U (Untested)
+ - RT-AC68U (Untested)
  - RT-AC66U_B1 (Untested)
- - RT-N66U (Untested)
+ - RT-AC1900 (Untested)
 
 ## Remaining/Planned Features:
       
-1. Check Memory:
- - Before downloading the ZIP file into the router's "$HOME" folder (instead of a USB-attached drive), the router may already be in a "low free RAM" state, depending on the number of processes & extra add-ons running as well as other factors that slowly consume RAM over time (more so if the router's uptime is several weeks or months).
-
- - After just downloading the ZIP file into the router's "$HOME" folder, there may not be enough free RAM to continue to uncompress & extract the F/W files into the same $HOME folder. For such cases, we might need to check available free RAM before the ZIP file is downloaded, and then again before uncompressing/extracting the files, especially if using the router's "$HOME" directory for all of it, and not the USB drive at all.
- 
- - - Notes:
- - - Might need to add some "overhead" to the file size comparison to account for the "ZIP + F/W" files being on the "$HOME" directory at the same time, even if just temporarily.
- - - New routers use UBIFS instead of JFFS2.
-
-2. System Notifications:
+1. System Notifications:
 
 - Possibly trigger the hardcoded notification in the GUI's upper right corner.
 
-3. AMTM Install:
+2. AMTM Install:
 - Only once it's been vetted through most routers.
+
+- Notes:
+  - New routers use UBIFS instead of JFFS2.
 
 ## Merlin(A)uto(U)pdate
 
@@ -77,15 +69,17 @@ It streamlines the firmware update procedure, automatically detects your router 
 
 ## Features
 
-- Automatic router model detection.
-- Automatic update detection.
+- Automatic router model detection and Automatic update detection.
 - Automatically updates your router with the latest firmware from the Asuswrt-Merlin repository.
-- User configurable waiting period for firmware updates. (Wait for a set duration after a new firmware release.)
-- Easy Enable/Disable switch for automatic update checking
-- Easy uninstall.
-- Logs update process in desired path.
-- Set up blinking LEDs as a visual indicator before starting the firmware update.
-- Checks RAM usage. If free RAM is less than the firmware file size, reboots the router.
+- Credential Management: Functions to handle router login credentials required for the update process.
+- Cron Job Management: Logic to manage cron jobs for automated firmware update checks.
+- Script Updates: Handling notifications for new script versions.
+- User configurable Wait Period: Wait for a set duration after a new firmware release.
+- Easy Enable/Disable: A menu switch for automatic update checking.
+- Easy Uninstall: A routine to cleanly uninstall the script, removing all related files and settings.
+- Logging and Cleanup: The script maintains logs for its operations and includes functions for cleanup tasks.
+- Blinking LEDs: As a visual indicator before starting the firmware update.
+- Checks RAM usage: Functions to check and manage available memory for firmware update operations.
 - Compatible with ROG and non-ROG routers; select ROG or Pure Build for ROG routers.
 - Backup the new firmware version to the USB drive. (If USB is selected for storage)
 
