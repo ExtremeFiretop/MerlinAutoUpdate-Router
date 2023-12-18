@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-16
+# Last Modified: 2023-Dec-17
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.31"
+readonly SCRIPT_VERSION="0.2.32"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -255,7 +255,7 @@ ${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
 }
 
 ##-----------------------------------------------##
-## Modified by: Martinski W. [2023-Dec-01]       ##
+## ## Modified by: ExtremeFiretop [2023-Dec-17]  ##
 ##-----------------------------------------------##
 #a function that provides a UI to check for script updates and allows you to install the latest version...
 _SCRIPTUPDATE_()
@@ -299,12 +299,19 @@ _SCRIPTUPDATE_()
          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
          curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
          curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+       if [ $? -eq 0 ]; then
          echo
-         echo -e "${CYANct}Download successful!${NOct}"
          echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+	 echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+	 exec "${ScriptsDirPath}/${SCRIPT_NAME}.sh"  # Re-execute the updated script
+         exit 0  # This line will not be executed as exec replaces the current process
+       else
          echo
+         echo -e "${REDct}Download failed.${NOct}"
+         # Handle download failure
          _WaitForEnterKey_
          return
+       fi
       else
          echo ; echo
          echo -e "${GRNct}Exiting Update Utility...${NOct}"
@@ -1738,7 +1745,7 @@ _RunFirmwareUpdateNow_()
     fi
 
     ##---------------------------------------##
-    ## Added by ExtremeFiretop [2023-Dec-16] ##
+    ## Added by ExtremeFiretop [2023-Dec-17] ##
     ##---------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
@@ -1790,7 +1797,7 @@ _RunFirmwareUpdateNow_()
 
 	# Detect ROG and pure firmware files
 	rog_file="$(ls | grep -i '_rog_')"
-	pure_file="$(ls | grep -iE '_pureubi.w|_ubi.w' | grep -iv 'rog')"
+	pure_file="$(ls | grep -iE '(\.w|\.pkgtb|\.trx)$' | grep -iv 'rog')"
 
 	# Check if a ROG build is present
 	if [ -n "$rog_file" ]; then
@@ -1829,17 +1836,23 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         fi
     fi
 
-	##------------------------------------------##
-	## Modified by ExtremeFiretop [2023-Dec-09] ##
-	##------------------------------------------##
-	availableRAM_kb=$(_GetAvailableRAM_KB_)
-	Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
-	check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2023-Dec-17] ##
+    ##------------------------------------------##
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     routerURLstr="$(_GetRouterURL_)"
     # DEBUG: Print the LAN IP to ensure it's being set correctly
     printf "\n**DEBUG**: Router Web URL is: ${routerURLstr}\n"
 
+    printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
+    printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
+    printf "Once started, the flashing process CANNOT be interrupted.\n"
+    if ! _WaitForYESorNO_ "Continue"
+    then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
+	
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -1854,15 +1867,9 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
     # the following 'curl' command MUST always be the last step in this block.
     # Do NOT insert any operations after it! (unless you understand the implications).
 
-    printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
-    printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
-    printf "Once started, the flashing process CANNOT be interrupted.\n"
-    if ! _WaitForYESorNO_ "Continue"
-    then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
-
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
-        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please Wait for Reboot.${NOct}"
+        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in 3 minutes or less.${NOct}"
         echo
 
         nohup curl "${routerURLstr}/upgrade.cgi" \
@@ -1879,7 +1886,8 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         -F "firmver=${dottedVersion}" \
         -F "file=@${firmware_file}" \
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
-        sleep 60
+        sleep 180
+        /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
 1. Confirm you are not already logged into the router using a web browser.
