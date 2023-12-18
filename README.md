@@ -2,11 +2,6 @@
 
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/ffa9fed4-86fc-40b4-ac42-ba9ffe3dc264)
 
-## TESTERS NEEDED!
- - If you see your router listed as untested below, feel free to test and report any issues.
- - If the test was successful on your model, feel free to leave a comment on snb forums or open an issue with your successful test and router model.
- - https://www.snbforums.com/threads/seeking-feedback-contributions-merlin-auto-update-solutions.87044/
-
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
  - GT-AXE11000 (Tested)
@@ -47,17 +42,10 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AC66U_B1 (Untested)
  - RT-AC1900 (Untested)
 
-## Remaining/Planned Features:
-      
-1. System Notifications:
-
-- Possibly trigger the hardcoded notification in the GUI's upper right corner.
-
-2. AMTM Install:
-- Only once it's been vetted through most routers.
-
-- Notes:
-  - New routers use UBIFS instead of JFFS2.
+ ## TESTERS NEEDED!
+ - If you see your router listed as untested above, feel free to test and report any issues.
+ - If the test was successful on your model, feel free to leave a comment on snb forums or open an issue with your successful test and router model.
+ - https://www.snbforums.com/threads/seeking-feedback-contributions-merlin-auto-update-solutions.87044/
 
 ## Merlin(A)uto(U)pdate
 
@@ -82,6 +70,14 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Checks RAM usage: Functions to check and manage available memory for firmware update operations.
 - Compatible with ROG and non-ROG routers; select ROG or Pure Build for ROG routers.
 - Backup the new firmware version to the USB drive. (If USB is selected for storage)
+
+## Remaining/Planned Features:
+      
+1. AMTM Install:
+- Only once it's been vetted through most routers.
+
+- Notes:
+  - New routers use UBIFS instead of JFFS2.
 
 ## Installation
 Before using MerlinAU, ensure the following prerequisites are met:
