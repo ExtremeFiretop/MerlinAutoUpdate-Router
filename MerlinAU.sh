@@ -309,7 +309,7 @@ _SCRIPTUPDATE_()
          echo
          echo -e "${REDct}Download failed.${NOct}"
          # Handle download failure
-         _WaitForEnterKey_
+		 _WaitForEnterKey_
          return
        fi
       else
@@ -1099,7 +1099,7 @@ check_version_support() {
 
 check_model_support() {
     # List of unsupported models as a space-separated string
-    local unsupported_models="RT-AC68U RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC66U_B1 RT-AC1900"
+    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
