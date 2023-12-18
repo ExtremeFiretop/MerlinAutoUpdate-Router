@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.32"
+readonly SCRIPT_VERSION="0.2.33"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -254,9 +254,9 @@ ${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
    fi
 }
 
-##-----------------------------------------------##
-## ## Modified by: ExtremeFiretop [2023-Dec-17]  ##
-##-----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-17] ##
+##----------------------------------------##
 #a function that provides a UI to check for script updates and allows you to install the latest version...
 _SCRIPTUPDATE_()
 {
@@ -275,48 +275,49 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}You are on the latest version! Would you like to download anyways?${NOct}"
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
       if _WaitForYESorNO_ ; then
-         echo ; echo
-         echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-         curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
-         curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-         echo
-         echo -e "${CYANct}Download successful!${NOct}"
-         echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-         echo
-         _WaitForEnterKey_
-         return
+          echo ; echo
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
+          curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+          curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+          echo
+          echo -e "${CYANct}Download successful!${NOct}"
+          echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+          echo
+          _WaitForEnterKey_
+          return
       else
-         echo ; echo
-         echo -e "${GRNct}Exiting Update Utility...${NOct}"
-         sleep 1
-         return
+          echo ; echo
+          echo -e "${GRNct}Exiting Update Utility...${NOct}"
+          sleep 1
+          return
       fi
    elif [ "$UpdateNotify" != "0" ]
    then
       echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
       if _WaitForYESorNO_ ; then
-         echo ; echo
-         echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-         curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
-         curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-       if [ $? -eq 0 ]; then
-         echo
-         echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-	 echo -e "${CYANct}Update successful! Restarting script...${NOct}"
-	 exec "${ScriptsDirPath}/${SCRIPT_NAME}.sh"  # Re-execute the updated script
-         exit 0  # This line will not be executed as exec replaces the current process
-       else
-         echo
-         echo -e "${REDct}Download failed.${NOct}"
-         # Handle download failure
-         _WaitForEnterKey_
-         return
-       fi
+          echo ; echo
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
+          curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+          curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+          if [ $? -eq 0 ]; then
+              chmod a+x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+              echo
+              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+              echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+              exec "${ScriptsDirPath}/${SCRIPT_NAME}.sh"  # Re-execute the updated script
+              exit 0  # This line will not be executed as exec replaces the current process
+          else
+              echo
+              echo -e "${REDct}Download failed.${NOct}"
+              # Handle download failure
+              _WaitForEnterKey_
+              return
+          fi
       else
-         echo ; echo
-         echo -e "${GRNct}Exiting Update Utility...${NOct}"
-         sleep 1
-         return
+          echo ; echo
+          echo -e "${GRNct}Exiting Update Utility...${NOct}"
+          sleep 1
+          return
       fi
    fi
 }
@@ -827,11 +828,14 @@ _WaitForYESorNO_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-12] ##
+## Modified by Martinski W. [2023-Dec-17] ##
 ##----------------------------------------##
-Say(){
-   printf "$@" | logger $loggerFlags "[$(basename "$0")] $$"
-   "$isInteractive" && printf "${*}\n"
+Say()
+{
+   "$isInteractive" && printf "${1}\n"
+   # Clean out the "color escape sequences" from the log file #
+   local logMsg="$(echo "$1" | sed 's/\\\e\[0m//g ; s/\\\e\[[0-1];3[0-9]m//g')"
+   printf "$logMsg" | logger $loggerFlags "[$(basename "$0")] $$"
 }
 
 ##-------------------------------------##
@@ -1220,7 +1224,7 @@ change_build_type() {
     printf "Current Build Type: ${GRNct}$display_choice${NOct}.\n"
     printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
 
-	while true; do
+    while true; do
 		printf "\n [${theExitStr}] Enter your choice (y/n): "
 		read -r choice
 		choice="${choice:-$previous_choice}"
@@ -1238,7 +1242,7 @@ change_build_type() {
 		else
 			echo "Invalid input! Please enter 'y', 'yes', 'n', 'no', or 'exit'."
 		fi
-	done
+    done
 
     if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
         Update_Custom_Settings "ROGBuild" "y"
@@ -1588,9 +1592,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-16] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-17] ##
+##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
@@ -1789,18 +1793,18 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-	# Use Get_Custom_Setting to retrieve the previous choice
-	previous_choice="$(Get_Custom_Setting "ROGBuild" "n")"
+    # Use Get_Custom_Setting to retrieve the previous choice
+    previous_choice="$(Get_Custom_Setting "ROGBuild" "n")"
 
-	# Navigate to the firmware directory
-	cd "$FW_BIN_DIR"
+    # Navigate to the firmware directory
+    cd "$FW_BIN_DIR"
 
-	# Detect ROG and pure firmware files
-	rog_file="$(ls | grep -i '_rog_')"
-	pure_file="$(ls | grep -iE '(\.w|\.pkgtb|\.trx)$' | grep -iv 'rog')"
+    # Detect ROG and pure firmware files
+    rog_file="$(ls | grep -i '_rog_')"
+    pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb|trx)$' | grep -iv 'rog')"
 
-	# Check if a ROG build is present
-	if [ -n "$rog_file" ]; then
+    # Check if a ROG build is present
+    if [ -n "$rog_file" ]; then
 		# If in interactive mode, prompt the user for their choice
 		if [ "$inMenuMode" = true ]; then
 			printf "${REDct}Found ROG build: $rog_file. 
@@ -1821,10 +1825,10 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
 				firmware_file="$pure_file"
 			fi
 		fi
-	else
+    else
 		# No ROG build found, use the pure build
 		firmware_file="$pure_file"
-	fi
+    fi
 
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
@@ -1852,7 +1856,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
     printf "Once started, the flashing process CANNOT be interrupted.\n"
     if ! _WaitForYESorNO_ "Continue"
     then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
-	
+
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -1869,7 +1873,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
 
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
-        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in 3 minutes or less.${NOct}"
+        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 3 minutes or less.${NOct}"
         echo
 
         nohup curl "${routerURLstr}/upgrade.cgi" \
@@ -1886,7 +1890,12 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         -F "firmver=${dottedVersion}" \
         -F "file=@${firmware_file}" \
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
-        sleep 180
+        curlPID=$! ; wait $curlPID
+        #----------------------------------------------------------#
+        # Let's wait for 30 seconds here. If the router does not 
+        # reboot by itself after the process returns, do it now.
+        #----------------------------------------------------------#
+        _Reset_LEDs_ ; sleep 30
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
