@@ -1593,7 +1593,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-17] ##
+## Modified by Martinski W. [2023-Dec-18] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
@@ -1856,6 +1856,12 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
     printf "Once started, the flashing process CANNOT be interrupted.\n"
     if ! _WaitForYESorNO_ "Continue"
     then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
+
+    #------------------------------------------------------------#
+    # Restart the WebGUI to make sure nobody else is logged in
+    # so that the F/W Update can start without interruptions.
+    #------------------------------------------------------------#
+    /sbin/service restart_httpd && sleep 3
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
