@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-17
+# Last Modified: 2023-Dec-18
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.33"
+readonly SCRIPT_VERSION="0.2.34"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1890,7 +1890,23 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         -F "firmver=${dottedVersion}" \
         -F "file=@${firmware_file}" \
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
-        curlPID=$! ; wait $curlPID
+        curlPID=$!
+        #----------------------------------------------------------#
+        # In the rare case that the F/W Update gets "stuck" for
+        # some reason & the "curl" cmd never returns, we create 
+        # a background child process that sleeps for 6 minutes 
+        # and then kills the "curl" process if it still exists. 
+        # Otherwise, this child process does nothing & returns.        
+        #----------------------------------------------------------#
+        (
+           sleep 360
+           if [ "$curlPID" -gt 0 ]
+           then
+               kill -EXIT $curlPID 2>/dev/null || return
+               kill -TERM $curlPID 2>/dev/null
+           fi
+        ) &
+        wait $curlPID ; curlPID=0
         #----------------------------------------------------------#
         # Let's wait for 30 seconds here. If the router does not 
         # reboot by itself after the process returns, do it now.
