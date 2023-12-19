@@ -2092,7 +2092,7 @@ fi
 _CheckForNewScriptUpdates_
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-19] ##
+## Modified by Martinski W. [2023-Dec-18] ##
 ##----------------------------------------##
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
 [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
@@ -2115,6 +2115,16 @@ then
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
     fi
     _AddCronJobRunScriptHook_
+
+    #-----------------------------------------------------------#
+    # Check if router reports a new F/W update is available.
+    # If yes, modify the notification settings accordingly.
+    #-----------------------------------------------------------#
+    current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    release_version="$(_GetLatestFWUpdateVersionFromRouter_)"
+    [ -n "$current_version" ] && [ -n "$release_version" ] && \
+    _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+
     _WaitForEnterKey_
 fi
 
