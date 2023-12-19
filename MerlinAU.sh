@@ -1861,7 +1861,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
     # Restart the WebGUI to make sure nobody else is logged in
     # so that the F/W Update can start without interruptions.
     #------------------------------------------------------------#
-    /sbin/service restart_httpd && sleep 3
+    /sbin/service restart_httpd && sleep 5
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
@@ -1879,7 +1879,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
 
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
-        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 3 minutes or less.${NOct}"
+        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
         nohup curl "${routerURLstr}/upgrade.cgi" \
@@ -1900,12 +1900,12 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
         # some reason & the "curl" cmd never returns, we create 
-        # a background child process that sleeps for 6 minutes 
+        # a background child process that sleeps for 3 and a half minutes 
         # and then kills the "curl" process if it still exists. 
         # Otherwise, this child process does nothing & returns.        
         #----------------------------------------------------------#
         (
-           sleep 360
+           sleep 210
            if [ "$curlPID" -gt 0 ]
            then
                kill -EXIT $curlPID 2>/dev/null || return
