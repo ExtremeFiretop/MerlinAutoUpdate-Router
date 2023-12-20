@@ -1849,7 +1849,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
 
     routerURLstr="$(_GetRouterURL_)"
     # DEBUG: Print the LAN IP to ensure it's being set correctly
-    printf "\n**DEBUG**: Router Web URL is: ${routerURLstr}\n"
+    printf "\nRouter Web URL is: ${routerURLstr}\n"
 
     printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
     printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
