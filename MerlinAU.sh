@@ -3,12 +3,12 @@
 # MerlinAU.sh (MerlinAutoUpdate)
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Official Co-Author: @Martinski W. - Date: 2021-Nov-01
-# Last Modified: 2023-Dec-17
+# Official Co-Author: @Martinski W. - Date: 2023-Nov-01
+# Last Modified: 2023-Dec-19
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.33"
+readonly SCRIPT_VERSION="0.2.34"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1593,7 +1593,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-17] ##
+## Modified by Martinski W. [2023-Dec-18] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
@@ -1849,13 +1849,19 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
 
     routerURLstr="$(_GetRouterURL_)"
     # DEBUG: Print the LAN IP to ensure it's being set correctly
-    printf "\n**DEBUG**: Router Web URL is: ${routerURLstr}\n"
+    printf "\nRouter Web URL is: ${routerURLstr}\n"
 
     printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
     printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
     printf "Once started, the flashing process CANNOT be interrupted.\n"
     if ! _WaitForYESorNO_ "Continue"
     then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
+
+    #------------------------------------------------------------#
+    # Restart the WebGUI to make sure nobody else is logged in
+    # so that the F/W Update can start without interruptions.
+    #------------------------------------------------------------#
+    /sbin/service restart_httpd && sleep 5
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
@@ -1873,7 +1879,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
 
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
-        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 3 minutes or less.${NOct}"
+        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
         nohup curl "${routerURLstr}/upgrade.cgi" \
@@ -1890,7 +1896,23 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         -F "firmver=${dottedVersion}" \
         -F "file=@${firmware_file}" \
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
-        curlPID=$! ; wait $curlPID
+        curlPID=$!
+        #----------------------------------------------------------#
+        # In the rare case that the F/W Update gets "stuck" for
+        # some reason & the "curl" cmd never returns, we create 
+        # a background child process that sleeps for 4 minutes 
+        # and then kills the "curl" process if it still exists. 
+        # Otherwise, this child process does nothing & returns.        
+        #----------------------------------------------------------#
+        (
+           sleep 240
+           if [ "$curlPID" -gt 0 ]
+           then
+               kill -EXIT $curlPID 2>/dev/null || return
+               kill -TERM $curlPID 2>/dev/null
+           fi
+        ) &
+        wait $curlPID ; curlPID=0
         #----------------------------------------------------------#
         # Let's wait for 30 seconds here. If the router does not 
         # reboot by itself after the process returns, do it now.
@@ -2076,7 +2098,7 @@ fi
 _CheckForNewScriptUpdates_
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-19] ##
+## Modified by Martinski W. [2023-Dec-18] ##
 ##----------------------------------------##
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
 [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
@@ -2099,6 +2121,16 @@ then
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
     fi
     _AddCronJobRunScriptHook_
+
+    #-----------------------------------------------------------#
+    # Check if router reports a new F/W update is available.
+    # If yes, modify the notification settings accordingly.
+    #-----------------------------------------------------------#
+    current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    release_version="$(_GetLatestFWUpdateVersionFromRouter_)"
+    [ -n "$current_version" ] && [ -n "$release_version" ] && \
+    _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+
     _WaitForEnterKey_
 fi
 
