@@ -1905,7 +1905,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         # Otherwise, this child process does nothing & returns.        
         #----------------------------------------------------------#
         (
-           sleep 210
+           sleep 240
            if [ "$curlPID" -gt 0 ]
            then
                kill -EXIT $curlPID 2>/dev/null || return
