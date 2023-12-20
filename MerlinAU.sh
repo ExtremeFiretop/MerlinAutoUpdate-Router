@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2023-Dec-18
+# Last Modified: 2023-Dec-19
 ###################################################################
 set -u
 
@@ -1900,7 +1900,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
         # some reason & the "curl" cmd never returns, we create 
-        # a background child process that sleeps for 4 and a half minutes 
+        # a background child process that sleeps for 4 minutes 
         # and then kills the "curl" process if it still exists. 
         # Otherwise, this child process does nothing & returns.        
         #----------------------------------------------------------#
