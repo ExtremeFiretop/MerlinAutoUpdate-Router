@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2023-Dec-21
+# Last Modified: 2023-Dec-22
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.35"
+readonly SCRIPT_VERSION="0.2.36"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -658,6 +658,14 @@ Update_Custom_Settings()
 _Set_FW_UpdateLOG_DirectoryPath_()
 {
    local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
+   
+   if [ ! -d "$FW_LOG_DIR" ]
+          then
+          mkdir -p -m 755 "$FW_LOG_DIR"
+   else
+          # Log rotation - delete logs older than 30 days #
+          find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
+   fi
 
    while true
    do
@@ -855,10 +863,8 @@ readonly CRON_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $CRON_SCRIPT_JOB"
 readonly POST_REBOOT_SCRIPT_JOB="sh $ScriptFilePath postRebootRun &  $hookScriptTagStr"
 readonly POST_REBOOT_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_REBOOT_SCRIPT_JOB"
 
-if [ ! -d "$FW_LOG_DIR" ]
+if [ -d "$FW_LOG_DIR" ]
 then
-    mkdir -p -m 755 "$FW_LOG_DIR"
-else
     # Log rotation - delete logs older than 30 days #
     find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
@@ -2188,7 +2194,7 @@ A USB drive is required for F/W updates.\n"
 
    notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    if [ "$notifyDate" = "TBD" ]
-   then notificationStr="${REDct}NOT SET${NOct}]"
+   then notificationStr="${REDct}NOT SET${NOct}"
    else notificationStr="${GRNct}${notifyDate%%_*}${NOct}"
    fi
 
