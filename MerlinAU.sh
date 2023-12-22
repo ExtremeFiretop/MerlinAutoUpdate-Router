@@ -1929,9 +1929,11 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
         # some reason & the "curl" cmd never returns, we create 
-        # a background child process that sleeps for 4 minutes 
-        # and then kills the "curl" process if it still exists. 
-        # Otherwise, this child process does nothing & returns.        
+        # a background child process that sleeps for 3 and a half
+        # minutes and then kills the "curl" process if it still 
+        # exists. Otherwise, this child process does nothing
+		# & returns. NORMALLY the Curl returns almost instantly
+		# once the upload is complete.
         #----------------------------------------------------------#
         (
            sleep 240
@@ -1943,10 +1945,10 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         ) &
         wait $curlPID ; curlPID=0
         #----------------------------------------------------------#
-        # Let's wait for 30 seconds here. If the router does not 
+        # Let's wait for 90 seconds here. If the router does not 
         # reboot by itself after the process returns, do it now.
         #----------------------------------------------------------#
-        _Reset_LEDs_ ; sleep 30
+        _Reset_LEDs_ ; sleep 90
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
