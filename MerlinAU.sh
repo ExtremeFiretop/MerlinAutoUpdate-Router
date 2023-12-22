@@ -1936,7 +1936,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         # once the upload is complete.
         #----------------------------------------------------------#
         (
-           sleep 240
+           sleep 210
            if [ "$curlPID" -gt 0 ]
            then
                kill -EXIT $curlPID 2>/dev/null || return
