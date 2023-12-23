@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.37"
+readonly SCRIPT_VERSION="0.2.38"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -144,7 +144,7 @@ FW_UpdateCheckState="TBD"
 FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-22] ##
+## Modified by Martinski W. [2023-Dec-22] ##
 ##----------------------------------------##
 # Background function to create a blinking LED effect #
 Toggle_LEDs()
@@ -155,22 +155,29 @@ Toggle_LEDs()
        Toggle_LEDs_PID=""
        return 1
    fi
+
+   if [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^[2-5]$"
+   then blinkRateSecs=2
+   else blinkRateSecs="$1"
+   fi
+
    while true
    do
       LED_ToggleState="$((! LED_ToggleState))"
       nvram set led_disable="$LED_ToggleState"
       service restart_leds > /dev/null 2>&1
-      sleep 2
+      sleep "$blinkRateSecs"
       LED_ToggleState="$((! LED_ToggleState))"
       nvram set led_disable="$LED_ToggleState"
       service restart_leds > /dev/null 2>&1
-      sleep 2
+      sleep "$blinkRateSecs"
    done
    return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-21] ##
+## Modified by Martinski W. [2023-Dec-22] ##
 ##----------------------------------------##
 _Reset_LEDs_()
 {
@@ -183,6 +190,7 @@ _Reset_LEDs_()
        # Set LEDs to their "initial state" #
        nvram set led_disable="$LED_InitState"
        service restart_leds >/dev/null 2>&1
+       sleep 2
    fi
    Toggle_LEDs_PID=""
 }
@@ -1756,12 +1764,13 @@ _RunFirmwareUpdateNow_()
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
+    trap "_DoCleanUp_ 0 "$keepZIPfile" ; exit 0" HUP INT QUIT TERM
+
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
     then
         # Background function to create a blinking LED effect #
-        Toggle_LEDs & Toggle_LEDs_PID=$!
-        trap "_DoCleanUp_ 0 "$keepZIPfile" ; exit 0" HUP INT QUIT TERM
+        Toggle_LEDs 2 & Toggle_LEDs_PID=$!
 
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
@@ -1946,8 +1955,10 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         #----------------------------------------------------------#
         # Let's wait for 3 minutes here. If the router does not 
         # reboot by itself after the process returns, do it now.
+        # Restart the LEDs with a "slower" blinking rate.
         #----------------------------------------------------------#
-        _Reset_LEDs_ ; sleep 180
+        _Reset_LEDs_ ; Toggle_LEDs 3 & Toggle_LEDs_PID=$!
+        sleep 180
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
