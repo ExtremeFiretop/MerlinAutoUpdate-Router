@@ -653,19 +653,11 @@ Update_Custom_Settings()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-01] ##
+## Modified by Martinski W. [2023-Dec-22] ##
 ##----------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
 {
    local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
-   
-   if [ ! -d "$FW_LOG_DIR" ]
-          then
-          mkdir -p -m 755 "$FW_LOG_DIR"
-   else
-          # Log rotation - delete logs older than 30 days #
-          find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
-   fi
 
    while true
    do
@@ -712,6 +704,10 @@ _Set_FW_UpdateLOG_DirectoryPath_()
           fi
       fi
    done
+
+   # Double-check current directory indeed exists after menu selection #
+   if [ "$newLogBaseDirPath" = "$FW_LOG_BASE_DIR" ] && [ ! -d "$FW_LOG_DIR" ]
+   then mkdir -p -m 755 "$FW_LOG_DIR" ; fi
 
    if [ "$newLogBaseDirPath" != "$FW_LOG_BASE_DIR" ] && [ -d "$newLogBaseDirPath" ]
    then
@@ -1624,12 +1620,15 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-21] ##
+## Modified by Martinski W. [2023-Dec-22] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
-    # Define log file #
+    # Double-check the directory exists before using it #
+    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
+
+    # Set up the custom log file #
     UserLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
     touch "$UserLOGFile"  ## Must do this to indicate custom log file is enabled ##
 
