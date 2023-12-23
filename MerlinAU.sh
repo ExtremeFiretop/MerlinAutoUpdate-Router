@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.36"
+readonly SCRIPT_VERSION="0.2.37"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -653,19 +653,11 @@ Update_Custom_Settings()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-01] ##
+## Modified by Martinski W. [2023-Dec-22] ##
 ##----------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
 {
    local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
-   
-   if [ ! -d "$FW_LOG_DIR" ]
-          then
-          mkdir -p -m 755 "$FW_LOG_DIR"
-   else
-          # Log rotation - delete logs older than 30 days #
-          find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
-   fi
 
    while true
    do
@@ -712,6 +704,10 @@ _Set_FW_UpdateLOG_DirectoryPath_()
           fi
       fi
    done
+
+   # Double-check current directory indeed exists after menu selection #
+   if [ "$newLogBaseDirPath" = "$FW_LOG_BASE_DIR" ] && [ ! -d "$FW_LOG_DIR" ]
+   then mkdir -p -m 755 "$FW_LOG_DIR" ; fi
 
    if [ "$newLogBaseDirPath" != "$FW_LOG_BASE_DIR" ] && [ -d "$newLogBaseDirPath" ]
    then
@@ -1624,12 +1620,15 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-21] ##
+## Modified by Martinski W. [2023-Dec-22] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
-    # Define log file #
+    # Double-check the directory exists before using it #
+    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
+
+    # Set up the custom log file #
     UserLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
     touch "$UserLOGFile"  ## Must do this to indicate custom log file is enabled ##
 
@@ -1929,14 +1928,14 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
         # some reason & the "curl" cmd never returns, we create 
-        # a background child process that sleeps for 3 and a half
-        # minutes and then kills the "curl" process if it still 
-        # exists. Otherwise, this child process does nothing
-        # & returns. NORMALLY the Curl returns almost instantly
+        # a background child process that sleeps for 3 minutes
+        # and then kills the "curl" process if it still exists.
+        # Otherwise, this child process does nothing & returns.
+        # NORMALLY the "Curl" command returns almost instantly
         # once the upload is complete.
         #----------------------------------------------------------#
         (
-           sleep 210
+           sleep 180
            if [ "$curlPID" -gt 0 ]
            then
                kill -EXIT $curlPID 2>/dev/null || return
@@ -1945,10 +1944,10 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         ) &
         wait $curlPID ; curlPID=0
         #----------------------------------------------------------#
-        # Let's wait for 90 seconds here. If the router does not 
+        # Let's wait for 3 minutes here. If the router does not 
         # reboot by itself after the process returns, do it now.
         #----------------------------------------------------------#
-        _Reset_LEDs_ ; sleep 90
+        _Reset_LEDs_ ; sleep 180
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
