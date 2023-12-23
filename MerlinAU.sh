@@ -1958,7 +1958,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         # Restart the LEDs with a "slower" blinking rate.
         #----------------------------------------------------------#
         _Reset_LEDs_ ; Toggle_LEDs 3 & Toggle_LEDs_PID=$!
-        sleep 180
+        sleep 180 ; _Reset_LEDs_
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
