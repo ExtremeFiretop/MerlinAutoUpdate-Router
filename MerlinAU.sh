@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2023-Dec-22
+# Last Modified: 2023-Dec-23
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.38"
+readonly SCRIPT_VERSION="0.2.39"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -505,7 +505,7 @@ else
 fi
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
+## Modified by ExtremeFiretop [2023-Dec-23] ##
 ##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
@@ -520,9 +520,12 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
+         echo "LED_InitState TBD"
       } > "$SETTINGSFILE"
       return 1
    fi
+
+   # Add new settings if they do not exist in the settings file
    local retCode=0
 
    if ! grep -q "^FW_New_Update_Postponement_Days=" "$SETTINGSFILE"
@@ -544,14 +547,14 @@ _Init_Custom_Settings_Config_()
    then
        sed -i "4 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
        retCode=1
-       # Default log directory path can be changed as needed
    fi
+   
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-23] ##
+##------------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
 {
@@ -575,6 +578,9 @@ Get_Custom_Setting()
                 grep -q "^${setting_type}=" "$SETTINGSFILE" && \
                 setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
                 ;;
+            "LED_InitState")
+                setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                ;;
             *)
                 setting_value="**ERROR**"
                 ;;
@@ -586,7 +592,7 @@ Get_Custom_Setting()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2023-Dec-23] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -617,7 +623,8 @@ Update_Custom_Settings()
         "FW_New_Update_Postponement_Days"  | \
         "FW_New_Update_Cron_Job_Schedule"  | \
         "FW_New_Update_ZIP_Directory_Path" | \
-        "FW_New_Update_LOG_Directory_Path")  # Added this line
+        "FW_New_Update_LOG_Directory_Path" | \
+        "LED_InitState") # Added this line
             if [ -f "$SETTINGSFILE" ]
             then
                 if grep -q "^${setting_type}=" "$SETTINGSFILE"
@@ -629,35 +636,34 @@ Update_Custom_Settings()
                         sed -i "s/${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$SETTINGSFILE"
                     fi
                 else
-                    echo "$setting_type=\"${setting_value}\"" >> "$SETTINGSFILE"
+                    echo "${setting_type}=\"${setting_value}\"" >> "$SETTINGSFILE"
                 fi
             else
-                echo "$setting_type=\"${setting_value}\"" > "$SETTINGSFILE"
-            fi
-            if [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
-            then
-                FW_UpdatePostponementDays="$setting_value"
-            #
-            elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
-            then
-                FW_UpdateCronJobSchedule="$setting_value"
-            #
-            elif [ "$setting_type" = "FW_New_Update_ZIP_Directory_Path" ]
-            then
-                FW_ZIP_BASE_DIR="$setting_value"
-                FW_ZIP_DIR="${setting_value}/$FW_ZIP_SUBDIR"
-                FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
-            #
-            elif [ "$setting_type" = "FW_New_Update_LOG_Directory_Path" ]
-            then  # Addition for handling log directory path
-                FW_LOG_BASE_DIR="$setting_value"
-                FW_LOG_DIR="${setting_value}/$FW_LOG_SUBDIR"
+                echo "${setting_type}=\"${setting_value}\"" > "$SETTINGSFILE"
             fi
             ;;
         *)
             echo "Invalid setting type: $setting_type"
             ;;
     esac
+	
+    # Update global variables
+    if [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
+    then
+        FW_UpdatePostponementDays="$setting_value"
+    elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
+    then
+        FW_UpdateCronJobSchedule="$setting_value"
+    elif [ "$setting_type" = "FW_New_Update_ZIP_Directory_Path" ]
+    then
+        FW_ZIP_BASE_DIR="$setting_value"
+        FW_ZIP_DIR="${setting_value}/$FW_ZIP_SUBDIR"
+        FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+    elif [ "$setting_type" = "FW_New_Update_LOG_Directory_Path" ]
+    then
+        FW_LOG_BASE_DIR="$setting_value"
+        FW_LOG_DIR="${setting_value}/$FW_LOG_SUBDIR"
+    fi
 }
 
 ##----------------------------------------##
@@ -821,6 +827,14 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 }
 
 _Init_Custom_Settings_Config_
+
+# Get the current LED_InitState from the settings file
+current_LED_InitState=$(Get_Custom_Setting LED_InitState)
+
+# Update the LED_InitState in the settings file only if it's TBD (AKA First Run)
+if [ "$current_LED_InitState" = "TBD" ]; then
+    Update_Custom_Settings LED_InitState "$LED_InitState"
+fi
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-01] ##
@@ -1627,9 +1641,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-22] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-23] ##
+##------------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
@@ -1639,6 +1653,11 @@ _RunFirmwareUpdateNow_()
     # Set up the custom log file #
     UserLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
     touch "$UserLOGFile"  ## Must do this to indicate custom log file is enabled ##
+	
+    # Update LED perference before starting the script #
+    # Incase a user has changed the setting since first setup #
+    local Current_State="$(nvram get led_disable)"
+    Update_Custom_Settings LED_InitState "$Current_State"
 
     Say "Running the task now... Checking for F/W updates..."
 
@@ -1973,9 +1992,9 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
     "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-20] ##
-##-------------------------------------##
+##---------------------------------------##
+## Modified by ExtremeFiretop [2023-Dec-23] ##
+##---------------------------------------##
 _PostRebootRunNow_()
 {
    _DelPostRebootRunScriptHook_
@@ -2000,6 +2019,14 @@ _PostRebootRunNow_()
       sleep $theWaitDelaySecs
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
+   
+   # Retrieve and reset LEDs to their initial state #
+   local saved_LED_InitState="$(Get_Custom_Setting "LED_InitState")"
+   # Reset to saved preference post reboot #
+   if [ -n "$saved_LED_InitState" ]; then
+       nvram set led_disable="$saved_LED_InitState"
+       service restart_leds >/dev/null 2>&1
+   fi
 
    _RunFirmwareUpdateNow_
 }
