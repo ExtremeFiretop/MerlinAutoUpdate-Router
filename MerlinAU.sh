@@ -830,9 +830,6 @@ _Init_Custom_Settings_Config_
 # Get the current LED_InitState from the settings file
 current_LED_InitState=$(Get_Custom_Setting LED_InitState)
 
-echo "$current_LED_InitState"
-sleep 20
-
 # Update the LED_InitState in the settings file only if it's TBD (AKA First Run)
 if [ "$current_LED_InitState" = "TBD" ]; then
     Update_Custom_Settings LED_InitState "$LED_InitState"
