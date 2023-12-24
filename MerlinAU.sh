@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2023-Dec-19
+# Last Modified: 2023-Dec-24
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.34"
+readonly SCRIPT_VERSION="0.2.40"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -26,12 +26,6 @@ readonly FW_URL_RELEASE_SUFFIX="Release"
 UpdateNotify=0
 DLRepoVersion=""
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-16] ##
-##-------------------------------------##
-readonly ADDONS_PATH="/jffs/addons"
-readonly SCRIPTS_PATH="/jffs/scripts"
-
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 
@@ -44,8 +38,103 @@ else
    ScriptFilePath="$(pwd)/$ScriptFileName"
 fi
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-23] ##
+##----------------------------------------##
+readonly ADDONS_PATH="/jffs/addons"
+readonly SCRIPTS_PATH="/jffs/scripts"
+readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
+readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
+readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+
 cronCmd="$(which crontab) -l"
 [ "$cronCmd" = " -l" ] && cronCmd="$(which cru) l"
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Dec-21] ##
+##----------------------------------------------##
+inMenuMode=true
+isInteractive=false
+menuReturnPromptStr="Press Enter to return to the main menu..."
+
+[ -n "$(tty)" ] && [ -n "$PS1" ] && isInteractive=true
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-23] ##
+##----------------------------------------##
+userLOGFile=""
+userTraceFile="${SETTINGS_DIR}/${ScriptFNameTag}_Trace.LOG"
+LOGdateFormat="%Y-%m-%d %H:%M:%S"
+_LogMsgNoTime_() { _UserLogMsg_ "_NOTIME_" "$@" ; }
+
+_UserLogMsg_()
+{
+   if [ -z "$userLOGFile" ] || [ ! -f "$userLOGFile" ]
+   then return 1 ; fi
+
+   local logTime="$(date +"$LOGdateFormat")"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       echo >> "$userLOGFile"
+   elif [ $# -eq 1 ]
+   then
+       echo "$logTime" "$1" >> "$userLOGFile"
+   elif [ "$1" = "_NOTIME_" ]
+   then
+       echo "$2" >> $userLOGFile
+   else
+       echo "$logTime" "${1}: $2" >> "$userLOGFile"
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-21] ##
+##----------------------------------------##
+Say()
+{
+   "$isInteractive" && printf "${1}\n"
+   # Clean out the "color escape sequences" from the log file #
+   local logMsg="$(echo "$1" | sed 's/\\\e\[0m//g ; s/\\\e\[[0-1];3[0-9]m//g')"
+   _UserLogMsg_ "$logMsg"
+   printf "$logMsg" | logger -t "[$(basename "$0")] $$"
+}
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-20] ##
+##----------------------------------------------##
+_WaitForEnterKey_()
+{
+   ! "$isInteractive" && return 0
+   local promptStr
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then promptStr="$1"
+   else promptStr="Press Enter to continue..."
+   fi
+
+   printf "\n$promptStr"
+   read -rs EnterKEY ; echo
+}
+
+##----------------------------------##
+## Added Martinski W. [2023-Nov-28] ##
+##----------------------------------##
+_WaitForYESorNO_()
+{
+   ! "$isInteractive" && return 0
+   local promptStr
+
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then promptStr=" [yY|nN] N? "
+   else promptStr="$1 [yY|nN] N? "
+   fi
+
+   printf "$promptStr" ; read -r YESorNO
+   if echo "$YESorNO" | grep -qE "^([Yy](es)?)$"
+   then echo "OK" ; return 0
+   else echo "NO" ; return 1
+   fi
+}
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Nov-18] ##
@@ -60,7 +149,7 @@ FW_UpdateCheckState="TBD"
 FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-22] ##
+## Modified by Martinski W. [2023-Dec-22] ##
 ##----------------------------------------##
 # Background function to create a blinking LED effect #
 Toggle_LEDs()
@@ -71,25 +160,36 @@ Toggle_LEDs()
        Toggle_LEDs_PID=""
        return 1
    fi
+
+   if [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^[2-5]$"
+   then blinkRateSecs=2
+   else blinkRateSecs="$1"
+   fi
+
    while true
    do
       LED_ToggleState="$((! LED_ToggleState))"
       nvram set led_disable="$LED_ToggleState"
       service restart_leds > /dev/null 2>&1
-      sleep 2
-      LED_ToggleState="$((! LED_ToggleState))"
-      nvram set led_disable="$LED_ToggleState"
-      service restart_leds > /dev/null 2>&1
-      sleep 2
+      sleep "$blinkRateSecs"
    done
    return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-21] ##
+## Modified by Martinski W. [2023-Dec-23] ##
 ##----------------------------------------##
 _Reset_LEDs_()
 {
+   local doTrace=false
+   [ $# -gt 0 ] && [ "$1" -eq 1 ] && doTrace=true
+   if "$doTrace"
+   then
+       Say "START _Reset_LEDs_"
+       echo "$(date +"$LOGdateFormat") START _Reset_LEDs_" >> "$userTraceFile"
+   fi
+
    # Check if the process with that PID is still running #
    if [ -n "$Toggle_LEDs_PID" ] && \
       kill -EXIT "$Toggle_LEDs_PID" 2>/dev/null
@@ -99,8 +199,15 @@ _Reset_LEDs_()
        # Set LEDs to their "initial state" #
        nvram set led_disable="$LED_InitState"
        service restart_leds >/dev/null 2>&1
+       sleep 2
    fi
    Toggle_LEDs_PID=""
+
+   if "$doTrace"
+   then
+       Say "EXIT _Reset_LEDs_"
+       echo "$(date +"$LOGdateFormat") EXIT _Reset_LEDs_" >> "$userTraceFile"
+   fi
 }
 
 ##----------------------------------------##
@@ -220,10 +327,6 @@ readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_URL_RELEASE="${FW_URL_BASE}/${PRODUCT_ID}/${FW_URL_RELEASE_SUFFIX}/"
-
-readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
-readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
-readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
 ##-----------------------------------------------##
 ## Modified by: ExtremeFiretop [2023-Dec-16]     ##
@@ -569,7 +672,7 @@ Update_Custom_Settings()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-01] ##
+## Modified by Martinski W. [2023-Dec-22] ##
 ##----------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
 {
@@ -620,6 +723,10 @@ _Set_FW_UpdateLOG_DirectoryPath_()
           fi
       fi
    done
+
+   # Double-check current directory indeed exists after menu selection #
+   if [ "$newLogBaseDirPath" = "$FW_LOG_BASE_DIR" ] && [ ! -d "$FW_LOG_DIR" ]
+   then mkdir -p -m 755 "$FW_LOG_DIR" ; fi
 
    if [ "$newLogBaseDirPath" != "$FW_LOG_BASE_DIR" ] && [ -d "$newLogBaseDirPath" ]
    then
@@ -771,72 +878,11 @@ readonly CRON_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $CRON_SCRIPT_JOB"
 readonly POST_REBOOT_SCRIPT_JOB="sh $ScriptFilePath postRebootRun &  $hookScriptTagStr"
 readonly POST_REBOOT_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_REBOOT_SCRIPT_JOB"
 
-if [ ! -d "$FW_LOG_DIR" ]
+if [ -d "$FW_LOG_DIR" ]
 then
-    mkdir -p -m 755 "$FW_LOG_DIR"
-else
     # Log rotation - delete logs older than 30 days #
     find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
-
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-12] ##
-##----------------------------------------------##
-loggerFlags="-t"
-inMenuMode=true
-isInteractive=false
-menuReturnPromptStr="Press Enter to return to the main menu..."
-
-if [ -n "$(tty)" ] && [ -n "$PS1" ]
-then isInteractive=true ; fi
-
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-20] ##
-##----------------------------------------------##
-_WaitForEnterKey_()
-{
-   ! "$isInteractive" && return 0
-   local promptStr
-
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then promptStr="$1"
-   else promptStr="Press Enter to continue..."
-   fi
-
-   printf "\n$promptStr"
-   read -rs EnterKEY ; echo
-}
-
-##----------------------------------##
-## Added Martinski W. [2023-Nov-28] ##
-##----------------------------------##
-_WaitForYESorNO_()
-{
-   ! "$isInteractive" && return 0
-   local promptStr
-
-   if [ $# -eq 0 ] || [ -z "$1" ]
-   then promptStr=" [yY|nN] N? "
-   else promptStr="$1 [yY|nN] N? "
-   fi
-
-   printf "$promptStr" ; read -r YESorNO
-   if echo "$YESorNO" | grep -qE "^([Yy](es)?)$"
-   then echo "OK" ; return 0
-   else echo "NO" ; return 1
-   fi
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-17] ##
-##----------------------------------------##
-Say()
-{
-   "$isInteractive" && printf "${1}\n"
-   # Clean out the "color escape sequences" from the log file #
-   local logMsg="$(echo "$1" | sed 's/\\\e\[0m//g ; s/\\\e\[[0-1];3[0-9]m//g')"
-   printf "$logMsg" | logger $loggerFlags "[$(basename "$0")] $$"
-}
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Oct-12] ##
@@ -1053,17 +1099,25 @@ check_memory_and_prompt_reboot() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-06] ##
+## Modified by Martinski W. [2023-Dec-23] ##
 ##----------------------------------------##
 _DoCleanUp_()
 {
    local keepZIPfile=false  delBINfiles=false
 
+   local doTrace=false
+   [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=true
+   if "$doTrace"
+   then
+       Say "START _DoCleanUp_"
+       echo "$(date +"$LOGdateFormat") START _DoCleanUp_" >> "$userTraceFile"
+   fi
+
    [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
    [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
 
    # Stop the LEDs blinking #
-   _Reset_LEDs_
+   _Reset_LEDs_ 1
 
    # Move file temporarily to save it from deletion #
    "$keepZIPfile" && \
@@ -1075,6 +1129,12 @@ _DoCleanUp_()
    # Move file back to original location #
    "$keepZIPfile" && \
    mv -f "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+
+   if "$doTrace"
+   then
+       Say "EXIT _DoCleanUp_"
+       echo "$(date +"$LOGdateFormat") EXIT _DoCleanUp_" >> "$userTraceFile"
+   fi
 }
 
 ##----------------------------------------##
@@ -1493,7 +1553,7 @@ _CheckNewUpdateFirmwareNotification_()
        fi
    fi
 
-   fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date TBD)"
+   fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    if [ -z "$fwNewUpdateNotificationDate" ] || [ "$fwNewUpdateNotificationDate" = "TBD" ]
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
@@ -1593,13 +1653,17 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-18] ##
+## Modified by Martinski W. [2023-Dec-23] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
-    # Define log file #
-    LOG_FILE="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    # Double-check the directory exists before using it #
+    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
+
+    # Set up the custom log file #
+    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
 
     Say "Running the task now... Checking for F/W updates..."
 
@@ -1721,19 +1785,17 @@ _RunFirmwareUpdateNow_()
         fi
     fi
 
-    #BEGIN: Redirect both stdout and stderr to log file #
-    {
-
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+
+    trap "_DoCleanUp_ 0 "$keepZIPfile" ; exit 0" HUP INT QUIT ABRT TERM
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
     then
         # Background function to create a blinking LED effect #
-        Toggle_LEDs & Toggle_LEDs_PID=$!
-        trap "_DoCleanUp_ 0 "$keepZIPfile" ; exit 0" HUP INT QUIT TERM
+        Toggle_LEDs 2 & Toggle_LEDs_PID=$!
 
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
@@ -1749,7 +1811,7 @@ _RunFirmwareUpdateNow_()
     fi
 
     ##---------------------------------------##
-    ## Added by ExtremeFiretop [2023-Dec-17] ##
+    ## Added by ExtremeFiretop [2023-Dec-24] ##
     ##---------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
@@ -1793,9 +1855,6 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-    # Use Get_Custom_Setting to retrieve the previous choice
-    previous_choice="$(Get_Custom_Setting "ROGBuild" "n")"
-
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
 
@@ -1803,31 +1862,41 @@ _RunFirmwareUpdateNow_()
     rog_file="$(ls | grep -i '_rog_')"
     pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb|trx)$' | grep -iv 'rog')"
 
+    # Fetch the previous choice from the settings file
+    previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
     # Check if a ROG build is present
     if [ -n "$rog_file" ]; then
-		# If in interactive mode, prompt the user for their choice
-		if [ "$inMenuMode" = true ]; then
-			printf "${REDct}Found ROG build: $rog_file. 
-Would you like to use the ROG build? (y/n)${NOct}\n"
-			read -rp "Enter your choice: " choice
-			if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-				firmware_file="$rog_file"
-				Update_Custom_Settings "ROGBuild" "y"
-			else
-				firmware_file="$pure_file"
-				Update_Custom_Settings "ROGBuild" "n"
-			fi
-		else
-			# Use previous choice or default to Pure Build in non-interactive mode
-			if [ "$previous_choice" = "y" ]; then
-				firmware_file="$rog_file"
-			else
-				firmware_file="$pure_file"
-			fi
-		fi
+        # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
+        if [ "$previous_choice" = "y" ]; then
+			Say "ROG Build selected for flashing"
+            firmware_file="$rog_file"
+        elif [ "$previous_choice" = "n" ]; then
+			Say "Pure Build selected for flashing"
+            firmware_file="$pure_file"
+        elif [ "$inMenuMode" = true ]; then
+            printf "\n ${REDct}Found ROG build: $rog_file.${NOct}"
+            printf "\n ${REDct}Would you like to use the ROG build?${NOct}\n"
+            printf "\n[${theExitStr}] Enter your choice (y/n): "
+            read -r choice
+            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                Say "ROG Build selected for flashing"
+                firmware_file="$rog_file"
+                Update_Custom_Settings "ROGBuild" "y"
+            else
+                Say "Pure Build selected for flashing"
+                firmware_file="$pure_file"
+                Update_Custom_Settings "ROGBuild" "n"
+            fi
+        else
+            # Default to pure_file in non-interactive mode if no previous choice
+            Say "Pure Build selected for flashing"
+            firmware_file="$pure_file"
+        fi
     else
-		# No ROG build found, use the pure build
-		firmware_file="$pure_file"
+        # No ROG build found, use the pure build
+        Say "No ROG Build detected. Skipping."
+        firmware_file="$pure_file"
     fi
 
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
@@ -1900,12 +1969,14 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
         # some reason & the "curl" cmd never returns, we create 
-        # a background child process that sleeps for 4 minutes 
-        # and then kills the "curl" process if it still exists. 
-        # Otherwise, this child process does nothing & returns.        
+        # a background child process that sleeps for 3 minutes
+        # and then kills the "curl" process if it still exists.
+        # Otherwise, this child process does nothing & returns.
+        # NORMALLY the "Curl" command returns almost instantly
+        # once the upload is complete.
         #----------------------------------------------------------#
         (
-           sleep 240
+           sleep 180
            if [ "$curlPID" -gt 0 ]
            then
                kill -EXIT $curlPID 2>/dev/null || return
@@ -1914,10 +1985,12 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         ) &
         wait $curlPID ; curlPID=0
         #----------------------------------------------------------#
-        # Let's wait for 30 seconds here. If the router does not 
+        # Let's wait for 3 minutes here. If the router does not 
         # reboot by itself after the process returns, do it now.
+        # Restart the LEDs with a "slower" blinking rate.
         #----------------------------------------------------------#
-        _Reset_LEDs_ ; sleep 30
+        _Reset_LEDs_ ; Toggle_LEDs 3 & Toggle_LEDs_PID=$!
+        sleep 180 ; _Reset_LEDs_ 1
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
@@ -1925,12 +1998,6 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
 2. Update credentials by selecting \"Configure Router Login Credentials\" from the Main Menu."
         _DoCleanUp_ 1 "$keepZIPfile"
     fi
-
-    } 2>&1 | tee -a "$LOG_FILE"
-    #END: Redirect both stdout and stderr to log file #
-
-    # Stop the LEDs blinking #
-    _Reset_LEDs_
 
     "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
 }
@@ -2057,7 +2124,7 @@ _DoUninstall_()
 procCount="$(ps -w | grep "$ScriptFileName" | grep -vE "grep ${ScriptFileName}|^[[:blank:]]*$$[[:blank:]]+" | wc -l)"
 if [ "$procCount" -gt 1 ]
 then
-    printf "\n${REDct}**ERROR**${NOct}: The shell script '${ScriptFileName}' is already running [$procCount]. Exiting..."
+    printf "\n${REDct}**ERROR**${NOct}: The shell script '${ScriptFileName}' is already running [$procCount]. Exiting...\n\n"
     exit 1
 fi
 
@@ -2098,7 +2165,7 @@ fi
 _CheckForNewScriptUpdates_
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-18] ##
+## Modified by Martinski W. [2023-Dec-21] ##
 ##----------------------------------------##
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
 [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
@@ -2121,16 +2188,6 @@ then
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
     fi
     _AddCronJobRunScriptHook_
-
-    #-----------------------------------------------------------#
-    # Check if router reports a new F/W update is available.
-    # If yes, modify the notification settings accordingly.
-    #-----------------------------------------------------------#
-    current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    release_version="$(_GetLatestFWUpdateVersionFromRouter_)"
-    [ -n "$current_version" ] && [ -n "$release_version" ] && \
-    _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-
     _WaitForEnterKey_
 fi
 
@@ -2142,14 +2199,23 @@ then FW_RouterModelID="${FW_RouterProductID}"
 else FW_RouterModelID="${FW_RouterProductID}/${GRNct}${MODEL_ID}${NOct}"
 fi
 
+FW_InstalledVers="$(_GetCurrentFWInstalledShortVersion_)"
 FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-16] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-21] ##
+##----------------------------------------##
 show_menu()
 {
+   #-----------------------------------------------------------#
+   # Check if router reports a new F/W update is available.
+   # If yes, modify the notification settings accordingly.
+   #-----------------------------------------------------------#
+   FW_NewUpdateVers="$(_GetLatestFWUpdateVersionFromRouter_)" && \
+   [ -n "$FW_InstalledVers" ] && [ -n "$FW_NewUpdateVers" ] && \
+   _CheckNewUpdateFirmwareNotification_ "$FW_InstalledVers" "$FW_NewUpdateVers"
+
    clear
    SEPstr="-----------------------------------------------------"
    logo
@@ -2166,6 +2232,12 @@ A USB drive is required for F/W updates.\n"
    fi
 
    padStr="      "  arrowStr=" ${REDct}<<---${NOct}"
+
+   notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   if [ "$notifyDate" = "TBD" ]
+   then notificationStr="${REDct}NOT SET${NOct}"
+   else notificationStr="${GRNct}${notifyDate%%_*}${NOct}"
+   fi
 
    printf "${SEPstr}"
    if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
@@ -2187,23 +2259,24 @@ A USB drive is required for F/W updates.\n"
    if [ "$FW_UpdateCheckState" -eq 0 ]
    then
        printf "\n  ${GRNct}3${NOct}.  Enable F/W Update Check"
-       printf "\n      [Currently ${REDct}DISABLED${NOct}]\n"
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]"
    else
        printf "\n  ${GRNct}3${NOct}.  Disable F/W Update Check"
-       printf "\n      [Currently ${GRNct}ENABLED${NOct}]\n"
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]"
    fi
+   printf "\n${padStr}[Last Notification Date: $notificationStr]\n"
 
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
-   printf "\n      [Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
+   printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
 
    printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
-   printf "\n      [Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
    printf "\n  ${GRNct}6${NOct}.  Set Directory for F/W Update ZIP File"
-   printf "\n      [Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
+   printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
    printf "\n  ${GRNct}7${NOct}.  Set Directory for F/W Update Log Files"
-   printf "\n      [Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 
    # Retrieve the current build type setting
    local current_build_type=$(Get_Custom_Setting "ROGBuild")
@@ -2220,13 +2293,13 @@ A USB drive is required for F/W updates.\n"
    if [ "$current_build_type" = "y" ] || [ "$current_build_type" = "n" ]; then
       # Display the option with the current build type
       printf "\n  ${GRNct}8${NOct}.  Change F/W Build Type"
-      printf "\n      [Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+      printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
    fi
 
    # Check for new script updates #
    if [ "$UpdateNotify" != "0" ]; then
       printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
-      printf "\n      [Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
+      printf "\n${padStr}[Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
    fi
 
    printf "\n ${GRNct}un${NOct}.  Uninstall\n"
