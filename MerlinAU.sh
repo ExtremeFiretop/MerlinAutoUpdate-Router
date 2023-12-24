@@ -520,7 +520,6 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
-         echo "LED_InitState TBD"
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -830,6 +829,9 @@ _Init_Custom_Settings_Config_
 
 # Get the current LED_InitState from the settings file
 current_LED_InitState=$(Get_Custom_Setting LED_InitState)
+
+echo "$current_LED_InitState"
+sleep 20
 
 # Update the LED_InitState in the settings file only if it's TBD (AKA First Run)
 if [ "$current_LED_InitState" = "TBD" ]; then
