@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2023-Dec-23
+# Last Modified: 2023-Dec-24
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.39"
+readonly SCRIPT_VERSION="0.2.40"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1811,7 +1811,7 @@ _RunFirmwareUpdateNow_()
     fi
 
     ##---------------------------------------##
-    ## Added by ExtremeFiretop [2023-Dec-17] ##
+    ## Added by ExtremeFiretop [2023-Dec-24] ##
     ##---------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
@@ -1855,9 +1855,6 @@ _RunFirmwareUpdateNow_()
         return 1
     fi
 
-    # Use Get_Custom_Setting to retrieve the previous choice
-    previous_choice="$(Get_Custom_Setting "ROGBuild" "n")"
-
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
 
@@ -1865,31 +1862,41 @@ _RunFirmwareUpdateNow_()
     rog_file="$(ls | grep -i '_rog_')"
     pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb|trx)$' | grep -iv 'rog')"
 
+    # Fetch the previous choice from the settings file
+    previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
     # Check if a ROG build is present
     if [ -n "$rog_file" ]; then
-		# If in interactive mode, prompt the user for their choice
-		if [ "$inMenuMode" = true ]; then
-			printf "${REDct}Found ROG build: $rog_file. 
-Would you like to use the ROG build? (y/n)${NOct}\n"
-			read -rp "Enter your choice: " choice
-			if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-				firmware_file="$rog_file"
-				Update_Custom_Settings "ROGBuild" "y"
-			else
-				firmware_file="$pure_file"
-				Update_Custom_Settings "ROGBuild" "n"
-			fi
-		else
-			# Use previous choice or default to Pure Build in non-interactive mode
-			if [ "$previous_choice" = "y" ]; then
-				firmware_file="$rog_file"
-			else
-				firmware_file="$pure_file"
-			fi
-		fi
+        # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
+        if [ "$previous_choice" = "y" ]; then
+			Say "ROG Build selected for flashing"
+            firmware_file="$rog_file"
+        elif [ "$previous_choice" = "n" ]; then
+			Say "Pure Build selected for flashing"
+            firmware_file="$pure_file"
+        elif [ "$inMenuMode" = true ]; then
+            printf "\n ${REDct}Found ROG build: $rog_file.${NOct}"
+            printf "\n ${REDct}Would you like to use the ROG build?${NOct}\n"
+            printf "\n[${theExitStr}] Enter your choice (y/n): "
+            read -r choice
+            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                Say "ROG Build selected for flashing"
+                firmware_file="$rog_file"
+                Update_Custom_Settings "ROGBuild" "y"
+            else
+                Say "Pure Build selected for flashing"
+                firmware_file="$pure_file"
+                Update_Custom_Settings "ROGBuild" "n"
+            fi
+        else
+            # Default to pure_file in non-interactive mode if no previous choice
+            Say "Pure Build selected for flashing"
+            firmware_file="$pure_file"
+        fi
     else
-		# No ROG build found, use the pure build
-		firmware_file="$pure_file"
+        # No ROG build found, use the pure build
+        Say "No ROG Build detected. Skipping."
+        firmware_file="$pure_file"
     fi
 
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
