@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2023-Dec-22
+# Last Modified: 2023-Dec-23
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.38"
+readonly SCRIPT_VERSION="0.2.39"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -26,12 +26,6 @@ readonly FW_URL_RELEASE_SUFFIX="Release"
 UpdateNotify=0
 DLRepoVersion=""
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-16] ##
-##-------------------------------------##
-readonly ADDONS_PATH="/jffs/addons"
-readonly SCRIPTS_PATH="/jffs/scripts"
-
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 
@@ -43,6 +37,15 @@ else
    ScriptsDirPath="$(pwd)"
    ScriptFilePath="$(pwd)/$ScriptFileName"
 fi
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-23] ##
+##----------------------------------------##
+readonly ADDONS_PATH="/jffs/addons"
+readonly SCRIPTS_PATH="/jffs/scripts"
+readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
+readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
+readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
 cronCmd="$(which crontab) -l"
 [ "$cronCmd" = " -l" ] && cronCmd="$(which cru) l"
@@ -56,29 +59,31 @@ menuReturnPromptStr="Press Enter to return to the main menu..."
 
 [ -n "$(tty)" ] && [ -n "$PS1" ] && isInteractive=true
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Dec-21] ##
-##-------------------------------------##
-UserLOGFile=""
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-23] ##
+##----------------------------------------##
+userLOGFile=""
+userTraceFile="${SETTINGS_DIR}/${ScriptFNameTag}_Trace.LOG"
+LOGdateFormat="%Y-%m-%d %H:%M:%S"
 _LogMsgNoTime_() { _UserLogMsg_ "_NOTIME_" "$@" ; }
 
 _UserLogMsg_()
 {
-   if [ -z "$UserLOGFile" ] || [ ! -f "$UserLOGFile" ]
+   if [ -z "$userLOGFile" ] || [ ! -f "$userLOGFile" ]
    then return 1 ; fi
 
-   local logTime="$(date +"%Y-%m-%d %H:%M:%S")"
+   local logTime="$(date +"$LOGdateFormat")"
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
-       echo >> "$UserLOGFile"
+       echo >> "$userLOGFile"
    elif [ $# -eq 1 ]
    then
-       echo "$logTime" "$1" >> "$UserLOGFile"
+       echo "$logTime" "$1" >> "$userLOGFile"
    elif [ "$1" = "_NOTIME_" ]
    then
-       echo "$2" >> $UserLOGFile
+       echo "$2" >> $userLOGFile
    else
-       echo "$logTime" "${1}: $2" >> "$UserLOGFile"
+       echo "$logTime" "${1}: $2" >> "$userLOGFile"
    fi
 }
 
@@ -168,19 +173,23 @@ Toggle_LEDs()
       nvram set led_disable="$LED_ToggleState"
       service restart_leds > /dev/null 2>&1
       sleep "$blinkRateSecs"
-      LED_ToggleState="$((! LED_ToggleState))"
-      nvram set led_disable="$LED_ToggleState"
-      service restart_leds > /dev/null 2>&1
-      sleep "$blinkRateSecs"
    done
    return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-22] ##
+## Modified by Martinski W. [2023-Dec-23] ##
 ##----------------------------------------##
 _Reset_LEDs_()
 {
+   local doTrace=false
+   [ $# -gt 0 ] && [ "$1" -eq 1 ] && doTrace=true
+   if "$doTrace"
+   then
+       Say "START _Reset_LEDs_"
+       echo "$(date +"$LOGdateFormat") START _Reset_LEDs_" >> "$userTraceFile"
+   fi
+
    # Check if the process with that PID is still running #
    if [ -n "$Toggle_LEDs_PID" ] && \
       kill -EXIT "$Toggle_LEDs_PID" 2>/dev/null
@@ -193,6 +202,12 @@ _Reset_LEDs_()
        sleep 2
    fi
    Toggle_LEDs_PID=""
+
+   if "$doTrace"
+   then
+       Say "EXIT _Reset_LEDs_"
+       echo "$(date +"$LOGdateFormat") EXIT _Reset_LEDs_" >> "$userTraceFile"
+   fi
 }
 
 ##----------------------------------------##
@@ -312,10 +327,6 @@ readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_URL_RELEASE="${FW_URL_BASE}/${PRODUCT_ID}/${FW_URL_RELEASE_SUFFIX}/"
-
-readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
-readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
-readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
 ##-----------------------------------------------##
 ## Modified by: ExtremeFiretop [2023-Dec-16]     ##
@@ -1088,17 +1099,25 @@ check_memory_and_prompt_reboot() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-06] ##
+## Modified by Martinski W. [2023-Dec-23] ##
 ##----------------------------------------##
 _DoCleanUp_()
 {
    local keepZIPfile=false  delBINfiles=false
 
+   local doTrace=false
+   [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=true
+   if "$doTrace"
+   then
+       Say "START _DoCleanUp_"
+       echo "$(date +"$LOGdateFormat") START _DoCleanUp_" >> "$userTraceFile"
+   fi
+
    [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
    [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
 
    # Stop the LEDs blinking #
-   _Reset_LEDs_
+   _Reset_LEDs_ 1
 
    # Move file temporarily to save it from deletion #
    "$keepZIPfile" && \
@@ -1110,6 +1129,12 @@ _DoCleanUp_()
    # Move file back to original location #
    "$keepZIPfile" && \
    mv -f "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+
+   if "$doTrace"
+   then
+       Say "EXIT _DoCleanUp_"
+       echo "$(date +"$LOGdateFormat") EXIT _DoCleanUp_" >> "$userTraceFile"
+   fi
 }
 
 ##----------------------------------------##
@@ -1628,7 +1653,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-22] ##
+## Modified by Martinski W. [2023-Dec-23] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
@@ -1637,8 +1662,8 @@ _RunFirmwareUpdateNow_()
     [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
 
     # Set up the custom log file #
-    UserLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
-    touch "$UserLOGFile"  ## Must do this to indicate custom log file is enabled ##
+    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
 
     Say "Running the task now... Checking for F/W updates..."
 
@@ -1764,7 +1789,7 @@ _RunFirmwareUpdateNow_()
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
-    trap "_DoCleanUp_ 0 "$keepZIPfile" ; exit 0" HUP INT QUIT TERM
+    trap "_DoCleanUp_ 0 "$keepZIPfile" ; exit 0" HUP INT QUIT ABRT TERM
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
@@ -1958,7 +1983,7 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
         # Restart the LEDs with a "slower" blinking rate.
         #----------------------------------------------------------#
         _Reset_LEDs_ ; Toggle_LEDs 3 & Toggle_LEDs_PID=$!
-        sleep 180 ; _Reset_LEDs_
+        sleep 180 ; _Reset_LEDs_ 1
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
@@ -1966,9 +1991,6 @@ Would you like to use the ROG build? (y/n)${NOct}\n"
 2. Update credentials by selecting \"Configure Router Login Credentials\" from the Main Menu."
         _DoCleanUp_ 1 "$keepZIPfile"
     fi
-
-    # Stop the LEDs blinking #
-    _Reset_LEDs_
 
     "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
 }
