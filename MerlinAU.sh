@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2023-Dec-24
+# Last Modified: 2023-Dec-26
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.40"
+readonly SCRIPT_VERSION="0.2.41"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -134,6 +134,50 @@ _WaitForYESorNO_()
    then echo "OK" ; return 0
    else echo "NO" ; return 1
    fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Dec-26] ##
+##-------------------------------------##
+LockFilePath="/tmp/var/${ScriptFNameTag}.LOCK"
+LockFileMaxSecs=600  #10-min "hold"#
+_ReleaseLock_() { rm -f "$LockFilePath" ; }
+
+_AcquireLock_()
+{
+   if [ ! -f "$LockFilePath" ]
+   then
+       echo "$$" > "$LockFilePath"
+       return 0
+   fi
+
+   ageOfLockSecs="$(($(date +%s) - $(date +%s -r "$LockFilePath")))"
+   if [ "$ageOfLockSecs" -gt "$LockFileMaxSecs" ]
+   then
+       Say "Stale lock found (older than $LockFileMaxSecs secs.) Reset lock file."
+       oldPID="$(cat "$LockFilePath")"
+       if [ -n "$oldPID" ] && kill -EXIT $oldPID 2>/dev/null && \
+          echo "$(pidof "$ScriptFileName")" | grep -qow "$oldPID"
+       then
+           kill -TERM $oldPID ; wait $oldPID
+       fi
+       rm -f "$LockFilePath"
+       echo "$$" > "$LockFilePath"
+       return 0
+   else
+       Say "${REDct}**ERROR**${NOct}: The shell script '${ScriptFileName}' is already running [Lock file: $ageOfLockSecs secs.]"
+       return 1
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Dec-26] ##
+##-------------------------------------##
+_DoExit_()
+{
+   local exitCode=0
+   [ $# -gt 0 ] && [ -n "$1" ] && exitCode="$1"
+   _ReleaseLock_ ; exit "$exitCode"
 }
 
 ##----------------------------------------------##
@@ -407,6 +451,7 @@ _SCRIPTUPDATE_()
               echo
               echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
               echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+              _ReleaseLock_
               exec "${ScriptsDirPath}/${SCRIPT_NAME}.sh"  # Re-execute the updated script
               exit 0  # This line will not be executed as exec replaces the current process
           else
@@ -1089,6 +1134,7 @@ check_memory_and_prompt_reboot() {
             if _WaitForYESorNO_ "Reboot router now"; then
                 _AddPostRebootRunScriptHook_
                 Say "Rebooting router..."
+                _ReleaseLock_
                 /sbin/service reboot
                 exit 1  # Although the reboot command should end the script, it's good practice to exit after.
             fi
@@ -1099,17 +1145,17 @@ check_memory_and_prompt_reboot() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-23] ##
+## Modified by Martinski W. [2023-Dec-26] ##
 ##----------------------------------------##
 _DoCleanUp_()
 {
-   local keepZIPfile=false  delBINfiles=false
+   local delBINfiles=false  keepZIPfile=false  moveZIPback=false
 
    local doTrace=false
    [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=true
    if "$doTrace"
    then
-       Say "START _DoCleanUp_"
+       Say "\nSTART _DoCleanUp_"
        echo "$(date +"$LOGdateFormat") START _DoCleanUp_" >> "$userTraceFile"
    fi
 
@@ -1120,14 +1166,14 @@ _DoCleanUp_()
    _Reset_LEDs_ 1
 
    # Move file temporarily to save it from deletion #
-   "$keepZIPfile" && \
-   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptFNameTag"
+   "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ] && \
+   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptFNameTag" && moveZIPback=true
 
    rm -f "${FW_ZIP_DIR}"/*
    "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
 
    # Move file back to original location #
-   "$keepZIPfile" && \
+   "$keepZIPfile" && "$moveZIPback" && \
    mv -f "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
 
    if "$doTrace"
@@ -1157,7 +1203,7 @@ check_version_support() {
     then
         Say "${REDct}The installed firmware version '$current_version' is below '$minimum_supported_version' which is the minimum supported version required.${NOct}" 
         Say "${REDct}Exiting...${NOct}"
-        exit 1
+        _DoExit_ 1
     fi
 }
 
@@ -1172,7 +1218,7 @@ check_model_support() {
     if echo "$unsupported_models" | grep -wq "$current_model"; then
         # Output a message and exit the script if the model is unsupported
         Say "The $current_model is an unsupported model. Exiting..."
-        exit 1
+        _DoExit_ 1
     fi
 }
 
@@ -1653,7 +1699,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-23] ##
+## Modified by Martinski W. [2023-Dec-26] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
@@ -1696,7 +1742,7 @@ _RunFirmwareUpdateNow_()
         FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
     fi
 
-    local credsBase64=""  keepZIPfile=0
+    local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
     local current_version=""  release_version=""
 
@@ -1713,7 +1759,7 @@ _RunFirmwareUpdateNow_()
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
-    # exit without further actions. This allows users to 
+    # return without further actions. This allows users to 
     # control the "F/W Auto-Update" feature from one place.
     # However, when running in "Menu Mode" the assumption
     # is that the user wants to do a MANUAL Update Check
@@ -1730,7 +1776,7 @@ _RunFirmwareUpdateNow_()
     #------------------------------------------------------
     # If the "New F/W Update" flag has been set get the
     # "New F/W Release Version" from the router itself.
-    # If no new F/W version update is available exit.
+    # If no new F/W version update is available return.
     #------------------------------------------------------
     if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
        ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
@@ -1788,8 +1834,6 @@ _RunFirmwareUpdateNow_()
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
-
-    trap "_DoCleanUp_ 0 "$keepZIPfile" ; exit 0" HUP INT QUIT ABRT TERM
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
@@ -1869,10 +1913,10 @@ _RunFirmwareUpdateNow_()
     if [ -n "$rog_file" ]; then
         # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
         if [ "$previous_choice" = "y" ]; then
-			Say "ROG Build selected for flashing"
+            Say "ROG Build selected for flashing"
             firmware_file="$rog_file"
         elif [ "$previous_choice" = "n" ]; then
-			Say "Pure Build selected for flashing"
+            Say "Pure Build selected for flashing"
             firmware_file="$pure_file"
         elif [ "$inMenuMode" = true ]; then
             printf "\n ${REDct}Found ROG build: $rog_file.${NOct}"
@@ -2114,19 +2158,18 @@ _DoUninstall_()
    else
        Say "${REDct}Error: Uninstallation failed.${NOct}"
    fi
-   exit 0
+   _DoExit_ 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-21] ##
-##-------------------------------------##
+keepZIPfile=0
+trap "_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0" HUP INT QUIT ABRT TERM
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-26] ##
+##----------------------------------------##
 # Prevent running this script multiple times simultaneously #
-procCount="$(ps -w | grep "$ScriptFileName" | grep -vE "grep ${ScriptFileName}|^[[:blank:]]*$$[[:blank:]]+" | wc -l)"
-if [ "$procCount" -gt 1 ]
-then
-    printf "\n${REDct}**ERROR**${NOct}: The shell script '${ScriptFileName}' is already running [$procCount]. Exiting...\n\n"
-    exit 1
-fi
+if ! _AcquireLock_
+then Say "Exiting..." ; exit 1 ; fi
 
 # Check if the router model is supported OR if
 # it has the minimum firmware version supported.
@@ -2134,30 +2177,24 @@ check_model_support
 check_version_support
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-28] ##
+## Modified by Martinski W. [2023-Dec-26] ##
 ##----------------------------------------##
 if [ $# -gt 0 ]
 then
    inMenuMode=false
    case $1 in
-       run_now) _RunFirmwareUpdateNow_ ; exit 0
+       run_now) _RunFirmwareUpdateNow_
            ;;
-       addCronJob) _AddCronJobEntry_ ; exit 0
+       addCronJob) _AddCronJobEntry_
            ;;
-       postRebootRun) _PostRebootRunNow_ ; exit 0
+       postRebootRun) _PostRebootRunNow_
            ;;
-       uninstall) _DoUninstall_ ; exit 0
+       uninstall) _DoUninstall_
            ;;
-
-##FOR TEST/DEBUG ONLY##
-##DBG##addPostRebootHook) _AddPostRebootRunScriptHook_ ; exit 0 ;;
-
-##FOR TEST/DEBUG ONLY##
-##DBG##delPostRebootHook) _DelPostRebootRunScriptHook_ ; exit 0 ;;
-
-       *) printf "${REDct}INVALID Parameter.${NOct}\n" ; exit 1
+       *) printf "${REDct}INVALID Parameter.${NOct}\n"
            ;;
    esac
+   _DoExit_ 0
 fi
 
 # Download the latest version file from the source repository #
@@ -2280,7 +2317,7 @@ A USB drive is required for F/W updates.\n"
 
    # Retrieve the current build type setting
    local current_build_type=$(Get_Custom_Setting "ROGBuild")
-    
+
    # Convert the setting to a descriptive text
    if [ "$current_build_type" = "y" ]; then
         current_build_type_menu="ROG Build"
@@ -2307,9 +2344,9 @@ A USB drive is required for F/W updates.\n"
    printf "${SEPstr}\n"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-26] ##
+##----------------------------------------##
 # Main Menu loop
 inMenuMode=true
 theExitStr="${GRNct}e${NOct}=Exit to main menu"
@@ -2350,7 +2387,7 @@ do
           ;;
       un) _DoUninstall_ && _WaitForEnterKey_
           ;;
-  e|exit) exit 0
+  e|exit) _DoExit_ 0
           ;;
        *) printf "${REDct}INVALID selection.${NOct} Please try again."
           _WaitForEnterKey_
