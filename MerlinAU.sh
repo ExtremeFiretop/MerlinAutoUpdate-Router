@@ -1971,13 +1971,13 @@ _RunFirmwareUpdateNow_()
     # DEBUG: Print the LAN IP to ensure it's being set correctly
     Say "Router Web URL is: ${routerURLstr}"
 
-	if [ "$inMenuMode" = true ]; then
+    if [ "$inMenuMode" = true ]; then
     printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
     printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
     printf "Once started, the flashing process CANNOT be interrupted.\n"
 		if ! _WaitForYESorNO_ "Continue"
 		then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
-	fi
+    fi
 
     #------------------------------------------------------------#
     # Restart the WebGUI to make sure nobody else is logged in
