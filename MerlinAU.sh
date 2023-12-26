@@ -1155,7 +1155,7 @@ _DoCleanUp_()
    [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=true
    if "$doTrace"
    then
-       Say "START _DoCleanUp_"
+       Say "\nSTART _DoCleanUp_"
        echo "$(date +"$LOGdateFormat") START _DoCleanUp_" >> "$userTraceFile"
    fi
 
@@ -1742,11 +1742,9 @@ _RunFirmwareUpdateNow_()
         FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
     fi
 
-    local credsBase64=""  keepZIPfile=0
+    local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
     local current_version=""  release_version=""
-
-    trap "_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0" HUP INT QUIT ABRT TERM
 
     # Create directory for downloading & extracting firmware #
     if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
@@ -2162,6 +2160,9 @@ _DoUninstall_()
    fi
    _DoExit_ 0
 }
+
+keepZIPfile=0
+trap "_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0" HUP INT QUIT ABRT TERM
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-26] ##
