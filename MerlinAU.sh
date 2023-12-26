@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.41"
+readonly SCRIPT_VERSION="0.2.42"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1114,7 +1114,7 @@ get_required_space() {
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-10] ##
+## Modified by ExtremeFiretop [2023-Dec-26] ##
 ##------------------------------------------##
 check_memory_and_prompt_reboot() {
     local required_space_kb="$1"
@@ -1130,13 +1130,20 @@ check_memory_and_prompt_reboot() {
         # Check available memory again #
         availableRAM_kb=$(_GetAvailableRAM_KB_)
         if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
-            # During an interactive shell session, ask user to confirm reboot #
-            if _WaitForYESorNO_ "Reboot router now"; then
-                _AddPostRebootRunScriptHook_
-                Say "Rebooting router..."
-                _ReleaseLock_
-                /sbin/service reboot
-                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+            # In an interactive shell session, ask user to confirm reboot
+            if [ "$inMenuMode" = true ]; then
+                if _WaitForYESorNO_ "Reboot router now"; then
+                    _AddPostRebootRunScriptHook_
+                    Say "Rebooting router..."
+                    _ReleaseLock_
+                    /sbin/service reboot
+                    exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+                fi
+            else
+                # In non-interactive mode, exit the script
+                Say "Insufficient memory to continue. Exiting script."
+                _DoCleanUp_ 1 "$keepZIPfile"
+                exit 1
             fi
         else
             Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
@@ -1954,7 +1961,7 @@ _RunFirmwareUpdateNow_()
     fi
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2023-Dec-17] ##
+    ## Modified by ExtremeFiretop [2023-Dec-26] ##
     ##------------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
@@ -1962,13 +1969,15 @@ _RunFirmwareUpdateNow_()
 
     routerURLstr="$(_GetRouterURL_)"
     # DEBUG: Print the LAN IP to ensure it's being set correctly
-    printf "\nRouter Web URL is: ${routerURLstr}\n"
+    Say "Router Web URL is: ${routerURLstr}"
 
+    if [ "$inMenuMode" = true ]; then
     printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
     printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
     printf "Once started, the flashing process CANNOT be interrupted.\n"
-    if ! _WaitForYESorNO_ "Continue"
-    then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
+		if ! _WaitForYESorNO_ "Continue"
+		then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
+    fi
 
     #------------------------------------------------------------#
     # Restart the WebGUI to make sure nobody else is logged in
