@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.42"
+readonly SCRIPT_VERSION="0.2.43"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1113,9 +1113,9 @@ get_required_space() {
     echo "$total_required_kb"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-26] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-26] ##
+##----------------------------------------##
 check_memory_and_prompt_reboot() {
     local required_space_kb="$1"
     local availableRAM_kb="$2"
@@ -1130,20 +1130,19 @@ check_memory_and_prompt_reboot() {
         # Check available memory again #
         availableRAM_kb=$(_GetAvailableRAM_KB_)
         if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
-            # In an interactive shell session, ask user to confirm reboot
-            if [ "$inMenuMode" = true ]; then
-                if _WaitForYESorNO_ "Reboot router now"; then
-                    _AddPostRebootRunScriptHook_
-                    Say "Rebooting router..."
-                    _ReleaseLock_
-                    /sbin/service reboot
-                    exit 1  # Although the reboot command should end the script, it's good practice to exit after.
-                fi
+            # In an interactive shell session, ask user to confirm reboot #
+            if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
+            then
+                _AddPostRebootRunScriptHook_
+                Say "Rebooting router..."
+                _ReleaseLock_
+                /sbin/service reboot
+                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
             else
-                # In non-interactive mode, exit the script
+                # Exit script if non-interactive or if user answers NO #
                 Say "Insufficient memory to continue. Exiting script."
                 _DoCleanUp_ 1 "$keepZIPfile"
-                exit 1
+                _DoExit_ 1
             fi
         else
             Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
@@ -1968,15 +1967,15 @@ _RunFirmwareUpdateNow_()
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     routerURLstr="$(_GetRouterURL_)"
-    # DEBUG: Print the LAN IP to ensure it's being set correctly
     Say "Router Web URL is: ${routerURLstr}"
 
-    if [ "$inMenuMode" = true ]; then
-    printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
-    printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
-    printf "Once started, the flashing process CANNOT be interrupted.\n"
-		if ! _WaitForYESorNO_ "Continue"
-		then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
+    if "$isInteractive"
+    then
+        printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
+        printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
+        printf "Once started, the flashing process CANNOT be interrupted.\n"
+        if ! _WaitForYESorNO_ "Continue"
+        then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
     fi
 
     #------------------------------------------------------------#
