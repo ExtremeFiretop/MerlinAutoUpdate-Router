@@ -1137,13 +1137,13 @@ check_memory_and_prompt_reboot() {
                     Say "Rebooting router..."
                     _ReleaseLock_
                     /sbin/service reboot
-                    exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+                    _DoExit_ 1  # Although the reboot command should end the script, it's good practice to exit after.
                 fi
             else
                 # In non-interactive mode, exit the script
                 Say "Insufficient memory to continue. Exiting script."
                 _DoCleanUp_ 1 "$keepZIPfile"
-                exit 1
+                _DoExit_ 1
             fi
         else
             Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
@@ -1975,8 +1975,8 @@ _RunFirmwareUpdateNow_()
     printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
     printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
     printf "Once started, the flashing process CANNOT be interrupted.\n"
-		if ! _WaitForYESorNO_ "Continue"
-		then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
+        if ! _WaitForYESorNO_ "Continue"
+        then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
     fi
 
     #------------------------------------------------------------#
