@@ -1720,10 +1720,21 @@ _RunFirmwareUpdateNow_()
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
     if [ "$ModelCheckFailed" != "0" ]; then
-      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script. 
-Please uninstall.\n"
-      "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-      return 1
+      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script."
+      if "$inMenuMode"; then
+        printf "\nWould you like to uninstall the script now?"
+        if _WaitForYESorNO_; then
+            _DoUninstall_
+            return 1
+        else
+            Say "Uninstallation cancelled. Exiting script."
+            _WaitForEnterKey_ "$menuReturnPromptStr"
+            return 1
+        fi
+      else
+        Say "Exiting script due to unsupported router model."
+        _DoExit_ 1
+      fi
     fi
     if [ "$MinFirmwareCheckFailed" != "0" ]; then
       Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported. 
