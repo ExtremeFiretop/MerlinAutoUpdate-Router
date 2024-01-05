@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2023-Dec-26
+# Last Modified: 2024-Jan-04
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.43"
+readonly SCRIPT_VERSION="0.2.44"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -2209,31 +2209,47 @@ fi
 # to check if there's a new version update to notify the user #
 _CheckForNewScriptUpdates_
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-21] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-04] ##
+##------------------------------------------##
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
 [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 if [ "$FW_UpdateCheckState" -eq 1 ]
 then
-    # Add cron job ONLY if "F/W Update Check" is enabled #
+    # Check if the CRON job already exists #
     if ! $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
     then
-        # Add the cron job if it doesn't exist
-        printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
-        if _AddCronJobEntry_
+		logo
+        # If CRON job does not exist, ask user for permission to add #
+        printf "Do you want to enable automatic firmware update checks?\n"
+		printf "This will create a CRON job to check for updates regularly.\n"
+		printf "The CRON can be disabled at anytime through the menu.\n"
+        if _WaitForYESorNO_
         then
-            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
-            current_schedule_english="$(translate_schedule "$FW_UpdateCronJobSchedule")"
-            printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+            # Add the cron job since it doesn't exist and user consented
+            printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+            if _AddCronJobEntry_
+            then
+                printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                current_schedule_english="$(translate_schedule "$FW_UpdateCronJobSchedule")"
+                printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+            else
+                printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+            fi
+            _AddCronJobRunScriptHook_
+            _WaitForEnterKey_
         else
-            printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+            printf "Automatic firmware update checks are not enabled.\n"
+			printf "You can enable this feature later through the menu.\n"
+            FW_UpdateCheckState=0
+			nvram set firmware_check_enable="$FW_UpdateCheckState"
+			_WaitForEnterKey_
         fi
     else
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+        _AddCronJobRunScriptHook_
+        _WaitForEnterKey_
     fi
-    _AddCronJobRunScriptHook_
-    _WaitForEnterKey_
 fi
 
 rog_file=""
