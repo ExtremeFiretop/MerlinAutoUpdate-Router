@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.44"
+readonly SCRIPT_VERSION="0.2.45"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -2219,11 +2219,11 @@ then
     # Check if the CRON job already exists #
     if ! $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
     then
-		logo
+        logo
         # If CRON job does not exist, ask user for permission to add #
         printf "Do you want to enable automatic firmware update checks?\n"
-		printf "This will create a CRON job to check for updates regularly.\n"
-		printf "The CRON can be disabled at anytime through the menu.\n"
+        printf "This will create a CRON job to check for updates regularly.\n"
+        printf "The CRON can be disabled at anytime through the menu.\n"
         if _WaitForYESorNO_
         then
             # Add the cron job since it doesn't exist and user consented
@@ -2237,19 +2237,18 @@ then
                 printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
             fi
             _AddCronJobRunScriptHook_
-            _WaitForEnterKey_
         else
-            printf "Automatic firmware update checks are not enabled.\n"
-			printf "You can enable this feature later through the menu.\n"
+            printf "Automatic firmware update checks will be DISABLED.\n"
+            printf "You can enable this feature later through the menu.\n"
             FW_UpdateCheckState=0
-			nvram set firmware_check_enable="$FW_UpdateCheckState"
-			_WaitForEnterKey_
+            nvram set firmware_check_enable="$FW_UpdateCheckState"
+            nvram commit
         fi
     else
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
         _AddCronJobRunScriptHook_
-        _WaitForEnterKey_
     fi
+    _WaitForEnterKey_
 fi
 
 rog_file=""
