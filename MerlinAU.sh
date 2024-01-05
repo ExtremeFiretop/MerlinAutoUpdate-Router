@@ -1211,7 +1211,7 @@ check_version_support() {
     # If the current firmware version is lower than the minimum supported firmware version, exit.
     if [ "$numCurrentVers" -lt "$numMinimumVers" ]
     then
-		MinFirmwareCheckFailed="1"
+       MinFirmwareCheckFailed="1"
     fi
 }
 
@@ -1224,7 +1224,7 @@ check_model_support() {
 	
     # Check if the current model is in the list of unsupported models
     if echo "$unsupported_models" | grep -wq "$current_model"; then
-		ModelCheckFailed="1"
+       ModelCheckFailed="1"
     fi
 }
 
@@ -1722,13 +1722,13 @@ _RunFirmwareUpdateNow_()
     if [ "$ModelCheckFailed" != "0" ]; then
       Say "${REDct}WARNING:${NOct} The current router model is not supported by this script. 
 Please uninstall.\n"
-      _WaitForEnterKey_
+      "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
       return 1
     fi
     if [ "$MinFirmwareCheckFailed" != "0" ]; then
       Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported. 
 Please update manually.\n"
-      _WaitForEnterKey_
+      "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
       return 1
     fi
 
