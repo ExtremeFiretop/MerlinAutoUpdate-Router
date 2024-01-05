@@ -2209,9 +2209,9 @@ fi
 # to check if there's a new version update to notify the user #
 _CheckForNewScriptUpdates_
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-04] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-04] ##
+##------------------------------------------##
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
 [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 if [ "$FW_UpdateCheckState" -eq 1 ]
