@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-04
+# Last Modified: 2024-Jan-05
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.45"
+readonly SCRIPT_VERSION="0.2.46"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -25,6 +25,10 @@ readonly FW_URL_RELEASE_SUFFIX="Release"
 # For new script version updates from source repository #
 UpdateNotify=0
 DLRepoVersion=""
+
+# For supported version and model checks #
+MinFirmwareCheckFailed=0
+ModelCheckFailed=0
 
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
@@ -1189,9 +1193,9 @@ _DoCleanUp_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Oct-07] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-04] ##
+##------------------------------------------##
 # Function to check if the current router model is supported
 check_version_support() {
     # Minimum supported firmware version
@@ -1207,9 +1211,7 @@ check_version_support() {
     # If the current firmware version is lower than the minimum supported firmware version, exit.
     if [ "$numCurrentVers" -lt "$numMinimumVers" ]
     then
-        Say "${REDct}The installed firmware version '$current_version' is below '$minimum_supported_version' which is the minimum supported version required.${NOct}" 
-        Say "${REDct}Exiting...${NOct}"
-        _DoExit_ 1
+       MinFirmwareCheckFailed="1"
     fi
 }
 
@@ -1219,12 +1221,10 @@ check_model_support() {
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
-
+	
     # Check if the current model is in the list of unsupported models
     if echo "$unsupported_models" | grep -wq "$current_model"; then
-        # Output a message and exit the script if the model is unsupported
-        Say "The $current_model is an unsupported model. Exiting..."
-        _DoExit_ 1
+       ModelCheckFailed="1"
     fi
 }
 
@@ -1704,9 +1704,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-26] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-05] ##
+##------------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
@@ -1716,6 +1716,32 @@ _RunFirmwareUpdateNow_()
     # Set up the custom log file #
     userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
     touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
+	
+    # Check if the router model is supported OR if
+    # it has the minimum firmware version supported.
+    if [ "$ModelCheckFailed" != "0" ]; then
+      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script."
+      if "$inMenuMode"; then
+        printf "\nWould you like to uninstall the script now?"
+        if _WaitForYESorNO_; then
+            _DoUninstall_
+            return 1
+        else
+            Say "Uninstallation cancelled. Exiting script."
+            _WaitForEnterKey_ "$menuReturnPromptStr"
+            return 1
+        fi
+      else
+        Say "Exiting script due to unsupported router model."
+        _DoExit_ 1
+      fi
+    fi
+    if [ "$MinFirmwareCheckFailed" != "0" ]; then
+      Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported. 
+Please update manually.\n"
+      "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+      return 1
+    fi
 
     Say "Running the task now... Checking for F/W updates..."
 
@@ -2263,9 +2289,9 @@ FW_InstalledVers="$(_GetCurrentFWInstalledShortVersion_)"
 FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-21] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-05] ##
+##------------------------------------------##
 show_menu()
 {
    #-----------------------------------------------------------#
@@ -2284,6 +2310,16 @@ show_menu()
    # New Script Update Notification #
    if [ "$UpdateNotify" != "0" ]; then
       Say "${REDct}WARNING:${NOct} ${UpdateNotify}${NOct}\n"
+   fi
+   
+   # Unsupported Model Checks #
+   if [ "$ModelCheckFailed" != "0" ]; then
+      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script. 
+Please uninstall.\n"
+   fi
+   if [ "$MinFirmwareCheckFailed" != "0" ]; then
+      Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported. 
+Please update manually.\n"
    fi
 
    if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
