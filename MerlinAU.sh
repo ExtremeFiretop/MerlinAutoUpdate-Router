@@ -1135,13 +1135,14 @@ check_memory_and_prompt_reboot() {
         availableRAM_kb=$(_GetAvailableRAM_KB_)
         if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
             # In an interactive shell session, ask user to confirm reboot #
-            if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
-            then
-                _AddPostRebootRunScriptHook_
-                Say "Rebooting router..."
-                _ReleaseLock_
-                /sbin/service reboot
-                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+            if [ "$inMenuMode" = true ]; then
+                if _WaitForYESorNO_ "Reboot router now"; then
+                    _AddPostRebootRunScriptHook_
+                    Say "Rebooting router..."
+                    _ReleaseLock_
+                    /sbin/service reboot
+                    exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+                fi
             else
                 # Exit script if non-interactive or if user answers NO #
                 Say "Insufficient memory to continue. Exiting script."
@@ -1995,8 +1996,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     routerURLstr="$(_GetRouterURL_)"
     Say "Router Web URL is: ${routerURLstr}"
 
-    if "$isInteractive"
-    then
+    if [ "$inMenuMode" = true ]; then
         printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
         printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
         printf "Once started, the flashing process CANNOT be interrupted.\n"
