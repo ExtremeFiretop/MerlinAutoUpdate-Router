@@ -1968,7 +1968,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         else
             # Default to pure_file in non-interactive mode if no previous choice
             Say "Pure Build selected for flashing"
-			Update_Custom_Settings "ROGBuild" "n"
+            Update_Custom_Settings "ROGBuild" "n"
             firmware_file="$pure_file"
         fi
     else
