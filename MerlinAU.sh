@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.46"
+readonly SCRIPT_VERSION="0.2.47"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1221,7 +1221,7 @@ check_model_support() {
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
-	
+
     # Check if the current model is in the list of unsupported models
     if echo "$unsupported_models" | grep -wq "$current_model"; then
        ModelCheckFailed="1"
@@ -1716,31 +1716,31 @@ _RunFirmwareUpdateNow_()
     # Set up the custom log file #
     userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
     touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
-	
+
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
     if [ "$ModelCheckFailed" != "0" ]; then
-      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script."
-      if "$inMenuMode"; then
-        printf "\nWould you like to uninstall the script now?"
-        if _WaitForYESorNO_; then
-            _DoUninstall_
-            return 1
+        Say "${REDct}WARNING:${NOct} The current router model is not supported by this script."
+        if "$inMenuMode"; then
+            printf "\nWould you like to uninstall the script now?"
+            if _WaitForYESorNO_; then
+                _DoUninstall_
+                return 1
+            else
+                Say "Uninstallation cancelled. Exiting script."
+                _WaitForEnterKey_ "$menuReturnPromptStr"
+                return 1
+            fi
         else
-            Say "Uninstallation cancelled. Exiting script."
-            _WaitForEnterKey_ "$menuReturnPromptStr"
-            return 1
+            Say "Exiting script due to unsupported router model."
+            _DoExit_ 1
         fi
-      else
-        Say "Exiting script due to unsupported router model."
-        _DoExit_ 1
-      fi
     fi
     if [ "$MinFirmwareCheckFailed" != "0" ]; then
-      Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported. 
+        Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported. 
 Please update manually.\n"
-      "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-      return 1
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        return 1
     fi
 
     Say "Running the task now... Checking for F/W updates..."
@@ -2311,7 +2311,7 @@ show_menu()
    if [ "$UpdateNotify" != "0" ]; then
       Say "${REDct}WARNING:${NOct} ${UpdateNotify}${NOct}\n"
    fi
-   
+
    # Unsupported Model Checks #
    if [ "$ModelCheckFailed" != "0" ]; then
       Say "${REDct}WARNING:${NOct} The current router model is not supported by this script. 
