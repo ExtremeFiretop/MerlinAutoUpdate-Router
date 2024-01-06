@@ -1118,7 +1118,7 @@ get_required_space() {
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-26] ##
+## Modified by Martinski W. [2024-Jan-06] ##
 ##----------------------------------------##
 check_memory_and_prompt_reboot() {
     local required_space_kb="$1"
@@ -1987,7 +1987,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2023-Dec-26] ##
+    ## Modified by ExtremeFiretop [2024-Jan-06] ##
     ##------------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
