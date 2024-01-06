@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-05
+# Last Modified: 2024-Jan-06
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.47"
+readonly SCRIPT_VERSION="0.2.48"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1194,12 +1194,12 @@ _DoCleanUp_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-04] ##
+## Modified by ExtremeFiretop [2024-Jan-06] ##
 ##------------------------------------------##
 # Function to check if the current router model is supported
 check_version_support() {
     # Minimum supported firmware version
-    local minimum_supported_version="386.11.0"
+    minimum_supported_version="386.11.0"
 
     # Get the current firmware version
     local current_version="$(_GetCurrentFWInstalledShortVersion_)"
@@ -1705,7 +1705,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-05] ##
+## Modified by ExtremeFiretop [2024-Jan-06] ##
 ##------------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
@@ -1737,8 +1737,8 @@ _RunFirmwareUpdateNow_()
         fi
     fi
     if [ "$MinFirmwareCheckFailed" != "0" ]; then
-        Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported. 
-Please update manually.\n"
+        Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
+Please manually update to version $minimum_supported_version or higher to use this script.\n"
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
@@ -2290,7 +2290,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-05] ##
+## Modified by ExtremeFiretop [2024-Jan-06] ##
 ##------------------------------------------##
 show_menu()
 {
@@ -2318,8 +2318,8 @@ show_menu()
 Please uninstall.\n"
    fi
    if [ "$MinFirmwareCheckFailed" != "0" ]; then
-      Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported. 
-Please update manually.\n"
+      Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
+Please manually update to version $minimum_supported_version or higher to use this script.\n"
    fi
 
    if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
