@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.48"
+readonly SCRIPT_VERSION="0.2.49"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1888,7 +1888,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##---------------------------------------##
-    ## Added by ExtremeFiretop [2023-Dec-24] ##
+    ## Added by ExtremeFiretop [2024-Jan-06] ##
     ##---------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
@@ -1968,6 +1968,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         else
             # Default to pure_file in non-interactive mode if no previous choice
             Say "Pure Build selected for flashing"
+			Update_Custom_Settings "ROGBuild" "n"
             firmware_file="$pure_file"
         fi
     else
