@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.50"
+readonly SCRIPT_VERSION="0.2.51"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -55,13 +55,13 @@ cronCmd="$(which crontab) -l"
 [ "$cronCmd" = " -l" ] && cronCmd="$(which cru) l"
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Dec-21] ##
+## Added/Modified by Martinski W. [2024-Jan-06] ##
 ##----------------------------------------------##
 inMenuMode=true
 isInteractive=false
 menuReturnPromptStr="Press Enter to return to the main menu..."
 
-[ -n "$(tty)" ] && [ -n "$PS1" ] && isInteractive=true
+[ -t 0 ] && ! echo "$(tty)" | grep -qwi "NOT" && isInteractive=true
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-23] ##
@@ -1135,14 +1135,13 @@ check_memory_and_prompt_reboot() {
         availableRAM_kb=$(_GetAvailableRAM_KB_)
         if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
             # In an interactive shell session, ask user to confirm reboot #
-            if [ "$inMenuMode" = true ]; then
-                if _WaitForYESorNO_ "Reboot router now"; then
-                    _AddPostRebootRunScriptHook_
-                    Say "Rebooting router..."
-                    _ReleaseLock_
-                    /sbin/service reboot
-                    exit 1  # Although the reboot command should end the script, it's good practice to exit after.
-                fi
+            if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
+            then
+                _AddPostRebootRunScriptHook_
+                Say "Rebooting router..."
+                _ReleaseLock_
+                /sbin/service reboot
+                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
             else
                 # Exit script if non-interactive or if user answers NO #
                 Say "Insufficient memory to continue. Exiting script."
@@ -1987,9 +1986,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
-    ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jan-06] ##
-    ##------------------------------------------##
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Jan-06] ##
+    ##----------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
@@ -1997,7 +1996,8 @@ Please manually update to version $minimum_supported_version or higher to use th
     routerURLstr="$(_GetRouterURL_)"
     Say "Router Web URL is: ${routerURLstr}"
 
-    if [ "$inMenuMode" = true ]; then
+    if "$isInteractive"
+    then
         printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
         printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
         printf "Once started, the flashing process CANNOT be interrupted.\n"
