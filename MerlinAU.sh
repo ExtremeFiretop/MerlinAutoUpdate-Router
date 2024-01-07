@@ -20,7 +20,7 @@ readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/Merli
 
 # Firmware URL Info #
 readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
-readonly FW_URL_RELEASE_SUFFIX="Release"
+readonly FW_URL_RELEASE_SUFFIX="Beta"
 
 # For new script version updates from source repository #
 UpdateNotify=0
@@ -1803,19 +1803,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         Say "Firmware update check is currently disabled."
         "$inMenuMode" && _WaitForEnterKey_ || return 1
-    fi
-
-    #------------------------------------------------------
-    # If the "New F/W Update" flag has been set get the
-    # "New F/W Release Version" from the router itself.
-    # If no new F/W version update is available return.
-    #------------------------------------------------------
-    if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
-       ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-    then
-        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
     fi
 
     # Use set to read the output of the function into variables
