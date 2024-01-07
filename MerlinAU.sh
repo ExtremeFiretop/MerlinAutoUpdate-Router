@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.49"
+readonly SCRIPT_VERSION="0.2.50"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1200,7 +1200,7 @@ _DoCleanUp_()
 # Function to check if the current router model is supported
 check_version_support() {
     # Minimum supported firmware version
-    minimum_supported_version="386.11.0"
+    minimum_supported_version="386.12.0"
 
     # Get the current firmware version
     local current_version="$(_GetCurrentFWInstalledShortVersion_)"
@@ -1954,7 +1954,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         elif [ "$inMenuMode" = true ]; then
             printf "\n ${REDct}Found ROG build: $rog_file.${NOct}"
             printf "\n ${REDct}Would you like to use the ROG build?${NOct}\n"
-            printf "\n[${theExitStr}] Enter your choice (y/n): "
+            printf "\n Enter your choice (y/n): "
             read -r choice
             if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
                 Say "ROG Build selected for flashing"
