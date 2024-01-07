@@ -1,3 +1,4 @@
+## ---THIS BRANCH DOWNLOADS BETA MERLIN FIRMWARES ONLY---
 ## ---WORK IN PROGRESS---
 
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/ffa9fed4-86fc-40b4-ac42-ba9ffe3dc264)
