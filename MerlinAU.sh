@@ -1200,7 +1200,7 @@ _DoCleanUp_()
 # Function to check if the current router model is supported
 check_version_support() {
     # Minimum supported firmware version
-    minimum_supported_version="386.11.0"
+    minimum_supported_version="386.12.0"
 
     # Get the current firmware version
     local current_version="$(_GetCurrentFWInstalledShortVersion_)"
