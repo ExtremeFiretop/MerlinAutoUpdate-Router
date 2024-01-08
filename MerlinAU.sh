@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-06
+# Last Modified: 2024-Jan-07
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.51"
+readonly SCRIPT_VERSION="0.2.52"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1313,7 +1313,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-10] ##
+## Modified by ExtremeFiretop [2024-Jan-07] ##
 ##------------------------------------------##
 change_build_type() {
     echo "Changing Build Type..."
@@ -1355,12 +1355,6 @@ change_build_type() {
 			echo "Invalid input! Please enter 'y', 'yes', 'n', 'no', or 'exit'."
 		fi
     done
-
-    if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
-        Update_Custom_Settings "ROGBuild" "y"
-    else
-        Update_Custom_Settings "ROGBuild" "n"
-    fi
 }
 
 # Function to translate cron schedule to English
