@@ -2230,13 +2230,14 @@ fi
 # to check if there's a new version update to notify the user #
 _CheckForNewScriptUpdates_
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-04] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-21] ##
+##----------------------------------------##
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
 [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 if [ "$FW_UpdateCheckState" -eq 1 ]
 then
+    runfwUpdateCheck=true
     # Check if the CRON job already exists #
     if ! $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
     then
@@ -2264,6 +2265,7 @@ then
             FW_UpdateCheckState=0
             nvram set firmware_check_enable="$FW_UpdateCheckState"
             nvram commit
+            runfwUpdateCheck=false
         fi
     else
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
@@ -2271,7 +2273,7 @@ then
     fi
 
     # Check if there's a new F/W update available #
-    [ -x "$FW_UpdateCheckScript" ] && sh $FW_UpdateCheckScript 2>&1 &
+    "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ] && sh $FW_UpdateCheckScript 2>&1 &
     _WaitForEnterKey_
 fi
 
