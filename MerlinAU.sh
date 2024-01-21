@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-07
+# Last Modified: 2024-Jan-21
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.52"
+readonly SCRIPT_VERSION="0.2.53"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -2269,6 +2269,9 @@ then
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
         _AddCronJobRunScriptHook_
     fi
+
+    # Check if there's a new F/W update available #
+    [ -x "$FW_UpdateCheckScript" ] && sh $FW_UpdateCheckScript 2>&1 &
     _WaitForEnterKey_
 fi
 
