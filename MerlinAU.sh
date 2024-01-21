@@ -1762,11 +1762,6 @@ Please manually update to version $minimum_supported_version or higher to use th
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
-	
-    if "$isInteractive"; then
-        # This part will only execute in an interactive shell
-        [ -x "$FW_UpdateCheckScript" ] && sh $FW_UpdateCheckScript 2>&1 &
-    fi
 
     Say "Running the task now... Checking for F/W updates..."
 
@@ -1828,6 +1823,11 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         Say "Firmware update check is currently disabled."
         "$inMenuMode" && _WaitForEnterKey_ || return 1
+    fi
+	
+    if "$isInteractive"; then
+        # This part will only execute in an interactive shell
+        [ -x "$FW_UpdateCheckScript" ] && sh $FW_UpdateCheckScript 2>&1 &
     fi
 
     #------------------------------------------------------
