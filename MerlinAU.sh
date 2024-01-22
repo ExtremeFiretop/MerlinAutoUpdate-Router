@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-21
+# Last Modified: 2024-Jan-22
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.53"
+readonly SCRIPT_VERSION="0.2.54"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1243,7 +1243,7 @@ check_version_support() {
 
 check_model_support() {
     # List of unsupported models as a space-separated string
-    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U"
+    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC1900"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
@@ -1907,7 +1907,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##---------------------------------------##
-    ## Added by ExtremeFiretop [2024-Jan-06] ##
+    ## Added by ExtremeFiretop [2024-Jan-22] ##
     ##---------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
@@ -1956,7 +1956,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Detect ROG and pure firmware files
     rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb|trx)$' | grep -iv 'rog')"
+    pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
 
     # Fetch the previous choice from the settings file
     previous_choice="$(Get_Custom_Setting "ROGBuild")"
@@ -2316,7 +2316,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-06] ##
+## Modified by ExtremeFiretop [2024-Jan-22] ##
 ##------------------------------------------##
 show_menu()
 {
@@ -2412,9 +2412,9 @@ A USB drive is required for F/W updates.\n"
         current_build_type_menu="Not Set"
    fi
 
-   if [ "$current_build_type" = "y" ] || [ "$current_build_type" = "n" ]; then
+   if echo "$PRODUCT_ID" | grep -q "^GT-"; then
       # Display the option with the current build type
-      printf "\n  ${GRNct}8${NOct}.  Change F/W Build Type"
+      printf "\n  ${GRNct}8${NOct}.  Change ROG F/W Build Type"
       printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
    fi
 
@@ -2429,9 +2429,9 @@ A USB drive is required for F/W updates.\n"
    printf "${SEPstr}\n"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-26] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-22] ##
+##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
 theExitStr="${GRNct}e${NOct}=Exit to main menu"
@@ -2465,7 +2465,7 @@ do
           ;;
        7) _Set_FW_UpdateLOG_DirectoryPath_
           ;;
-       8) if [ "$local_choice_set" = "y" ] || [ "$local_choice_set" = "n" ]; then
+       8) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
           change_build_type && _WaitForEnterKey_ ; fi
           ;;
       up) _SCRIPTUPDATE_
