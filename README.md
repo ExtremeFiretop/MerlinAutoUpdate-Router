@@ -43,7 +43,7 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  ## TESTERS NEEDED!
  - If you see your router listed as untested above, feel free to test and report any issues.
  - If the test was successful on your model, feel free to leave a comment on snb forums or open an issue with your successful test and router model.
- - https://www.snbforums.com/threads/seeking-feedback-contributions-merlin-auto-update-solutions.87044/
+ - [https://www.snbforums.com/threads/seeking-feedback-contributions-merlin-auto-update-solutions.87044/](https://www.snbforums.com/threads/introducing-merlinau-the-ultimate-firmware-auto-updater-addon.88577/)
 
 ## Merlin(A)uto(U)pdate
 
