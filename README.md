@@ -18,6 +18,12 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AC66U (Blocked)
  - RT-AC3200 (Blocked)
  - RT-N66U (Blocked)
+ - RT-AC88U (Blocked)
+ - RT-AC5300 (Blocked)
+ - RT-AC3100 (Blocked)
+ - RT-AC68U (Blocked)
+ - RT-AC66U_B1 (Blocked)
+ - RT-AC1900 (Blocked)
 
 ## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
@@ -32,15 +38,6 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AX58U (Untested)
  - RT-AX3000 (Untested)
  - XT12 (Untested)
- 
-## UNTESTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
-
- - RT-AC88U (Untested)
- - RT-AC5300 (Untested)
- - RT-AC3100 (Untested)
- - RT-AC68U (Untested)
- - RT-AC66U_B1 (Untested)
- - RT-AC1900 (Untested)
 
  ## TESTERS NEEDED!
  - If you see your router listed as untested above, feel free to test and report any issues.
