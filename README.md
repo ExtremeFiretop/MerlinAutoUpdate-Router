@@ -1,5 +1,3 @@
-## ---WORK IN PROGRESS---
-
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/ffa9fed4-86fc-40b4-ac42-ba9ffe3dc264)
 
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
@@ -120,3 +118,4 @@ The script can be run using the below options:
 - Also please review the: [CODE_OF_CONDUCT.md](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/blob/main/CODE_OF_CONDUCT.md).
 - Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
 
+## We are not responsible for any damage this may cause to your router, use at your own risk/discretion ##
