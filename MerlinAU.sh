@@ -1907,7 +1907,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##---------------------------------------##
-    ## Added by ExtremeFiretop [2024-Jan-06] ##
+    ## Added by ExtremeFiretop [2024-Jan-22] ##
     ##---------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
@@ -2316,7 +2316,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-21] ##
+## Modified by ExtremeFiretop [2024-Jan-22] ##
 ##------------------------------------------##
 show_menu()
 {
