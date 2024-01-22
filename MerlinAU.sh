@@ -1243,7 +1243,7 @@ check_version_support() {
 
 check_model_support() {
     # List of unsupported models as a space-separated string
-    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U"
+    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC1900"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
@@ -1956,7 +1956,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Detect ROG and pure firmware files
     rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb|trx)$' | grep -iv 'rog')"
+    pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
 
     # Fetch the previous choice from the settings file
     previous_choice="$(Get_Custom_Setting "ROGBuild")"
