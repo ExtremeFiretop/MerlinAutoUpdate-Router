@@ -120,3 +120,4 @@ The script can be run using the below options:
 - Also please review the: [CODE_OF_CONDUCT.md](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/blob/main/CODE_OF_CONDUCT.md).
 - Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
 
+## We are not responsible for any damage this may cause to your router, use at your own risk/discretion
