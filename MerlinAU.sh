@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-07
+# Last Modified: 2024-Jan-21
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.52"
+readonly SCRIPT_VERSION="0.2.53"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -42,12 +42,12 @@ else
    ScriptFilePath="$(pwd)/$ScriptFileName"
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-23] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-21] ##
+##------------------------------------------##
 readonly ADDONS_PATH="/jffs/addons"
 readonly SCRIPTS_PATH="/jffs/scripts"
-readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptFNameTag"
+readonly SETTINGS_DIR="${ADDONS_PATH}/${ScriptFNameTag}.d"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
@@ -195,6 +195,32 @@ Toggle_LEDs_PID=""
 # To enable/disable the built-in "F/W Update Check" #
 FW_UpdateCheckState="TBD"
 FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-21] ##
+##---------------------------------------##
+_migrate_settings_() {
+    local old_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}"
+    local new_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}.d"
+
+    # Check if the old settings directory exists
+    if [ -d "$old_settings_dir" ]; then
+        # Check if the new settings directory already exists
+        if [ -d "$new_settings_dir" ]; then
+            echo "The new settings directory already exists. Migration is not required."
+        else
+            # Move the old settings directory to the new location
+            mv "$old_settings_dir" "$new_settings_dir"
+            if [ $? -eq 0 ]; then
+                echo "Settings directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the settings directory."
+            fi
+        fi
+    fi
+}
+
+_migrate_settings_
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-22] ##
@@ -2230,13 +2256,14 @@ fi
 # to check if there's a new version update to notify the user #
 _CheckForNewScriptUpdates_
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-04] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-21] ##
+##----------------------------------------##
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
 [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 if [ "$FW_UpdateCheckState" -eq 1 ]
 then
+    runfwUpdateCheck=true
     # Check if the CRON job already exists #
     if ! $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
     then
@@ -2264,11 +2291,15 @@ then
             FW_UpdateCheckState=0
             nvram set firmware_check_enable="$FW_UpdateCheckState"
             nvram commit
+            runfwUpdateCheck=false
         fi
     else
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
         _AddCronJobRunScriptHook_
     fi
+
+    # Check if there's a new F/W update available #
+    "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ] && sh $FW_UpdateCheckScript 2>&1 &
     _WaitForEnterKey_
 fi
 
