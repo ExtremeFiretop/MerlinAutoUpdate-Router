@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-22
+# Last Modified: 2024-Jan-23
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.55"
+readonly SCRIPT_VERSION="0.2.56"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1748,11 +1748,11 @@ _RunFirmwareUpdateNow_()
             printf "\nWould you like to uninstall the script now?"
             if _WaitForYESorNO_; then
                 _DoUninstall_
-                return 1
+                return 0
             else
                 Say "Uninstallation cancelled. Exiting script."
                 _WaitForEnterKey_ "$menuReturnPromptStr"
-                return 1
+                return 0
             fi
         else
             Say "Exiting script due to unsupported router model."
@@ -1790,7 +1790,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "Using temporary fallback directory: /home/root"
-        "$inMenuMode" && { _WaitForYESorNO_ "Continue" || return 1 ; }
+        "$inMenuMode" && { _WaitForYESorNO_ "Continue?" || return 1 ; }
         # Continue #
         FW_ZIP_BASE_DIR="/home/root"
         FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
@@ -1810,7 +1810,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Get current firmware version #
     current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    ##FOR DEBUG ONLY##current_version="388.3.0"
+    ##FOR DEBUG ONLY##current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -1909,9 +1909,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    ##---------------------------------------##
-    ## Added by ExtremeFiretop [2024-Jan-22] ##
-    ##---------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jan-22] ##
+    ##------------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
@@ -1956,6 +1956,50 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
+	
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2024-Jan-23] ##
+    ##---------------------------------------##
+    # Define the path to the log file
+    changelog_file="${FW_BIN_DIR}/Changelog-NG.txt"
+
+    # Check if the log file exists
+    if [ ! -f "$changelog_file" ]; then
+        Say "Change-log file does not exist at $changelog_file"
+        _DoCleanUp_
+        return 1
+    else
+        # Format current_version by removing the last '.0'
+        formatted_current_version=$(echo $current_version | awk -F. '{print $1"."$2}')
+
+        # Format release_version by removing the prefix '3004.' and the last '.0'
+        formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
+
+        # Extract log contents between two firmware versions
+        changelog_contents=$(awk "/$formatted_release_version/,/$formatted_current_version/" "$changelog_file")
+
+        # Define high-risk terms as a single string separated by '|'
+        high_risk_terms="factory default reset|dropped support|features are disabled|break backward compatibility|must be manually|strongly recommended"
+
+        # Search for high-risk terms in the extracted log contents
+        if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+            if [ "$inMenuMode" = true ]; then
+                printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
+				printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                if ! _WaitForYESorNO_ ; then
+                    Say "Exiting for change-log review."
+                    _DoCleanUp_
+                    return 1
+                fi
+            else
+                Say "Warning: Found high-risk phrases in the change-logs."
+				Say "Please run script interactively to approve the flash."
+                _DoExit_ 1
+            fi
+        else
+            Say "No high-risk phrases found in the change-logs."
+        fi
+    fi
 
     # Detect ROG and pure firmware files
     rog_file="$(ls | grep -i '_rog_')"
@@ -2024,7 +2068,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
         printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
         printf "Once started, the flashing process CANNOT be interrupted.\n"
-        if ! _WaitForYESorNO_ "Continue"
+        if ! _WaitForYESorNO_ "Continue?"
         then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
     fi
 
