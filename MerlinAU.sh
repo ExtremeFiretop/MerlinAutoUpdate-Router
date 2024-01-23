@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.54"
+readonly SCRIPT_VERSION="0.2.55"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -391,10 +391,13 @@ readonly WHITEct="\e[1;37m"
 
 readonly FW_Update_CRON_DefaultSchedule="0 0 * * 0"
 
+##------------------------------------------##
+## Modified by Martinski W. [2024-Jan-22]   ##
+##------------------------------------------##
 # To postpone a firmware update for a few days #
 readonly FW_UpdateMinimumPostponementDays=0
-readonly FW_UpdateDefaultPostponementDays=7
-readonly FW_UpdateMaximumPostponementDays=30
+readonly FW_UpdateDefaultPostponementDays=15
+readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_12:00:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
