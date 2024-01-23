@@ -1985,7 +1985,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
             if [ "$inMenuMode" = true ]; then
                 printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
-				printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                printf "\n ${REDct}Would you like to continue anyways?${NOct}"
                 if ! _WaitForYESorNO_ ; then
                     Say "Exiting for change-log review."
                     _DoCleanUp_
@@ -1993,7 +1993,7 @@ Please manually update to version $minimum_supported_version or higher to use th
                 fi
             else
                 Say "Warning: Found high-risk phrases in the change-logs."
-				Say "Please run script interactively to approve the flash."
+                Say "Please run script interactively to approve the flash."
                 _DoExit_ 1
             fi
         else
