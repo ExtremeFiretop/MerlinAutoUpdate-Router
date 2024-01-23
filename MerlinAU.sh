@@ -759,7 +759,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
    while true
    do
       printf "\nEnter the directory path where the LOG subdirectory [${GRNct}${FW_LOG_SUBDIR}${NOct}] will be stored.\n"
-      printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
+      printf "[${theADExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
@@ -842,7 +842,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
    while true
    do
       printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
-      printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+      printf "[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
@@ -1366,7 +1366,7 @@ change_build_type() {
     printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
 
     while true; do
-		printf "\n [${theExitStr}] Enter your choice (y/n): "
+		printf "\n [${theADExitStr}] Enter your choice (y/n): "
 		read -r choice
 		choice="${choice:-$previous_choice}"
 		choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
@@ -1542,8 +1542,8 @@ _Set_FW_UpdateCronSchedule_()
     while true; do  # Loop to keep asking for input
         printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * 0${NOct}' for every Sunday at midnight)"
         if [ -z "$current_schedule" ]
-        then printf "\n[${theExitStr}] [Default Schedule: ${GRNct}${new_schedule}${NOct}]:  "
-        else printf "\n[${theExitStr}] [Current Schedule: ${GRNct}${current_schedule}${NOct}]:  "
+        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${new_schedule}${NOct}]:  "
+        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${current_schedule}${NOct}]:  "
         fi
         read -r userInput
 
@@ -2438,15 +2438,9 @@ A USB drive is required for F/W updates.\n"
 
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
-
-   printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
-   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
-
-   printf "\n  ${GRNct}6${NOct}.  Set Directory for F/W Update ZIP File"
-   printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
-
-   printf "\n  ${GRNct}7${NOct}.  Set Directory for F/W Update Log Files"
-   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+   
+   # In the show_menu function, add an option for Advanced Options
+   printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
    # Retrieve the current build type setting
    local current_build_type=$(Get_Custom_Setting "ROGBuild")
@@ -2460,12 +2454,6 @@ A USB drive is required for F/W updates.\n"
         current_build_type_menu="Not Set"
    fi
 
-   if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-      # Display the option with the current build type
-      printf "\n  ${GRNct}8${NOct}.  Change ROG F/W Build Type"
-      printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
-   fi
-
    # Check for new script updates #
    if [ "$UpdateNotify" != "0" ]; then
       printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
@@ -2477,8 +2465,57 @@ A USB drive is required for F/W updates.\n"
    printf "${SEPstr}\n"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-23] ##
+##---------------------------------------##
+
+_advanced_options_menu_() {
+	theADExitStr="${GRNct}e${NOct}=Exit to advanced menu"
+    while true; do
+        clear
+        logo
+        printf "=============== Advanced Options Menu ===============\n"
+        printf "${SEPstr}\n"
+        printf "\n  ${GRNct}1${NOct}.  Set F/W Update Check Schedule"
+        printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+
+        printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update ZIP File"
+        printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
+
+        printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
+        printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+        if echo "$PRODUCT_ID" | grep -q "^GT-"; then
+            printf "\n  ${GRNct}4${NOct}.  Change ROG F/W Build Type"
+            printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+        fi
+        printf "\n  ${GRNct}e${NOct}.  Exit to Main Menu\n"
+        printf "${SEPstr}"
+
+        printf "\nEnter selection:  "
+        read -r advancedChoice
+        echo
+        case $advancedChoice in
+            1) _Set_FW_UpdateCronSchedule_
+               ;;
+            2) _Set_FW_UpdateZIP_DirectoryPath_
+               ;;
+            3) _Set_FW_UpdateLOG_DirectoryPath_
+               ;;
+            4) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
+                   change_build_type && _WaitForEnterKey_
+               fi
+               ;;
+            e|exit) break
+               ;;
+            *) printf "${REDct}INVALID selection.${NOct} Please try again."
+               _WaitForEnterKey_
+               ;;
+        esac
+    done
+}
+
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-22] ##
+## Modified by ExtremeFiretop [2024-Jan-23] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -2507,14 +2544,7 @@ do
           ;;
        4) _Set_FW_UpdatePostponementDays_
           ;;
-       5) _Set_FW_UpdateCronSchedule_
-          ;;
-       6) _Set_FW_UpdateZIP_DirectoryPath_
-          ;;
-       7) _Set_FW_UpdateLOG_DirectoryPath_
-          ;;
-       8) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-          change_build_type && _WaitForEnterKey_ ; fi
+      ad) _advanced_options_menu_
           ;;
       up) _SCRIPTUPDATE_
           ;;
