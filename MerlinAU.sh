@@ -1967,6 +1967,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     if [ ! -f "$changelog_file" ]; then
         Say "Change-log file does not exist at $changelog_file"
         _DoCleanUp_
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     else
         # Format current_version by removing the last '.0'
