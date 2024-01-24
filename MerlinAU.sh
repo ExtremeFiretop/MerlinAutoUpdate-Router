@@ -1353,12 +1353,33 @@ _GetLatestFWUpdateVersionFromWebsite_()
 
 _toggle_change_log_check_() {
     local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
+
     if [ "$currentSetting" = "ENABLED" ]; then
-        Update_Custom_Settings "CheckChangeLog" "DISABLED"
-        printf "Change-Log verification check is now ${REDct}disabled.${NOct}"
+        printf "${REDct}WARNING:${NOct} Disabling Change-Log check may risk unanticipated changes.\n"
+        printf "Only proceed if you review the change-logs manually.\n"
+        printf "\nProceed to disable? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "CheckChangeLog" "DISABLED"
+                printf "Change-Log verification check is now ${REDct}DISABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Change-Log verification check remains ${GRNct}ENABLED.${NOct}\n"
+                ;;
+        esac
     else
-        Update_Custom_Settings "CheckChangeLog" "ENABLED"
-        printf "Change-Log verification check is now ${GRNct}enabled.${NOct}"
+        printf "Are you sure you want to enable the Change-Log verification check? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "CheckChangeLog" "ENABLED"
+                printf "Change-Log verification check is now ${GRNct}ENABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Change-Log verification check remains ${REDct}DISABLED.${NOct}\n"
+                ;;
+        esac
     fi
 }
 
