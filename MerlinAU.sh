@@ -609,7 +609,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
-		 echo "CheckChangeLog Enabled"
+		 echo "CheckChangeLog ENABLED"
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -638,7 +638,7 @@ _Init_Custom_Settings_Config_()
    fi
    if ! grep -q "^CheckChangeLog" "$SETTINGSFILE"
    then
-       sed -i "5 i CheckChangeLog Enabled" "$SETTINGSFILE"
+       sed -i "5 i CheckChangeLog ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
    return "$retCode"
@@ -1353,12 +1353,12 @@ _GetLatestFWUpdateVersionFromWebsite_()
 
 _toggle_change_log_check_() {
     local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
-    if [ "$currentSetting" = "Enabled" ]; then
-        Update_Custom_Settings "CheckChangeLog" "Disabled"
-        echo "Change-Log Check is now disabled."
+    if [ "$currentSetting" = "ENABLED" ]; then
+        Update_Custom_Settings "CheckChangeLog" "DISABLED"
+        printf "Change-Log verification check is now ${REDct}disabled.${NOct}"
     else
-        Update_Custom_Settings "CheckChangeLog" "Enabled"
-        echo "Change-Log Check is now enabled."
+        Update_Custom_Settings "CheckChangeLog" "ENABLED"
+        printf "Change-Log verification check is now ${GRNct}enabled.${NOct}"
     fi
 }
 
@@ -1387,7 +1387,7 @@ change_build_type() {
     printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
 
     while true; do
-		printf "\n [${theADExitStr}] Enter your choice (y/n): "
+		printf "\n[${theADExitStr}] Enter your choice (y/n): "
 		read -r choice
 		choice="${choice:-$previous_choice}"
 		choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
@@ -1981,9 +1981,9 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2024-Jan-23] ##
     ##---------------------------------------##
-	local checkChangeLog="$(Get_Custom_Setting "CheckChangeLog")"
+	local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 	
-	if [ "$checkChangeLog" = "enabled" ]; then
+	if [ "$checkChangeLogSetting" = "ENABLED" ]; then
         # Define the path to the log file
         changelog_file="${FW_BIN_DIR}/Changelog-NG.txt"
 
@@ -2025,6 +2025,8 @@ Please manually update to version $minimum_supported_version or higher to use th
                 Say "No high-risk phrases found in the change-logs."
             fi
         fi
+	else
+        Say "Change-logs check disabled."
     fi
 
     # Detect ROG and pure firmware files
@@ -2467,18 +2469,6 @@ A USB drive is required for F/W updates.\n"
    # In the show_menu function, add an option for Advanced Options
    printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
-   # Retrieve the current build type setting
-   local current_build_type=$(Get_Custom_Setting "ROGBuild")
-
-   # Convert the setting to a descriptive text
-   if [ "$current_build_type" = "y" ]; then
-        current_build_type_menu="ROG Build"
-   elif [ "$current_build_type" = "n" ]; then
-        current_build_type_menu="Pure Build"
-   else
-        current_build_type_menu="Not Set"
-   fi
-
    # Check for new script updates #
    if [ "$UpdateNotify" != "0" ]; then
       printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
@@ -2509,11 +2499,33 @@ _advanced_options_menu_() {
 
         printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
         printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+		
+        # Retrieve the current build type setting
+        local current_build_type=$(Get_Custom_Setting "ROGBuild")
+
+        # Convert the setting to a descriptive text
+        if [ "$current_build_type" = "y" ]; then
+            current_build_type_menu="ROG Build"
+        elif [ "$current_build_type" = "n" ]; then
+            current_build_type_menu="Pure Build"
+        else
+            current_build_type_menu="NOT SET"
+        fi
+		
         if echo "$PRODUCT_ID" | grep -q "^GT-"; then
             printf "\n  ${GRNct}4${NOct}.  Change ROG F/W Build Type"
-            printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+            if [ "$current_build_type_menu" = "NOT SET" ]
+            then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+            else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+			fi
         fi
-        printf "\n  ${GRNct}5${NOct}.  Toggle Change-Log Check\n"
+        printf "\n  ${GRNct}5${NOct}.  Toggle Change-Log Check"
+		
+        local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+        if [ "$checkChangeLogSetting" = "DISABLED" ]
+        then printf "\n${padStr}[Currently: ${REDct}${checkChangeLogSetting}${NOct}]\n"
+        else printf "\n${padStr}[Currently: ${GRNct}${checkChangeLogSetting}${NOct}]\n"
+		fi
 
         printf "\n  ${GRNct}e${NOct}.  Exit to Main Menu\n"
         printf "${SEPstr}"
