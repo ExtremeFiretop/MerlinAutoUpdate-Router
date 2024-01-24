@@ -2541,11 +2541,11 @@ _advanced_options_menu_() {
                ;;
             3) _Set_FW_UpdateLOG_DirectoryPath_
                ;;
-            4) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
+            4) _toggle_change_log_check_ && _WaitForEnterKey_
+               ;;
+            5) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
                    change_build_type && _WaitForEnterKey_
                fi
-               ;;
-            5) _toggle_change_log_check_ && _WaitForEnterKey_
                ;;
             e|exit) break
                ;;
