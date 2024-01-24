@@ -7,6 +7,7 @@
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
  - RT-AX86U (Tested)
+ - XT12 (Tested)
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 Blocked due to low RAM/ROM space and/or have not received updates in several years.
