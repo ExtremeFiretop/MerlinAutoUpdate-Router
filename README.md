@@ -36,7 +36,6 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AX56U (Untested)
  - RT-AX58U (Untested)
  - RT-AX3000 (Untested)
- - XT12 (Untested)
 
  ## TESTERS NEEDED!
  - If you see your router listed as untested above, feel free to test and report any issues.
