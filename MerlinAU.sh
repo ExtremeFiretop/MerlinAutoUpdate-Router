@@ -609,7 +609,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
-		 echo "CheckChangeLog ENABLED"
+         echo "CheckChangeLog ENABLED"
       } > "$SETTINGSFILE"
       return 1
    fi
