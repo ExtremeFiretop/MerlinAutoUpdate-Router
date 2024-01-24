@@ -2004,7 +2004,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             changelog_contents=$(awk "/$formatted_release_version/,/$formatted_current_version/" "$changelog_file")
 
             # Define high-risk terms as a single string separated by '|'
-            high_risk_terms="factory default reset|dropped support|features are disabled|break backward compatibility|must be manually|strongly recommended"
+            high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
             # Search for high-risk terms in the extracted log contents
             if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
@@ -2527,7 +2527,7 @@ _advanced_options_menu_() {
         else printf "\n${padStr}[Currently: ${GRNct}${checkChangeLogSetting}${NOct}]\n"
 		fi
 
-        printf "\n  ${GRNct}e${NOct}.  Exit to Main Menu\n"
+        printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
         printf "${SEPstr}"
 
         printf "\nEnter selection:  "
