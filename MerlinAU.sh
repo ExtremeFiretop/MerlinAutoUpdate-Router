@@ -609,6 +609,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
+		 echo "CheckChangeLog Enabled"
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -635,6 +636,11 @@ _Init_Custom_Settings_Config_()
        retCode=1
        # Default log directory path can be changed as needed
    fi
+   if ! grep -q "^CheckChangeLog" "$SETTINGSFILE"
+   then
+       sed -i "5 i CheckChangeLog Enabled" "$SETTINGSFILE"
+       retCode=1
+   fi
    return "$retCode"
 }
 
@@ -652,7 +658,7 @@ Get_Custom_Setting()
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "ROGBuild" | "credentials_base64" | \
+            "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -688,7 +694,7 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "ROGBuild" | "credentials_base64" | \
+        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
@@ -1341,6 +1347,21 @@ _GetLatestFWUpdateVersionFromWebsite_()
     echo "$correct_link"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-23] ##
+##---------------------------------------##
+
+_toggle_change_log_check_() {
+    local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
+    if [ "$currentSetting" = "Enabled" ]; then
+        Update_Custom_Settings "CheckChangeLog" "Disabled"
+        echo "Change-Log Check is now disabled."
+    else
+        Update_Custom_Settings "CheckChangeLog" "Enabled"
+        echo "Change-Log Check is now enabled."
+    fi
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-07] ##
 ##------------------------------------------##
@@ -1960,45 +1981,49 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2024-Jan-23] ##
     ##---------------------------------------##
-    # Define the path to the log file
-    changelog_file="${FW_BIN_DIR}/Changelog-NG.txt"
+	local checkChangeLog="$(Get_Custom_Setting "CheckChangeLog")"
+	
+	if [ "$checkChangeLog" = "enabled" ]; then
+        # Define the path to the log file
+        changelog_file="${FW_BIN_DIR}/Changelog-NG.txt"
 
-    # Check if the log file exists
-    if [ ! -f "$changelog_file" ]; then
-        Say "Change-log file does not exist at $changelog_file"
-        _DoCleanUp_
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
-    else
-        # Format current_version by removing the last '.0'
-        formatted_current_version=$(echo $current_version | awk -F. '{print $1"."$2}')
+        # Check if the log file exists
+        if [ ! -f "$changelog_file" ]; then
+            Say "Change-log file does not exist at $changelog_file"
+            _DoCleanUp_
+            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+            return 1
+        else
+            # Format current_version by removing the last '.0'
+            formatted_current_version=$(echo $current_version | awk -F. '{print $1"."$2}')
 
-        # Format release_version by removing the prefix '3004.' and the last '.0'
-        formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
+            # Format release_version by removing the prefix '3004.' and the last '.0'
+            formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
 
-        # Extract log contents between two firmware versions
-        changelog_contents=$(awk "/$formatted_release_version/,/$formatted_current_version/" "$changelog_file")
+            # Extract log contents between two firmware versions
+            changelog_contents=$(awk "/$formatted_release_version/,/$formatted_current_version/" "$changelog_file")
 
-        # Define high-risk terms as a single string separated by '|'
-        high_risk_terms="factory default reset|dropped support|features are disabled|break backward compatibility|must be manually|strongly recommended"
+            # Define high-risk terms as a single string separated by '|'
+            high_risk_terms="factory default reset|dropped support|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
-        # Search for high-risk terms in the extracted log contents
-        if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
-            if [ "$inMenuMode" = true ]; then
-                printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
-                printf "\n ${REDct}Would you like to continue anyways?${NOct}"
-                if ! _WaitForYESorNO_ ; then
-                    Say "Exiting for change-log review."
-                    _DoCleanUp_
-                    return 1
+            # Search for high-risk terms in the extracted log contents
+            if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+                if [ "$inMenuMode" = true ]; then
+                    printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
+                    printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                    if ! _WaitForYESorNO_ ; then
+                        Say "Exiting for change-log review."
+                        _DoCleanUp_
+                        return 1
+                    fi
+                else
+                    Say "Warning: Found high-risk phrases in the change-logs."
+                    Say "Please run script interactively to approve the flash."
+                    _DoExit_ 1
                 fi
             else
-                Say "Warning: Found high-risk phrases in the change-logs."
-                Say "Please run script interactively to approve the flash."
-                _DoExit_ 1
+                Say "No high-risk phrases found in the change-logs."
             fi
-        else
-            Say "No high-risk phrases found in the change-logs."
         fi
     fi
 
@@ -2488,6 +2513,8 @@ _advanced_options_menu_() {
             printf "\n  ${GRNct}4${NOct}.  Change ROG F/W Build Type"
             printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
         fi
+        printf "\n  ${GRNct}5${NOct}.  Toggle Change-Log Check\n"
+
         printf "\n  ${GRNct}e${NOct}.  Exit to Main Menu\n"
         printf "${SEPstr}"
 
@@ -2504,6 +2531,8 @@ _advanced_options_menu_() {
             4) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
                    change_build_type && _WaitForEnterKey_
                fi
+               ;;
+            5) _toggle_change_log_check_ && _WaitForEnterKey_
                ;;
             e|exit) break
                ;;
