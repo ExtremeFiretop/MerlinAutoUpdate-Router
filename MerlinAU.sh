@@ -2500,7 +2500,15 @@ _advanced_options_menu_() {
         printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
         printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 		
-        # Retrieve the current build type setting
+        printf "\n  ${GRNct}4${NOct}.  Toggle Change-Log Check"
+		
+        local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+        if [ "$checkChangeLogSetting" = "DISABLED" ]
+        then printf "\n${padStr}[Currently: ${REDct}${checkChangeLogSetting}${NOct}]\n"
+        else printf "\n${padStr}[Currently: ${GRNct}${checkChangeLogSetting}${NOct}]\n"
+		fi
+		
+		# Retrieve the current build type setting
         local current_build_type=$(Get_Custom_Setting "ROGBuild")
 
         # Convert the setting to a descriptive text
@@ -2513,19 +2521,12 @@ _advanced_options_menu_() {
         fi
 		
         if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-            printf "\n  ${GRNct}4${NOct}.  Change ROG F/W Build Type"
+            printf "\n  ${GRNct}5${NOct}.  Change ROG F/W Build Type"
             if [ "$current_build_type_menu" = "NOT SET" ]
             then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
             else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
 			fi
         fi
-        printf "\n  ${GRNct}5${NOct}.  Toggle Change-Log Check"
-		
-        local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
-        if [ "$checkChangeLogSetting" = "DISABLED" ]
-        then printf "\n${padStr}[Currently: ${REDct}${checkChangeLogSetting}${NOct}]\n"
-        else printf "\n${padStr}[Currently: ${GRNct}${checkChangeLogSetting}${NOct}]\n"
-		fi
 
         printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
         printf "${SEPstr}"
