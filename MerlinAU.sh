@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-22
+# Last Modified: 2024-Jan-23
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.55"
+readonly SCRIPT_VERSION="0.2.56"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -609,6 +609,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
+		 echo "CheckChangeLog ENABLED"
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -635,6 +636,11 @@ _Init_Custom_Settings_Config_()
        retCode=1
        # Default log directory path can be changed as needed
    fi
+   if ! grep -q "^CheckChangeLog" "$SETTINGSFILE"
+   then
+       sed -i "5 i CheckChangeLog ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
    return "$retCode"
 }
 
@@ -652,7 +658,7 @@ Get_Custom_Setting()
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "ROGBuild" | "credentials_base64" | \
+            "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -688,7 +694,7 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "ROGBuild" | "credentials_base64" | \
+        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
@@ -759,7 +765,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
    while true
    do
       printf "\nEnter the directory path where the LOG subdirectory [${GRNct}${FW_LOG_SUBDIR}${NOct}] will be stored.\n"
-      printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
+      printf "[${theADExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
@@ -842,7 +848,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
    while true
    do
       printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
-      printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+      printf "[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
@@ -1341,6 +1347,42 @@ _GetLatestFWUpdateVersionFromWebsite_()
     echo "$correct_link"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-23] ##
+##---------------------------------------##
+
+_toggle_change_log_check_() {
+    local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
+
+    if [ "$currentSetting" = "ENABLED" ]; then
+        printf "${REDct}WARNING:${NOct} Disabling Change-Log check may risk unanticipated changes.\n"
+        printf "Only proceed if you review the change-logs manually.\n"
+        printf "\nProceed to disable? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "CheckChangeLog" "DISABLED"
+                printf "Change-Log verification check is now ${REDct}DISABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Change-Log verification check remains ${GRNct}ENABLED.${NOct}\n"
+                ;;
+        esac
+    else
+        printf "Are you sure you want to enable the Change-Log verification check? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "CheckChangeLog" "ENABLED"
+                printf "Change-Log verification check is now ${GRNct}ENABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Change-Log verification check remains ${REDct}DISABLED.${NOct}\n"
+                ;;
+        esac
+    fi
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-07] ##
 ##------------------------------------------##
@@ -1366,7 +1408,7 @@ change_build_type() {
     printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
 
     while true; do
-		printf "\n [${theExitStr}] Enter your choice (y/n): "
+		printf "\n[${theADExitStr}] Enter your choice (y/n): "
 		read -r choice
 		choice="${choice:-$previous_choice}"
 		choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
@@ -1542,8 +1584,8 @@ _Set_FW_UpdateCronSchedule_()
     while true; do  # Loop to keep asking for input
         printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * 0${NOct}' for every Sunday at midnight)"
         if [ -z "$current_schedule" ]
-        then printf "\n[${theExitStr}] [Default Schedule: ${GRNct}${new_schedule}${NOct}]:  "
-        else printf "\n[${theExitStr}] [Current Schedule: ${GRNct}${current_schedule}${NOct}]:  "
+        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${new_schedule}${NOct}]:  "
+        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${current_schedule}${NOct}]:  "
         fi
         read -r userInput
 
@@ -1748,11 +1790,11 @@ _RunFirmwareUpdateNow_()
             printf "\nWould you like to uninstall the script now?"
             if _WaitForYESorNO_; then
                 _DoUninstall_
-                return 1
+                return 0
             else
                 Say "Uninstallation cancelled. Exiting script."
                 _WaitForEnterKey_ "$menuReturnPromptStr"
-                return 1
+                return 0
             fi
         else
             Say "Exiting script due to unsupported router model."
@@ -1790,7 +1832,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "Using temporary fallback directory: /home/root"
-        "$inMenuMode" && { _WaitForYESorNO_ "Continue" || return 1 ; }
+        "$inMenuMode" && { _WaitForYESorNO_ "Continue?" || return 1 ; }
         # Continue #
         FW_ZIP_BASE_DIR="/home/root"
         FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
@@ -1810,7 +1852,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Get current firmware version #
     current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    ##FOR DEBUG ONLY##current_version="388.3.0"
+    ##FOR DEBUG ONLY##current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -1909,9 +1951,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    ##---------------------------------------##
-    ## Added by ExtremeFiretop [2024-Jan-22] ##
-    ##---------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jan-22] ##
+    ##------------------------------------------##
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
@@ -1956,6 +1998,57 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
+	
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2024-Jan-23] ##
+    ##---------------------------------------##
+	local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+	
+	if [ "$checkChangeLogSetting" = "ENABLED" ]; then
+        # Define the path to the log file
+        changelog_file="${FW_BIN_DIR}/Changelog-NG.txt"
+
+        # Check if the log file exists
+        if [ ! -f "$changelog_file" ]; then
+            Say "Change-log file does not exist at $changelog_file"
+            _DoCleanUp_
+            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+            return 1
+        else
+            # Format current_version by removing the last '.0'
+            formatted_current_version=$(echo $current_version | awk -F. '{print $1"."$2}')
+
+            # Format release_version by removing the prefix '3004.' and the last '.0'
+            formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
+
+            # Extract log contents between two firmware versions
+            changelog_contents=$(awk "/$formatted_release_version/,/$formatted_current_version/" "$changelog_file")
+
+            # Define high-risk terms as a single string separated by '|'
+            high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
+
+            # Search for high-risk terms in the extracted log contents
+            if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+                if [ "$inMenuMode" = true ]; then
+                    printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
+                    printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                    if ! _WaitForYESorNO_ ; then
+                        Say "Exiting for change-log review."
+                        _DoCleanUp_
+                        return 1
+                    fi
+                else
+                    Say "Warning: Found high-risk phrases in the change-logs."
+                    Say "Please run script interactively to approve the flash."
+                    _DoExit_ 1
+                fi
+            else
+                Say "No high-risk phrases found in the change-logs."
+            fi
+        fi
+	else
+        Say "Change-logs check disabled."
+    fi
 
     # Detect ROG and pure firmware files
     rog_file="$(ls | grep -i '_rog_')"
@@ -2024,7 +2117,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
         printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
         printf "Once started, the flashing process CANNOT be interrupted.\n"
-        if ! _WaitForYESorNO_ "Continue"
+        if ! _WaitForYESorNO_ "Continue?"
         then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
     fi
 
@@ -2319,7 +2412,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-22] ##
+## Modified by ExtremeFiretop [2024-Jan-23] ##
 ##------------------------------------------##
 show_menu()
 {
@@ -2393,33 +2486,9 @@ A USB drive is required for F/W updates.\n"
 
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
-
-   printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
-   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
-
-   printf "\n  ${GRNct}6${NOct}.  Set Directory for F/W Update ZIP File"
-   printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
-
-   printf "\n  ${GRNct}7${NOct}.  Set Directory for F/W Update Log Files"
-   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
-
-   # Retrieve the current build type setting
-   local current_build_type=$(Get_Custom_Setting "ROGBuild")
-
-   # Convert the setting to a descriptive text
-   if [ "$current_build_type" = "y" ]; then
-        current_build_type_menu="ROG Build"
-   elif [ "$current_build_type" = "n" ]; then
-        current_build_type_menu="Pure Build"
-   else
-        current_build_type_menu="Not Set"
-   fi
-
-   if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-      # Display the option with the current build type
-      printf "\n  ${GRNct}8${NOct}.  Change ROG F/W Build Type"
-      printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
-   fi
+   
+   # In the show_menu function, add an option for Advanced Options
+   printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
    # Check for new script updates #
    if [ "$UpdateNotify" != "0" ]; then
@@ -2432,8 +2501,84 @@ A USB drive is required for F/W updates.\n"
    printf "${SEPstr}\n"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-23] ##
+##---------------------------------------##
+
+_advanced_options_menu_() {
+	theADExitStr="${GRNct}e${NOct}=Exit to advanced menu"
+    while true; do
+        clear
+        logo
+        printf "=============== Advanced Options Menu ===============\n"
+        printf "${SEPstr}\n"
+        printf "\n  ${GRNct}1${NOct}.  Set F/W Update Check Schedule"
+        printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+
+        printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update ZIP File"
+        printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
+
+        printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
+        printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+		
+        printf "\n  ${GRNct}4${NOct}.  Toggle Change-Log Check"
+		
+        local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+        if [ "$checkChangeLogSetting" = "DISABLED" ]
+        then printf "\n${padStr}[Currently: ${REDct}${checkChangeLogSetting}${NOct}]\n"
+        else printf "\n${padStr}[Currently: ${GRNct}${checkChangeLogSetting}${NOct}]\n"
+		fi
+		
+		# Retrieve the current build type setting
+        local current_build_type=$(Get_Custom_Setting "ROGBuild")
+
+        # Convert the setting to a descriptive text
+        if [ "$current_build_type" = "y" ]; then
+            current_build_type_menu="ROG Build"
+        elif [ "$current_build_type" = "n" ]; then
+            current_build_type_menu="Pure Build"
+        else
+            current_build_type_menu="NOT SET"
+        fi
+		
+        if echo "$PRODUCT_ID" | grep -q "^GT-"; then
+            printf "\n  ${GRNct}5${NOct}.  Change ROG F/W Build Type"
+            if [ "$current_build_type_menu" = "NOT SET" ]
+            then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+            else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+			fi
+        fi
+
+        printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
+        printf "${SEPstr}"
+
+        printf "\nEnter selection:  "
+        read -r advancedChoice
+        echo
+        case $advancedChoice in
+            1) _Set_FW_UpdateCronSchedule_
+               ;;
+            2) _Set_FW_UpdateZIP_DirectoryPath_
+               ;;
+            3) _Set_FW_UpdateLOG_DirectoryPath_
+               ;;
+            4) _toggle_change_log_check_ && _WaitForEnterKey_
+               ;;
+            5) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
+                   change_build_type && _WaitForEnterKey_
+               fi
+               ;;
+            e|exit) break
+               ;;
+            *) printf "${REDct}INVALID selection.${NOct} Please try again."
+               _WaitForEnterKey_
+               ;;
+        esac
+    done
+}
+
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-22] ##
+## Modified by ExtremeFiretop [2024-Jan-23] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -2462,14 +2607,7 @@ do
           ;;
        4) _Set_FW_UpdatePostponementDays_
           ;;
-       5) _Set_FW_UpdateCronSchedule_
-          ;;
-       6) _Set_FW_UpdateZIP_DirectoryPath_
-          ;;
-       7) _Set_FW_UpdateLOG_DirectoryPath_
-          ;;
-       8) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-          change_build_type && _WaitForEnterKey_ ; fi
+      ad) _advanced_options_menu_
           ;;
       up) _SCRIPTUPDATE_
           ;;
