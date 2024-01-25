@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-23
+# Last Modified: 2024-Jan-24
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.56"
+readonly SCRIPT_VERSION="0.2.57"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -50,6 +50,21 @@ readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/${ScriptFNameTag}.d"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+#-------------------------------------------------------#
+# We'll use the built-in AMTM email configuration file
+# to send email notifications *IF* enabled by the user.
+#-------------------------------------------------------#
+readonly FW_UpdateEMailNotificationDefault=false
+readonly amtmMailDirPath="/jffs/addons/amtm/mail"
+readonly amtmMailConfFile="${amtmMailDirPath}/email.conf"
+readonly amtmMailPswdFile="${amtmMailDirPath}/emailpw.enc"
+readonly tempEMailContent="/tmp/var/tmp/tempEMailContent.$$.TXT"
+readonly tempEMailBodyMsg="/tmp/var/tmp/tempEMailBodyMsg.$$.TXT"
+readonly saveEMailInfoMsg="${SETTINGS_DIR}/savedEMailInfoMsg.SAVE.TXT"
 
 cronCmd="$(which crontab) -l"
 [ "$cronCmd" = " -l" ] && cronCmd="$(which cru) l"
@@ -257,7 +272,7 @@ Toggle_LEDs()
 _Reset_LEDs_()
 {
    local doTrace=false
-   [ $# -gt 0 ] && [ "$1" -eq 1 ] && doTrace=true
+   [ $# -gt 0 ] && [ "$1" -eq 1 ] && doTrace=false
    if "$doTrace"
    then
        Say "START _Reset_LEDs_"
@@ -593,9 +608,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-24] ##
+##----------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -606,6 +621,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Notification_Date TBD"
          echo "FW_New_Update_Notification_Vers TBD"
          echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays"
+         echo "FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault"
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
@@ -615,37 +631,51 @@ _Init_Custom_Settings_Config_()
    fi
    local retCode=0
 
+   if ! grep -q "^FW_New_Update_Notification_Date " "$SETTINGSFILE"
+   then
+       sed -i "1 i FW_New_Update_Notification_Date TBD" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_Notification_Vers " "$SETTINGSFILE"
+   then
+       sed -i "2 i FW_New_Update_Notification_Vers TBD" "$SETTINGSFILE"
+       retCode=1
+   fi
    if ! grep -q "^FW_New_Update_Postponement_Days=" "$SETTINGSFILE"
    then
-       sed -i "1 i FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" "$SETTINGSFILE"
+       sed -i "3 i FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_EMail_Notification=" "$SETTINGSFILE"
+   then
+       sed -i "4 i FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_Cron_Job_Schedule=" "$SETTINGSFILE"
    then
-       sed -i "2 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$SETTINGSFILE"
+       sed -i "5 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_ZIP_Directory_Path=" "$SETTINGSFILE"
    then
-       sed -i "3 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
+       sed -i "6 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_LOG_Directory_Path=" "$SETTINGSFILE"
    then
-       sed -i "4 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
+       sed -i "7 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
        retCode=1
-       # Default log directory path can be changed as needed
    fi
    if ! grep -q "^CheckChangeLog" "$SETTINGSFILE"
    then
-       sed -i "5 i CheckChangeLog ENABLED" "$SETTINGSFILE"
+       sed -i "8 i CheckChangeLog ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
    return "$retCode"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-06] ##
+## Modified by Martinski W. [2024-Jan-24] ##
 ##----------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
@@ -666,7 +696,8 @@ Get_Custom_Setting()
             "FW_New_Update_Postponement_Days"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
-            "FW_New_Update_LOG_Directory_Path")
+            "FW_New_Update_LOG_Directory_Path" | \
+            "FW_New_Update_EMail_Notification")
                 grep -q "^${setting_type}=" "$SETTINGSFILE" && \
                 setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
                 ;;
@@ -712,7 +743,8 @@ Update_Custom_Settings()
         "FW_New_Update_Postponement_Days"  | \
         "FW_New_Update_Cron_Job_Schedule"  | \
         "FW_New_Update_ZIP_Directory_Path" | \
-        "FW_New_Update_LOG_Directory_Path")  # Added this line
+        "FW_New_Update_LOG_Directory_Path" | \
+        "FW_New_Update_EMail_Notification")
             if [ -f "$SETTINGSFILE" ]
             then
                 if grep -q "^${setting_type}=" "$SETTINGSFILE"
@@ -732,6 +764,10 @@ Update_Custom_Settings()
             if [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
             then
                 FW_UpdatePostponementDays="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_EMail_Notification" ]
+            then
+                sendEMailNotificationsFlag="$setting_value"
             #
             elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
             then
@@ -951,6 +987,10 @@ readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 # Postponement Days for F/W Update Check #
 FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 
+# F/W Update Email Notifications #
+isEMailConfigEnabledInAMTM=false
+sendEMailNotificationsFlag="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
+
 # Define the CRON job command to execute #
 FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
 readonly CRON_JOB_RUN="sh $ScriptFilePath run_now"
@@ -962,11 +1002,204 @@ readonly CRON_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $CRON_SCRIPT_JOB"
 readonly POST_REBOOT_SCRIPT_JOB="sh $ScriptFilePath postRebootRun &  $hookScriptTagStr"
 readonly POST_REBOOT_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_REBOOT_SCRIPT_JOB"
 
+# Define post-update email notification job command to execute #
+readonly POST_UPDATE_EMAIL_SCRIPT_JOB="sh $ScriptFilePath postUpdateEmail &  $hookScriptTagStr"
+readonly POST_UPDATE_EMAIL_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_UPDATE_EMAIL_SCRIPT_JOB"
+
 if [ -d "$FW_LOG_DIR" ]
 then
     # Log rotation - delete logs older than 30 days #
     find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_CreateEMailContent_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local fwInstalledVersion  fwNewUpdateVersion  subjectStr
+   local savedInstalledVersion  savedNewUpdateVersion
+
+   rm -f "$tempEMailContent" "$tempEMailBodyMsg"
+
+   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+   fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   subjectStr="F/W Update Status for $MODEL_ID"
+
+   case "$1" in
+       FW_UPDATE_TEST_EMAIL)
+           {
+             echo
+             echo "TESTING:"
+             echo "This is a test of the F/W Update email notification from $MODEL_ID router."
+             printf "\nThe F/W version that is currently installed:\n${fwInstalledVersion}\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       NEW_FW_UPDATE_STATUS)
+           {
+             echo
+             echo "A new F/W Update version $fwNewUpdateVersion is available for $MODEL_ID router."
+             printf "\nThe F/W version that is currently installed:\n${fwInstalledVersion}\n"
+             printf "\nNumber of days to postpone flashing the new F/W Update version: ${FW_UpdatePostponementDays}\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       START_FW_UPDATE_STATUS)
+           {
+             echo
+             echo "Started flashing the new F/W Update version $fwNewUpdateVersion on $MODEL_ID router."
+             printf "\nThe F/W version that is currently installed:\n${fwInstalledVersion}\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       FAILED_FW_UPDATE_STATUS)
+           {
+             echo
+             echo "**ERROR**:"
+             echo "Flashing of new F/W Update version $fwNewUpdateVersion for $MODEL_ID router failed."
+             printf "\nThe F/W version that is currently installed:\n${fwInstalledVersion}\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       POST_REBOOT_FW_UPDATE_SETUP)
+           {
+              echo "FW_InstalledVersion=$fwInstalledVersion"
+              echo "FW_NewUpdateVersion=$fwNewUpdateVersion"
+           } > "$saveEMailInfoMsg"
+           _AddPostUpdateEmailNotifyScriptHook_
+           return 0
+           ;;
+       POST_REBOOT_FW_UPDATE_STATUS)
+           if [ ! -f "$saveEMailInfoMsg" ]
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [No saved info file]."
+               return 1
+           fi
+           savedInstalledVersion="$(cat "$saveEMailInfoMsg" | grep "FW_InstalledVersion=" | awk -F '=' '{print $2}')"
+           savedNewUpdateVersion="$(cat "$saveEMailInfoMsg" | grep "FW_NewUpdateVersion=" | awk -F '=' '{print $2}')"
+           if [ -z "$savedInstalledVersion" ] || [ -z "$savedNewUpdateVersion" ]
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [Saved info is empty]."
+               return 1
+           fi
+           if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ] && \
+              [ "$savedInstalledVersion" != "$fwInstalledVersion" ]
+           then
+              {
+                echo
+                echo "Flashing of new F/W Update version $fwInstalledVersion for $MODEL_ID router was successful."
+                printf "\nThe F/W version that was previously installed:\n${savedInstalledVersion}\n\n"
+              } > "$tempEMailBodyMsg"
+           else
+              {
+                echo
+                echo "**ERROR**:"
+                echo "Flashing of new F/W Update version $savedNewUpdateVersion for $MODEL_ID router failed."
+                printf "\nThe F/W version that is currently installed:\n${fwInstalledVersion}\n\n"
+              } > "$tempEMailBodyMsg"
+           fi
+           rm -f "$saveEMailInfoMsg"
+           ;;
+       *) return 1
+           ;;
+   esac
+
+   ## Header ##
+   cat <<EOF > "$tempEMailContent"
+From: "$FROM_NAME" <$FROM_ADDRESS>
+To: "$TO_NAME" <$TO_ADDRESS>
+Subject: $subjectStr
+Date: $(date -R)
+EOF
+
+   cat "$tempEMailBodyMsg" >> "$tempEMailContent"
+   rm -f "$tempEMailBodyMsg"
+
+   ## Footer ##
+   cat <<EOF >> "$tempEMailContent"
+Sent by the "$ScriptFNameTag" Utility.
+From the "${FRIENDLY_ROUTER_NAME}" router.
+
+$(date +"%Y-%b-%d, %I:%M:%S %p %Z (%a)")
+EOF
+    return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_CheckEMailConfigFileFromAMTM_()
+{
+   local doLogMsgs
+
+   if [ $# -gt 0 ] && [ "$1" -eq 1 ]
+   then doLogMsgs=true
+   else doLogMsgs=false
+   fi
+
+   isEMailConfigEnabledInAMTM=false
+
+   if [ ! -f "$amtmMailConfFile" ] || [ ! -f "$amtmMailPswdFile" ]
+   then
+       "$doLogMsgs" && \
+       Say "${REDct}**ERROR**${NOct}: Unable to send email notification [No config file]."
+       return 1
+   fi
+
+   FROM_NAME=""  TO_NAME=""  FROM_ADDRESS=""  TO_ADDRESS=""
+   USERNAME=""  SMTP=""  PORT=""  PROTOCOL=""  emailPwEnc=""
+
+   . "$amtmMailConfFile"
+
+   if [ -z "$TO_NAME" ] || [ -z "$USERNAME" ] || \
+      [ -z "$FROM_ADDRESS" ] || [ -z "$TO_ADDRESS" ] || \
+      [ -z "$SMTP" ] || [ -z "$PORT" ] || [ -z "$PROTOCOL" ] || [ -z "$emailPwEnc" ]
+   then
+       "$doLogMsgs" && \
+       Say "${REDct}**ERROR**${NOct}: Unable to send email notification [Empty variables]."
+       return 1
+   fi
+
+   isEMailConfigEnabledInAMTM=true
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_SendEMailNotification_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ]  || \
+   ! "$sendEMailNotificationsFlag" || \
+   ! _CheckEMailConfigFileFromAMTM_ 1
+   then return 1 ; fi
+
+   [ -z "$FROM_NAME" ] && FROM_NAME="$ScriptFNameTag"
+   [ -z "$FRIENDLY_ROUTER_NAME" ] && FRIENDLY_ROUTER_NAME="$MODEL_ID"
+
+   ! _CreateEMailContent_ "$1" && return 1
+
+   [ "$1" = "POST_REBOOT_FW_UPDATE_SETUP" ] && return 0
+
+   printf "\nSending email notification [$1]...\n"
+
+   echo "$(date +"$LOGdateFormat")" > "$userTraceFile"
+
+   /usr/sbin/curl --url ${PROTOCOL}://${SMTP}:${PORT} \
+   --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" \
+   --user "${USERNAME}:$(/usr/sbin/openssl aes-256-cbc $emailPwEnc -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)" \
+   --upload-file "$tempEMailContent" \
+   $SSL_FLAG --ssl-reqd --crlf >> "$userTraceFile" 2>&1
+
+   if [ "$?" -eq 0 ]
+   then
+       sleep 2
+       rm -f "$tempEMailContent"
+       Say "The email notification was sent successfully [$1]."
+   else
+       Say "${REDct}**ERROR**${NOct}: Failure to send email notification [$1]."
+   fi
+
+   return 0
+}
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Oct-12] ##
@@ -986,6 +1219,68 @@ _CreateDirectory_()
     # Clear directory in case any previous files still exist #
     rm -f "${1}"/*
     return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_DelPostUpdateEmailNotifyScriptHook_()
+{
+   local hookScriptFile
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then hookScriptFile="$1"
+   else hookScriptFile="$hookScriptFPath"
+   fi
+   if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
+
+   if grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
+   then
+       sed -i -e '/\/'"$ScriptFileName"' postUpdateEmail &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       if [ $? -eq 0 ]
+       then
+           Say "Post-update email notification hook was deleted successfully from '$hookScriptFile' script."
+       fi
+   else
+       Say "${GRNct}Post-update email notification hook is not found in '$hookScriptFile' script.${NOct}"
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_AddPostUpdateEmailNotifyScriptHook_()
+{
+   local hookScriptFile  jobHookAdded=false
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then hookScriptFile="$1"
+   else hookScriptFile="$hookScriptFPath"
+   fi
+
+   if [ ! -f "$hookScriptFile" ]
+   then
+      jobHookAdded=true
+      {
+        echo "#!/bin/sh"
+        echo "# $hookScriptFName"
+        echo "#"
+        echo "$POST_UPDATE_EMAIL_SCRIPT_HOOK"
+      } > "$hookScriptFile"
+   #
+   elif ! grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
+   then
+      jobHookAdded=true
+      echo "$POST_UPDATE_EMAIL_SCRIPT_HOOK" >> "$hookScriptFile"
+   fi
+   chmod 0755 "$hookScriptFile"
+
+   if "$jobHookAdded"
+   then Say "Post-update email notification hook was added successfully to '$hookScriptFile' script."
+   else Say "Post-update email notification hook already exists in '$hookScriptFile' script."
+   fi
+
+   "$isInteractive" && _WaitForEnterKey_
 }
 
 ##----------------------------------------------##
@@ -1197,7 +1492,7 @@ _DoCleanUp_()
    local delBINfiles=false  keepZIPfile=false  moveZIPback=false
 
    local doTrace=false
-   [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=true
+   [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=false
    if "$doTrace"
    then
        Say "\nSTART _DoCleanUp_"
@@ -1350,13 +1645,12 @@ _GetLatestFWUpdateVersionFromWebsite_()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-23] ##
 ##---------------------------------------##
-
 _toggle_change_log_check_() {
     local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
     if [ "$currentSetting" = "ENABLED" ]; then
-        printf "${REDct}WARNING:${NOct} Disabling Change-Log check may risk unanticipated changes.\n"
-        printf "Only proceed if you review the change-logs manually.\n"
+        printf "${REDct}*WARNING*:${NOct} Disabling Change-Log check may risk unanticipated changes.\n"
+        printf "The advise is to proceed only if you review the change-logs manually.\n"
         printf "\nProceed to disable? [y/N]: "
         read -r response
         case $response in
@@ -1631,9 +1925,9 @@ _Set_FW_UpdateCronSchedule_()
     return "$retCode"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-12] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-24] ##
+##----------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -1667,6 +1961,7 @@ _CheckNewUpdateFirmwareNotification_()
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
+           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
    fi
 
@@ -1675,6 +1970,7 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
+       _SendEMailNotification_ NEW_FW_UPDATE_STATUS
    fi
    return 0
 }
@@ -1716,9 +2012,51 @@ _CheckTimeToUpdateFirmware_()
    upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
    upfwDateTimeStrn="$(echo "$upfwDateTimeSecs" | awk '{print strftime("%Y-%b-%d",$1)}')"
 
-   Say "The firmware update to '${2}' version is postponed for '${fwNewUpdatePostponementDays}' day(s)."
-   Say "The firmware update is expected to occur on or after '${upfwDateTimeStrn}' depending on when your cron job is scheduled to check again."
+   Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
+   Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct} depending on when your cron job is scheduled to check again."
    return 1
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_Toggle_FW_UpdateEmailNotifications_()
+{
+   local emailNotificationEnabled  emailNotificationNewStateStr
+   local runEmailNotifyTestOK=false
+
+   if "$sendEMailNotificationsFlag"
+   then
+       emailNotificationEnabled=true
+       emailNotificationNewStateStr="${REDct}DISABLE${NOct}"
+   else
+       emailNotificationEnabled=false
+       emailNotificationNewStateStr="${GRNct}ENABLE${NOct}"
+   fi
+
+   if ! _WaitForYESorNO_ "Do you want to ${emailNotificationNewStateStr} F/W Update email notifications?"
+   then return 1 ; fi
+
+   if "$emailNotificationEnabled"
+   then
+       runEmailNotifyTestOK=false
+       sendEMailNotificationsFlag=false
+       emailNotificationNewStateStr="${REDct}DISABLED${NOct}"
+   else
+       runEmailNotifyTestOK=true
+       sendEMailNotificationsFlag=true
+       emailNotificationNewStateStr="${GRNct}ENABLED${NOct}"
+   fi
+
+   Update_Custom_Settings FW_New_Update_EMail_Notification "$sendEMailNotificationsFlag"
+   printf "F/W Update email notifications are now ${emailNotificationNewStateStr}.\n"
+
+   if "$runEmailNotifyTestOK" && \
+      _WaitForYESorNO_ "\nWould you like to run a test of the email notification?"
+   then
+       _SendEMailNotification_ FW_UPDATE_TEST_EMAIL
+   fi
+   _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
 ##------------------------------------------##
@@ -1998,13 +2336,13 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
-	
+
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2024-Jan-23] ##
     ##---------------------------------------##
-	local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
-	
-	if [ "$checkChangeLogSetting" = "ENABLED" ]; then
+    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+
+    if [ "$checkChangeLogSetting" = "ENABLED" ]; then
         # Define the path to the log file
         changelog_file="${FW_BIN_DIR}/Changelog-NG.txt"
 
@@ -2046,7 +2384,7 @@ Please manually update to version $minimum_supported_version or higher to use th
                 Say "No high-risk phrases found in the change-logs."
             fi
         fi
-	else
+    else
         Say "Change-logs check disabled."
     fi
 
@@ -2127,6 +2465,8 @@ Please manually update to version $minimum_supported_version or higher to use th
     #------------------------------------------------------------#
     /sbin/service restart_httpd && sleep 5
 
+    _SendEMailNotification_ START_FW_UPDATE_STATUS
+
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -2143,6 +2483,8 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
+        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
@@ -2191,10 +2533,41 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
 1. Confirm you are not already logged into the router using a web browser.
 2. Update credentials by selecting \"Configure Router Login Credentials\" from the Main Menu."
+
+        _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
     fi
 
     "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_PostUpdateEmailNotification_()
+{
+   _DelPostUpdateEmailNotifyScriptHook_
+
+   local theWaitDelaySecs=10
+   local maxWaitDelaySecs=360  #6 minutes#
+   local curWaitDelaySecs=0
+   #---------------------------------------------------------
+   # Wait until all services are started, including NTP
+   # so the system clock is updated with correct time.
+   #---------------------------------------------------------
+   while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   do
+      if [ "$(nvram get ntp_ready)" -eq 1 ] && \
+         [ "$(nvram get start_service_ready)" -eq 1 ] && \
+         [ "$(nvram get success_start_service)" -eq 1 ]
+      then sleep 30 ; break; fi
+
+      echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
+      sleep $theWaitDelaySecs
+      curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
+   done
+
+   _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
 ##-------------------------------------##
@@ -2288,9 +2661,9 @@ _AddCronJobRunScriptHook_()
    fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Dec-01] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-24] ##
+##----------------------------------------##
 _DoUninstall_()
 {
    printf "Are you sure you want to uninstall $ScriptFileName script now"
@@ -2299,6 +2672,8 @@ _DoUninstall_()
    _DelCronJobEntry_
    _DelCronJobRunScriptHook_
    _DelPostRebootRunScriptHook_
+   _DelPostUpdateEmailNotifyScriptHook_
+
    if rm -fr "$SETTINGS_DIR" && \
       rm -fr "${FW_BIN_BASE_DIR}/$ScriptFNameTag" && \
       rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag" && \
@@ -2327,8 +2702,13 @@ then Say "Exiting..." ; exit 1 ; fi
 check_model_support
 check_version_support
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_CheckEMailConfigFileFromAMTM_ 0
+
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-26] ##
+## Modified by Martinski W. [2024-Jan-24] ##
 ##----------------------------------------##
 if [ $# -gt 0 ]
 then
@@ -2339,6 +2719,8 @@ then
        addCronJob) _AddCronJobEntry_
            ;;
        postRebootRun) _PostRebootRunNow_
+           ;;
+       postUpdateEmail) _PostUpdateEmailNotification_
            ;;
        uninstall) _DoUninstall_
            ;;
@@ -2486,7 +2868,20 @@ A USB drive is required for F/W updates.\n"
 
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
-   
+
+   # F/W Update EMail Notifications #
+   if _CheckEMailConfigFileFromAMTM_ 0
+   then
+      if "$sendEMailNotificationsFlag"
+      then
+          printf "\n ${GRNct}em${NOct}.  Disable F/W Update EMail Notifications"
+          printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+      else
+          printf "\n ${GRNct}em${NOct}.  Enable F/W Update EMail Notifications"
+          printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+      fi
+   fi
+
    # In the show_menu function, add an option for Advanced Options
    printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
@@ -2504,7 +2899,6 @@ A USB drive is required for F/W updates.\n"
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-23] ##
 ##---------------------------------------##
-
 _advanced_options_menu_() {
 	theADExitStr="${GRNct}e${NOct}=Exit to advanced menu"
     while true; do
@@ -2606,6 +3000,9 @@ do
        3) _Toggle_FW_UpdateCheckSetting_
           ;;
        4) _Set_FW_UpdatePostponementDays_
+          ;;
+      em) "$isEMailConfigEnabledInAMTM" && \
+          _Toggle_FW_UpdateEmailNotifications_
           ;;
       ad) _advanced_options_menu_
           ;;
