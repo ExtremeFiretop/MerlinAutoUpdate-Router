@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.57"
+readonly SCRIPT_VERSION="0.2.58"
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1032,31 +1032,31 @@ _CreateEMailContent_()
            {
              echo
              echo "TESTING:"
-             echo "This is a test of the F/W Update email notification from $MODEL_ID router."
-             printf "\nThe F/W version that is currently installed:\n${fwInstalledVersion}\n\n"
+             echo "This is a test of the F/W Update email notification from the <b>${MODEL_ID}</b> router."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
        NEW_FW_UPDATE_STATUS)
            {
              echo
-             echo "A new F/W Update version $fwNewUpdateVersion is available for $MODEL_ID router."
-             printf "\nThe F/W version that is currently installed:\n${fwInstalledVersion}\n"
-             printf "\nNumber of days to postpone flashing the new F/W Update version: ${FW_UpdatePostponementDays}\n\n"
+             echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
+             printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
        START_FW_UPDATE_STATUS)
            {
              echo
-             echo "Started flashing the new F/W Update version $fwNewUpdateVersion on $MODEL_ID router."
-             printf "\nThe F/W version that is currently installed:\n${fwInstalledVersion}\n\n"
+             echo "Started flashing the new F/W Update version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_UPDATE_STATUS)
            {
              echo
-             echo "**ERROR**:"
-             echo "Flashing of new F/W Update version $fwNewUpdateVersion for $MODEL_ID router failed."
-             printf "\nThe F/W version that is currently installed:\n${fwInstalledVersion}\n\n"
+             echo "<b>**ERROR**</b>:"
+             echo "Flashing of new F/W Update version <b>${fwNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
        POST_REBOOT_FW_UPDATE_SETUP)
@@ -1085,15 +1085,15 @@ _CreateEMailContent_()
            then
               {
                 echo
-                echo "Flashing of new F/W Update version $fwInstalledVersion for $MODEL_ID router was successful."
-                printf "\nThe F/W version that was previously installed:\n${savedInstalledVersion}\n\n"
+                echo "Flashing of new F/W Update version <b>${fwInstalledVersion}</b> for the <b>${MODEL_ID}</b> router was successful."
+                printf "\nThe F/W version that was previously installed:\n<b>${savedInstalledVersion}</b>\n\n"
               } > "$tempEMailBodyMsg"
            else
               {
                 echo
-                echo "**ERROR**:"
-                echo "Flashing of new F/W Update version $savedNewUpdateVersion for $MODEL_ID router failed."
-                printf "\nThe F/W version that is currently installed:\n${fwInstalledVersion}\n\n"
+                echo "<b>**ERROR**</b>:"
+                echo "Flashing of new F/W Update version <b>${savedNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
+                printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
               } > "$tempEMailBodyMsg"
            fi
            rm -f "$saveEMailInfoMsg"
@@ -1108,18 +1108,22 @@ From: "$FROM_NAME" <$FROM_ADDRESS>
 To: "$TO_NAME" <$TO_ADDRESS>
 Subject: $subjectStr
 Date: $(date -R)
+MIME-Version: 1.0
+Content-Type: text/html; charset="UTF-8"
+<!DOCTYPE html><html><body><pre>
+<p style="color:black; font-family:sans-serif; font-size:100%;">
 EOF
-
    cat "$tempEMailBodyMsg" >> "$tempEMailContent"
-   rm -f "$tempEMailBodyMsg"
 
    ## Footer ##
    cat <<EOF >> "$tempEMailContent"
-Sent by the "$ScriptFNameTag" Utility.
-From the "${FRIENDLY_ROUTER_NAME}" router.
+Sent by the "<b>${ScriptFNameTag}</b>" Utility.
+From the "<b>${FRIENDLY_ROUTER_NAME}</b>" router.
 
 $(date +"%Y-%b-%d, %I:%M:%S %p %Z (%a)")
+</p></pre></body></html>
 EOF
+    rm -f "$tempEMailBodyMsg"
     return 0
 }
 
@@ -1179,7 +1183,7 @@ _SendEMailNotification_()
 
    [ "$1" = "POST_REBOOT_FW_UPDATE_SETUP" ] && return 0
 
-   printf "\nSending email notification [$1]...\n"
+   printf "\nSending email notification [$1]. Please wait...\n"
 
    echo "$(date +"$LOGdateFormat")" > "$userTraceFile"
 
