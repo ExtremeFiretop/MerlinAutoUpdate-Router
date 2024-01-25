@@ -66,7 +66,7 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Compatible with ROG and non-ROG routers; select ROG or Pure Build for ROG routers.
 - Backup the new firmware version to the USB drive. (If USB is selected for storage)
 - Email Notifications if you configured email options in AMTM.
-- Changelog verification check: Checks the changelogs for very obvious red flags and asked for approval.
+- Changelog verification check: Checks the changelogs for very obvious red flags and prompts for approval.
 
 ## Remaining/Planned Features:
       
