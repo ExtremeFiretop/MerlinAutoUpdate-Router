@@ -2372,12 +2372,12 @@ Please manually update to version $minimum_supported_version or higher to use th
                     printf "\n ${REDct}Would you like to continue anyways?${NOct}"
                     if ! _WaitForYESorNO_ ; then
                         Say "Exiting for change-log review."
-                        _DoCleanUp_
-                        return 1
+                        _DoCleanUp_ 1 ; return 1
                     fi
                 else
                     Say "Warning: Found high-risk phrases in the change-logs."
-                    Say "Please run script interactively to approve the flash."
+                    Say "Please run script interactively to approve the flash upgrade."
+                    _DoCleanUp 1
                     _DoExit_ 1
                 fi
             else
