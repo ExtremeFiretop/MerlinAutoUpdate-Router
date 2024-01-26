@@ -2497,7 +2497,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Check for the presence of backupmon.sh script
     if [ -f "/jffs/scripts/backupmon.sh" ]; then
         # Execute the backup script if it exists
-        Say "\nBackup Started"
+        Say "\nBackup Started (by BACKUPMON)"
         sh /jffs/scripts/backupmon.sh -backup >/dev/null
         BE=$?
         Say "Backup Finished\n"
