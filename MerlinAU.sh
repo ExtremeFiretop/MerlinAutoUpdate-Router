@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-24
+# Last Modified: 2024-Jan-25
 ###################################################################
 set -u
 
@@ -1200,14 +1200,14 @@ _SendEMailNotification_()
    --upload-file "$tempEMailContent" \
    $SSL_FLAG --ssl-reqd --crlf >> "$userTraceFile" 2>&1
 
-   if [ "$?" -eq 0 ]
+   if [ $? -eq 0 ]
    then
        sleep 2
-       rm -f "$tempEMailContent"
        Say "The email notification was sent successfully [$1]."
    else
        Say "${REDct}**ERROR**${NOct}: Failure to send email notification [$1]."
    fi
+   rm -f "$tempEMailContent"
 
    return 0
 }
@@ -2118,9 +2118,40 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-06] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-25] ##
+##-------------------------------------##
+_EntwareServicesHandler_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local fileCount  entwOPT_init  entwOPT_unslung  actionStr=""
+
+   entwOPT_init="/opt/etc/init.d"
+   entwOPT_unslung="${entwOPT_init}/rc.unslung"
+
+   if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
+   then return 1 ; fi  ## Entware is not found ##
+
+   fileCount="$(/usr/bin/find "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -cE "${entwOPT_init}/S[0-9]+")"
+   [ "$fileCount" -eq 0 ] && return 0
+
+   case "$1" in
+       stop) actionStr="Stopping" ;;
+      start) actionStr="Restarting" ;;
+          *) return 1 ;;
+   esac
+
+   if [ -n "$actionStr" ]
+   then
+      printf "\n${actionStr} Entware services... Please wait.\n"
+      $entwOPT_unslung $1 ; sleep 5
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-25] ##
+##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
@@ -2475,8 +2506,10 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Restart the WebGUI to make sure nobody else is logged in
     # so that the F/W Update can start without interruptions.
     #------------------------------------------------------------#
+    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
     /sbin/service restart_httpd && sleep 5
 
+    _EntwareServicesHandler_ stop
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
@@ -2548,6 +2581,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
+        _EntwareServicesHandler_ start
     fi
 
     "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
