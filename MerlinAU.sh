@@ -1298,8 +1298,6 @@ _AddPostUpdateEmailNotifyScriptHook_()
    then Say "Post-update email notification hook was added successfully to '$hookScriptFile' script."
    else Say "Post-update email notification hook already exists in '$hookScriptFile' script."
    fi
-
-   "$isInteractive" && _WaitForEnterKey_
 }
 
 ##----------------------------------------------##
@@ -1980,7 +1978,9 @@ _CheckNewUpdateFirmwareNotification_()
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
+           if [ ! "$isInteractive" ]; then
            _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+           fi
        fi
    fi
 
@@ -1989,7 +1989,9 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
+       if [ ! "$isInteractive" ]; then
        _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+       fi
    fi
    return 0
 }
@@ -2268,7 +2270,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         Say "No new firmware version update is found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
+       return 1
     fi
 
     # Use set to read the output of the function into variables
@@ -2316,7 +2318,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
-    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    availableRAM_kb=$(get_free_ram)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
@@ -2342,7 +2344,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Jan-22] ##
     ##------------------------------------------##
-    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    availableRAM_kb=$(get_free_ram)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
@@ -2494,6 +2496,10 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2024-Jan-26] ##
     ##---------------------------------------##
+    availableRAM_kb=$(get_free_ram)
+    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+	
     # Check for the presence of backupmon.sh script
     if [ -f "/jffs/scripts/backupmon.sh" ]; then
         # Execute the backup script if it exists
@@ -2511,14 +2517,14 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     else
         # Print a message if the backup script is not installed
-        Say "Backup script (backupmon.sh) is not installed. Skipping backup.\n"
+        Say "Backup script (BACKUPMON) is not installed. Skipping backup.\n"
         # Optionally, you can add additional handling here if needed
     fi
 
     ##----------------------------------------##
     ## Modified by Martinski W. [2024-Jan-06] ##
     ##----------------------------------------##
-    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    availableRAM_kb=$(get_free_ram)
     Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
