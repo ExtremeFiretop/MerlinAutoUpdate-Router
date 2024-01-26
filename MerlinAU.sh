@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.59"
+readonly SCRIPT_VERSION=0.9.55
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1051,6 +1051,13 @@ _CreateEMailContent_()
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
+       STOP_FW_UPDATE_APPROVAL)
+           {
+             echo
+             echo "Warning: Found high-risk phrases in the change-logs while Auto-Updating to: $fwNewUpdateVersion on $MODEL_ID router."
+             printf "\nPlease run script interactively to approve this upgrade from:\n${fwInstalledVersion}\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
        FAILED_FW_UPDATE_STATUS)
            {
              echo
@@ -1653,29 +1660,29 @@ _toggle_change_log_check_() {
     local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
     if [ "$currentSetting" = "ENABLED" ]; then
-        printf "${REDct}*WARNING*:${NOct} Disabling Change-Log check may risk unanticipated changes.\n"
-        printf "The advise is to proceed only if you review the change-logs manually.\n"
+        printf "${REDct}*WARNING*:${NOct} Disabling change-log verification may risk unanticipated changes.\n"
+        printf "The advice is to proceed only if you review the change-logs manually.\n"
         printf "\nProceed to disable? [y/N]: "
         read -r response
         case $response in
             [Yy]* )
                 Update_Custom_Settings "CheckChangeLog" "DISABLED"
-                printf "Change-Log verification check is now ${REDct}DISABLED.${NOct}\n"
+                printf "Change-log verification check is now ${REDct}DISABLED.${NOct}\n"
                 ;;
             *)
-                printf "Change-Log verification check remains ${GRNct}ENABLED.${NOct}\n"
+                printf "Change-log verification check remains ${GRNct}ENABLED.${NOct}\n"
                 ;;
         esac
     else
-        printf "Are you sure you want to enable the Change-Log verification check? [y/N]: "
+        printf "Are you sure you want to enable the Change-log verification check? [y/N]: "
         read -r response
         case $response in
             [Yy]* )
                 Update_Custom_Settings "CheckChangeLog" "ENABLED"
-                printf "Change-Log verification check is now ${GRNct}ENABLED.${NOct}\n"
+                printf "Change-log verification check is now ${GRNct}ENABLED.${NOct}\n"
                 ;;
             *)
-                printf "Change-Log verification check remains ${REDct}DISABLED.${NOct}\n"
+                printf "Change-log verification check remains ${REDct}DISABLED.${NOct}\n"
                 ;;
         esac
     fi
@@ -2411,7 +2418,8 @@ Please manually update to version $minimum_supported_version or higher to use th
                     fi
                 else
                     Say "Warning: Found high-risk phrases in the change-logs."
-                    Say "Please run script interactively to approve the flash upgrade."
+                    Say "Please run script interactively to approve the upgrade."
+                    _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
                     _DoCleanUp 1
                     _DoExit_ 1
                 fi
@@ -2953,7 +2961,7 @@ _advanced_options_menu_() {
         printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
         printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 		
-        printf "\n  ${GRNct}4${NOct}.  Toggle Change-Log Check"
+        printf "\n  ${GRNct}4${NOct}.  Toggle Change-log Check"
 		
         local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
         if [ "$checkChangeLogSetting" = "DISABLED" ]
