@@ -862,10 +862,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
        # Move any existing log files to new directory #
        mv -f "${FW_LOG_DIR}"/*.log "$newLogFileDirPath" 2>/dev/null
        # Remove now the obsolete directory path #
-       if [ "$FW_LOG_BASE_DIR" = "$FW_ZIP_BASE_DIR" ]
-       then rm -fr "$FW_LOG_DIR"
-       else rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag"
-       fi
+       rm -fr "$FW_LOG_DIR"
        # Update the log directory path after validation #
        Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
        echo "The directory path for the log files was updated successfully."
@@ -939,10 +936,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
            return 1
        fi
        # Remove now the obsolete directory path #
-       if [ "$FW_ZIP_BASE_DIR" = "$FW_LOG_BASE_DIR" ]
-       then rm -fr "$FW_ZIP_DIR"
-       else rm -fr "${FW_ZIP_BASE_DIR}/$ScriptFNameTag"
-       fi
+       rm -fr "$FW_ZIP_DIR"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
@@ -966,9 +960,9 @@ FW_BIN_BASE_DIR="/home/root"
 FW_ZIP_BASE_DIR="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)"
 FW_LOG_BASE_DIR="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
 
-readonly FW_LOG_SUBDIR="${ScriptFNameTag}/logs"
-readonly FW_BIN_SUBDIR="${ScriptFNameTag}/$FW_FileName"
-readonly FW_ZIP_SUBDIR="${ScriptFNameTag}/$FW_FileName"
+readonly FW_LOG_SUBDIR="${ScriptFNameTag}.d/logs"
+readonly FW_BIN_SUBDIR="${ScriptFNameTag}.d/$FW_FileName"
+readonly FW_ZIP_SUBDIR="${ScriptFNameTag}.d/$FW_FileName"
 
 FW_BIN_DIR="${FW_BIN_BASE_DIR}/$FW_BIN_SUBDIR"
 FW_LOG_DIR="${FW_LOG_BASE_DIR}/$FW_LOG_SUBDIR"
@@ -1010,6 +1004,15 @@ if [ -d "$FW_LOG_DIR" ]
 then
     # Log rotation - delete logs older than 30 days #
     find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
+fi
+
+if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
+then
+	mv -f "${FW_LOG_DIR}"/*.log "$USBMountPoint/$FW_LOG_SUBDIR" 2>/dev/null
+	rm -fr "$FW_LOG_DIR"
+	Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$USBMountPoint"
+else
+	Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$ADDONS_PATH"
 fi
 
 ##------------------------------------------##
@@ -1524,14 +1527,14 @@ _DoCleanUp_()
 
    # Move file temporarily to save it from deletion #
    "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ] && \
-   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptFNameTag" && moveZIPback=true
+   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}.d" && moveZIPback=true
 
    rm -f "${FW_ZIP_DIR}"/*
    "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
 
    # Move file back to original location #
    "$keepZIPfile" && "$moveZIPback" && \
-   mv -f "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+   mv -f "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}.d/${FW_FileName}.zip" "$FW_ZIP_FPATH"
 
    if "$doTrace"
    then
@@ -2165,13 +2168,6 @@ _EntwareServicesHandler_()
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
-    # Double-check the directory exists before using it #
-    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
-
-    # Set up the custom log file #
-    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
-    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
-
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
     if [ "$ModelCheckFailed" != "0" ]; then
@@ -2212,6 +2208,13 @@ Please manually update to version $minimum_supported_version or higher to use th
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
+	
+    # Double-check the directory exists before using it #
+    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
+
+    # Set up the custom log file #
+    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
 
     #---------------------------------------------------------#
     # If the expected directory path for the ZIP file is not
@@ -2458,9 +2461,9 @@ Please manually update to version $minimum_supported_version or higher to use th
             Say "Pure Build selected for flashing"
             firmware_file="$pure_file"
         elif [ "$inMenuMode" = true ]; then
-            printf "\n ${REDct}Found ROG build: $rog_file.${NOct}"
-            printf "\n ${REDct}Would you like to use the ROG build?${NOct}\n"
-            printf "\n Enter your choice (y/n): "
+            printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
+            printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+            printf "Enter your choice (y/n): "
             read -r choice
             if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
                 Say "ROG Build selected for flashing"
@@ -2759,9 +2762,9 @@ _DoUninstall_()
    _DelPostUpdateEmailNotifyScriptHook_
 
    if rm -fr "$SETTINGS_DIR" && \
-      rm -fr "${FW_BIN_BASE_DIR}/$ScriptFNameTag" && \
-      rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag" && \
-      rm -fr "${FW_ZIP_BASE_DIR}/$ScriptFNameTag" && \
+      rm -fr "${FW_BIN_BASE_DIR}/${ScriptFNameTag}.d" && \
+      rm -fr "${FW_LOG_BASE_DIR}/${ScriptFNameTag}.d" && \
+      rm -fr "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}.d" && \
       rm -f "$ScriptFilePath"
    then
        Say "${GRNct}Successfully Uninstalled.${NOct}"
