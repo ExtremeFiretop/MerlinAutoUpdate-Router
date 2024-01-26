@@ -1054,8 +1054,16 @@ _CreateEMailContent_()
        STOP_FW_UPDATE_APPROVAL)
            {
              echo
-             echo "Warning: Found high-risk phrases in the change-logs while Auto-Updating to: $fwNewUpdateVersion on $MODEL_ID router."
-             printf "\nPlease run script interactively to approve this upgrade from:\n${fwInstalledVersion}\n\n"
+             echo "Warning: Found high-risk phrases in the change-logs while Auto-Updating to: <b>${fwNewUpdateVersion}</b> on <b>${MODEL_ID}</b> router."
+             printf "\nPlease run script interactively to approve this upgrade from:\n<b>${fwInstalledVersion}</b>\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       NEW_BM_BACKUP_FAILED)
+           {
+             echo
+             echo "Warning: Backup failed during firmware update process while Auto-Updating to: <b>${fwNewUpdateVersion}</b> on <b>${MODEL_ID}</b> router."
+			 echo "Firmware update on <b>${MODEL_ID}</b> router is now cancelled"
+             printf "\nPlease check backupmon.sh configuration and retry upgrade from:\n<b>${fwInstalledVersion}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_UPDATE_STATUS)
@@ -1674,7 +1682,7 @@ _toggle_change_log_check_() {
                 ;;
         esac
     else
-        printf "Are you sure you want to enable the Change-log verification check? [y/N]: "
+        printf "Are you sure you want to enable the change-log verification check? [y/N]: "
         read -r response
         case $response in
             [Yy]* )
@@ -2481,6 +2489,30 @@ Please manually update to version $minimum_supported_version or higher to use th
             "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
             return 1
         fi
+    fi
+	
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2024-Jan-26] ##
+    ##---------------------------------------##
+    # Check for the presence of backupmon.sh script
+    if [ -f "/jffs/scripts/backupmon.sh" ]; then
+        # Execute the backup script if it exists
+        Say "\nBackup Started"
+        sh /jffs/scripts/backupmon.sh -backup >/dev/null
+        BE=$?
+        Say "Backup Finished\n"
+        if [ $BE -eq 0 ]; then
+            Say "Backup Completed Successfully\n"
+        else
+            Say "Backup Failed\n"
+            _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+            _DoCleanUp_ 1
+            _DoExit_ 1
+        fi
+    else
+        # Print a message if the backup script is not installed
+        Say "Backup script (backupmon.sh) is not installed. Skipping backup.\n"
+        # Optionally, you can add additional handling here if needed
     fi
 
     ##----------------------------------------##
