@@ -1,4 +1,6 @@
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/509e3b5a-e6a4-4e70-88cd-512a4a62c4a9) ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/cb4c10fa-3328-432b-80e6-4ccc592894d4)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/be171e8d-91f4-4424-a714-15ef6379348a)![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/dd08f890-475e-4f25-bbe3-1da44426410e)
+
+
 
 
 
