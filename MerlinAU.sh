@@ -238,7 +238,7 @@ _GetDefaultUSBMountPoint_()
 ## Added by ExtremeFiretop [2024-Jan-21] ##
 ##---------------------------------------##
 _migrate_settings_() {
-	local USBMountPoint="$(_GetDefaultUSBMountPoint_)"
+    local USBMountPoint="$(_GetDefaultUSBMountPoint_)"
     local old_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}"
     local new_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}.d"
     local old_bin_dir="/home/root/${ScriptFNameTag}"
