@@ -75,7 +75,7 @@ It streamlines the firmware update procedure, automatically detects your router 
 
 ## Remaining/Planned Features:
 
-- Better services cleanup than entware and division
+- Better services cleanup than targetting entware and diversion
 - Allow Beta to Production upgrades of the same version
 
 - Notes:
