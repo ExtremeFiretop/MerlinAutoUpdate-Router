@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-25
+# Last Modified: 2024-Jan-26
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=0.9.55
+readonly SCRIPT_VERSION=0.9.92
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -211,31 +211,28 @@ Toggle_LEDs_PID=""
 FW_UpdateCheckState="TBD"
 FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jan-21] ##
-##---------------------------------------##
-_migrate_settings_() {
-    local old_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}"
-    local new_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}.d"
 
-    # Check if the old settings directory exists
-    if [ -d "$old_settings_dir" ]; then
-        # Check if the new settings directory already exists
-        if [ -d "$new_settings_dir" ]; then
-            echo "The new settings directory already exists. Migration is not required."
-        else
-            # Move the old settings directory to the new location
-            mv "$old_settings_dir" "$new_settings_dir"
-            if [ $? -eq 0 ]; then
-                echo "Settings directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the settings directory."
-            fi
-        fi
-    fi
+##--------------------------------------##
+## Added by Martinski W. [22023-Nov-24] ##
+##--------------------------------------##
+#---------------------------------------------------------#
+# The USB-attached drives can have multiple partitions
+# with different file systems (NTFS, ext3, ext4, etc.),
+# which means that multiple mount points can be found.
+# So for the purpose of choosing a default value here
+# we will simply select the first mount point found.
+# Users can later on change it by typing a different
+# mount point path or directory using the Main Menu.
+#---------------------------------------------------------#
+_GetDefaultUSBMountPoint_()
+{
+   local mounPointPath  retCode=0
+   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+
+   mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mounPointPath" ] && retCode=1
+   echo "$mounPointPath" ; return "$retCode"
 }
-
-_migrate_settings_
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-22] ##
@@ -518,28 +515,6 @@ _SCRIPTUPDATE_()
    fi
 }
 
-##--------------------------------------##
-## Added by Martinski W. [22023-Nov-24] ##
-##--------------------------------------##
-#---------------------------------------------------------#
-# The USB-attached drives can have multiple partitions
-# with different file systems (NTFS, ext3, ext4, etc.),
-# which means that multiple mount points can be found.
-# So for the purpose of choosing a default value here
-# we will simply select the first mount point found.
-# Users can later on change it by typing a different
-# mount point path or directory using the Main Menu.
-#---------------------------------------------------------#
-_GetDefaultUSBMountPoint_()
-{
-   local mounPointPath  retCode=0
-   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
-
-   mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
-   [ -z "$mounPointPath" ] && retCode=1
-   echo "$mounPointPath" ; return "$retCode"
-}
-
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Dec-03] ##
 ##-------------------------------------##
@@ -791,9 +766,72 @@ Update_Custom_Settings()
     esac
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-22] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
+_migrate_settings_() {
+    local USBMountPoint="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+    local old_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}"
+    local new_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}.d"
+    local old_bin_dir="/home/root/${ScriptFNameTag}"
+    local new_bin_dir="/home/root/${ScriptFNameTag}.d"
+    local old_mnt_dir="${USBMountPoint}/${ScriptFNameTag}"
+    local new_mnt_dir="${USBMountPoint}/${ScriptFNameTag}.d"
+
+    # Check if the old settings directory exists
+    if [ -d "$old_settings_dir" ]; then
+        # Check if the new settings directory already exists
+        if [ -d "$new_settings_dir" ]; then
+            echo "The new settings directory already exists. Migration is not required."
+        else
+            # Move the old settings directory to the new location
+            mv "$old_settings_dir" "$new_settings_dir"
+            if [ $? -eq 0 ]; then
+                echo "Settings directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the settings directory."
+            fi
+        fi
+    fi
+	
+	# Check if the old settings directory exists
+    if [ -d "$old_bin_dir" ]; then
+        # Check if the new settings directory already exists
+        if [ -d "$new_bin_dir" ]; then
+            echo "The new settings directory already exists. Migration is not required."
+        else
+            # Move the old settings directory to the new location
+            mv "$old_bin_dir" "$new_bin_dir"
+            if [ $? -eq 0 ]; then
+                echo "Settings directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the settings directory."
+            fi
+        fi
+    fi
+	
+	# Check if the old settings directory exists
+    if [ -d "$old_mnt_dir" ]; then
+        # Check if the new settings directory already exists
+        if [ -d "$new_mnt_dir" ]; then
+            echo "The new settings directory already exists. Migration is not required."
+        else
+            # Move the old settings directory to the new location
+            mv "$old_mnt_dir" "$new_mnt_dir"
+            if [ $? -eq 0 ]; then
+                echo "Settings directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the settings directory."
+            fi
+        fi
+    fi
+}
+
+_migrate_settings_
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
 {
    local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
@@ -862,10 +900,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
        # Move any existing log files to new directory #
        mv -f "${FW_LOG_DIR}"/*.log "$newLogFileDirPath" 2>/dev/null
        # Remove now the obsolete directory path #
-       if [ "$FW_LOG_BASE_DIR" = "$FW_ZIP_BASE_DIR" ]
-       then rm -fr "$FW_LOG_DIR"
-       else rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag"
-       fi
+       rm -fr "$FW_LOG_DIR"
        # Update the log directory path after validation #
        Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
        echo "The directory path for the log files was updated successfully."
@@ -874,9 +909,9 @@ _Set_FW_UpdateLOG_DirectoryPath_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
    local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath="" 
@@ -939,10 +974,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
            return 1
        fi
        # Remove now the obsolete directory path #
-       if [ "$FW_ZIP_BASE_DIR" = "$FW_LOG_BASE_DIR" ]
-       then rm -fr "$FW_ZIP_DIR"
-       else rm -fr "${FW_ZIP_BASE_DIR}/$ScriptFNameTag"
-       fi
+       rm -fr "$FW_ZIP_DIR"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
@@ -953,9 +985,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
 _Init_Custom_Settings_Config_
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 # NOTE:
 # Depending on available RAM & storage capacity of the 
 # target router, it may be required to have USB-attached 
@@ -966,9 +998,9 @@ FW_BIN_BASE_DIR="/home/root"
 FW_ZIP_BASE_DIR="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)"
 FW_LOG_BASE_DIR="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
 
-readonly FW_LOG_SUBDIR="${ScriptFNameTag}/logs"
-readonly FW_BIN_SUBDIR="${ScriptFNameTag}/$FW_FileName"
-readonly FW_ZIP_SUBDIR="${ScriptFNameTag}/$FW_FileName"
+readonly FW_LOG_SUBDIR="${ScriptFNameTag}.d/logs"
+readonly FW_BIN_SUBDIR="${ScriptFNameTag}.d/$FW_FileName"
+readonly FW_ZIP_SUBDIR="${ScriptFNameTag}.d/$FW_FileName"
 
 FW_BIN_DIR="${FW_BIN_BASE_DIR}/$FW_BIN_SUBDIR"
 FW_LOG_DIR="${FW_LOG_BASE_DIR}/$FW_LOG_SUBDIR"
@@ -1012,9 +1044,32 @@ then
     find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
-##-------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-24] ##
+##---------------------------------------##
+#This code is incase the user selected USB mount isn't available anymore.
+#If the USB is selected as the log location and it goes offline, any "Say" command creates a mnt directory.
+#In such a case were the USB is unmounted. We need to change the log directory back to a local directory.
+#First if statement executes first, and updates it local jffs for logs if no USBs are found.
+#if ANY DefaultUSBMountPoint found, then move the log files from their local jffs location to the default mount location. 
+#We don't know the user selected yet because it's local at this time and was changed by the else statement.
+#Remove the old log directory location from jffs, and update the settings file again to the new default again.
+#This creates a semi-perminant switch which can reset back to default if no the user selected mount points aren't valid anymore.
+UserSelectedMntPnt="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+if [ ! -d "$UserSelectedMntPnt" ] || [ ! -r "$UserSelectedMntPnt" ]; then
+	Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$ADDONS_PATH"
+fi
+
+if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
+then
+	mv -f "${FW_LOG_DIR}"/*.log "$USBMountPoint/$FW_LOG_SUBDIR" 2>/dev/null
+	rm -fr "$FW_LOG_DIR"
+	Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$USBMountPoint"
+fi
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -1054,8 +1109,16 @@ _CreateEMailContent_()
        STOP_FW_UPDATE_APPROVAL)
            {
              echo
-             echo "Warning: Found high-risk phrases in the change-logs while Auto-Updating to: $fwNewUpdateVersion on $MODEL_ID router."
-             printf "\nPlease run script interactively to approve this upgrade from:\n${fwInstalledVersion}\n\n"
+             echo "Warning: Found high-risk phrases in the change-logs while Auto-Updating to: <b>${fwNewUpdateVersion}</b> on <b>${MODEL_ID}</b> router."
+             printf "\nPlease run script interactively to approve this upgrade from:\n<b>${fwInstalledVersion}</b>\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       NEW_BM_BACKUP_FAILED)
+           {
+             echo
+             echo "Warning: Backup failed during firmware update process while Auto-Updating to: <b>${fwNewUpdateVersion}</b> on <b>${MODEL_ID}</b> router."
+			 echo "Firmware update on <b>${MODEL_ID}</b> router is now cancelled"
+             printf "\nPlease check backupmon.sh configuration and retry upgrade from:\n<b>${fwInstalledVersion}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_UPDATE_STATUS)
@@ -1290,8 +1353,6 @@ _AddPostUpdateEmailNotifyScriptHook_()
    then Say "Post-update email notification hook was added successfully to '$hookScriptFile' script."
    else Say "Post-update email notification hook already exists in '$hookScriptFile' script."
    fi
-
-   "$isInteractive" && _WaitForEnterKey_
 }
 
 ##----------------------------------------------##
@@ -1495,9 +1556,9 @@ check_memory_and_prompt_reboot() {
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-26] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
 _DoCleanUp_()
 {
    local delBINfiles=false  keepZIPfile=false  moveZIPback=false
@@ -1518,14 +1579,14 @@ _DoCleanUp_()
 
    # Move file temporarily to save it from deletion #
    "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ] && \
-   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptFNameTag" && moveZIPback=true
+   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}.d" && moveZIPback=true
 
    rm -f "${FW_ZIP_DIR}"/*
    "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
 
    # Move file back to original location #
    "$keepZIPfile" && "$moveZIPback" && \
-   mv -f "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+   mv -f "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}.d/${FW_FileName}.zip" "$FW_ZIP_FPATH"
 
    if "$doTrace"
    then
@@ -1674,7 +1735,7 @@ _toggle_change_log_check_() {
                 ;;
         esac
     else
-        printf "Are you sure you want to enable the Change-log verification check? [y/N]: "
+        printf "Are you sure you want to enable the change-log verification check? [y/N]: "
         read -r response
         case $response in
             [Yy]* )
@@ -1936,9 +1997,9 @@ _Set_FW_UpdateCronSchedule_()
     return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -2155,13 +2216,6 @@ _EntwareServicesHandler_()
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
-    # Double-check the directory exists before using it #
-    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
-
-    # Set up the custom log file #
-    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
-    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
-
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
     if [ "$ModelCheckFailed" != "0" ]; then
@@ -2202,6 +2256,13 @@ Please manually update to version $minimum_supported_version or higher to use th
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
         return 1
     fi
+	
+    # Double-check the directory exists before using it #
+    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
+
+    # Set up the custom log file #
+    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
 
     #---------------------------------------------------------#
     # If the expected directory path for the ZIP file is not
@@ -2308,8 +2369,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
+    freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Compare versions before deciding to download
@@ -2334,8 +2396,9 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Jan-22] ##
     ##------------------------------------------##
+    freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Extracting the firmware binary image #
@@ -2379,9 +2442,9 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
 
-    ##---------------------------------------##
-    ## Added by ExtremeFiretop [2024-Jan-23] ##
-    ##---------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jan-25] ##
+    ##------------------------------------------##
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]; then
@@ -2448,9 +2511,9 @@ Please manually update to version $minimum_supported_version or higher to use th
             Say "Pure Build selected for flashing"
             firmware_file="$pure_file"
         elif [ "$inMenuMode" = true ]; then
-            printf "\n ${REDct}Found ROG build: $rog_file.${NOct}"
-            printf "\n ${REDct}Would you like to use the ROG build?${NOct}\n"
-            printf "\n Enter your choice (y/n): "
+            printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
+            printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+            printf "Enter your choice (y/n): "
             read -r choice
             if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
                 Say "ROG Build selected for flashing"
@@ -2482,12 +2545,41 @@ Please manually update to version $minimum_supported_version or higher to use th
             return 1
         fi
     fi
+	
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2024-Jan-26] ##
+    ##---------------------------------------##
+    freeRAM_kb=$(get_free_ram)
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+	
+    # Check for the presence of backupmon.sh script (Commented out until issues resolved)
+    #if [ -f "/jffs/scripts/backupmon.sh" ]; then
+    #    # Execute the backup script if it exists
+    #    Say "\nBackup Started (by BACKUPMON)"
+    #    sh /jffs/scripts/backupmon.sh -backup >/dev/null
+    #    BE=$?
+    #    Say "Backup Finished\n"
+    #    if [ $BE -eq 0 ]; then
+    #        Say "Backup Completed Successfully\n"
+    #    else
+    #        Say "Backup Failed\n"
+    #        _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+    #        _DoCleanUp_ 1
+    #        _DoExit_ 1
+    #    fi
+    #else
+    #    # Print a message if the backup script is not installed
+    #    Say "Backup script (BACKUPMON) is not installed. Skipping backup.\n"
+    #fi
 
     ##----------------------------------------##
     ## Modified by Martinski W. [2024-Jan-06] ##
     ##----------------------------------------##
+    freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     routerURLstr="$(_GetRouterURL_)"
@@ -2509,8 +2601,18 @@ Please manually update to version $minimum_supported_version or higher to use th
     "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
     /sbin/service restart_httpd && sleep 5
 
-    _EntwareServicesHandler_ stop
+    #Send last email notification before flash
     _SendEMailNotification_ START_FW_UPDATE_STATUS
+	
+    # Check if '/opt/bin/diversion' exists
+    if [ -f /opt/bin/diversion ]; then
+        #Stop Divsersion services before flash
+        Say "Stopping Diversion service..."
+        /opt/bin/diversion unmount
+    fi
+	
+    #Stop entware services before flash
+    _EntwareServicesHandler_ stop
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
@@ -2707,9 +2809,9 @@ _AddCronJobRunScriptHook_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
 _DoUninstall_()
 {
    printf "Are you sure you want to uninstall $ScriptFileName script now"
@@ -2721,9 +2823,9 @@ _DoUninstall_()
    _DelPostUpdateEmailNotifyScriptHook_
 
    if rm -fr "$SETTINGS_DIR" && \
-      rm -fr "${FW_BIN_BASE_DIR}/$ScriptFNameTag" && \
-      rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag" && \
-      rm -fr "${FW_ZIP_BASE_DIR}/$ScriptFNameTag" && \
+      rm -fr "${FW_BIN_BASE_DIR}/${ScriptFNameTag}.d" && \
+      rm -fr "${FW_LOG_BASE_DIR}/${ScriptFNameTag}.d" && \
+      rm -fr "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}.d" && \
       rm -f "$ScriptFilePath"
    then
        Say "${GRNct}Successfully Uninstalled.${NOct}"
