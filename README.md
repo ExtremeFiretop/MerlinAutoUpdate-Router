@@ -74,8 +74,6 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Automatic backup with BACKUPMON if installed.
 
 ## Remaining/Planned Features:
-
-- Better services cleanup than targetting entware and diversion
 - Allow Beta to Production upgrades of the same version
 
 - Notes:
