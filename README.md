@@ -74,9 +74,9 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Automatic backup with BACKUPMON if installed.
 
 ## Remaining/Planned Features:
-      
-1. AMTM Install:
-- Only once it's been vetted through most routers.
+
+- Better services cleanup than entware and division
+- Allow Beta to Production upgrades of the same version
 
 - Notes:
   - New routers use UBIFS instead of JFFS2.
