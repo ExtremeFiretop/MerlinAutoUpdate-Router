@@ -211,12 +211,40 @@ Toggle_LEDs_PID=""
 FW_UpdateCheckState="TBD"
 FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 
+
+##--------------------------------------##
+## Added by Martinski W. [22023-Nov-24] ##
+##--------------------------------------##
+#---------------------------------------------------------#
+# The USB-attached drives can have multiple partitions
+# with different file systems (NTFS, ext3, ext4, etc.),
+# which means that multiple mount points can be found.
+# So for the purpose of choosing a default value here
+# we will simply select the first mount point found.
+# Users can later on change it by typing a different
+# mount point path or directory using the Main Menu.
+#---------------------------------------------------------#
+_GetDefaultUSBMountPoint_()
+{
+   local mounPointPath  retCode=0
+   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+
+   mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mounPointPath" ] && retCode=1
+   echo "$mounPointPath" ; return "$retCode"
+}
+
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-21] ##
 ##---------------------------------------##
 _migrate_settings_() {
+	local USBMountPoint="$(_GetDefaultUSBMountPoint_)"
     local old_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}"
     local new_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}.d"
+    local old_bin_dir="/home/root/${ScriptFNameTag}"
+    local new_bin_dir="/home/root/${ScriptFNameTag}.d"
+    local old_mnt_dir="${USBMountPoint}/${ScriptFNameTag}"
+    local new_mnt_dir="${USBMountPoint}/${ScriptFNameTag}.d"
 
     # Check if the old settings directory exists
     if [ -d "$old_settings_dir" ]; then
@@ -226,6 +254,38 @@ _migrate_settings_() {
         else
             # Move the old settings directory to the new location
             mv "$old_settings_dir" "$new_settings_dir"
+            if [ $? -eq 0 ]; then
+                echo "Settings directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the settings directory."
+            fi
+        fi
+    fi
+	
+	# Check if the old settings directory exists
+    if [ -d "$old_bin_dir" ]; then
+        # Check if the new settings directory already exists
+        if [ -d "$new_bin_dir" ]; then
+            echo "The new settings directory already exists. Migration is not required."
+        else
+            # Move the old settings directory to the new location
+            mv "$old_bin_dir" "$new_bin_dir"
+            if [ $? -eq 0 ]; then
+                echo "Settings directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the settings directory."
+            fi
+        fi
+    fi
+	
+	# Check if the old settings directory exists
+    if [ -d "$old_mnt_dir" ]; then
+        # Check if the new settings directory already exists
+        if [ -d "$new_mnt_dir" ]; then
+            echo "The new settings directory already exists. Migration is not required."
+        else
+            # Move the old settings directory to the new location
+            mv "$old_mnt_dir" "$new_mnt_dir"
             if [ $? -eq 0 ]; then
                 echo "Settings directory successfully migrated to the new location."
             else
@@ -516,28 +576,6 @@ _SCRIPTUPDATE_()
           return
       fi
    fi
-}
-
-##--------------------------------------##
-## Added by Martinski W. [22023-Nov-24] ##
-##--------------------------------------##
-#---------------------------------------------------------#
-# The USB-attached drives can have multiple partitions
-# with different file systems (NTFS, ext3, ext4, etc.),
-# which means that multiple mount points can be found.
-# So for the purpose of choosing a default value here
-# we will simply select the first mount point found.
-# Users can later on change it by typing a different
-# mount point path or directory using the Main Menu.
-#---------------------------------------------------------#
-_GetDefaultUSBMountPoint_()
-{
-   local mounPointPath  retCode=0
-   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
-
-   mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
-   [ -z "$mounPointPath" ] && retCode=1
-   echo "$mounPointPath" ; return "$retCode"
 }
 
 ##-------------------------------------##
@@ -2244,8 +2282,8 @@ Please manually update to version $minimum_supported_version or higher to use th
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    ##FOR DEBUG ONLY##current_version="388.5.0"
+    ##FOR DEBUG ONLY##current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -2268,13 +2306,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     # "New F/W Release Version" from the router itself.
     # If no new F/W version update is available return.
     #------------------------------------------------------
-    if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
-       ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-    then
-        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-       return 1
-    fi
+    ##FOR DEBUG ONLY##if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+    ##FOR DEBUG ONLY##   ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+    ##FOR DEBUG ONLY##then
+    ##FOR DEBUG ONLY##    Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+    ##FOR DEBUG ONLY##    "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+    ##FOR DEBUG ONLY##   return 1
+    ##FOR DEBUG ONLY##fi
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
