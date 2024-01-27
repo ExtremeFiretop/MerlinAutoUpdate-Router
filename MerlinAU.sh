@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-26
+# Last Modified: 2024-Jan-27
 ###################################################################
 set -u
 
@@ -1109,15 +1109,16 @@ _CreateEMailContent_()
        STOP_FW_UPDATE_APPROVAL)
            {
              echo
-             echo "Warning: Found high-risk phrases in the change-logs while Auto-Updating to: <b>${fwNewUpdateVersion}</b> on <b>${MODEL_ID}</b> router."
-             printf "\nPlease run script interactively to approve this upgrade from:\n<b>${fwInstalledVersion}</b>\n\n"
+             echo "<b>WARNING</b>:"
+             echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
        NEW_BM_BACKUP_FAILED)
            {
              echo
              echo "Warning: Backup failed during firmware update process while Auto-Updating to: <b>${fwNewUpdateVersion}</b> on <b>${MODEL_ID}</b> router."
-			 echo "Firmware update on <b>${MODEL_ID}</b> router is now cancelled"
+             echo "Firmware update on <b>${MODEL_ID}</b> router is now cancelled"
              printf "\nPlease check backupmon.sh configuration and retry upgrade from:\n<b>${fwInstalledVersion}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
