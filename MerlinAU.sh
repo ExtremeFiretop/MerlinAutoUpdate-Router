@@ -1047,7 +1047,7 @@ fi
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-24] ##
 ##---------------------------------------##
-#This vode is incase a no USBs are mounted anymore (Zero Default USB Mounts).
+#This code is incase a no USBs are mounted anymore (Zero Default USB Mounts).
 #If the USB is selected as the log location and it goes offline, any "Say" command creates a mnt directory.
 #In such a case were the USB is unmounted. We need to change the log directory back to a local directory.
 #Second part of else statement executes first, and updates it local jffs for logs if no USBs are found.
@@ -1554,7 +1554,7 @@ check_memory_and_prompt_reboot() {
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-24] ##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
 ##------------------------------------------##
 _DoCleanUp_()
 {
@@ -1995,7 +1995,7 @@ _Set_FW_UpdateCronSchedule_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-24] ##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
 ##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
@@ -2551,26 +2551,25 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 	
-    # Check for the presence of backupmon.sh script
-    if [ -f "/jffs/scripts/backupmon.sh" ]; then
-        # Execute the backup script if it exists
-        Say "\nBackup Started (by BACKUPMON)"
-        sh /jffs/scripts/backupmon.sh -backup >/dev/null
-        BE=$?
-        Say "Backup Finished\n"
-        if [ $BE -eq 0 ]; then
-            Say "Backup Completed Successfully\n"
-        else
-            Say "Backup Failed\n"
-            _SendEMailNotification_ NEW_BM_BACKUP_FAILED
-            _DoCleanUp_ 1
-            _DoExit_ 1
-        fi
-    else
-        # Print a message if the backup script is not installed
-        Say "Backup script (BACKUPMON) is not installed. Skipping backup.\n"
-        # Optionally, you can add additional handling here if needed
-    fi
+    # Check for the presence of backupmon.sh script (Commented out until issues resolved)
+    #if [ -f "/jffs/scripts/backupmon.sh" ]; then
+    #    # Execute the backup script if it exists
+    #    Say "\nBackup Started (by BACKUPMON)"
+    #    sh /jffs/scripts/backupmon.sh -backup >/dev/null
+    #    BE=$?
+    #    Say "Backup Finished\n"
+    #    if [ $BE -eq 0 ]; then
+    #        Say "Backup Completed Successfully\n"
+    #    else
+    #        Say "Backup Failed\n"
+    #        _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+    #        _DoCleanUp_ 1
+    #        _DoExit_ 1
+    #    fi
+    #else
+    #    # Print a message if the backup script is not installed
+    #    Say "Backup script (BACKUPMON) is not installed. Skipping backup.\n"
+    #fi
 
     ##----------------------------------------##
     ## Modified by Martinski W. [2024-Jan-06] ##
@@ -2808,7 +2807,7 @@ _AddCronJobRunScriptHook_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-24] ##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
 ##------------------------------------------##
 _DoUninstall_()
 {
