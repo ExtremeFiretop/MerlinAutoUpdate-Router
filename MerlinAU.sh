@@ -50,9 +50,6 @@ readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/${ScriptFNameTag}.d"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
-USBConnected="${REDct}False${NOct}"  # Default to False
-readonly FW_Update_ZIP_DefaultSetupDIR="/home/root"  # Default directory
-readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"  # Default directory
 
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Jan-24] ##
@@ -521,6 +518,28 @@ _SCRIPTUPDATE_()
    fi
 }
 
+##--------------------------------------##
+## Added by Martinski W. [22023-Nov-24] ##
+##--------------------------------------##
+#---------------------------------------------------------#
+# The USB-attached drives can have multiple partitions
+# with different file systems (NTFS, ext3, ext4, etc.),
+# which means that multiple mount points can be found.
+# So for the purpose of choosing a default value here
+# we will simply select the first mount point found.
+# Users can later on change it by typing a different
+# mount point path or directory using the Main Menu.
+#---------------------------------------------------------#
+_GetDefaultUSBMountPoint_()
+{
+   local mounPointPath  retCode=0
+   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+
+   mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mounPointPath" ] && retCode=1
+   echo "$mounPointPath" ; return "$retCode"
+}
+
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Dec-03] ##
 ##-------------------------------------##
@@ -987,32 +1006,14 @@ then
     find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
 
-##-------------------------------------------##
-## Modified by ExtremeFiretop [22023-Jan-26] ##
-##-------------------------------------------##
-#---------------------------------------------------------#
-# The USB-attached drives can have multiple partitions
-# with different file systems (NTFS, ext3, ext4, etc.),
-# which means that multiple mount points can be found.
-# So for the purpose of choosing a default value here
-# we will simply select the first mount point found.
-# Users can later on change it by typing a different
-# mount point path or directory using the Main Menu.
-#---------------------------------------------------------#
-if USBMountPoint="$(_GetDefaultUSBMountPoint_)"; then
-    USBConnected="${GRNct}True${NOct}"
-    readonly FW_Update_ZIP_DefaultSetupDIR="$USBMountPoint"
-    readonly FW_Update_LOG_BASE_DefaultDIR="$USBMountPoint"
-
-    # Actions specific to when USB is connected
-    mv -f "${FW_LOG_DIR}"/*.log "$USBMountPoint/$FW_LOG_SUBDIR" 2>/dev/null
-    rm -fr "$FW_LOG_DIR"
-    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$USBMountPoint"
+if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
+then
+	mv -f "${FW_LOG_DIR}"/*.log "$USBMountPoint/$FW_LOG_SUBDIR" 2>/dev/null
+	rm -fr "$FW_LOG_DIR"
+	Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$USBMountPoint"
 else
-    # Actions specific to when USB is not connected
-    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$ADDONS_PATH"
+	Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$ADDONS_PATH"
 fi
-
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-26] ##
@@ -2243,8 +2244,8 @@ Please manually update to version $minimum_supported_version or higher to use th
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    ##FOR DEBUG ONLY##current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    current_version="388.5.0"
+    current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    ##FOR DEBUG ONLY##current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -2267,13 +2268,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     # "New F/W Release Version" from the router itself.
     # If no new F/W version update is available return.
     #------------------------------------------------------
-    ##FOR DEBUG ONLY##if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
-    ##FOR DEBUG ONLY##   ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-    ##FOR DEBUG ONLY##then
-    ##FOR DEBUG ONLY##    Say "No new firmware version update is found for [$PRODUCT_ID] router model."
-    ##FOR DEBUG ONLY##    "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-    ##FOR DEBUG ONLY##   return 1
-    ##FOR DEBUG ONLY##fi
+    if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+       ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+    then
+        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+       return 1
+    fi
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
