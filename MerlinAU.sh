@@ -2366,7 +2366,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
-	freeRAM_kb=$(get_free_ram)
+    freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
@@ -2393,7 +2393,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Jan-22] ##
     ##------------------------------------------##
-	freeRAM_kb=$(get_free_ram)
+    freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
@@ -2546,7 +2546,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2024-Jan-26] ##
     ##---------------------------------------##
-	freeRAM_kb=$(get_free_ram)
+    freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
@@ -2574,7 +2574,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##----------------------------------------##
     ## Modified by Martinski W. [2024-Jan-06] ##
     ##----------------------------------------##
-	freeRAM_kb=$(get_free_ram)
+    freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
