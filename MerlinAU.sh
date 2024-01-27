@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-25
+# Last Modified: 2024-Jan-27
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=0.9.55
+readonly SCRIPT_VERSION=0.9.56
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1054,8 +1054,9 @@ _CreateEMailContent_()
        STOP_FW_UPDATE_APPROVAL)
            {
              echo
-             echo "Warning: Found high-risk phrases in the change-logs while Auto-Updating to: $fwNewUpdateVersion on $MODEL_ID router."
-             printf "\nPlease run script interactively to approve this upgrade from:\n${fwInstalledVersion}\n\n"
+             echo "<b>WARNING</b>:"
+             echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_UPDATE_STATUS)
