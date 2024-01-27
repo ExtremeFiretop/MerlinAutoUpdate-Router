@@ -1065,7 +1065,7 @@ then
 	mv -f "${FW_LOG_DIR}"/*.log "$USBMountPoint/$FW_LOG_SUBDIR" 2>/dev/null
 	rm -fr "$FW_LOG_DIR"
 	Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$USBMountPoint"
-fin
+fi
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-26] ##
@@ -2321,7 +2321,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         Say "No new firmware version update is found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-       return 1
+        return 1
     fi
 
     # Use set to read the output of the function into variables
@@ -2601,12 +2601,12 @@ Please manually update to version $minimum_supported_version or higher to use th
     "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
     /sbin/service restart_httpd && sleep 5
 
-	#Send last email notification before flash
+    #Send last email notification before flash
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 	
     # Check if '/opt/bin/diversion' exists
     if [ -f /opt/bin/diversion ]; then
-	#Stop Divsersion services before flash
+        #Stop Divsersion services before flash
         Say "Stopping Diversion service..."
         /opt/bin/diversion unmount
     fi
