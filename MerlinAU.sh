@@ -2603,7 +2603,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Diversion service not installed."
     fi
 	
-	#Stop entware services before flash
+    #Stop entware services before flash
     _EntwareServicesHandler_ stop
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
