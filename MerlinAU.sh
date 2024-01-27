@@ -2591,8 +2591,19 @@ Please manually update to version $minimum_supported_version or higher to use th
     "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
     /sbin/service restart_httpd && sleep 5
 
-    _EntwareServicesHandler_ stop
+	#Send last email notification before flash
     _SendEMailNotification_ START_FW_UPDATE_STATUS
+	#Stop entware services before flash
+    _EntwareServicesHandler_ stop
+	
+    # Check if '/opt/bin/diversion' exists
+    if [ -f /opt/bin/diversion ]; then
+	#Stop Divsersion services before flash
+        Say "Stopping Diversion service..."
+        /opt/bin/diversion unmount
+	else
+        Say "Diversion service not installed."
+    fi
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
