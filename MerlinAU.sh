@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=0.9.90
+readonly SCRIPT_VERSION=0.9.92
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -234,9 +234,9 @@ _GetDefaultUSBMountPoint_()
    echo "$mounPointPath" ; return "$retCode"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jan-21] ##
-##---------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
 _migrate_settings_() {
     local USBMountPoint="$(_GetDefaultUSBMountPoint_)"
     local old_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}"
@@ -829,9 +829,9 @@ Update_Custom_Settings()
     esac
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-22] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
 {
    local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
@@ -909,9 +909,9 @@ _Set_FW_UpdateLOG_DirectoryPath_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
    local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath="" 
@@ -985,9 +985,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
 _Init_Custom_Settings_Config_
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 # NOTE:
 # Depending on available RAM & storage capacity of the 
 # target router, it may be required to have USB-attached 
@@ -1044,6 +1044,9 @@ then
     find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-24] ##
+##---------------------------------------##
 if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
 then
 	mv -f "${FW_LOG_DIR}"/*.log "$USBMountPoint/$FW_LOG_SUBDIR" 2>/dev/null
@@ -1542,9 +1545,9 @@ check_memory_and_prompt_reboot() {
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-26] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 _DoCleanUp_()
 {
    local delBINfiles=false  keepZIPfile=false  moveZIPback=false
@@ -1983,9 +1986,9 @@ _Set_FW_UpdateCronSchedule_()
     return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -2282,8 +2285,8 @@ Please manually update to version $minimum_supported_version or higher to use th
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    ##FOR DEBUG ONLY##current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    current_version="388.5.0"
+    current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    ##FOR DEBUG ONLY##current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -2306,13 +2309,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     # "New F/W Release Version" from the router itself.
     # If no new F/W version update is available return.
     #------------------------------------------------------
-    ##FOR DEBUG ONLY##if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
-    ##FOR DEBUG ONLY##   ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-    ##FOR DEBUG ONLY##then
-    ##FOR DEBUG ONLY##    Say "No new firmware version update is found for [$PRODUCT_ID] router model."
-    ##FOR DEBUG ONLY##    "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-    ##FOR DEBUG ONLY##   return 1
-    ##FOR DEBUG ONLY##fi
+    if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+       ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+    then
+        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+       return 1
+    fi
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
@@ -2786,9 +2789,9 @@ _AddCronJobRunScriptHook_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 _DoUninstall_()
 {
    printf "Are you sure you want to uninstall $ScriptFileName script now"
