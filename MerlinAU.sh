@@ -2371,7 +2371,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Compare versions before deciding to download
@@ -2398,7 +2398,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Extracting the firmware binary image #
@@ -2551,7 +2551,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##---------------------------------------##
     freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 	
     # Check for the presence of backupmon.sh script (Commented out until issues resolved)
@@ -2579,7 +2579,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##----------------------------------------##
     freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     routerURLstr="$(_GetRouterURL_)"
