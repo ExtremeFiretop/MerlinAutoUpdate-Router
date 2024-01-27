@@ -234,69 +234,6 @@ _GetDefaultUSBMountPoint_()
    echo "$mounPointPath" ; return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
-##------------------------------------------##
-_migrate_settings_() {
-    local USBMountPoint="$(_GetDefaultUSBMountPoint_)"
-    local old_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}"
-    local new_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}.d"
-    local old_bin_dir="/home/root/${ScriptFNameTag}"
-    local new_bin_dir="/home/root/${ScriptFNameTag}.d"
-    local old_mnt_dir="${USBMountPoint}/${ScriptFNameTag}"
-    local new_mnt_dir="${USBMountPoint}/${ScriptFNameTag}.d"
-
-    # Check if the old settings directory exists
-    if [ -d "$old_settings_dir" ]; then
-        # Check if the new settings directory already exists
-        if [ -d "$new_settings_dir" ]; then
-            echo "The new settings directory already exists. Migration is not required."
-        else
-            # Move the old settings directory to the new location
-            mv "$old_settings_dir" "$new_settings_dir"
-            if [ $? -eq 0 ]; then
-                echo "Settings directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the settings directory."
-            fi
-        fi
-    fi
-	
-	# Check if the old settings directory exists
-    if [ -d "$old_bin_dir" ]; then
-        # Check if the new settings directory already exists
-        if [ -d "$new_bin_dir" ]; then
-            echo "The new settings directory already exists. Migration is not required."
-        else
-            # Move the old settings directory to the new location
-            mv "$old_bin_dir" "$new_bin_dir"
-            if [ $? -eq 0 ]; then
-                echo "Settings directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the settings directory."
-            fi
-        fi
-    fi
-	
-	# Check if the old settings directory exists
-    if [ -d "$old_mnt_dir" ]; then
-        # Check if the new settings directory already exists
-        if [ -d "$new_mnt_dir" ]; then
-            echo "The new settings directory already exists. Migration is not required."
-        else
-            # Move the old settings directory to the new location
-            mv "$old_mnt_dir" "$new_mnt_dir"
-            if [ $? -eq 0 ]; then
-                echo "Settings directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the settings directory."
-            fi
-        fi
-    fi
-}
-
-_migrate_settings_
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-22] ##
 ##----------------------------------------##
@@ -830,6 +767,69 @@ Update_Custom_Settings()
 }
 
 ##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
+_migrate_settings_() {
+    local USBMountPoint="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+    local old_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}"
+    local new_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}.d"
+    local old_bin_dir="/home/root/${ScriptFNameTag}"
+    local new_bin_dir="/home/root/${ScriptFNameTag}.d"
+    local old_mnt_dir="${USBMountPoint}/${ScriptFNameTag}"
+    local new_mnt_dir="${USBMountPoint}/${ScriptFNameTag}.d"
+
+    # Check if the old settings directory exists
+    if [ -d "$old_settings_dir" ]; then
+        # Check if the new settings directory already exists
+        if [ -d "$new_settings_dir" ]; then
+            echo "The new settings directory already exists. Migration is not required."
+        else
+            # Move the old settings directory to the new location
+            mv "$old_settings_dir" "$new_settings_dir"
+            if [ $? -eq 0 ]; then
+                echo "Settings directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the settings directory."
+            fi
+        fi
+    fi
+	
+	# Check if the old settings directory exists
+    if [ -d "$old_bin_dir" ]; then
+        # Check if the new settings directory already exists
+        if [ -d "$new_bin_dir" ]; then
+            echo "The new settings directory already exists. Migration is not required."
+        else
+            # Move the old settings directory to the new location
+            mv "$old_bin_dir" "$new_bin_dir"
+            if [ $? -eq 0 ]; then
+                echo "Settings directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the settings directory."
+            fi
+        fi
+    fi
+	
+	# Check if the old settings directory exists
+    if [ -d "$old_mnt_dir" ]; then
+        # Check if the new settings directory already exists
+        if [ -d "$new_mnt_dir" ]; then
+            echo "The new settings directory already exists. Migration is not required."
+        else
+            # Move the old settings directory to the new location
+            mv "$old_mnt_dir" "$new_mnt_dir"
+            if [ $? -eq 0 ]; then
+                echo "Settings directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the settings directory."
+            fi
+        fi
+    fi
+}
+
+_migrate_settings_
+
+##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-24] ##
 ##------------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
@@ -1047,6 +1047,14 @@ fi
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-24] ##
 ##---------------------------------------##
+#This vode is incase a no USBs are mounted anymore (Zero Default USB Mounts).
+#If the USB is selected as the log location and it goes offline, any "Say" command creates a mnt directory.
+#In such a case were the USB is unmounted. We need to change the log directory back to a local directory.
+#Second part of else statement executes first, and updates it local jffs for logs if no USBs are found.
+#if ANY DefaultUSBMountPoint found, then move the log files from their local jffs location to the default mount location. 
+#We don't know the user selected yet because it's local at this time and was changed by the else statement.
+#Remove the old log directory location from jffs, and update the settings file again to the new default again.
+#This creates a semi-perminant switch which can reset back to default if no USBmountpoints are valid anymore.
 if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
 then
 	mv -f "${FW_LOG_DIR}"/*.log "$USBMountPoint/$FW_LOG_SUBDIR" 2>/dev/null
@@ -2022,9 +2030,7 @@ _CheckNewUpdateFirmwareNotification_()
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-           if [ ! "$isInteractive" ]; then
            _SendEMailNotification_ NEW_FW_UPDATE_STATUS
-           fi
        fi
    fi
 
@@ -2033,9 +2039,7 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-       if [ ! "$isInteractive" ]; then
        _SendEMailNotification_ NEW_FW_UPDATE_STATUS
-       fi
    fi
    return 0
 }
@@ -2362,8 +2366,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
-    availableRAM_kb=$(get_free_ram)
-    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+	freeRAM_kb=$(get_free_ram)
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Compare versions before deciding to download
@@ -2388,8 +2393,9 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Jan-22] ##
     ##------------------------------------------##
-    availableRAM_kb=$(get_free_ram)
-    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+	freeRAM_kb=$(get_free_ram)
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Extracting the firmware binary image #
@@ -2540,8 +2546,9 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2024-Jan-26] ##
     ##---------------------------------------##
-    availableRAM_kb=$(get_free_ram)
-    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+	freeRAM_kb=$(get_free_ram)
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 	
     # Check for the presence of backupmon.sh script
@@ -2568,8 +2575,9 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##----------------------------------------##
     ## Modified by Martinski W. [2024-Jan-06] ##
     ##----------------------------------------##
-    availableRAM_kb=$(get_free_ram)
-    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+	freeRAM_kb=$(get_free_ram)
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - System RAM Available: ${availableRAM_kb} KB - WebUI RAM Free: ${freeRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     routerURLstr="$(_GetRouterURL_)"
@@ -2599,8 +2607,6 @@ Please manually update to version $minimum_supported_version or higher to use th
 	#Stop Divsersion services before flash
         Say "Stopping Diversion service..."
         /opt/bin/diversion unmount
-	else
-        Say "Diversion service not installed."
     fi
 	
     #Stop entware services before flash
