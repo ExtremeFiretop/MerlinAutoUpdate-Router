@@ -1047,22 +1047,25 @@ fi
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-24] ##
 ##---------------------------------------##
-#This code is incase a no USBs are mounted anymore (Zero Default USB Mounts).
+#This code is incase the user selected USB mount isn't available anymore.
 #If the USB is selected as the log location and it goes offline, any "Say" command creates a mnt directory.
 #In such a case were the USB is unmounted. We need to change the log directory back to a local directory.
-#Second part of else statement executes first, and updates it local jffs for logs if no USBs are found.
+#First if statement executes first, and updates it local jffs for logs if no USBs are found.
 #if ANY DefaultUSBMountPoint found, then move the log files from their local jffs location to the default mount location. 
 #We don't know the user selected yet because it's local at this time and was changed by the else statement.
 #Remove the old log directory location from jffs, and update the settings file again to the new default again.
-#This creates a semi-perminant switch which can reset back to default if no USBmountpoints are valid anymore.
+#This creates a semi-perminant switch which can reset back to default if no the user selected mount points aren't valid anymore.
+UserSelectedMntPnt="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+if [ ! -d "$UserSelectedMntPnt" ] || [ ! -r "$UserSelectedMntPnt" ]; then
+	Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$ADDONS_PATH"
+fi
+
 if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
 then
 	mv -f "${FW_LOG_DIR}"/*.log "$USBMountPoint/$FW_LOG_SUBDIR" 2>/dev/null
 	rm -fr "$FW_LOG_DIR"
 	Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$USBMountPoint"
-else
-	Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$ADDONS_PATH"
-fi
+fin
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-26] ##
