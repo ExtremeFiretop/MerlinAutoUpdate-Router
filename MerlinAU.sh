@@ -376,7 +376,7 @@ _FWVersionStrToNum_() {
         return 1
     fi
 	
-	USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
+    USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
     local verStr="$1"
     local betaWeight=0
@@ -386,7 +386,7 @@ _FWVersionStrToNum_() {
         betaWeight=-1000
         verStr=$(echo "$verStr" | sed 's/beta[0-9]*//') # Remove 'beta' and any following numbers
 	else
-		verStr="$(nvram get firmver | sed 's/\.//g').$1"
+        verStr="$(nvram get firmver | sed 's/\.//g').$1"
     fi
 
     local verNum
