@@ -599,7 +599,7 @@ else
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-27] ##
+## Modified by ExtremeFiretop [2024-Jan-27] ##
 ##----------------------------------------##
 _Init_Custom_Settings_Config_()
 {
@@ -671,7 +671,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-27] ##
+## Modified by ExtremeFiretop [2024-Jan-27] ##
 ##----------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
