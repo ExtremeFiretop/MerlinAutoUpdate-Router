@@ -2381,8 +2381,8 @@ Please manually update to version $minimum_supported_version or higher to use th
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    ##FOR DEBUG ONLY##current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    current_version="388.5.0"
+    current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    ##FOR DEBUG ONLY##current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -2635,9 +2635,6 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
-## BEGIN: THIS CODE HAS BEEN *DISABLED* FOR NOW ##
-if true
-then
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2024-Jan-26] ##
     ##---------------------------------------##
@@ -2659,14 +2656,17 @@ then
             Say "Backup Failed\n"
             _SendEMailNotification_ NEW_BM_BACKUP_FAILED
             _DoCleanUp_ 1
-            _DoExit_ 1
+            if "$isInteractive"
+            then
+                return 1
+            else
+                _DoExit_ 1
+            fi
         fi
     else
         # Print a message if the backup script is not installed
         Say "Backup script (BACKUPMON) is not installed. Skipping backup.\n"
     fi
-fi
-## END: THIS CODE HAS BEEN *DISABLED* FOR NOW ##
 
     ##----------------------------------------##
     ## Modified by Martinski W. [2024-Jan-06] ##
