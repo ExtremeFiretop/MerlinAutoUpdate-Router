@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=0.9.92
+readonly SCRIPT_VERSION=0.9.94
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -368,24 +368,39 @@ _ScriptVersionStrToNum_()
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-28] ##
+## Added/Modified by ExtremeFiretop [2024-Jan-27] ##
 ##----------------------------------------------##
-_FWVersionStrToNum_()
-{
-   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
-   then echo ; return 1 ; fi
+_FWVersionStrToNum_() {
+    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]; then
+        echo
+        return 1
+    fi
+	
+	USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
-   local verNum  verStr="$1"
+    local verStr="$1"
+    local betaWeight=0
 
-   if [ "$(echo "$1" | awk -F '.' '{print NF}')" -lt "$2" ]
-   then verStr="$(nvram get firmver | sed 's/\.//g').$1" ; fi
+    # Check for 'beta' in the version string and adjust weight if USE_BETA_WEIGHT is true
+    if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && echo "$verStr" | grep -q 'beta'; then
+        betaWeight=-1000
+        verStr=$(echo "$verStr" | sed 's/beta[0-9]*//') # Remove 'beta' and any following numbers
+	else
+		verStr="$(nvram get firmver | sed 's/\.//g').$1"
+    fi
 
-   if [ "$2" -lt 4 ]
-   then verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%03d%03d\n", $1,$2,$3);}')"
-   else verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%d%03d%03d\n", $1,$2,$3,$4);}')"
-   fi
+    local verNum
+    if [ "$2" -lt 4 ]; then
+        verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%03d%03d\n", $1,$2,$3}')
+    else
+        verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%d%03d%03d\n", $1,$2,$3,$4}')
+    fi
 
-   echo "$verNum" ; return 0
+    # Subtract beta weight from the version number
+    verNum=$((verNum + betaWeight))
+
+    echo "$verNum"
+    return 0
 }
 
 ##--------------------------------------------##
@@ -584,7 +599,7 @@ else
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-24] ##
+## Modified by Martinski W. [2024-Jan-27] ##
 ##----------------------------------------##
 _Init_Custom_Settings_Config_()
 {
@@ -601,6 +616,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
          echo "CheckChangeLog ENABLED"
+         echo "FW_Allow_Beta_Production_Up ENABLED"
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -646,11 +662,16 @@ _Init_Custom_Settings_Config_()
        sed -i "8 i CheckChangeLog ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^FW_Allow_Beta_Production_Up" "$SETTINGSFILE"
+   then
+       sed -i "5 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
    return "$retCode"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-24] ##
+## Modified by Martinski W. [2024-Jan-27] ##
 ##----------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
@@ -663,7 +684,7 @@ Get_Custom_Setting()
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+            "ROGBuild" | "credentials_base64" | "CheckChangeLog" |  "FW_Allow_Beta_Production_Up" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -687,7 +708,7 @@ Get_Custom_Setting()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2024-Jan-07] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -700,7 +721,7 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | "FW_Allow_Beta_Production_Up" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
@@ -986,7 +1007,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 _Init_Custom_Settings_Config_
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-24] ##
+## Modified by ExtremeFiretop [2024-Jan-27] ##
 ##------------------------------------------##
 # NOTE:
 # Depending on available RAM & storage capacity of the 
@@ -1745,6 +1766,43 @@ _toggle_change_log_check_() {
                 ;;
             *)
                 printf "Change-log verification check remains ${REDct}DISABLED.${NOct}\n"
+                ;;
+        esac
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-27] ##
+##---------------------------------------##
+_toggle_beta_updates_() {
+    local currentSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+
+    if [ "$currentSetting" = "ENABLED" ]; then
+        printf "${REDct}*WARNING*:${NOct}\n"
+		printf "Disabling updates from beta F/Ws to release F/Ws may prevent access to the latest features and fixes.\n"
+        printf "Keep this enabled if you prefer to stay up-to-date with the latest releases.\n"
+        printf "\nProceed to disable? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "FW_Allow_Beta_Production_Up" "DISABLED"
+                printf "Updates from beta firmwares to production firmwares are now ${REDct}DISABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Updates from beta firmwares to production firmwares remain ${GRNct}ENABLED.${NOct}\n"
+                ;;
+        esac
+    else
+        printf "Are you sure you want to enable updates from beta F/Ws to production F/Ws?"
+        printf "\nProceed to enable? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "FW_Allow_Beta_Production_Up" "ENABLED"
+                printf "Updates from beta firmwares to production firmwares are now ${GRNct}ENABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Updates from beta firmwares to production firmwares remain ${REDct}DISABLED.${NOct}\n"
                 ;;
         esac
     fi
@@ -3046,7 +3104,7 @@ A USB drive is required for F/W updates.\n"
 }
 
 ##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jan-23] ##
+## Added by ExtremeFiretop [2024-Jan-27] ##
 ##---------------------------------------##
 _advanced_options_menu_() {
 	theADExitStr="${GRNct}e${NOct}=Exit to advanced menu"
@@ -3070,7 +3128,15 @@ _advanced_options_menu_() {
         if [ "$checkChangeLogSetting" = "DISABLED" ]
         then printf "\n${padStr}[Currently: ${REDct}${checkChangeLogSetting}${NOct}]\n"
         else printf "\n${padStr}[Currently: ${GRNct}${checkChangeLogSetting}${NOct}]\n"
-		fi
+        fi
+		
+        printf "\n  ${GRNct}5${NOct}.  Toggle Beta-to-Release Upgrades"
+		
+        local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+        if [ "$BetaProductionSetting" = "DISABLED" ]
+        then printf "\n${padStr}[Currently: ${REDct}${BetaProductionSetting}${NOct}]\n"
+        else printf "\n${padStr}[Currently: ${GRNct}${BetaProductionSetting}${NOct}]\n"
+        fi
 		
 		# Retrieve the current build type setting
         local current_build_type=$(Get_Custom_Setting "ROGBuild")
@@ -3085,7 +3151,7 @@ _advanced_options_menu_() {
         fi
 		
         if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-            printf "\n  ${GRNct}5${NOct}.  Change ROG F/W Build Type"
+            printf "\n  ${GRNct}6${NOct}.  Change ROG F/W Build Type"
             if [ "$current_build_type_menu" = "NOT SET" ]
             then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
             else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
@@ -3107,7 +3173,9 @@ _advanced_options_menu_() {
                ;;
             4) _toggle_change_log_check_ && _WaitForEnterKey_
                ;;
-            5) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
+            5) _toggle_beta_updates_ && _WaitForEnterKey_
+               ;;
+            6) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
                    change_build_type && _WaitForEnterKey_
                fi
                ;;
