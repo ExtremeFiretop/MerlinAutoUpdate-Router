@@ -8,8 +8,8 @@
 ###################################################################
 set -u
 
-
-readonly SCRIPT_VERSION=0.9.94
+#For AMTM versioning:
+readonly SCRIPT_VERSION=1.0
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -368,40 +368,48 @@ _ScriptVersionStrToNum_()
    echo "$verNum" ; return 0
 }
 
-##----------------------------------------------##
+##------------------------------------------------##
 ## Added/Modified by ExtremeFiretop [2024-Jan-27] ##
-##----------------------------------------------##
-_FWVersionStrToNum_() {
-    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]; then
-        echo
-        return 1
-    fi
-	
-    USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
+##------------------------------------------------##
+_FWVersionStrToNum_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo ; return 1 ; fi
 
-    local verStr="$1"
-    local betaWeight=0
+   USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
-    # Check for 'beta' in the version string and adjust weight if USE_BETA_WEIGHT is true
-    if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && echo "$verStr" | grep -q 'beta'; then
-        betaWeight=-1000
-        verStr=$(echo "$verStr" | sed 's/beta[0-9]*//') # Remove 'beta' and any following numbers
-	else
-        verStr="$(nvram get firmver | sed 's/\.//g').$1"
-    fi
+   local verNum
+   local verStr="$1"
+   local betaWeight=0
 
-    local verNum
-    if [ "$2" -lt 4 ]; then
-        verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%03d%03d\n", $1,$2,$3}')
-    else
-        verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%d%03d%03d\n", $1,$2,$3,$4}')
-    fi
+   if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && echo "$verStr" | grep -q 'beta'; then
+      betaWeight=-1000
+      verStr=$(echo "$verStr" | sed 's/beta[0-9]*//') # Remove 'beta' and any following numbers
 
-    # Subtract beta weight from the version number
-    verNum=$((verNum + betaWeight))
+   if [ "$(echo "verStr" | awk -F '.' '{print NF}')" -lt "$2" ]
+   then verStr="$(nvram get firmver | sed 's/\.//g').$verStr" ; fi
 
-    echo "$verNum"
-    return 0
+   if [ "$2" -lt 4 ]; then
+    verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%03d%01d\n", $1,$2,$3}')
+   else
+    verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%d%d%01d\n", $1,$2,$3,$4}')
+   fi
+
+    verNum=$((verNum + betaWeight)) 
+
+   else
+      if [ "$(echo "$1" | awk -F '.' '{print NF}')" -lt "$2" ]
+      then verStr="$(nvram get firmver | sed 's/\.//g').$1" ; fi
+
+   if [ "$2" -lt 4 ]; then
+    verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%03d%01d\n", $1,$2,$3}')
+   else
+    verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%d%d%01d\n", $1,$2,$3,$4}')
+   fi
+
+   fi
+
+   echo "$verNum" ; return 0
 }
 
 ##--------------------------------------------##
@@ -601,9 +609,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##----------------------------------------##
+##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-27] ##
-##----------------------------------------##
+##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -680,9 +688,9 @@ _Init_Custom_Settings_Config_()
    return "$retCode"
 }
 
-##----------------------------------------##
+##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-27] ##
-##----------------------------------------##
+##------------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
 {
@@ -1108,6 +1116,27 @@ then
    rm -fr "$FW_LOG_DIR"
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-22] ##
+##----------------------------------------------##
+_GetLatestFWUpdateVersionFromRouter_()
+{
+   local retCode=0  webState  newVersionStr
+
+   webState="$(nvram get webs_state_flag)"
+   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
+   then retCode=1 ; fi
+
+   newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
+   fi
+
+   [ -z "$newVersionStr" ] && retCode=1
+   echo "$newVersionStr" ; return "$retCode"
+}
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-26] ##
@@ -1705,27 +1734,6 @@ _GetLoginCredentials_()
     echo "Credentials saved."
     _WaitForEnterKey_ "$menuReturnPromptStr"
     return 0
-}
-
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-22] ##
-##----------------------------------------------##
-_GetLatestFWUpdateVersionFromRouter_()
-{
-   local retCode=0  webState  newVersionStr
-
-   webState="$(nvram get webs_state_flag)"
-   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
-   then retCode=1 ; fi
-
-   newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
-   if [ $# -eq 0 ] || [ -z "$1" ]
-   then
-       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
-   fi
-
-   [ -z "$newVersionStr" ] && retCode=1
-   echo "$newVersionStr" ; return "$retCode"
 }
 
 ##----------------------------------------##
@@ -2373,8 +2381,8 @@ Please manually update to version $minimum_supported_version or higher to use th
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    ##FOR DEBUG ONLY##current_version="388.5.0"
+    ##FOR DEBUG ONLY##current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -2628,7 +2636,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
 ## BEGIN: THIS CODE HAS BEEN *DISABLED* FOR NOW ##
-if false
+if true
 then
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2024-Jan-26] ##
