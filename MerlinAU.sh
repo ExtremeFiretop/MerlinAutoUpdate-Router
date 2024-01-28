@@ -3122,22 +3122,26 @@ _advanced_options_menu_() {
         printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
         printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 		
-        printf "\n  ${GRNct}4${NOct}.  Toggle Change-log Check"
-		
         local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
         if [ "$checkChangeLogSetting" = "DISABLED" ]
-        then printf "\n${padStr}[Currently: ${REDct}${checkChangeLogSetting}${NOct}]\n"
-        else printf "\n${padStr}[Currently: ${GRNct}${checkChangeLogSetting}${NOct}]\n"
+        then
+                printf "\n  ${GRNct}4${NOct}.  Enable Change-log Check"
+                printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+        else
+                printf "\n  ${GRNct}4${NOct}.  Disable Change-log Check"
+                printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
         fi
-		
-        printf "\n  ${GRNct}5${NOct}.  Toggle Beta-to-Release Upgrades"
 		
         local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
         if [ "$BetaProductionSetting" = "DISABLED" ]
-        then printf "\n${padStr}[Currently: ${REDct}${BetaProductionSetting}${NOct}]\n"
-        else printf "\n${padStr}[Currently: ${GRNct}${BetaProductionSetting}${NOct}]\n"
+        then
+                printf "\n  ${GRNct}5${NOct}.  Enable Beta-to-Release Upgrades"
+                printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+        else
+                printf "\n  ${GRNct}5${NOct}.  Disable Beta-to-Release Upgrades"
+                printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
         fi
-		
+						
 		# Retrieve the current build type setting
         local current_build_type=$(Get_Custom_Setting "ROGBuild")
 
