@@ -515,9 +515,9 @@ _SCRIPTUPDATE_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Dec-03] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-27] ##
+##----------------------------------------##
 #-------------------------------------------------------------#
 # Since a list of current mount points can have a different
 # order after each reboot, or when USB drives are unmounted
@@ -531,7 +531,7 @@ _ValidateUSBMountPoint_()
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
 
    local mounPointPaths  expectedPath
-   local symbPath  realPath  foundPathOK
+   local symblPath  realPath1  realPath2  foundPathOK
    local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
 
    mounPointPaths="$(grep "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
@@ -540,10 +540,12 @@ _ValidateUSBMountPoint_()
    expectedPath="$1"
    if echo "$1" | grep -qE "^(/opt/|/tmp/opt/)"
    then
-       symbPath="$(ls -l /tmp/opt | awk -F ' ' '{print $9}')"
-       realPath="$(ls -l /tmp/opt | awk -F ' ' '{print $11}')"
-       [ -L "$symbPath" ] && [ -n "$realPath" ] && \
-       expectedPath="$(/usr/bin/dirname "$realPath")"
+       realPath1="$(readlink -f /tmp/opt)"
+       realPath2="$(ls -l /tmp/opt | awk -F ' ' '{print $11}')"
+       symblPath="$(ls -l /tmp/opt | awk -F ' ' '{print $9}')"
+       [ -L "$symblPath" ] && [ -n "$realPath1" ] && \
+       [ -n "$realPath2" ] && [ "$realPath1" = "$realPath2" ] && \
+       expectedPath="$(/usr/bin/dirname "$realPath1")"
    fi
 
    foundPathOK=false
@@ -584,7 +586,7 @@ else
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-24] ##
+## Modified by Martinski W. [2024-Jan-27] ##
 ##----------------------------------------##
 _Init_Custom_Settings_Config_()
 {
@@ -600,11 +602,12 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
+         echo "FW_New_Update_LOG_Preferred_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
          echo "CheckChangeLog ENABLED"
       } > "$SETTINGSFILE"
       return 1
    fi
-   local retCode=0
+   local retCode=0  prefPath
 
    if ! grep -q "^FW_New_Update_Notification_Date " "$SETTINGSFILE"
    then
@@ -641,16 +644,22 @@ _Init_Custom_Settings_Config_()
        sed -i "7 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^FW_New_Update_LOG_Preferred_Path=" "$SETTINGSFILE"
+   then
+       preferredPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+       sed -i "8 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$SETTINGSFILE"
+       retCode=1
+   fi
    if ! grep -q "^CheckChangeLog" "$SETTINGSFILE"
    then
-       sed -i "8 i CheckChangeLog ENABLED" "$SETTINGSFILE"
+       sed -i "9 i CheckChangeLog ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
    return "$retCode"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-24] ##
+## Modified by Martinski W. [2024-Jan-27] ##
 ##----------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
@@ -672,6 +681,7 @@ Get_Custom_Setting()
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
             "FW_New_Update_LOG_Directory_Path" | \
+            "FW_New_Update_LOG_Preferred_Path" | \
             "FW_New_Update_EMail_Notification")
                 grep -q "^${setting_type}=" "$SETTINGSFILE" && \
                 setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
@@ -686,9 +696,9 @@ Get_Custom_Setting()
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-27] ##
+##----------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -719,6 +729,7 @@ Update_Custom_Settings()
         "FW_New_Update_Cron_Job_Schedule"  | \
         "FW_New_Update_ZIP_Directory_Path" | \
         "FW_New_Update_LOG_Directory_Path" | \
+        "FW_New_Update_LOG_Preferred_Path" | \
         "FW_New_Update_EMail_Notification")
             if [ -f "$SETTINGSFILE" ]
             then
@@ -903,6 +914,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
        rm -fr "$FW_LOG_DIR"
        # Update the log directory path after validation #
        Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
+       Update_Custom_Settings FW_New_Update_LOG_Preferred_Path "$newLogBaseDirPath"
        echo "The directory path for the log files was updated successfully."
        _WaitForEnterKey_ "$menuReturnPromptStr"
    fi
@@ -1044,29 +1056,35 @@ then
     find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jan-24] ##
-##---------------------------------------##
-#------------------------------------------------------------------------------------------------------------
-# This code is in case the user selected USB mount isn't available anymore.
-# If the USB drive is selected as the log location and it goes offline, any "Say" command creates a mnt directory.
-# In such a case were the USB drive is unmounted. We need to change the log directory back to a local directory.
-# First if statement executes first, and updates it local jffs for logs if no USB drives are found.
-# If ANY DefaultUSBMountPoint found, then move the log files from their local jffs location to the default mount location. 
-# We don't know the user selected yet because it's local at this time and was changed by the else statement.
-# Remove the old log directory location from jffs, and update the settings file again to the new default again.
-# This creates a semi-permanent switch which can reset back to default if the user-selected mount points aren't valid anymore.
-#------------------------------------------------------------------------------------------------------------
-UserSelectedMntPnt="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
-if [ ! -d "$UserSelectedMntPnt" ] || [ ! -r "$UserSelectedMntPnt" ]; then
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-27] ##
+##----------------------------------------##
+#-------------------------------------------------------------------------------------------
+# This code is in case the user-selected USB mount point isn't available anymore.
+# If the USB drive is selected as the log location but it goes offline for some reason, 
+# any call to the "Say" function creates a new '/tmp/mnt/XXXX' directory.
+# In such a case where the USB drive is unmounted, we need to change the log directory 
+# back to a local directory. First if-statement executes first and updates to local 'jffs' 
+# directory if no USB drives are found. If ANY DefaultUSBMountPoint found, then move the 
+# log files from their local jffs location to the default mount location. 
+# We don't know the user selected yet because it's local at this time and was changed 
+# by the else statement. Remove the old log directory location from jffs, and update the 
+# settings file again to the new default again. This creates a semi-permanent switch which 
+# can reset back to default if the user-selected mount points aren't valid anymore.
+#-------------------------------------------------------------------------------------------
+UserSelectedLogPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+if [ ! -d "$UserSelectedLogPath" ] || [ ! -r "$UserSelectedLogPath" ]; then
     Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$ADDONS_PATH"
 fi
 
-if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
+UserPreferredLogPath="$(Get_Custom_Setting FW_New_Update_LOG_Preferred_Path)"
+if echo "$UserPreferredLogPath" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
+   _ValidateUSBMountPoint_ "$UserPreferredLogPath" &&
+   [ "$UserPreferredLogPath" != "$FW_LOG_BASE_DIR" ]
 then
-    mv -f "${FW_LOG_DIR}"/*.log "${USBMountPoint}/$FW_LOG_SUBDIR" 2>/dev/null
-    rm -fr "$FW_LOG_DIR"
-    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$USBMountPoint"
+   mv -f "${FW_LOG_DIR}"/*.log "${UserPreferredLogPath}/$FW_LOG_SUBDIR" 2>/dev/null
+   rm -fr "$FW_LOG_DIR"
+   Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
 
 ##------------------------------------------##
