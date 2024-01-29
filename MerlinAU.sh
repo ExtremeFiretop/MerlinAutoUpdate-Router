@@ -8,7 +8,8 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=0.9.96
+#For AMTM versioning:
+readonly SCRIPT_VERSION=1.0
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -693,7 +694,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-27] ##
+## Modified by ExtremeFiretop [2024-Jan-28] ##
 ##------------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
@@ -732,7 +733,7 @@ Get_Custom_Setting()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-27] ##
+## Modified by ExtremeFiretop [2024-Jan-28] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -1122,6 +1123,27 @@ then
    rm -fr "$FW_LOG_DIR"
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-22] ##
+##----------------------------------------------##
+_GetLatestFWUpdateVersionFromRouter_()
+{
+   local retCode=0  webState  newVersionStr
+
+   webState="$(nvram get webs_state_flag)"
+   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
+   then retCode=1 ; fi
+
+   newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
+   fi
+
+   [ -z "$newVersionStr" ] && retCode=1
+   echo "$newVersionStr" ; return "$retCode"
+}
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-26] ##
@@ -1721,27 +1743,6 @@ _GetLoginCredentials_()
     return 0
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-22] ##
-##----------------------------------------------##
-_GetLatestFWUpdateVersionFromRouter_()
-{
-   local retCode=0  webState  newVersionStr
-
-   webState="$(nvram get webs_state_flag)"
-   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
-   then retCode=1 ; fi
-
-   newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
-   if [ $# -eq 0 ] || [ -z "$1" ]
-   then
-       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
-   fi
-
-   [ -z "$newVersionStr" ] && retCode=1
-   echo "$newVersionStr" ; return "$retCode"
-}
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Nov-20] ##
 ##----------------------------------------##
@@ -1815,7 +1816,7 @@ _toggle_beta_updates_() {
 
     if [ "$currentSetting" = "ENABLED" ]; then
         printf "${REDct}*WARNING*:${NOct}\n"
-		printf "Disabling updates from beta F/Ws to release F/Ws may prevent access to the latest features and fixes.\n"
+		printf "Disabling updates from beta to release firmware may limit access to new features and fixes.\n"
         printf "Keep this enabled if you prefer to stay up-to-date with the latest releases.\n"
         printf "\nProceed to disable? [y/N]: "
         read -r response
@@ -2665,38 +2666,58 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
-## BEGIN: THIS CODE HAS BEEN *DISABLED* FOR NOW ##
-if false
-then
-    ##---------------------------------------##
-    ## Added by ExtremeFiretop [2024-Jan-26] ##
-    ##---------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jan-28] ##
+    ##------------------------------------------##
     freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
-    # Check for the presence of backupmon.sh script (Commented out until issues resolved)
+    # Check for the presence of backupmon.sh script
     if [ -f "/jffs/scripts/backupmon.sh" ]; then
-        # Execute the backup script if it exists #
-        Say "\nBackup Started (by BACKUPMON)"
-        sh /jffs/scripts/backupmon.sh -backup >/dev/null
-        BE=$?
-        Say "Backup Finished\n"
-        if [ $BE -eq 0 ]; then
-            Say "Backup Completed Successfully\n"
+        # Extract version number from backupmon.sh
+        BM_VERSION=$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')
+
+        # Compare current version with the required version
+        current_version=$(_ScriptVersionStrToNum_ "$BM_VERSION")
+        required_version=$(_ScriptVersionStrToNum_ "1.44")
+
+        # Check if BACKUPMON version is greater than or equal to 1.44
+        if [ "$current_version" -ge "$required_version" ]; then
+            # Execute the backup script if it exists #
+            Say "\nBackup Started (by BACKUPMON)"
+            sh /jffs/scripts/backupmon.sh -backup >/dev/null
+            BE=$?
+            Say "Backup Finished\n"
+            if [ $BE -eq 0 ]; then
+                Say "Backup Completed Successfully\n"
+            else
+                Say "Backup Failed\n"
+                _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+                _DoCleanUp_ 1
+                if "$isInteractive"
+                then
+                    printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+                    printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+                    printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+                    printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+                    _WaitForEnterKey_ "$menuReturnPromptStr"
+                    return 1
+                else
+                    _DoExit_ 1
+                fi
+            fi
         else
-            Say "Backup Failed\n"
-            _SendEMailNotification_ NEW_BM_BACKUP_FAILED
-            _DoCleanUp_ 1
-            _DoExit_ 1
+            # BACKUPMON version is not sufficient
+            Say "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+            Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.44.\n"
+            Say "Skipping backup. Please update your version of BACKUPMON.\n"
         fi
     else
         # Print a message if the backup script is not installed
         Say "Backup script (BACKUPMON) is not installed. Skipping backup.\n"
     fi
-fi
-## END: THIS CODE HAS BEEN *DISABLED* FOR NOW ##
 
     ##----------------------------------------##
     ## Modified by Martinski W. [2024-Jan-06] ##
