@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-28
+# Last Modified: 2024-Jan-29
 ###################################################################
 set -u
 
@@ -388,7 +388,7 @@ _FWVersionStrToNum_()
     then
         nonProductionVersionWeight=-100
         # Remove 'alpha/beta' and any following numbers #
-        verStr="$(echo "$verStr" | sed 's/[Aa]lpha[0-9]*// ; s/[Bb]eta[0-9]*//')"
+        verStr="$(echo "$verStr" | sed 's/[._-]\?[Aa]lpha[0-9]*// ; s/[._-]\?[Bb]eta[0-9]*//')"
     fi
 
     numFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
@@ -1816,7 +1816,7 @@ _toggle_beta_updates_() {
 
     if [ "$currentSetting" = "ENABLED" ]; then
         printf "${REDct}*WARNING*:${NOct}\n"
-		printf "Disabling updates from beta to release firmware may limit access to new features and fixes.\n"
+        printf "Disabling updates from beta to release firmware may limit access to new features and fixes.\n"
         printf "Keep this enabled if you prefer to stay up-to-date with the latest releases.\n"
         printf "\nProceed to disable? [y/N]: "
         read -r response
