@@ -4,12 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-27
+# Last Modified: 2024-Jan-28
 ###################################################################
 set -u
 
-
-readonly SCRIPT_VERSION=0.9.94
+readonly SCRIPT_VERSION=0.9.96
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -228,7 +227,7 @@ FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 _GetDefaultUSBMountPoint_()
 {
    local mounPointPath  retCode=0
-   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+   local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
 
    mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
    [ -z "$mounPointPath" ] && retCode=1
@@ -368,40 +367,53 @@ _ScriptVersionStrToNum_()
    echo "$verNum" ; return 0
 }
 
-##----------------------------------------------##
-## Added/Modified by ExtremeFiretop [2024-Jan-27] ##
-##----------------------------------------------##
-_FWVersionStrToNum_() {
-    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]; then
-        echo
-        return 1
-    fi
-	
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-28] ##
+##----------------------------------------##
+_FWVersionStrToNum_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+    then echo ; return 1 ; fi
+
     USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
-    local verStr="$1"
-    local betaWeight=0
+    local verNum  verStr="$1"  nonProductionVersionWeight=0
+    local fwBranchVers=""  numFields
 
-    # Check for 'beta' in the version string and adjust weight if USE_BETA_WEIGHT is true
-    if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && echo "$verStr" | grep -q 'beta'; then
-        betaWeight=-1000
-        verStr=$(echo "$verStr" | sed 's/beta[0-9]*//') # Remove 'beta' and any following numbers
-	else
-        verStr="$(nvram get firmver | sed 's/\.//g').$1"
+    # Check for 'alpha/beta' in the version string and 
+    # adjust weight value if USE_BETA_WEIGHT is true
+    if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && \
+        echo "$verStr" | grep -qiE 'alpha|beta'
+    then
+        nonProductionVersionWeight=-100
+        # Remove 'alpha/beta' and any following numbers #
+        verStr="$(echo "$verStr" | sed 's/[Aa]lpha[0-9]*// ; s/[Bb]eta[0-9]*//')"
     fi
 
-    local verNum
-    if [ "$2" -lt 4 ]; then
-        verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%03d%03d\n", $1,$2,$3}')
-    else
-        verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%d%03d%03d\n", $1,$2,$3,$4}')
+    numFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
+
+    if [ "$numFields" -lt "$2" ]
+    then fwBranchVers="$(nvram get firmver | sed 's/\.//g')" ; fi
+
+    #-----------------------------------------------------------
+    # Temporarily remove Branch version to avoid issues with
+    # integers greater than the maximum 32-bit signed integer
+    # when doing arithmetic computations with shell cmds.
+    #-----------------------------------------------------------
+    if [ "$numFields" -gt 3 ]
+    then
+        fwBranchVers="$(echo "$verStr" | cut -d'.' -f1)"
+        verStr="$(echo "$verStr" | cut -d'.' -f2-)"
     fi
+    verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%01d\n", $1,$2,$3);}')"
 
-    # Subtract beta weight from the version number
-    verNum=$((verNum + betaWeight))
+    # Subtract non-production weight from the version number #
+    verNum="$((verNum + nonProductionVersionWeight))"
 
-    echo "$verNum"
-    return 0
+    # Now add the F/W Branch version #
+    [ -n "$fwBranchVers" ] && verNum="${fwBranchVers}$verNum"
+
+    echo "$verNum" ; return 0
 }
 
 ##--------------------------------------------##
@@ -548,7 +560,7 @@ _ValidateUSBMountPoint_()
 
    local mounPointPaths  expectedPath
    local symblPath  realPath1  realPath2  foundPathOK
-   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+   local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
 
    mounPointPaths="$(grep "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
    [ -z "$mounPointPaths" ] && return 1
@@ -601,9 +613,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##----------------------------------------##
+##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-27] ##
-##----------------------------------------##
+##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -680,9 +692,9 @@ _Init_Custom_Settings_Config_()
    return "$retCode"
 }
 
-##----------------------------------------##
+##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-27] ##
-##----------------------------------------##
+##------------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
 {
@@ -694,7 +706,8 @@ Get_Custom_Setting()
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "ROGBuild" | "credentials_base64" | "CheckChangeLog" |  "FW_Allow_Beta_Production_Up" | \
+            "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+            "FW_Allow_Beta_Production_Up" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -719,7 +732,7 @@ Get_Custom_Setting()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-07] ##
+## Modified by ExtremeFiretop [2024-Jan-27] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -732,7 +745,8 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | "FW_Allow_Beta_Production_Up" | \
+        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+        "FW_Allow_Beta_Production_Up" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
@@ -2256,7 +2270,11 @@ _Toggle_FW_UpdateCheckSetting_()
    printf "Router's built-in Firmware Update Check is now ${fwUpdateCheckNewStateStr}.\n"
    nvram commit
 
-   "$runfwUpdateCheck" && sh $FW_UpdateCheckScript 2>&1 &
+   if "$runfwUpdateCheck"
+   then
+       printf "\nChecking for new F/W Updates... Please wait.\n"
+       sh $FW_UpdateCheckScript 2>&1
+   fi
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
@@ -2288,7 +2306,27 @@ _EntwareServicesHandler_()
    then
       printf "\n${actionStr} Entware services... Please wait.\n"
       $entwOPT_unslung $1 ; sleep 5
+      printf "\nDone.\n"
    fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-28] ##
+##-------------------------------------##
+_UnmountUSBDrives_()
+{
+   local theDevice  mountPointRegExp="^/dev/sd[a-z][0-9]+.* /tmp/mnt/.*"
+
+   mountedDevices="$(grep -E "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $1}')"
+   [ -z "$mountedDevices" ] && return 1
+
+   "$isInteractive" && \
+   printf "\nUnmounting USB-attached drives. Please wait...\n"
+
+   for theDevice in $mountedDevices
+   do umount -f "$theDevice" 2>/dev/null; sleep 2 ; done
+
+   printf "\nDone.\n"
 }
 
 ##----------------------------------------##
@@ -2722,6 +2760,9 @@ fi
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
+        # *WARNING*: No more logging at this point & beyond #
+        _UnmountUSBDrives_
+
         nohup curl "${routerURLstr}/upgrade.cgi" \
         --referer ${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -3149,27 +3190,27 @@ _advanced_options_menu_() {
 
         printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
         printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
-		
+
         local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
         if [ "$checkChangeLogSetting" = "DISABLED" ]
         then
-                printf "\n  ${GRNct}4${NOct}.  Enable Change-log Check"
-                printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+            printf "\n  ${GRNct}4${NOct}.  Enable Change-log Check"
+            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
         else
-                printf "\n  ${GRNct}4${NOct}.  Disable Change-log Check"
-                printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+            printf "\n  ${GRNct}4${NOct}.  Disable Change-log Check"
+            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
         fi
-		
+
         local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
         if [ "$BetaProductionSetting" = "DISABLED" ]
         then
-                printf "\n  ${GRNct}5${NOct}.  Enable Beta-to-Release Upgrades"
-                printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+            printf "\n  ${GRNct}5${NOct}.  Enable Beta-to-Release Upgrades"
+            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
         else
-                printf "\n  ${GRNct}5${NOct}.  Disable Beta-to-Release Upgrades"
-                printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+            printf "\n  ${GRNct}5${NOct}.  Disable Beta-to-Release Upgrades"
+            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
         fi
-						
+
         # Retrieve the current build type setting
         local current_build_type=$(Get_Custom_Setting "ROGBuild")
 
