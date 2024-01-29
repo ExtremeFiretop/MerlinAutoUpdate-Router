@@ -4,11 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-22
+# Last Modified: 2024-Jan-28
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION="0.2.54"
+#For AMTM versioning:
+readonly SCRIPT_VERSION=1.0.0
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -32,6 +33,7 @@ ModelCheckFailed=0
 
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
+readonly ScriptDirNameD="${ScriptFNameTag}.d"
 
 ScriptsDirPath="$(/usr/bin/dirname "$0")"
 if [ "$ScriptsDirPath" != "." ]
@@ -47,9 +49,24 @@ fi
 ##------------------------------------------##
 readonly ADDONS_PATH="/jffs/addons"
 readonly SCRIPTS_PATH="/jffs/scripts"
-readonly SETTINGS_DIR="${ADDONS_PATH}/${ScriptFNameTag}.d"
+readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+#-------------------------------------------------------#
+# We'll use the built-in AMTM email configuration file
+# to send email notifications *IF* enabled by the user.
+#-------------------------------------------------------#
+readonly FW_UpdateEMailNotificationDefault=false
+readonly amtmMailDirPath="/jffs/addons/amtm/mail"
+readonly amtmMailConfFile="${amtmMailDirPath}/email.conf"
+readonly amtmMailPswdFile="${amtmMailDirPath}/emailpw.enc"
+readonly tempEMailContent="/tmp/var/tmp/tempEMailContent.$$.TXT"
+readonly tempEMailBodyMsg="/tmp/var/tmp/tempEMailBodyMsg.$$.TXT"
+readonly saveEMailInfoMsg="${SETTINGS_DIR}/savedEMailInfoMsg.SAVE.TXT"
 
 cronCmd="$(which crontab) -l"
 [ "$cronCmd" = " -l" ] && cronCmd="$(which cru) l"
@@ -196,31 +213,27 @@ Toggle_LEDs_PID=""
 FW_UpdateCheckState="TBD"
 FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jan-21] ##
-##---------------------------------------##
-_migrate_settings_() {
-    local old_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}"
-    local new_settings_dir="${ADDONS_PATH}/${ScriptFNameTag}.d"
+##--------------------------------------##
+## Added by Martinski W. [22023-Nov-24] ##
+##--------------------------------------##
+#---------------------------------------------------------#
+# The USB-attached drives can have multiple partitions
+# with different file systems (NTFS, ext3, ext4, etc.),
+# which means that multiple mount points can be found.
+# So for the purpose of choosing a default value here
+# we will simply select the first mount point found.
+# Users can later on change it by typing a different
+# mount point path or directory using the Main Menu.
+#---------------------------------------------------------#
+_GetDefaultUSBMountPoint_()
+{
+   local mounPointPath  retCode=0
+   local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
 
-    # Check if the old settings directory exists
-    if [ -d "$old_settings_dir" ]; then
-        # Check if the new settings directory already exists
-        if [ -d "$new_settings_dir" ]; then
-            echo "The new settings directory already exists. Migration is not required."
-        else
-            # Move the old settings directory to the new location
-            mv "$old_settings_dir" "$new_settings_dir"
-            if [ $? -eq 0 ]; then
-                echo "Settings directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the settings directory."
-            fi
-        fi
-    fi
+   mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mounPointPath" ] && retCode=1
+   echo "$mounPointPath" ; return "$retCode"
 }
-
-_migrate_settings_
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-22] ##
@@ -257,7 +270,7 @@ Toggle_LEDs()
 _Reset_LEDs_()
 {
    local doTrace=false
-   [ $# -gt 0 ] && [ "$1" -eq 1 ] && doTrace=true
+   [ $# -gt 0 ] && [ "$1" -eq 1 ] && doTrace=false
    if "$doTrace"
    then
        Say "START _Reset_LEDs_"
@@ -355,25 +368,53 @@ _ScriptVersionStrToNum_()
    echo "$verNum" ; return 0
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-28] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-28] ##
+##----------------------------------------##
 _FWVersionStrToNum_()
 {
-   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
-   then echo ; return 1 ; fi
+    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+    then echo ; return 1 ; fi
 
-   local verNum  verStr="$1"
+    USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
-   if [ "$(echo "$1" | awk -F '.' '{print NF}')" -lt "$2" ]
-   then verStr="$(nvram get firmver | sed 's/\.//g').$1" ; fi
+    local verNum  verStr="$1"  nonProductionVersionWeight=0
+    local fwBranchVers=""  numFields
 
-   if [ "$2" -lt 4 ]
-   then verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%03d%03d\n", $1,$2,$3);}')"
-   else verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%d%03d%03d\n", $1,$2,$3,$4);}')"
-   fi
+    # Check for 'alpha/beta' in the version string and 
+    # adjust weight value if USE_BETA_WEIGHT is true
+    if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && \
+        echo "$verStr" | grep -qiE 'alpha|beta'
+    then
+        nonProductionVersionWeight=-100
+        # Remove 'alpha/beta' and any following numbers #
+        verStr="$(echo "$verStr" | sed 's/[Aa]lpha[0-9]*// ; s/[Bb]eta[0-9]*//')"
+    fi
 
-   echo "$verNum" ; return 0
+    numFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
+
+    if [ "$numFields" -lt "$2" ]
+    then fwBranchVers="$(nvram get firmver | sed 's/\.//g')" ; fi
+
+    #-----------------------------------------------------------
+    # Temporarily remove Branch version to avoid issues with
+    # integers greater than the maximum 32-bit signed integer
+    # when doing arithmetic computations with shell cmds.
+    #-----------------------------------------------------------
+    if [ "$numFields" -gt 3 ]
+    then
+        fwBranchVers="$(echo "$verStr" | cut -d'.' -f1)"
+        verStr="$(echo "$verStr" | cut -d'.' -f2-)"
+    fi
+    verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%01d\n", $1,$2,$3);}')"
+
+    # Subtract non-production weight from the version number #
+    verNum="$((verNum + nonProductionVersionWeight))"
+
+    # Now add the F/W Branch version #
+    [ -n "$fwBranchVers" ] && verNum="${fwBranchVers}$verNum"
+
+    echo "$verNum" ; return 0
 }
 
 ##--------------------------------------------##
@@ -391,10 +432,13 @@ readonly WHITEct="\e[1;37m"
 
 readonly FW_Update_CRON_DefaultSchedule="0 0 * * 0"
 
+##------------------------------------------##
+## Modified by Martinski W. [2024-Jan-22]   ##
+##------------------------------------------##
 # To postpone a firmware update for a few days #
 readonly FW_UpdateMinimumPostponementDays=0
-readonly FW_UpdateDefaultPostponementDays=7
-readonly FW_UpdateMaximumPostponementDays=30
+readonly FW_UpdateDefaultPostponementDays=15
+readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_12:00:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
@@ -500,31 +544,9 @@ _SCRIPTUPDATE_()
    fi
 }
 
-##--------------------------------------##
-## Added by Martinski W. [22023-Nov-24] ##
-##--------------------------------------##
-#---------------------------------------------------------#
-# The USB-attached drives can have multiple partitions
-# with different file systems (NTFS, ext3, ext4, etc.),
-# which means that multiple mount points can be found.
-# So for the purpose of choosing a default value here
-# we will simply select the first mount point found.
-# Users can later on change it by typing a different
-# mount point path or directory using the Main Menu.
-#---------------------------------------------------------#
-_GetDefaultUSBMountPoint_()
-{
-   local mounPointPath  retCode=0
-   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
-
-   mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
-   [ -z "$mounPointPath" ] && retCode=1
-   echo "$mounPointPath" ; return "$retCode"
-}
-
-##-------------------------------------##
-## Added by Martinski W. [2023-Dec-03] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-27] ##
+##----------------------------------------##
 #-------------------------------------------------------------#
 # Since a list of current mount points can have a different
 # order after each reboot, or when USB drives are unmounted
@@ -538,8 +560,8 @@ _ValidateUSBMountPoint_()
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
 
    local mounPointPaths  expectedPath
-   local symbPath  realPath  foundPathOK
-   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+   local symblPath  realPath1  realPath2  foundPathOK
+   local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
 
    mounPointPaths="$(grep "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
    [ -z "$mounPointPaths" ] && return 1
@@ -547,10 +569,12 @@ _ValidateUSBMountPoint_()
    expectedPath="$1"
    if echo "$1" | grep -qE "^(/opt/|/tmp/opt/)"
    then
-       symbPath="$(ls -l /tmp/opt | awk -F ' ' '{print $9}')"
-       realPath="$(ls -l /tmp/opt | awk -F ' ' '{print $11}')"
-       [ -L "$symbPath" ] && [ -n "$realPath" ] && \
-       expectedPath="$(/usr/bin/dirname "$realPath")"
+       realPath1="$(readlink -f /tmp/opt)"
+       realPath2="$(ls -l /tmp/opt | awk -F ' ' '{print $11}')"
+       symblPath="$(ls -l /tmp/opt | awk -F ' ' '{print $9}')"
+       [ -L "$symblPath" ] && [ -n "$realPath1" ] && \
+       [ -n "$realPath2" ] && [ "$realPath1" = "$realPath2" ] && \
+       expectedPath="$(/usr/bin/dirname "$realPath1")"
    fi
 
    foundPathOK=false
@@ -591,7 +615,7 @@ else
 fi
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-23] ##
+## Modified by ExtremeFiretop [2024-Jan-27] ##
 ##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
@@ -603,41 +627,75 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Notification_Date TBD"
          echo "FW_New_Update_Notification_Vers TBD"
          echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays"
+         echo "FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault"
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
+         echo "FW_New_Update_LOG_Preferred_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
+         echo "CheckChangeLog ENABLED"
+         echo "FW_Allow_Beta_Production_Up ENABLED"
       } > "$SETTINGSFILE"
       return 1
    fi
-   local retCode=0
+   local retCode=0  prefPath
 
+   if ! grep -q "^FW_New_Update_Notification_Date " "$SETTINGSFILE"
+   then
+       sed -i "1 i FW_New_Update_Notification_Date TBD" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_Notification_Vers " "$SETTINGSFILE"
+   then
+       sed -i "2 i FW_New_Update_Notification_Vers TBD" "$SETTINGSFILE"
+       retCode=1
+   fi
    if ! grep -q "^FW_New_Update_Postponement_Days=" "$SETTINGSFILE"
    then
-       sed -i "1 i FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" "$SETTINGSFILE"
+       sed -i "3 i FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_EMail_Notification=" "$SETTINGSFILE"
+   then
+       sed -i "4 i FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_Cron_Job_Schedule=" "$SETTINGSFILE"
    then
-       sed -i "2 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$SETTINGSFILE"
+       sed -i "5 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_ZIP_Directory_Path=" "$SETTINGSFILE"
    then
-       sed -i "3 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
+       sed -i "6 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_LOG_Directory_Path=" "$SETTINGSFILE"
    then
-       sed -i "4 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
+       sed -i "7 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
        retCode=1
-       # Default log directory path can be changed as needed
+   fi
+   if ! grep -q "^FW_New_Update_LOG_Preferred_Path=" "$SETTINGSFILE"
+   then
+       preferredPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+       sed -i "8 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^CheckChangeLog" "$SETTINGSFILE"
+   then
+       sed -i "9 i CheckChangeLog ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_Allow_Beta_Production_Up" "$SETTINGSFILE"
+   then
+       sed -i "5 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
+       retCode=1
    fi
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-28] ##
+##------------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
 {
@@ -649,7 +707,8 @@ Get_Custom_Setting()
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "ROGBuild" | "credentials_base64" | \
+            "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+            "FW_Allow_Beta_Production_Up" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -657,7 +716,9 @@ Get_Custom_Setting()
             "FW_New_Update_Postponement_Days"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
-            "FW_New_Update_LOG_Directory_Path")
+            "FW_New_Update_LOG_Directory_Path" | \
+            "FW_New_Update_LOG_Preferred_Path" | \
+            "FW_New_Update_EMail_Notification")
                 grep -q "^${setting_type}=" "$SETTINGSFILE" && \
                 setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
                 ;;
@@ -672,7 +733,7 @@ Get_Custom_Setting()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2023-Dec-05] ##
+## Modified by ExtremeFiretop [2024-Jan-28] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -685,7 +746,8 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "ROGBuild" | "credentials_base64" | \
+        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+        "FW_Allow_Beta_Production_Up" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
@@ -703,7 +765,9 @@ Update_Custom_Settings()
         "FW_New_Update_Postponement_Days"  | \
         "FW_New_Update_Cron_Job_Schedule"  | \
         "FW_New_Update_ZIP_Directory_Path" | \
-        "FW_New_Update_LOG_Directory_Path")  # Added this line
+        "FW_New_Update_LOG_Directory_Path" | \
+        "FW_New_Update_LOG_Preferred_Path" | \
+        "FW_New_Update_EMail_Notification")
             if [ -f "$SETTINGSFILE" ]
             then
                 if grep -q "^${setting_type}=" "$SETTINGSFILE"
@@ -723,6 +787,10 @@ Update_Custom_Settings()
             if [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
             then
                 FW_UpdatePostponementDays="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_EMail_Notification" ]
+            then
+                sendEMailNotificationsFlag="$setting_value"
             #
             elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
             then
@@ -746,9 +814,72 @@ Update_Custom_Settings()
     esac
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-22] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
+_migrate_settings_() {
+    local USBMountPoint="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+    local old_settings_dir="${ADDONS_PATH}/$ScriptFNameTag"
+    local new_settings_dir="${ADDONS_PATH}/$ScriptDirNameD"
+    local old_bin_dir="/home/root/$ScriptFNameTag"
+    local new_bin_dir="/home/root/$ScriptDirNameD"
+    local old_log_dir="${USBMountPoint}/$ScriptFNameTag"
+    local new_log_dir="${USBMountPoint}/$ScriptDirNameD"
+
+    # Check if the old SETTINGS directory exists #
+    if [ -d "$old_settings_dir" ]; then
+        # Check if the new SETTINGS directory already exists
+        if [ -d "$new_settings_dir" ]; then
+            echo "The new SETTINGS directory already exists. Migration is not required."
+        else
+            # Move the old SETTINGS directory to the new location
+            mv "$old_settings_dir" "$new_settings_dir"
+            if [ $? -eq 0 ]; then
+                echo "SETTINGS directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the SETTINGS directory."
+            fi
+        fi
+    fi
+
+    # Check if the old BIN directory exists #
+    if [ -d "$old_bin_dir" ]; then
+        # Check if the new BIN directory already exists
+        if [ -d "$new_bin_dir" ]; then
+            echo "The new BIN directory already exists. Migration is not required."
+        else
+            # Move the old BIN directory to the new location
+            mv "$old_bin_dir" "$new_bin_dir"
+            if [ $? -eq 0 ]; then
+                echo "BIN directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the BIN directory."
+            fi
+        fi
+    fi
+
+    # Check if the old LOG directory exists #
+    if [ -d "$old_log_dir" ]; then
+        # Check if the new LOG directory already exists
+        if [ -d "$new_log_dir" ]; then
+            echo "The new LOG directory already exists. Migration is not required."
+        else
+            # Move the old LOG directory to the new location
+            mv "$old_log_dir" "$new_log_dir"
+            if [ $? -eq 0 ]; then
+                echo "LOG directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the LOG directory."
+            fi
+        fi
+    fi
+}
+
+_migrate_settings_
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
 {
    local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
@@ -756,7 +887,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
    while true
    do
       printf "\nEnter the directory path where the LOG subdirectory [${GRNct}${FW_LOG_SUBDIR}${NOct}] will be stored.\n"
-      printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
+      printf "[${theADExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
@@ -817,21 +948,19 @@ _Set_FW_UpdateLOG_DirectoryPath_()
        # Move any existing log files to new directory #
        mv -f "${FW_LOG_DIR}"/*.log "$newLogFileDirPath" 2>/dev/null
        # Remove now the obsolete directory path #
-       if [ "$FW_LOG_BASE_DIR" = "$FW_ZIP_BASE_DIR" ]
-       then rm -fr "$FW_LOG_DIR"
-       else rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag"
-       fi
+       rm -fr "$FW_LOG_DIR"
        # Update the log directory path after validation #
        Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
+       Update_Custom_Settings FW_New_Update_LOG_Preferred_Path "$newLogBaseDirPath"
        echo "The directory path for the log files was updated successfully."
        _WaitForEnterKey_ "$menuReturnPromptStr"
    fi
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
    local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath="" 
@@ -839,7 +968,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
    while true
    do
       printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
-      printf "[${theExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+      printf "[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
@@ -894,10 +1023,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
            return 1
        fi
        # Remove now the obsolete directory path #
-       if [ "$FW_ZIP_BASE_DIR" = "$FW_LOG_BASE_DIR" ]
-       then rm -fr "$FW_ZIP_DIR"
-       else rm -fr "${FW_ZIP_BASE_DIR}/$ScriptFNameTag"
-       fi
+       rm -fr "$FW_ZIP_DIR"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
@@ -908,9 +1034,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
 _Init_Custom_Settings_Config_
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-27] ##
+##------------------------------------------##
 # NOTE:
 # Depending on available RAM & storage capacity of the 
 # target router, it may be required to have USB-attached 
@@ -921,9 +1047,9 @@ FW_BIN_BASE_DIR="/home/root"
 FW_ZIP_BASE_DIR="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)"
 FW_LOG_BASE_DIR="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
 
-readonly FW_LOG_SUBDIR="${ScriptFNameTag}/logs"
-readonly FW_BIN_SUBDIR="${ScriptFNameTag}/$FW_FileName"
-readonly FW_ZIP_SUBDIR="${ScriptFNameTag}/$FW_FileName"
+readonly FW_LOG_SUBDIR="${ScriptDirNameD}/logs"
+readonly FW_BIN_SUBDIR="${ScriptDirNameD}/$FW_FileName"
+readonly FW_ZIP_SUBDIR="${ScriptDirNameD}/$FW_FileName"
 
 FW_BIN_DIR="${FW_BIN_BASE_DIR}/$FW_BIN_SUBDIR"
 FW_LOG_DIR="${FW_LOG_BASE_DIR}/$FW_LOG_SUBDIR"
@@ -942,6 +1068,10 @@ readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 # Postponement Days for F/W Update Check #
 FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 
+# F/W Update Email Notifications #
+isEMailConfigEnabledInAMTM=false
+sendEMailNotificationsFlag="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
+
 # Define the CRON job command to execute #
 FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
 readonly CRON_JOB_RUN="sh $ScriptFilePath run_now"
@@ -953,11 +1083,277 @@ readonly CRON_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $CRON_SCRIPT_JOB"
 readonly POST_REBOOT_SCRIPT_JOB="sh $ScriptFilePath postRebootRun &  $hookScriptTagStr"
 readonly POST_REBOOT_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_REBOOT_SCRIPT_JOB"
 
+# Define post-update email notification job command to execute #
+readonly POST_UPDATE_EMAIL_SCRIPT_JOB="sh $ScriptFilePath postUpdateEmail &  $hookScriptTagStr"
+readonly POST_UPDATE_EMAIL_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_UPDATE_EMAIL_SCRIPT_JOB"
+
 if [ -d "$FW_LOG_DIR" ]
 then
     # Log rotation - delete logs older than 30 days #
     find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-27] ##
+##----------------------------------------##
+#-------------------------------------------------------------------------------------------
+# This code is in case the user-selected USB mount point isn't available anymore.
+# If the USB drive is selected as the log location but it goes offline for some reason, 
+# any call to the "Say" function creates a new '/tmp/mnt/XXXX' directory.
+# In such a case where the USB drive is unmounted, we need to change the log directory 
+# back to a local directory. First if-statement executes first and updates to local 'jffs' 
+# directory if no USB drives are found. If ANY DefaultUSBMountPoint found, then move the 
+# log files from their local jffs location to the default mount location. 
+# We don't know the user selected yet because it's local at this time and was changed 
+# by the else statement. Remove the old log directory location from jffs, and update the 
+# settings file again to the new default again. This creates a semi-permanent switch which 
+# can reset back to default if the user-selected mount points aren't valid anymore.
+#-------------------------------------------------------------------------------------------
+UserSelectedLogPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+if [ ! -d "$UserSelectedLogPath" ] || [ ! -r "$UserSelectedLogPath" ]; then
+    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$ADDONS_PATH"
+fi
+
+UserPreferredLogPath="$(Get_Custom_Setting FW_New_Update_LOG_Preferred_Path)"
+if echo "$UserPreferredLogPath" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
+   _ValidateUSBMountPoint_ "$UserPreferredLogPath" &&
+   [ "$UserPreferredLogPath" != "$FW_LOG_BASE_DIR" ]
+then
+   mv -f "${FW_LOG_DIR}"/*.log "${UserPreferredLogPath}/$FW_LOG_SUBDIR" 2>/dev/null
+   rm -fr "$FW_LOG_DIR"
+   Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
+fi
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-22] ##
+##----------------------------------------------##
+_GetLatestFWUpdateVersionFromRouter_()
+{
+   local retCode=0  webState  newVersionStr
+
+   webState="$(nvram get webs_state_flag)"
+   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
+   then retCode=1 ; fi
+
+   newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
+   fi
+
+   [ -z "$newVersionStr" ] && retCode=1
+   echo "$newVersionStr" ; return "$retCode"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
+_CreateEMailContent_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local fwInstalledVersion  fwNewUpdateVersion  subjectStr
+   local savedInstalledVersion  savedNewUpdateVersion
+
+   rm -f "$tempEMailContent" "$tempEMailBodyMsg"
+
+   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+   fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   subjectStr="F/W Update Status for $MODEL_ID"
+
+   case "$1" in
+       FW_UPDATE_TEST_EMAIL)
+           {
+             echo
+             echo "TESTING:"
+             echo "This is a test of the F/W Update email notification from the <b>${MODEL_ID}</b> router."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       NEW_FW_UPDATE_STATUS)
+           {
+             echo
+             echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
+             printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       START_FW_UPDATE_STATUS)
+           {
+             echo
+             echo "Started flashing the new F/W Update version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       STOP_FW_UPDATE_APPROVAL)
+           {
+             echo
+             echo "<b>WARNING</b>:"
+             echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       NEW_BM_BACKUP_FAILED)
+           {
+             echo
+             echo "<b>WARNING</b>:"
+             echo "Backup failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled."
+             printf "\nPlease check backupmon.sh configuration and retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       FAILED_FW_UPDATE_STATUS)
+           {
+             echo
+             echo "<b>**ERROR**</b>:"
+             echo "Flashing of new F/W Update version <b>${fwNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       POST_REBOOT_FW_UPDATE_SETUP)
+           {
+              echo "FW_InstalledVersion=$fwInstalledVersion"
+              echo "FW_NewUpdateVersion=$fwNewUpdateVersion"
+           } > "$saveEMailInfoMsg"
+           _AddPostUpdateEmailNotifyScriptHook_
+           return 0
+           ;;
+       POST_REBOOT_FW_UPDATE_STATUS)
+           if [ ! -f "$saveEMailInfoMsg" ]
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [No saved info file]."
+               return 1
+           fi
+           savedInstalledVersion="$(cat "$saveEMailInfoMsg" | grep "FW_InstalledVersion=" | awk -F '=' '{print $2}')"
+           savedNewUpdateVersion="$(cat "$saveEMailInfoMsg" | grep "FW_NewUpdateVersion=" | awk -F '=' '{print $2}')"
+           if [ -z "$savedInstalledVersion" ] || [ -z "$savedNewUpdateVersion" ]
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [Saved info is empty]."
+               return 1
+           fi
+           if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ] && \
+              [ "$savedInstalledVersion" != "$fwInstalledVersion" ]
+           then
+              {
+                echo
+                echo "Flashing of new F/W Update version <b>${fwInstalledVersion}</b> for the <b>${MODEL_ID}</b> router was successful."
+                printf "\nThe F/W version that was previously installed:\n<b>${savedInstalledVersion}</b>\n\n"
+              } > "$tempEMailBodyMsg"
+           else
+              {
+                echo
+                echo "<b>**ERROR**</b>:"
+                echo "Flashing of new F/W Update version <b>${savedNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
+                printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
+              } > "$tempEMailBodyMsg"
+           fi
+           rm -f "$saveEMailInfoMsg"
+           ;;
+       *) return 1
+           ;;
+   esac
+
+   ## Header ##
+   cat <<EOF > "$tempEMailContent"
+From: "$FROM_NAME" <$FROM_ADDRESS>
+To: "$TO_NAME" <$TO_ADDRESS>
+Subject: $subjectStr
+Date: $(date -R)
+MIME-Version: 1.0
+Content-Type: text/html; charset="UTF-8"
+<!DOCTYPE html><html><body><pre>
+<p style="color:black; font-family:sans-serif; font-size:100%;">
+EOF
+   cat "$tempEMailBodyMsg" >> "$tempEMailContent"
+
+   ## Footer ##
+   cat <<EOF >> "$tempEMailContent"
+Sent by the "<b>${ScriptFNameTag}</b>" Utility.
+From the "<b>${FRIENDLY_ROUTER_NAME}</b>" router.
+
+$(date +"%Y-%b-%d, %I:%M:%S %p %Z (%a)")
+</p></pre></body></html>
+EOF
+    rm -f "$tempEMailBodyMsg"
+    return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_CheckEMailConfigFileFromAMTM_()
+{
+   local doLogMsgs
+
+   if [ $# -gt 0 ] && [ "$1" -eq 1 ]
+   then doLogMsgs=true
+   else doLogMsgs=false
+   fi
+
+   isEMailConfigEnabledInAMTM=false
+
+   if [ ! -f "$amtmMailConfFile" ] || [ ! -f "$amtmMailPswdFile" ]
+   then
+       "$doLogMsgs" && \
+       Say "${REDct}**ERROR**${NOct}: Unable to send email notification [No config file]."
+       return 1
+   fi
+
+   FROM_NAME=""  TO_NAME=""  FROM_ADDRESS=""  TO_ADDRESS=""
+   USERNAME=""  SMTP=""  PORT=""  PROTOCOL=""  emailPwEnc=""
+
+   . "$amtmMailConfFile"
+
+   if [ -z "$TO_NAME" ] || [ -z "$USERNAME" ] || \
+      [ -z "$FROM_ADDRESS" ] || [ -z "$TO_ADDRESS" ] || \
+      [ -z "$SMTP" ] || [ -z "$PORT" ] || [ -z "$PROTOCOL" ] || [ -z "$emailPwEnc" ]
+   then
+       "$doLogMsgs" && \
+       Say "${REDct}**ERROR**${NOct}: Unable to send email notification [Empty variables]."
+       return 1
+   fi
+
+   isEMailConfigEnabledInAMTM=true
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_SendEMailNotification_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ]  || \
+   ! "$sendEMailNotificationsFlag" || \
+   ! _CheckEMailConfigFileFromAMTM_ 1
+   then return 1 ; fi
+
+   [ -z "$FROM_NAME" ] && FROM_NAME="$ScriptFNameTag"
+   [ -z "$FRIENDLY_ROUTER_NAME" ] && FRIENDLY_ROUTER_NAME="$MODEL_ID"
+
+   ! _CreateEMailContent_ "$1" && return 1
+
+   [ "$1" = "POST_REBOOT_FW_UPDATE_SETUP" ] && return 0
+
+   printf "\nSending email notification [$1]. Please wait...\n"
+
+   echo "$(date +"$LOGdateFormat")" > "$userTraceFile"
+
+   /usr/sbin/curl --url ${PROTOCOL}://${SMTP}:${PORT} \
+   --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" \
+   --user "${USERNAME}:$(/usr/sbin/openssl aes-256-cbc $emailPwEnc -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)" \
+   --upload-file "$tempEMailContent" \
+   $SSL_FLAG --ssl-reqd --crlf >> "$userTraceFile" 2>&1
+
+   if [ $? -eq 0 ]
+   then
+       sleep 2
+       Say "The email notification was sent successfully [$1]."
+   else
+       Say "${REDct}**ERROR**${NOct}: Failure to send email notification [$1]."
+   fi
+   rm -f "$tempEMailContent"
+
+   return 0
+}
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Oct-12] ##
@@ -977,6 +1373,66 @@ _CreateDirectory_()
     # Clear directory in case any previous files still exist #
     rm -f "${1}"/*
     return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_DelPostUpdateEmailNotifyScriptHook_()
+{
+   local hookScriptFile
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then hookScriptFile="$1"
+   else hookScriptFile="$hookScriptFPath"
+   fi
+   if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
+
+   if grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
+   then
+       sed -i -e '/\/'"$ScriptFileName"' postUpdateEmail &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       if [ $? -eq 0 ]
+       then
+           Say "Post-update email notification hook was deleted successfully from '$hookScriptFile' script."
+       fi
+   else
+       Say "${GRNct}Post-update email notification hook is not found in '$hookScriptFile' script.${NOct}"
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_AddPostUpdateEmailNotifyScriptHook_()
+{
+   local hookScriptFile  jobHookAdded=false
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then hookScriptFile="$1"
+   else hookScriptFile="$hookScriptFPath"
+   fi
+
+   if [ ! -f "$hookScriptFile" ]
+   then
+      jobHookAdded=true
+      {
+        echo "#!/bin/sh"
+        echo "# $hookScriptFName"
+        echo "#"
+        echo "$POST_UPDATE_EMAIL_SCRIPT_HOOK"
+      } > "$hookScriptFile"
+   #
+   elif ! grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
+   then
+      jobHookAdded=true
+      echo "$POST_UPDATE_EMAIL_SCRIPT_HOOK" >> "$hookScriptFile"
+   fi
+   chmod 0755 "$hookScriptFile"
+
+   if "$jobHookAdded"
+   then Say "Post-update email notification hook was added successfully to '$hookScriptFile' script."
+   else Say "Post-update email notification hook already exists in '$hookScriptFile' script."
+   fi
 }
 
 ##----------------------------------------------##
@@ -1180,15 +1636,15 @@ check_memory_and_prompt_reboot() {
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-26] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
 _DoCleanUp_()
 {
    local delBINfiles=false  keepZIPfile=false  moveZIPback=false
 
    local doTrace=false
-   [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=true
+   [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=false
    if "$doTrace"
    then
        Say "\nSTART _DoCleanUp_"
@@ -1203,14 +1659,14 @@ _DoCleanUp_()
 
    # Move file temporarily to save it from deletion #
    "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ] && \
-   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptFNameTag" && moveZIPback=true
+   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
 
    rm -f "${FW_ZIP_DIR}"/*
    "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
 
    # Move file back to original location #
    "$keepZIPfile" && "$moveZIPback" && \
-   mv -f "${FW_ZIP_BASE_DIR}/${ScriptFNameTag}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+   mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
 
    if "$doTrace"
    then
@@ -1287,27 +1743,6 @@ _GetLoginCredentials_()
     return 0
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-22] ##
-##----------------------------------------------##
-_GetLatestFWUpdateVersionFromRouter_()
-{
-   local retCode=0  webState  newVersionStr
-
-   webState="$(nvram get webs_state_flag)"
-   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
-   then retCode=1 ; fi
-
-   newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
-   if [ $# -eq 0 ] || [ -z "$1" ]
-   then
-       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
-   fi
-
-   [ -z "$newVersionStr" ] && retCode=1
-   echo "$newVersionStr" ; return "$retCode"
-}
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Nov-20] ##
 ##----------------------------------------##
@@ -1338,6 +1773,78 @@ _GetLatestFWUpdateVersionFromWebsite_()
     echo "$correct_link"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-23] ##
+##---------------------------------------##
+_toggle_change_log_check_() {
+    local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
+
+    if [ "$currentSetting" = "ENABLED" ]; then
+        printf "${REDct}*WARNING*:${NOct} Disabling change-log verification may risk unanticipated changes.\n"
+        printf "The advice is to proceed only if you review the change-logs manually.\n"
+        printf "\nProceed to disable? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "CheckChangeLog" "DISABLED"
+                printf "Change-log verification check is now ${REDct}DISABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Change-log verification check remains ${GRNct}ENABLED.${NOct}\n"
+                ;;
+        esac
+    else
+        printf "Are you sure you want to enable the change-log verification check? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "CheckChangeLog" "ENABLED"
+                printf "Change-log verification check is now ${GRNct}ENABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Change-log verification check remains ${REDct}DISABLED.${NOct}\n"
+                ;;
+        esac
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-27] ##
+##---------------------------------------##
+_toggle_beta_updates_() {
+    local currentSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+
+    if [ "$currentSetting" = "ENABLED" ]; then
+        printf "${REDct}*WARNING*:${NOct}\n"
+		printf "Disabling updates from beta to release firmware may limit access to new features and fixes.\n"
+        printf "Keep this enabled if you prefer to stay up-to-date with the latest releases.\n"
+        printf "\nProceed to disable? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "FW_Allow_Beta_Production_Up" "DISABLED"
+                printf "Updates from beta firmwares to production firmwares are now ${REDct}DISABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Updates from beta firmwares to production firmwares remain ${GRNct}ENABLED.${NOct}\n"
+                ;;
+        esac
+    else
+        printf "Are you sure you want to enable updates from beta F/Ws to production F/Ws?"
+        printf "\nProceed to enable? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "FW_Allow_Beta_Production_Up" "ENABLED"
+                printf "Updates from beta firmwares to production firmwares are now ${GRNct}ENABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Updates from beta firmwares to production firmwares remain ${REDct}DISABLED.${NOct}\n"
+                ;;
+        esac
+    fi
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-07] ##
 ##------------------------------------------##
@@ -1363,23 +1870,23 @@ change_build_type() {
     printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
 
     while true; do
-		printf "\n [${theExitStr}] Enter your choice (y/n): "
-		read -r choice
-		choice="${choice:-$previous_choice}"
-		choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
+        printf "\n[${theADExitStr}] Enter your choice (y/n): "
+        read -r choice
+        choice="${choice:-$previous_choice}"
+        choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
 
-		if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
+        if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
 			Update_Custom_Settings "ROGBuild" "y"
 			break
-		elif [ "$choice" = "n" ] || [ "$choice" = "no" ]; then
+        elif [ "$choice" = "n" ] || [ "$choice" = "no" ]; then
 			Update_Custom_Settings "ROGBuild" "n"
 			break
-		elif [ "$choice" = "exit" ] || [ "$choice" = "e" ]; then
+        elif [ "$choice" = "exit" ] || [ "$choice" = "e" ]; then
 			echo "Exiting without changing the build type."
 			break
-		else
+        else
 			echo "Invalid input! Please enter 'y', 'yes', 'n', 'no', or 'exit'."
-		fi
+        fi
     done
 }
 
@@ -1539,8 +2046,8 @@ _Set_FW_UpdateCronSchedule_()
     while true; do  # Loop to keep asking for input
         printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * 0${NOct}' for every Sunday at midnight)"
         if [ -z "$current_schedule" ]
-        then printf "\n[${theExitStr}] [Default Schedule: ${GRNct}${new_schedule}${NOct}]:  "
-        else printf "\n[${theExitStr}] [Current Schedule: ${GRNct}${current_schedule}${NOct}]:  "
+        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${new_schedule}${NOct}]:  "
+        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${current_schedule}${NOct}]:  "
         fi
         read -r userInput
 
@@ -1586,9 +2093,9 @@ _Set_FW_UpdateCronSchedule_()
     return "$retCode"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-12] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -1622,6 +2129,7 @@ _CheckNewUpdateFirmwareNotification_()
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
+           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
    fi
 
@@ -1630,6 +2138,7 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
+       _SendEMailNotification_ NEW_FW_UPDATE_STATUS
    fi
    return 0
 }
@@ -1671,9 +2180,51 @@ _CheckTimeToUpdateFirmware_()
    upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
    upfwDateTimeStrn="$(echo "$upfwDateTimeSecs" | awk '{print strftime("%Y-%b-%d",$1)}')"
 
-   Say "The firmware update to '${2}' version is postponed for '${fwNewUpdatePostponementDays}' day(s)."
-   Say "The firmware update is expected to occur on or after '${upfwDateTimeStrn}' depending on when your cron job is scheduled to check again."
+   Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
+   Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct} depending on when your cron job is scheduled to check again."
    return 1
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_Toggle_FW_UpdateEmailNotifications_()
+{
+   local emailNotificationEnabled  emailNotificationNewStateStr
+   local runEmailNotifyTestOK=false
+
+   if "$sendEMailNotificationsFlag"
+   then
+       emailNotificationEnabled=true
+       emailNotificationNewStateStr="${REDct}DISABLE${NOct}"
+   else
+       emailNotificationEnabled=false
+       emailNotificationNewStateStr="${GRNct}ENABLE${NOct}"
+   fi
+
+   if ! _WaitForYESorNO_ "Do you want to ${emailNotificationNewStateStr} F/W Update email notifications?"
+   then return 1 ; fi
+
+   if "$emailNotificationEnabled"
+   then
+       runEmailNotifyTestOK=false
+       sendEMailNotificationsFlag=false
+       emailNotificationNewStateStr="${REDct}DISABLED${NOct}"
+   else
+       runEmailNotifyTestOK=true
+       sendEMailNotificationsFlag=true
+       emailNotificationNewStateStr="${GRNct}ENABLED${NOct}"
+   fi
+
+   Update_Custom_Settings FW_New_Update_EMail_Notification "$sendEMailNotificationsFlag"
+   printf "F/W Update email notifications are now ${emailNotificationNewStateStr}.\n"
+
+   if "$runEmailNotifyTestOK" && \
+      _WaitForYESorNO_ "\nWould you like to run a test of the email notification?"
+   then
+       _SendEMailNotification_ FW_UPDATE_TEST_EMAIL
+   fi
+   _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
 ##------------------------------------------##
@@ -1720,23 +2271,71 @@ _Toggle_FW_UpdateCheckSetting_()
    printf "Router's built-in Firmware Update Check is now ${fwUpdateCheckNewStateStr}.\n"
    nvram commit
 
-   "$runfwUpdateCheck" && sh $FW_UpdateCheckScript 2>&1 &
+   if "$runfwUpdateCheck"
+   then
+       printf "\nChecking for new F/W Updates... Please wait.\n"
+       sh $FW_UpdateCheckScript 2>&1
+   fi
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-06] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-25] ##
+##-------------------------------------##
+_EntwareServicesHandler_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local fileCount  entwOPT_init  entwOPT_unslung  actionStr=""
+
+   entwOPT_init="/opt/etc/init.d"
+   entwOPT_unslung="${entwOPT_init}/rc.unslung"
+
+   if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
+   then return 0 ; fi  ## Entware is not found ##
+
+   fileCount="$(/usr/bin/find "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -cE "${entwOPT_init}/S[0-9]+")"
+   [ "$fileCount" -eq 0 ] && return 0
+
+   case "$1" in
+       stop) actionStr="Stopping" ;;
+      start) actionStr="Restarting" ;;
+          *) return 1 ;;
+   esac
+
+   if [ -n "$actionStr" ]
+   then
+      printf "\n${actionStr} Entware services... Please wait.\n"
+      $entwOPT_unslung $1 ; sleep 5
+      printf "\nDone.\n"
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-28] ##
+##-------------------------------------##
+_UnmountUSBDrives_()
+{
+   local theDevice  mountPointRegExp="^/dev/sd[a-z][0-9]+.* /tmp/mnt/.*"
+
+   mountedDevices="$(grep -E "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $1}')"
+   [ -z "$mountedDevices" ] && return 1
+
+   "$isInteractive" && \
+   printf "\nUnmounting USB-attached drives. Please wait...\n"
+
+   for theDevice in $mountedDevices
+   do umount -f "$theDevice" 2>/dev/null; sleep 2 ; done
+
+   printf "\nDone.\n"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-25] ##
+##----------------------------------------##
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
-    # Double-check the directory exists before using it #
-    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
-
-    # Set up the custom log file #
-    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
-    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
-
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
     if [ "$ModelCheckFailed" != "0" ]; then
@@ -1745,11 +2344,11 @@ _RunFirmwareUpdateNow_()
             printf "\nWould you like to uninstall the script now?"
             if _WaitForYESorNO_; then
                 _DoUninstall_
-                return 1
+                return 0
             else
                 Say "Uninstallation cancelled. Exiting script."
                 _WaitForEnterKey_ "$menuReturnPromptStr"
-                return 1
+                return 0
             fi
         else
             Say "Exiting script due to unsupported router model."
@@ -1778,6 +2377,13 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
+    # Double-check the directory exists before using it #
+    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
+
+    # Set up the custom log file #
+    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
+
     #---------------------------------------------------------#
     # If the expected directory path for the ZIP file is not
     # found, we select the $HOME path instead as a temporary 
@@ -1787,7 +2393,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "Using temporary fallback directory: /home/root"
-        "$inMenuMode" && { _WaitForYESorNO_ "Continue" || return 1 ; }
+        "$inMenuMode" && { _WaitForYESorNO_ "Continue?" || return 1 ; }
         # Continue #
         FW_ZIP_BASE_DIR="/home/root"
         FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
@@ -1807,7 +2413,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Get current firmware version #
     current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    ##FOR DEBUG ONLY##current_version="388.3.0"
+    ##FOR DEBUG ONLY##current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -1883,8 +2489,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
-    availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    freeRAM_kb="$(get_free_ram)"
+    availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Compare versions before deciding to download
@@ -1906,11 +2513,12 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    ##---------------------------------------##
-    ## Added by ExtremeFiretop [2024-Jan-22] ##
-    ##---------------------------------------##
-    availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jan-22] ##
+    ##------------------------------------------##
+    freeRAM_kb="$(get_free_ram)"
+    availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Extracting the firmware binary image #
@@ -1954,6 +2562,58 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
 
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jan-25] ##
+    ##------------------------------------------##
+    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+
+    if [ "$checkChangeLogSetting" = "ENABLED" ]; then
+        # Define the path to the log file
+        changelog_file="${FW_BIN_DIR}/Changelog-NG.txt"
+
+        # Check if the log file exists
+        if [ ! -f "$changelog_file" ]; then
+            Say "Change-log file does not exist at $changelog_file"
+            _DoCleanUp_
+            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+            return 1
+        else
+            # Format current_version by removing the last '.0'
+            formatted_current_version=$(echo $current_version | awk -F. '{print $1"."$2}')
+
+            # Format release_version by removing the prefix '3004.' and the last '.0'
+            formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
+
+            # Extract log contents between two firmware versions
+            changelog_contents=$(awk "/$formatted_release_version/,/$formatted_current_version/" "$changelog_file")
+
+            # Define high-risk terms as a single string separated by '|'
+            high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
+
+            # Search for high-risk terms in the extracted log contents
+            if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+                if [ "$inMenuMode" = true ]; then
+                    printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
+                    printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                    if ! _WaitForYESorNO_ ; then
+                        Say "Exiting for change-log review."
+                        _DoCleanUp_ 1 ; return 1
+                    fi
+                else
+                    Say "Warning: Found high-risk phrases in the change-logs."
+                    Say "Please run script interactively to approve the upgrade."
+                    _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+                    _DoCleanUp 1
+                    _DoExit_ 1
+                fi
+            else
+                Say "No high-risk phrases found in the change-logs."
+            fi
+        fi
+    else
+        Say "Change-logs check disabled."
+    fi
+
     # Detect ROG and pure firmware files
     rog_file="$(ls | grep -i '_rog_')"
     pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
@@ -1971,9 +2631,9 @@ Please manually update to version $minimum_supported_version or higher to use th
             Say "Pure Build selected for flashing"
             firmware_file="$pure_file"
         elif [ "$inMenuMode" = true ]; then
-            printf "\n ${REDct}Found ROG build: $rog_file.${NOct}"
-            printf "\n ${REDct}Would you like to use the ROG build?${NOct}\n"
-            printf "\n Enter your choice (y/n): "
+            printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
+            printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+            printf "Enter your choice (y/n): "
             read -r choice
             if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
                 Say "ROG Build selected for flashing"
@@ -2006,11 +2666,65 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jan-28] ##
+    ##------------------------------------------##
+    freeRAM_kb=$(get_free_ram)
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+
+    # Check for the presence of backupmon.sh script
+    if [ -f "/jffs/scripts/backupmon.sh" ]; then
+        # Extract version number from backupmon.sh
+        BM_VERSION=$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')
+
+        # Compare current version with the required version
+        current_version=$(_ScriptVersionStrToNum_ "$BM_VERSION")
+        required_version=$(_ScriptVersionStrToNum_ "1.44")
+
+        # Check if BACKUPMON version is greater than or equal to 1.44
+        if [ "$current_version" -ge "$required_version" ]; then
+            # Execute the backup script if it exists #
+            Say "\nBackup Started (by BACKUPMON)"
+            sh /jffs/scripts/backupmon.sh -backup >/dev/null
+            BE=$?
+            Say "Backup Finished\n"
+            if [ $BE -eq 0 ]; then
+                Say "Backup Completed Successfully\n"
+            else
+                Say "Backup Failed\n"
+                _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+                _DoCleanUp_ 1
+                if "$isInteractive"
+                then
+                    printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+                    printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+                    printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+                    printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+                    _WaitForEnterKey_ "$menuReturnPromptStr"
+                    return 1
+                else
+                    _DoExit_ 1
+                fi
+            fi
+        else
+            # BACKUPMON version is not sufficient
+            Say "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+            Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.44.\n"
+            Say "Skipping backup. Please update your version of BACKUPMON.\n"
+        fi
+    else
+        # Print a message if the backup script is not installed
+        Say "Backup script (BACKUPMON) is not installed. Skipping backup.\n"
+    fi
+
     ##----------------------------------------##
     ## Modified by Martinski W. [2024-Jan-06] ##
     ##----------------------------------------##
-    availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - Available RAM: ${availableRAM_kb} KB"
+    freeRAM_kb="$(get_free_ram)"
+    availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     routerURLstr="$(_GetRouterURL_)"
@@ -2021,7 +2735,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
         printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
         printf "Once started, the flashing process CANNOT be interrupted.\n"
-        if ! _WaitForYESorNO_ "Continue"
+        if ! _WaitForYESorNO_ "Continue?"
         then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
     fi
 
@@ -2029,7 +2743,22 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Restart the WebGUI to make sure nobody else is logged in
     # so that the F/W Update can start without interruptions.
     #------------------------------------------------------------#
-    /sbin/service restart_httpd && sleep 5
+    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+    /sbin/service restart_httpd &
+    sleep 5
+
+    # Send last email notification before flash #
+    _SendEMailNotification_ START_FW_UPDATE_STATUS
+
+    # Check if '/opt/bin/diversion' exists #
+    if [ -f /opt/bin/diversion ]; then
+        # Stop Diversion services before flash #
+        Say "Stopping Diversion service..."
+        /opt/bin/diversion unmount
+    fi
+
+    # Stop entware services before flash #
+    _EntwareServicesHandler_ stop
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
     --referer ${routerURLstr}/Main_Login.asp \
@@ -2047,8 +2776,13 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     if echo "$curl_response" | grep -q 'url=index.asp'
     then
+        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
+
+        # *WARNING*: No more logging at this point & beyond #
+        _UnmountUSBDrives_
 
         nohup curl "${routerURLstr}/upgrade.cgi" \
         --referer ${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp \
@@ -2095,10 +2829,42 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
 1. Confirm you are not already logged into the router using a web browser.
 2. Update credentials by selecting \"Configure Router Login Credentials\" from the Main Menu."
+
+        _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
+        _EntwareServicesHandler_ start
     fi
 
     "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_PostUpdateEmailNotification_()
+{
+   _DelPostUpdateEmailNotifyScriptHook_
+
+   local theWaitDelaySecs=10
+   local maxWaitDelaySecs=360  #6 minutes#
+   local curWaitDelaySecs=0
+   #---------------------------------------------------------
+   # Wait until all services are started, including NTP
+   # so the system clock is updated with correct time.
+   #---------------------------------------------------------
+   while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   do
+      if [ "$(nvram get ntp_ready)" -eq 1 ] && \
+         [ "$(nvram get start_service_ready)" -eq 1 ] && \
+         [ "$(nvram get success_start_service)" -eq 1 ]
+      then sleep 30 ; break; fi
+
+      echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
+      sleep $theWaitDelaySecs
+      curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
+   done
+
+   _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
 ##-------------------------------------##
@@ -2192,9 +2958,9 @@ _AddCronJobRunScriptHook_()
    fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Dec-01] ##
-##----------------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
 _DoUninstall_()
 {
    printf "Are you sure you want to uninstall $ScriptFileName script now"
@@ -2203,10 +2969,12 @@ _DoUninstall_()
    _DelCronJobEntry_
    _DelCronJobRunScriptHook_
    _DelPostRebootRunScriptHook_
+   _DelPostUpdateEmailNotifyScriptHook_
+
    if rm -fr "$SETTINGS_DIR" && \
-      rm -fr "${FW_BIN_BASE_DIR}/$ScriptFNameTag" && \
-      rm -fr "${FW_LOG_BASE_DIR}/$ScriptFNameTag" && \
-      rm -fr "${FW_ZIP_BASE_DIR}/$ScriptFNameTag" && \
+      rm -fr "${FW_BIN_BASE_DIR}/$ScriptDirNameD" && \
+      rm -fr "${FW_LOG_BASE_DIR}/$ScriptDirNameD" && \
+      rm -fr "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && \
       rm -f "$ScriptFilePath"
    then
        Say "${GRNct}Successfully Uninstalled.${NOct}"
@@ -2231,8 +2999,13 @@ then Say "Exiting..." ; exit 1 ; fi
 check_model_support
 check_version_support
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_CheckEMailConfigFileFromAMTM_ 0
+
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-26] ##
+## Modified by Martinski W. [2024-Jan-24] ##
 ##----------------------------------------##
 if [ $# -gt 0 ]
 then
@@ -2243,6 +3016,8 @@ then
        addCronJob) _AddCronJobEntry_
            ;;
        postRebootRun) _PostRebootRunNow_
+           ;;
+       postUpdateEmail) _PostUpdateEmailNotification_
            ;;
        uninstall) _DoUninstall_
            ;;
@@ -2316,7 +3091,7 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-22] ##
+## Modified by ExtremeFiretop [2024-Jan-23] ##
 ##------------------------------------------##
 show_menu()
 {
@@ -2391,32 +3166,21 @@ A USB drive is required for F/W updates.\n"
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
 
-   printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
-   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
-
-   printf "\n  ${GRNct}6${NOct}.  Set Directory for F/W Update ZIP File"
-   printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
-
-   printf "\n  ${GRNct}7${NOct}.  Set Directory for F/W Update Log Files"
-   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
-
-   # Retrieve the current build type setting
-   local current_build_type=$(Get_Custom_Setting "ROGBuild")
-
-   # Convert the setting to a descriptive text
-   if [ "$current_build_type" = "y" ]; then
-        current_build_type_menu="ROG Build"
-   elif [ "$current_build_type" = "n" ]; then
-        current_build_type_menu="Pure Build"
-   else
-        current_build_type_menu="Not Set"
+   # F/W Update EMail Notifications #
+   if _CheckEMailConfigFileFromAMTM_ 0
+   then
+      if "$sendEMailNotificationsFlag"
+      then
+          printf "\n ${GRNct}em${NOct}.  Disable F/W Update EMail Notifications"
+          printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+      else
+          printf "\n ${GRNct}em${NOct}.  Enable F/W Update EMail Notifications"
+          printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+      fi
    fi
 
-   if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-      # Display the option with the current build type
-      printf "\n  ${GRNct}8${NOct}.  Change ROG F/W Build Type"
-      printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
-   fi
+   # In the show_menu function, add an option for Advanced Options
+   printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
    # Check for new script updates #
    if [ "$UpdateNotify" != "0" ]; then
@@ -2429,8 +3193,97 @@ A USB drive is required for F/W updates.\n"
    printf "${SEPstr}\n"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jan-27] ##
+##---------------------------------------##
+_advanced_options_menu_() {
+    theADExitStr="${GRNct}e${NOct}=Exit to advanced menu"
+    while true; do
+        clear
+        logo
+        printf "=============== Advanced Options Menu ===============\n"
+        printf "${SEPstr}\n"
+        printf "\n  ${GRNct}1${NOct}.  Set F/W Update Check Schedule"
+        printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+
+        printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update ZIP File"
+        printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
+
+        printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
+        printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+
+        local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+        if [ "$checkChangeLogSetting" = "DISABLED" ]
+        then
+            printf "\n  ${GRNct}4${NOct}.  Enable Change-log Check"
+            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+        else
+            printf "\n  ${GRNct}4${NOct}.  Disable Change-log Check"
+            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+        fi
+
+        local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+        if [ "$BetaProductionSetting" = "DISABLED" ]
+        then
+            printf "\n  ${GRNct}5${NOct}.  Enable Beta-to-Release Upgrades"
+            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+        else
+            printf "\n  ${GRNct}5${NOct}.  Disable Beta-to-Release Upgrades"
+            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+        fi
+
+        # Retrieve the current build type setting
+        local current_build_type=$(Get_Custom_Setting "ROGBuild")
+
+        # Convert the setting to a descriptive text
+        if [ "$current_build_type" = "y" ]; then
+            current_build_type_menu="ROG Build"
+        elif [ "$current_build_type" = "n" ]; then
+            current_build_type_menu="Pure Build"
+        else
+            current_build_type_menu="NOT SET"
+        fi
+
+        if echo "$PRODUCT_ID" | grep -q "^GT-"; then
+            printf "\n  ${GRNct}6${NOct}.  Change ROG F/W Build Type"
+            if [ "$current_build_type_menu" = "NOT SET" ]
+            then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+            else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+            fi
+        fi
+
+        printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
+        printf "${SEPstr}"
+
+        printf "\nEnter selection:  "
+        read -r advancedChoice
+        echo
+        case $advancedChoice in
+            1) _Set_FW_UpdateCronSchedule_
+               ;;
+            2) _Set_FW_UpdateZIP_DirectoryPath_
+               ;;
+            3) _Set_FW_UpdateLOG_DirectoryPath_
+               ;;
+            4) _toggle_change_log_check_ && _WaitForEnterKey_
+               ;;
+            5) _toggle_beta_updates_ && _WaitForEnterKey_
+               ;;
+            6) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
+                   change_build_type && _WaitForEnterKey_
+               fi
+               ;;
+            e|exit) break
+               ;;
+            *) printf "${REDct}INVALID selection.${NOct} Please try again."
+               _WaitForEnterKey_
+               ;;
+        esac
+    done
+}
+
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-22] ##
+## Modified by ExtremeFiretop [2024-Jan-23] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -2459,14 +3312,10 @@ do
           ;;
        4) _Set_FW_UpdatePostponementDays_
           ;;
-       5) _Set_FW_UpdateCronSchedule_
+      em) "$isEMailConfigEnabledInAMTM" && \
+          _Toggle_FW_UpdateEmailNotifications_
           ;;
-       6) _Set_FW_UpdateZIP_DirectoryPath_
-          ;;
-       7) _Set_FW_UpdateLOG_DirectoryPath_
-          ;;
-       8) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-          change_build_type && _WaitForEnterKey_ ; fi
+      ad) _advanced_options_menu_
           ;;
       up) _SCRIPTUPDATE_
           ;;
