@@ -72,7 +72,8 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Backup the new firmware version to the USB drive. (If USB is selected for storage)
 - Email notifications if you configured email options in AMTM.
 - Automatic backup with BACKUPMON if installed.
-- Allow or Block Alpha/Beta upgrades to Production versions of the same cycle. (388.6.alpha1 or 388.6.beta1 --> 388.6.0)
+- Allow or Block Alpha/Beta upgrades to Production versions of the same cycle.
+  (388.6.alpha1 or 388.6.beta1 --> 388.6.0)
 - Automatically stops all Entware services, if installed, before the flash.
 - Automatically stops diversion, if installed, before the flash.
 - Unmounts any physically attached storage via USB as the last step before the flash.
