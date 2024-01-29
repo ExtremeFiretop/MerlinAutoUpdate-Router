@@ -2637,9 +2637,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
-    ##---------------------------------------##
-    ## Added by ExtremeFiretop [2024-Jan-26] ##
-    ##---------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jan-28] ##
+    ##------------------------------------------##
     freeRAM_kb=$(get_free_ram)
     availableRAM_kb=$(_GetAvailableRAM_KB_)
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
