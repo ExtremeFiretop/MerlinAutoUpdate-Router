@@ -2658,6 +2658,11 @@ Please manually update to version $minimum_supported_version or higher to use th
             _DoCleanUp_ 1
             if "$isInteractive"
             then
+                printf "${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+                printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+                printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+                printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+                _WaitForEnterKey_ "$menuReturnPromptStr"
                 return 1
             else
                 _DoExit_ 1
