@@ -2670,7 +2670,7 @@ Please manually update to version $minimum_supported_version or higher to use th
                 _DoCleanUp_ 1
                 if "$isInteractive"
                 then
-                    printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}"
+                    printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
                     printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
                     printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
                     printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
@@ -2682,7 +2682,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             fi
         else
             # BACKUPMON version is not sufficient
-            Say "${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+            Say "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
             Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.44.\n"
             Say "Skipping backup. Please update your version of BACKUPMON.\n"
         fi
