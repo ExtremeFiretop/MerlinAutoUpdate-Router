@@ -1,7 +1,8 @@
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/be171e8d-91f4-4424-a714-15ef6379348a)![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/dd08f890-475e-4f25-bbe3-1da44426410e)
 
 
-
+## v1.0.0
+## 2024-01-29
 
 
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
@@ -72,8 +73,8 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Email notifications if you configured email options in AMTM.
 - Automatic backup with BACKUPMON if installed.
 - Allow or Block Alpha/Beta upgrades to Production versions of the same cycle. (388.6.alpha1 or 388.6.beta1 --> 388.6.0)
-- Automatically stops all Entware services before the flash if running.
-- Automatically stops diversion if installed and running before the flash.
+- Automatically stops all Entware services, if installed, before the flash.
+- Automatically stops diversion, if installed, before the flash.
 - Unmounts any physically attached storage via USB as the last step before the flash.
 
 - Notes:
