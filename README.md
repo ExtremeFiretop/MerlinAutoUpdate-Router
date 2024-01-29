@@ -57,11 +57,10 @@ It streamlines the firmware update procedure, automatically detects your router 
 ## Features
 
 - Automatic router model detection and Automatic update detection.
-- Automatically install the updates your router with the latest firmware from the Asuswrt-Merlin repository.
-- Functions to handle router login credentials required for the update process.
+- Automatically install updates to your router with the latest firmware from the Asuswrt-Merlin repository.
 - Logic to manage cron jobs for automated firmware update checks.
 - Handling notifications for new script versions and download the latest version of MerlinAU
-- User configurable Wait Period: Wait for a set duration after a new firmware release.
+- User configurable wait periods. Wait for a set duration after a new firmware release.
 - Easy Enable/Disable: A menu switch for automatic update checking.
 - Easy Uninstall: A routine to cleanly uninstall the script, removing all related files and settings.
 - Logging and Cleanup: The script maintains logs for its operations and includes functions for cleanup tasks.
@@ -72,9 +71,11 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Backup the new firmware version to the USB drive. (If USB is selected for storage)
 - Email notifications if you configured email options in AMTM.
 - Automatic backup with BACKUPMON if installed.
-
-## Remaining/Planned Features:
-- Allow Beta to Production upgrades of the same version
+- Allow or Block Alpha/Beta upgrades to Production versions of the same cycle.
+  (388.6.alpha1 or 388.6.beta1 --> 388.6.0)
+- Automatically stops all Entware services before the flash if running.
+- Automatically stops diversion if installed and running before the flash.
+- Unmounts any physically attached storage via USB as the last step before the flash.
 
 - Notes:
   - New routers use UBIFS instead of JFFS2.
