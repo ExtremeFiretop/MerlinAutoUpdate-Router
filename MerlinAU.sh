@@ -1811,7 +1811,7 @@ _toggle_beta_updates_() {
 
     if [ "$currentSetting" = "ENABLED" ]; then
         printf "${REDct}*WARNING*:${NOct}\n"
-		printf Disabling updates from beta to release firmware may limit access to new features and fixes.\n"
+		printf "Disabling updates from beta to release firmware may limit access to new features and fixes.\n"
         printf "Keep this enabled if you prefer to stay up-to-date with the latest releases.\n"
         printf "\nProceed to disable? [y/N]: "
         read -r response
