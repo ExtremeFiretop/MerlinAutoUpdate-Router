@@ -1,4 +1,8 @@
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/ffa9fed4-86fc-40b4-ac42-ba9ffe3dc264)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/be171e8d-91f4-4424-a714-15ef6379348a)![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/dd08f890-475e-4f25-bbe3-1da44426410e)
+
+
+
+
 
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
@@ -7,6 +11,7 @@
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
  - RT-AX86U (Tested)
+ - XT12 (Tested)
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 Blocked due to low RAM/ROM space and/or have not received updates in several years.
@@ -35,7 +40,6 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AX56U (Untested)
  - RT-AX58U (Untested)
  - RT-AX3000 (Untested)
- - XT12 (Untested)
 
  ## TESTERS NEEDED!
  - If you see your router listed as untested above, feel free to test and report any issues.
@@ -53,23 +57,24 @@ It streamlines the firmware update procedure, automatically detects your router 
 ## Features
 
 - Automatic router model detection and Automatic update detection.
-- Automatically updates your router with the latest firmware from the Asuswrt-Merlin repository.
-- Credential Management: Functions to handle router login credentials required for the update process.
-- Cron Job Management: Logic to manage cron jobs for automated firmware update checks.
-- Script Updates: Handling notifications for new script versions.
+- Automatically install the updates your router with the latest firmware from the Asuswrt-Merlin repository.
+- Functions to handle router login credentials required for the update process.
+- Logic to manage cron jobs for automated firmware update checks.
+- Handling notifications for new script versions and download the latest version of MerlinAU
 - User configurable Wait Period: Wait for a set duration after a new firmware release.
 - Easy Enable/Disable: A menu switch for automatic update checking.
 - Easy Uninstall: A routine to cleanly uninstall the script, removing all related files and settings.
 - Logging and Cleanup: The script maintains logs for its operations and includes functions for cleanup tasks.
 - Blinking LEDs: As a visual indicator before starting the firmware update.
+- Changelog verification check: Checks the changelogs for very obvious red flags and prompts for approval.
 - Checks RAM usage: Functions to check and manage available memory for firmware update operations.
 - Compatible with ROG and non-ROG routers; select ROG or Pure Build for ROG routers.
 - Backup the new firmware version to the USB drive. (If USB is selected for storage)
+- Email notifications if you configured email options in AMTM.
+- Automatic backup with BACKUPMON if installed.
 
 ## Remaining/Planned Features:
-      
-1. AMTM Install:
-- Only once it's been vetted through most routers.
+- Allow Beta to Production upgrades of the same version
 
 - Notes:
   - New routers use UBIFS instead of JFFS2.
