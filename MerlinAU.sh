@@ -386,7 +386,7 @@ _FWVersionStrToNum_()
       betaWeight=-1000
       verStr=$(echo "$verStr" | sed 's/beta[0-9]*//') # Remove 'beta' and any following numbers
 
-   if [ "$(echo "verStr" | awk -F '.' '{print NF}')" -lt "$2" ]
+   if [ "$(echo "$verStr" | awk -F '.' '{print NF}')" -lt "$2" ]
    then verStr="$(nvram get firmver | sed 's/\.//g').$verStr" ; fi
 
    if [ "$2" -lt 4 ]; then
