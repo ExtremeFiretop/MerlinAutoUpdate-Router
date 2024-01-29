@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-27
+# Last Modified: 2024-Jan-28
 ###################################################################
 set -u
 
@@ -369,7 +369,7 @@ _ScriptVersionStrToNum_()
 }
 
 ##------------------------------------------------##
-## Added/Modified by ExtremeFiretop [2024-Jan-27] ##
+## Added/Modified by ExtremeFiretop [2024-Jan-28] ##
 ##------------------------------------------------##
 _FWVersionStrToNum_()
 {
@@ -689,7 +689,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-27] ##
+## Modified by ExtremeFiretop [2024-Jan-28] ##
 ##------------------------------------------##
 # Function to get custom setting value from the settings file
 Get_Custom_Setting()
@@ -702,7 +702,8 @@ Get_Custom_Setting()
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "ROGBuild" | "credentials_base64" | "CheckChangeLog" |  "FW_Allow_Beta_Production_Up" | \
+            "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+            "FW_Allow_Beta_Production_Up" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -727,7 +728,7 @@ Get_Custom_Setting()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-07] ##
+## Modified by ExtremeFiretop [2024-Jan-28] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -740,8 +741,8 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | "FW_Allow_Beta_Production_Up" | \
-        "FW_New_Update_Notification_Date" | \
+        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+        "FW_Allow_Beta_Production_Up" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
                 if [ "$(grep -c "$setting_type" "$SETTINGSFILE")" -gt 0 ]; then
@@ -3162,27 +3163,27 @@ _advanced_options_menu_() {
 
         printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
         printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
-		
+
         local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
         if [ "$checkChangeLogSetting" = "DISABLED" ]
         then
-                printf "\n  ${GRNct}4${NOct}.  Enable Change-log Check"
-                printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+            printf "\n  ${GRNct}4${NOct}.  Enable Change-log Check"
+            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
         else
-                printf "\n  ${GRNct}4${NOct}.  Disable Change-log Check"
-                printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+            printf "\n  ${GRNct}4${NOct}.  Disable Change-log Check"
+            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
         fi
-		
+
         local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
         if [ "$BetaProductionSetting" = "DISABLED" ]
         then
-                printf "\n  ${GRNct}5${NOct}.  Enable Beta-to-Release Upgrades"
-                printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+            printf "\n  ${GRNct}5${NOct}.  Enable Beta-to-Release Upgrades"
+            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
         else
-                printf "\n  ${GRNct}5${NOct}.  Disable Beta-to-Release Upgrades"
-                printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+            printf "\n  ${GRNct}5${NOct}.  Disable Beta-to-Release Upgrades"
+            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
         fi
-						
+
         # Retrieve the current build type setting
         local current_build_type=$(Get_Custom_Setting "ROGBuild")
 
