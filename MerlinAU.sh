@@ -228,7 +228,7 @@ FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 _GetDefaultUSBMountPoint_()
 {
    local mounPointPath  retCode=0
-   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+   local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
 
    mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
    [ -z "$mounPointPath" ] && retCode=1
@@ -368,48 +368,53 @@ _ScriptVersionStrToNum_()
    echo "$verNum" ; return 0
 }
 
-##------------------------------------------------##
-## Added/Modified by ExtremeFiretop [2024-Jan-28] ##
-##------------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-28] ##
+##----------------------------------------##
 _FWVersionStrToNum_()
 {
-   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
-   then echo ; return 1 ; fi
+    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+    then echo ; return 1 ; fi
 
-   USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
+    USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
-   local verNum
-   local verStr="$1"
-   local betaWeight=0
+    local verNum  verStr="$1"  nonProductionVersionWeight=0
+    local fwBranchVers=""  numFields
 
-   if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && echo "$verStr" | grep -q 'beta'; then
-      betaWeight=-1000
-      verStr=$(echo "$verStr" | sed 's/beta[0-9]*//') # Remove 'beta' and any following numbers
+    # Check for 'alpha/beta' in the version string and 
+    # adjust weight value if USE_BETA_WEIGHT is true
+    if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && \
+        echo "$verStr" | grep -qiE 'alpha|beta'
+    then
+        nonProductionVersionWeight=-100
+        # Remove 'alpha/beta' and any following numbers #
+        verStr="$(echo "$verStr" | sed 's/[Aa]lpha[0-9]*// ; s/[Bb]eta[0-9]*//')"
+    fi
 
-   if [ "$(echo "$verStr" | awk -F '.' '{print NF}')" -lt "$2" ]
-   then verStr="$(nvram get firmver | sed 's/\.//g').$verStr" ; fi
+    numFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
 
-   if [ "$2" -lt 4 ]; then
-    verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%03d%01d\n", $1,$2,$3}')
-   else
-    verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%d%d%01d\n", $1,$2,$3,$4}')
-   fi
+    if [ "$numFields" -lt "$2" ]
+    then fwBranchVers="$(nvram get firmver | sed 's/\.//g')" ; fi
 
-    verNum=$((verNum + betaWeight)) 
+    #-----------------------------------------------------------
+    # Temporarily remove Branch version to avoid issues with
+    # integers greater than the maximum 32-bit signed integer
+    # when doing arithmetic computations with shell cmds.
+    #-----------------------------------------------------------
+    if [ "$numFields" -gt 3 ]
+    then
+        fwBranchVers="$(echo "$verStr" | cut -d'.' -f1)"
+        verStr="$(echo "$verStr" | cut -d'.' -f2-)"
+    fi
+    verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%01d\n", $1,$2,$3);}')"
 
-   else
-      if [ "$(echo "$1" | awk -F '.' '{print NF}')" -lt "$2" ]
-      then verStr="$(nvram get firmver | sed 's/\.//g').$1" ; fi
+    # Subtract non-production weight from the version number #
+    verNum="$((verNum + nonProductionVersionWeight))"
 
-   if [ "$2" -lt 4 ]; then
-    verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%03d%01d\n", $1,$2,$3}')
-   else
-    verNum=$(echo "$verStr" | awk -F '.' '{printf "%d%d%d%01d\n", $1,$2,$3,$4}')
-   fi
+    # Now add the F/W Branch version #
+    [ -n "$fwBranchVers" ] && verNum="${fwBranchVers}$verNum"
 
-   fi
-
-   echo "$verNum" ; return 0
+    echo "$verNum" ; return 0
 }
 
 ##--------------------------------------------##
@@ -556,7 +561,7 @@ _ValidateUSBMountPoint_()
 
    local mounPointPaths  expectedPath
    local symblPath  realPath1  realPath2  foundPathOK
-   local mountPointRegExp="/dev/sd.* /tmp/mnt/.*"
+   local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
 
    mounPointPaths="$(grep "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
    [ -z "$mounPointPaths" ] && return 1
@@ -2266,7 +2271,11 @@ _Toggle_FW_UpdateCheckSetting_()
    printf "Router's built-in Firmware Update Check is now ${fwUpdateCheckNewStateStr}.\n"
    nvram commit
 
-   "$runfwUpdateCheck" && sh $FW_UpdateCheckScript 2>&1 &
+   if "$runfwUpdateCheck"
+   then
+       printf "\nChecking for new F/W Updates... Please wait.\n"
+       sh $FW_UpdateCheckScript 2>&1
+   fi
    _WaitForEnterKey_ "$menuReturnPromptStr"
 }
 
@@ -2298,7 +2307,27 @@ _EntwareServicesHandler_()
    then
       printf "\n${actionStr} Entware services... Please wait.\n"
       $entwOPT_unslung $1 ; sleep 5
+      printf "\nDone.\n"
    fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-28] ##
+##-------------------------------------##
+_UnmountUSBDrives_()
+{
+   local theDevice  mountPointRegExp="^/dev/sd[a-z][0-9]+.* /tmp/mnt/.*"
+
+   mountedDevices="$(grep -E "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $1}')"
+   [ -z "$mountedDevices" ] && return 1
+
+   "$isInteractive" && \
+   printf "\nUnmounting USB-attached drives. Please wait...\n"
+
+   for theDevice in $mountedDevices
+   do umount -f "$theDevice" 2>/dev/null; sleep 2 ; done
+
+   printf "\nDone.\n"
 }
 
 ##----------------------------------------##
@@ -2752,6 +2781,9 @@ Please manually update to version $minimum_supported_version or higher to use th
 
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
+
+        # *WARNING*: No more logging at this point & beyond #
+        _UnmountUSBDrives_
 
         nohup curl "${routerURLstr}/upgrade.cgi" \
         --referer ${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp \
