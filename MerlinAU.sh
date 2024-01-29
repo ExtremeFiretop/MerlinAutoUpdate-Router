@@ -1811,7 +1811,7 @@ _toggle_beta_updates_() {
 
     if [ "$currentSetting" = "ENABLED" ]; then
         printf "${REDct}*WARNING*:${NOct}\n"
-		printf "Disabling updates from beta F/Ws to release F/Ws may prevent access to the latest features and fixes.\n"
+		printf Disabling updates from beta to release firmware may limit access to new features and fixes.\n"
         printf "Keep this enabled if you prefer to stay up-to-date with the latest releases.\n"
         printf "\nProceed to disable? [y/N]: "
         read -r response
@@ -2384,7 +2384,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Get current firmware version #
     current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    ##FOR DEBUG ONLY##current_version="388.5.0"
+    ##FOR DEBUG ONLY##current_version="388.6.beta1"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
