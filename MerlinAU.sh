@@ -9,7 +9,7 @@
 set -u
 
 #For AMTM versioning:
-readonly SCRIPT_VERSION=1.0
+readonly SCRIPT_VERSION=1.0.0
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
