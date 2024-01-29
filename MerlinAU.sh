@@ -743,6 +743,7 @@ Update_Custom_Settings()
     case "$setting_type" in
         "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
         "FW_Allow_Beta_Production_Up" | \
+        "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
                 if [ "$(grep -c "$setting_type" "$SETTINGSFILE")" -gt 0 ]; then
@@ -2645,29 +2646,45 @@ Please manually update to version $minimum_supported_version or higher to use th
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Check for the presence of backupmon.sh script (Commented out until issues resolved)
-    if [ -f "/jffs/scripts/backupmon.sh" ]; then
-        # Execute the backup script if it exists #
-        Say "\nBackup Started (by BACKUPMON)"
-        sh /jffs/scripts/backupmon.sh -backup >/dev/null
-        BE=$?
-        Say "Backup Finished\n"
-        if [ $BE -eq 0 ]; then
-            Say "Backup Completed Successfully\n"
-        else
-            Say "Backup Failed\n"
-            _SendEMailNotification_ NEW_BM_BACKUP_FAILED
-            _DoCleanUp_ 1
-            if "$isInteractive"
-            then
-                printf "${REDct}**IMPORTANT NOTICE**:${NOct}\n"
-                printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
-                printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
-                printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
-                _WaitForEnterKey_ "$menuReturnPromptStr"
-                return 1
+    if [ -f "/jffs/scripts/backupmon.sh" ] && [ -f "/jffs/addons/backupmon.d/version.txt" ]; then
+
+        # Read version number from version.txt
+        BM_VERSION=$(cat /jffs/addons/backupmon.d/version.txt)
+
+        # Convert both current and required versions to numeric format
+        current_version=$(_ScriptVersionStrToNum_ "$BM_VERSION")
+        required_version=$(_ScriptVersionStrToNum_ "1.44")
+
+        # Check if BACKUPMON version is greater than or equal to 1.44
+        if [ "$current_version" -ge "$required_version" ]; then
+            # Execute the backup script if it exists #
+            Say "\nBackup Started (by BACKUPMON)"
+            sh /jffs/scripts/backupmon.sh -backup >/dev/null
+            BE=$?
+            Say "Backup Finished\n"
+            if [ $BE -eq 0 ]; then
+                Say "Backup Completed Successfully\n"
             else
-                _DoExit_ 1
+                Say "Backup Failed\n"
+                _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+                _DoCleanUp_ 1
+                if "$isInteractive"
+                then
+                    printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}"
+                    printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+                    printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+                    printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+                    _WaitForEnterKey_ "$menuReturnPromptStr"
+                    return 1
+                else
+                    _DoExit_ 1
+                fi
             fi
+        else
+            # BACKUPMON version is not sufficient
+            Say "${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+            Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.44.\n"
+            Say "Skipping backup. Please update your version of BACKUPMON.\n"
         fi
     else
         # Print a message if the backup script is not installed
