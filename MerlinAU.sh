@@ -2435,8 +2435,8 @@ Please manually update to version $minimum_supported_version or higher to use th
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    ##FOR DEBUG ONLY##current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    current_version="388.5.0"
+    current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    ##FOR DEBUG ONLY##current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -2622,7 +2622,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             current_version_regex="[0-9]+\.$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
 
             # Check if the current version is present in the changelog
-			if ! grep -Eq "$current_version_regex" "$changelog_file"; then
+            if ! grep -Eq "$current_version_regex" "$changelog_file"; then
                 Say "Current version not found in change-log. Bypassing change-log verification for this run."
             else
                 # Extract log contents between two firmware versions
