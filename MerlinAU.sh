@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-29
+# Last Modified: 2024-Jan-30
 ###################################################################
 set -u
 
 #For AMTM versioning:
-readonly SCRIPT_VERSION=1.0.0
+readonly SCRIPT_VERSION=1.0.1
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -2568,7 +2568,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     cd "$FW_BIN_DIR"
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jan-25] ##
+    ## Modified by ExtremeFiretop [2024-Jan-30] ##
     ##------------------------------------------##
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
@@ -2583,36 +2583,51 @@ Please manually update to version $minimum_supported_version or higher to use th
             "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
             return 1
         else
-            # Format current_version by removing the last '.0'
-            formatted_current_version=$(echo $current_version | awk -F. '{print $1"."$2}')
+            # Use awk to format the version based on the number of initial digits
+            formatted_current_version=$(echo "$current_version" | awk -F. '{
+                if (length($1) == 4 && NF >= 3) {
+                    # For version starting with four digits like 3004.388.5.0
+                    # Format as the next two fields (388.5)
+                    printf "%s.%s", $2, $3
+                } else if (NF >= 2) {
+                    # For version with three initial digits like 388.5.0
+                    # Format as the first two fields (388.5)
+                    printf "%s.%s", $1, $2
+                }
+            }')
 
             # Format release_version by removing the prefix '3004.' and the last '.0'
             formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
 
-            # Extract log contents between two firmware versions
-            changelog_contents=$(awk "/$formatted_release_version/,/$formatted_current_version/" "$changelog_file")
+            # Check if the current version is present in the changelog
+            if ! grep -qE "^${formatted_current_version} \([0-9]+[-]" "$changelog_file"; then
+                Say "Current version not found in change-log. Bypassing change-log verification for this run."
+            else
+                # Extract log contents between two firmware versions
+                changelog_contents=$(awk "/^$formatted_release_version \([0-9]+[-]/,/$formatted_current_version \([0-9]+[-]/" "$changelog_file")
 
-            # Define high-risk terms as a single string separated by '|'
-            high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
+                # Define high-risk terms as a single string separated by '|'
+                high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
-            # Search for high-risk terms in the extracted log contents
-            if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
-                if [ "$inMenuMode" = true ]; then
-                    printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
-                    printf "\n ${REDct}Would you like to continue anyways?${NOct}"
-                    if ! _WaitForYESorNO_ ; then
-                        Say "Exiting for change-log review."
-                        _DoCleanUp_ 1 ; return 1
+                # Search for high-risk terms in the extracted log contents
+                if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+                    if [ "$inMenuMode" = true ]; then
+                        printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
+                        printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                        if ! _WaitForYESorNO_ ; then
+                            Say "Exiting for change-log review."
+                            _DoCleanUp_ 1 ; return 1
+                        fi
+                    else
+                        Say "Warning: Found high-risk phrases in the change-logs."
+                        Say "Please run script interactively to approve the upgrade."
+                        _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+                        _DoCleanUp 1
+                        _DoExit_ 1
                     fi
                 else
-                    Say "Warning: Found high-risk phrases in the change-logs."
-                    Say "Please run script interactively to approve the upgrade."
-                    _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
-                    _DoCleanUp 1
-                    _DoExit_ 1
+                    Say "No high-risk phrases found in the change-logs."
                 fi
-            else
-                Say "No high-risk phrases found in the change-logs."
             fi
         fi
     else
