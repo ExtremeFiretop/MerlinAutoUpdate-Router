@@ -2324,8 +2324,10 @@ _UnmountUSBDrives_()
    "$isInteractive" && \
    printf "\nUnmounting USB-attached drives. Please wait...\n"
 
-   # Stop existing apps that may be using the USB drive #
+   # Stop existing apps & services that may be using the USB drive #
+   /sbin/service stop_samba >/dev/null 2>&1
    /sbin/service stop_nasapps >/dev/null 2>&1
+   sleep 2
 
    for theDevice in $mountedDevices
    do umount -f "$theDevice" 2>/dev/null; sleep 2 ; done
