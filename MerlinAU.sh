@@ -9,7 +9,7 @@
 set -u
 
 #For AMTM versioning:
-readonly SCRIPT_VERSION=1.0.2
+readonly SCRIPT_VERSION=1.0.1
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -2600,11 +2600,11 @@ Please manually update to version $minimum_supported_version or higher to use th
             formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
 
             # Check if the current version is present in the changelog
-            if ! grep -q "$formatted_current_version" "$changelog_file"; then
+            if ! grep -qE "^${formatted_current_version} \([0-9]+[-]" "$changelog_file"; then
                 Say "Current version not found in change-log. Bypassing change-log verification for this run."
             else
                 # Extract log contents between two firmware versions
-                changelog_contents=$(awk "/$formatted_release_version/,/$formatted_current_version/" "$changelog_file")
+                changelog_contents=$(awk "/^$formatted_release_version \([0-9]+[-]/,/$formatted_current_version \([0-9]+[-]/" "$changelog_file")
 
                 # Define high-risk terms as a single string separated by '|'
                 high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
