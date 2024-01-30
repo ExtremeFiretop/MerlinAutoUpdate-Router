@@ -1537,6 +1537,7 @@ _GetCurrentFWInstalledLongVersion_()
 ##----------------------------------------##
 _GetCurrentFWInstalledShortVersion_()
 {
+##FOR DEBUG ONLY##
 if true
 then
     local theVersionStr  extVersNum
