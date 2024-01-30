@@ -817,7 +817,7 @@ Update_Custom_Settings()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-26] ##
 ##------------------------------------------##
-_migrate_settings_() {
+_migrate_settings_move() {
     local USBMountPoint="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
     local old_settings_dir="${ADDONS_PATH}/$ScriptFNameTag"
     local new_settings_dir="${ADDONS_PATH}/$ScriptDirNameD"
@@ -830,7 +830,13 @@ _migrate_settings_() {
     if [ -d "$old_settings_dir" ]; then
         # Check if the new SETTINGS directory already exists
         if [ -d "$new_settings_dir" ]; then
-            echo "The new SETTINGS directory already exists. Migration is not required."
+            # Remove the old SETTINGS directory since the new one exists
+            rm -rf "$old_settings_dir"
+            if [ $? -eq 0 ]; then
+                echo "The new SETTINGS directory already exists. Removed the old SETTINGS directory."
+            else
+                echo "Error occurred while removing the old SETTINGS directory."
+            fi
         else
             # Move the old SETTINGS directory to the new location
             mv "$old_settings_dir" "$new_settings_dir"
@@ -846,7 +852,13 @@ _migrate_settings_() {
     if [ -d "$old_bin_dir" ]; then
         # Check if the new BIN directory already exists
         if [ -d "$new_bin_dir" ]; then
-            echo "The new BIN directory already exists. Migration is not required."
+            # Remove the old BIN directory since the new one exists
+            rm -rf "$old_bin_dir"
+            if [ $? -eq 0 ]; then
+                echo "The new BIN directory already exists. Removed the old BIN directory."
+            else
+                echo "Error occurred while removing the old BIN directory."
+            fi
         else
             # Move the old BIN directory to the new location
             mv "$old_bin_dir" "$new_bin_dir"
@@ -862,7 +874,13 @@ _migrate_settings_() {
     if [ -d "$old_log_dir" ]; then
         # Check if the new LOG directory already exists
         if [ -d "$new_log_dir" ]; then
-            echo "The new LOG directory already exists. Migration is not required."
+            # Remove the old LOG directory since the new one exists
+            rm -rf "$old_log_dir"
+            if [ $? -eq 0 ]; then
+                echo "The new LOG directory already exists. Removed the old LOG directory."
+            else
+                echo "Error occurred while removing the old LOG directory."
+            fi
         else
             # Move the old LOG directory to the new location
             mv "$old_log_dir" "$new_log_dir"
@@ -875,7 +893,7 @@ _migrate_settings_() {
     fi
 }
 
-_migrate_settings_
+_migrate_settings_move
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-24] ##
@@ -2417,8 +2435,8 @@ Please manually update to version $minimum_supported_version or higher to use th
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    ##FOR DEBUG ONLY##current_version="388.5.0"
+    ##FOR DEBUG ONLY##current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -2599,13 +2617,16 @@ Please manually update to version $minimum_supported_version or higher to use th
             # Format release_version by removing the prefix '3004.' and the last '.0'
             formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
 
+            # Define regex patterns for both versions
+            release_version_regex="[0-9]+\.$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+            current_version_regex="[0-9]+\.$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+
             # Check if the current version is present in the changelog
-            if ! grep -qE "^${formatted_current_version} \([0-9]+[-]" "$changelog_file"; then
+			if ! grep -Eq "$current_version_regex" "$changelog_file"; then
                 Say "Current version not found in change-log. Bypassing change-log verification for this run."
             else
                 # Extract log contents between two firmware versions
-                changelog_contents=$(awk "/^$formatted_release_version \([0-9]+[-]/,/$formatted_current_version \([0-9]+[-]/" "$changelog_file")
-
+                changelog_contents=$(awk "/$release_version_regex/,/$current_version_regex/" "$changelog_file")
                 # Define high-risk terms as a single string separated by '|'
                 high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
