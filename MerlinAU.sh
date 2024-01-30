@@ -1537,6 +1537,8 @@ _GetCurrentFWInstalledLongVersion_()
 ##----------------------------------------##
 _GetCurrentFWInstalledShortVersion_()
 {
+if true
+then
     local theVersionStr  extVersNum
 
     extVersNum="$(nvram get extendno | awk -F '-' '{print $1}')"
@@ -1544,6 +1546,10 @@ _GetCurrentFWInstalledShortVersion_()
 
     theVersionStr="$(nvram get buildno).$extVersNum"
     echo "$theVersionStr"
+else
+##FOR DEBUG ONLY##
+current_version="388.5.0"
+fi
 }
 
 ##-------------------------------------##
@@ -2436,7 +2442,6 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Get current firmware version #
     current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    ##FOR DEBUG ONLY##current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -3105,9 +3110,9 @@ then
             printf "Automatic firmware update checks will be DISABLED.\n"
             printf "You can enable this feature later through the menu.\n"
             FW_UpdateCheckState=0
+            runfwUpdateCheck=false
             nvram set firmware_check_enable="$FW_UpdateCheckState"
             nvram commit
-            runfwUpdateCheck=false
         fi
     else
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
