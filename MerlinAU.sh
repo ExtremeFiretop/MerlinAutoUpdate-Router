@@ -2661,6 +2661,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Change-logs check disabled."
     fi
 
+    rog_file=""
     # Detect ROG and pure firmware files
     rog_file="$(ls | grep -i '_rog_')"
     pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
@@ -3125,8 +3126,6 @@ then
     _WaitForEnterKey_
 fi
 
-rog_file=""
-
 FW_RouterProductID="${GRNct}${PRODUCT_ID}${NOct}"
 if [ "$PRODUCT_ID" = "$MODEL_ID" ]
 then FW_RouterModelID="${FW_RouterProductID}"
@@ -3338,14 +3337,11 @@ theExitStr="${GRNct}e${NOct}=Exit to main menu"
 
 while true
 do
-   local_choice_set="$(Get_Custom_Setting "ROGBuild")"
    show_menu
 
    # Check if the directory exists again before attempting to navigate to it
    if [ -d "$FW_BIN_DIR" ]; then
        cd "$FW_BIN_DIR"
-       # Check for the presence of "rog" in filenames in the directory again
-       rog_file="$(ls | grep -i '_rog_')"
    fi
 
    printf "Enter selection:  " ; read -r userChoice
