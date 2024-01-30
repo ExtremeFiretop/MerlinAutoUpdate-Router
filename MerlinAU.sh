@@ -258,7 +258,7 @@ Toggle_LEDs()
    do
       LED_ToggleState="$((! LED_ToggleState))"
       nvram set led_disable="$LED_ToggleState"
-      service restart_leds > /dev/null 2>&1
+      /sbin/service restart_leds > /dev/null 2>&1
       sleep "$blinkRateSecs"
    done
    return 0
@@ -285,7 +285,7 @@ _Reset_LEDs_()
        wait $Toggle_LEDs_PID
        # Set LEDs to their "initial state" #
        nvram set led_disable="$LED_InitState"
-       service restart_leds >/dev/null 2>&1
+       /sbin/service restart_leds >/dev/null 2>&1
        sleep 2
    fi
    Toggle_LEDs_PID=""
@@ -2311,9 +2311,9 @@ _EntwareServicesHandler_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-28] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-29] ##
+##----------------------------------------##
 _UnmountUSBDrives_()
 {
    local theDevice  mountPointRegExp="^/dev/sd[a-z][0-9]+.* /tmp/mnt/.*"
@@ -2323,6 +2323,9 @@ _UnmountUSBDrives_()
 
    "$isInteractive" && \
    printf "\nUnmounting USB-attached drives. Please wait...\n"
+
+   # Stop existing apps that may be using the USB drive #
+   /sbin/service stop_nasapps >/dev/null 2>&1
 
    for theDevice in $mountedDevices
    do umount -f "$theDevice" 2>/dev/null; sleep 2 ; done
