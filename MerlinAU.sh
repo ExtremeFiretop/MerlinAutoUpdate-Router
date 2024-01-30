@@ -1548,7 +1548,7 @@ then
     echo "$theVersionStr"
 else
 ##FOR DEBUG ONLY##
-current_version="388.5.0"
+echo "388.5.0"
 fi
 }
 
