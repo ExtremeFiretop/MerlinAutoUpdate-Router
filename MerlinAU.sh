@@ -815,7 +815,7 @@ Update_Custom_Settings()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
+## Modified by ExtremeFiretop [2024-Jan-30] ##
 ##------------------------------------------##
 _migrate_settings_move() {
     local USBMountPoint="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
