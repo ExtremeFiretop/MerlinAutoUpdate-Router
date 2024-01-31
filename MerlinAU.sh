@@ -2634,7 +2634,6 @@ Please manually update to version $minimum_supported_version or higher to use th
             else
                 # Extract log contents between two firmware versions
                 changelog_contents=$(awk "/$release_version_regex/,/$current_version_regex/" "$changelog_file")
-                echo "$changelog_contents"
                 # Define high-risk terms as a single string separated by '|'
                 high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
