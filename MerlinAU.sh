@@ -2808,7 +2808,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         echo
 
         # *WARNING*: No more logging at this point & beyond #
-        ejusb -1 0 -u 1
+        /sbin/ejusb -1 0 -u 1
 
         #-------------------------------------------------------
         # Stop toggling LEDs during the F/W flash to avoid
