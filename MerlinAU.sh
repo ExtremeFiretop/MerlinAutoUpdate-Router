@@ -2624,8 +2624,9 @@ Please manually update to version $minimum_supported_version or higher to use th
             formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
 
             # Define regex patterns for both versions
-            release_version_regex="[0-9]+\.$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-            current_version_regex="[0-9]+\.$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+            release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+            current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+
 
             # Check if the current version is present in the changelog
             if ! grep -Eq "$current_version_regex" "$changelog_file"; then
@@ -2633,6 +2634,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             else
                 # Extract log contents between two firmware versions
                 changelog_contents=$(awk "/$release_version_regex/,/$current_version_regex/" "$changelog_file")
+                echo "$changelog_contents"
                 # Define high-risk terms as a single string separated by '|'
                 high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
