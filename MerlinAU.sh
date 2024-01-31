@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-30
+# Last Modified: 2024-Jan-31
 ###################################################################
 set -u
 
@@ -2280,55 +2280,6 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2024-Jan-30] ##
-##-------------------------------------##
-_SleepCounter_()
-{
-   if [ $# -lt 1 ] || [ -z "$1" ] || \
-      ! echo "$1" | grep -qE "^[1-9][0-9]*[sm]?$"
-   then return 1 ; fi
-
-   if ! "$isInteractive"
-   then sleep $1 ; return 0 ; fi
-
-   local counter  numStr="$1"
-   local maxCounterSecs  numCounterSecs
-
-   if [ $# -lt 2 ] || [ -z "$2" ] || \
-      ! echo "$2" | grep -qE "^(up|down)$"
-   then counter=up
-   else counter="$2"
-   fi
-
-   case "$numStr" in
-       [1-9]s|[1-9][0-9]*s)
-           numStr="${numStr%%s*}"
-           ;;
-       [1-9]m|[1-9][0-9]*m)
-           numStr="${numStr%%m*}"
-           numStr="$((numStr * 60))"
-           ;;
-   esac
-
-   case "$counter" in
-         up) numCounterSecs=0 ; maxCounterSecs="$numStr" ;;
-       down) maxCounterSecs=0 ; numCounterSecs="$numStr" ;;
-   esac
-
-   while true
-   do
-       numLen="${#numCounterSecs}"
-       printf "\r\033[0K[%*d sec. ]" "$((numLen + 1))" "$numCounterSecs"
-       if [ "$counter" = "down" ]
-       then [ "$((numCounterSecs--))" -le 0 ] && break
-       else [ "$((numCounterSecs++))" -ge "$maxCounterSecs" ] && break
-       fi
-       sleep 1
-   done
-   echo
-}
-
-##-------------------------------------##
 ## Added by Martinski W. [2024-Jan-25] ##
 ##-------------------------------------##
 _EntwareServicesHandler_()
@@ -2356,7 +2307,7 @@ _EntwareServicesHandler_()
    then
       "$isInteractive" && \
       printf "\n${actionStr} Entware services... Please wait.\n"
-      $entwOPT_unslung $1 ; _SleepCounter_ 5
+      $entwOPT_unslung $1 ; sleep 5
       printf "\nDone.\n"
    fi
 }
@@ -2815,7 +2766,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     #------------------------------------------------------------#
     "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
     /sbin/service restart_httpd >/dev/null 2>&1 &
-    _SleepCounter_ 5
+    sleep 5
 
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
@@ -2898,7 +2849,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Let's wait for 3 minutes here. If the router does not 
         # reboot by itself after the process returns, do it now.
         #----------------------------------------------------------#
-        _SleepCounter_ 180 down
+        sleep 180
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
