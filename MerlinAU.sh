@@ -2338,30 +2338,6 @@ _EntwareServicesHandler_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-29] ##
-##----------------------------------------##
-_UnmountUSBDrives_()
-{
-   local theDevice  mountPointRegExp="^/dev/sd[a-z][0-9]+.* /tmp/mnt/.*"
-
-   mountedDevices="$(grep -E "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $1}')"
-   [ -z "$mountedDevices" ] && return 1
-
-   "$isInteractive" && \
-   printf "\nUnmounting USB-attached drives. Please wait...\n"
-
-   # Stop existing apps & services that may be using the USB drive #
-   /sbin/service stop_samba >/dev/null 2>&1
-   /sbin/service stop_nasapps >/dev/null 2>&1
-   sleep 2
-
-   for theDevice in $mountedDevices
-   do umount -f "$theDevice" 2>/dev/null; sleep 2 ; done
-
-   printf "\nDone.\n"
-}
-
-##----------------------------------------##
 ## Modified by Martinski W. [2024-Jan-25] ##
 ##----------------------------------------##
 # Embed functions from second script, modified as necessary.
@@ -2832,7 +2808,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         echo
 
         # *WARNING*: No more logging at this point & beyond #
-        _UnmountUSBDrives_
+        ejusb -1 0 -u 1
 
         #-------------------------------------------------------
         # Stop toggling LEDs during the F/W flash to avoid
