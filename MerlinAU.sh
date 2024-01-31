@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-30
+# Last Modified: 2024-Jan-31
 ###################################################################
 set -u
 
@@ -2330,6 +2330,7 @@ _EntwareServicesHandler_()
 
    if [ -n "$actionStr" ]
    then
+      "$isInteractive" && \
       printf "\n${actionStr} Entware services... Please wait.\n"
       $entwOPT_unslung $1 ; sleep 5
       printf "\nDone.\n"
@@ -2793,10 +2794,10 @@ Please manually update to version $minimum_supported_version or higher to use th
     # so that the F/W Update can start without interruptions.
     #------------------------------------------------------------#
     "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
-    /sbin/service restart_httpd &
+    /sbin/service restart_httpd >/dev/null 2>&1 &
     sleep 5
 
-    # Send last email notification before flash #
+    # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
     # Check if '/opt/bin/diversion' exists #
@@ -2806,7 +2807,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         /opt/bin/diversion unmount
     fi
 
-    # Stop entware services before flash #
+    # Stop entware services before F/W flash #
     _EntwareServicesHandler_ stop
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
@@ -2833,6 +2834,12 @@ Please manually update to version $minimum_supported_version or higher to use th
         # *WARNING*: No more logging at this point & beyond #
         _UnmountUSBDrives_
 
+        #-------------------------------------------------------
+        # Stop toggling LEDs during the F/W flash to avoid
+        # modifying NVRAM during the actual flash process.
+        #-------------------------------------------------------
+        _Reset_LEDs_
+
         nohup curl "${routerURLstr}/upgrade.cgi" \
         --referer ${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -2848,6 +2855,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         -F "file=@${firmware_file}" \
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
         curlPID=$!
+
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
         # some reason & the "curl" cmd never returns, we create 
@@ -2869,10 +2877,8 @@ Please manually update to version $minimum_supported_version or higher to use th
         #----------------------------------------------------------#
         # Let's wait for 3 minutes here. If the router does not 
         # reboot by itself after the process returns, do it now.
-        # Restart the LEDs with a "slower" blinking rate.
         #----------------------------------------------------------#
-        _Reset_LEDs_ ; Toggle_LEDs 3 & Toggle_LEDs_PID=$!
-        sleep 180 ; _Reset_LEDs_ 1
+        sleep 180
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
