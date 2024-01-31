@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-28
+# Last Modified: 2024-Jan-31
 ###################################################################
 set -u
 
 #For AMTM versioning:
-readonly SCRIPT_VERSION=1.0.0
+readonly SCRIPT_VERSION=1.0.1
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -258,7 +258,7 @@ Toggle_LEDs()
    do
       LED_ToggleState="$((! LED_ToggleState))"
       nvram set led_disable="$LED_ToggleState"
-      service restart_leds > /dev/null 2>&1
+      /sbin/service restart_leds > /dev/null 2>&1
       sleep "$blinkRateSecs"
    done
    return 0
@@ -285,7 +285,7 @@ _Reset_LEDs_()
        wait $Toggle_LEDs_PID
        # Set LEDs to their "initial state" #
        nvram set led_disable="$LED_InitState"
-       service restart_leds >/dev/null 2>&1
+       /sbin/service restart_leds >/dev/null 2>&1
        sleep 2
    fi
    Toggle_LEDs_PID=""
@@ -388,7 +388,7 @@ _FWVersionStrToNum_()
     then
         nonProductionVersionWeight=-100
         # Remove 'alpha/beta' and any following numbers #
-        verStr="$(echo "$verStr" | sed 's/[Aa]lpha[0-9]*// ; s/[Bb]eta[0-9]*//')"
+        verStr="$(echo "$verStr" | sed 's/[._-]\?[Aa]lpha[0-9]*// ; s/[._-]\?[Bb]eta[0-9]*//')"
     fi
 
     numFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
@@ -815,9 +815,9 @@ Update_Custom_Settings()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
+## Modified by ExtremeFiretop [2024-Jan-30] ##
 ##------------------------------------------##
-_migrate_settings_() {
+_migrate_settings_move() {
     local USBMountPoint="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
     local old_settings_dir="${ADDONS_PATH}/$ScriptFNameTag"
     local new_settings_dir="${ADDONS_PATH}/$ScriptDirNameD"
@@ -830,7 +830,13 @@ _migrate_settings_() {
     if [ -d "$old_settings_dir" ]; then
         # Check if the new SETTINGS directory already exists
         if [ -d "$new_settings_dir" ]; then
-            echo "The new SETTINGS directory already exists. Migration is not required."
+            # Remove the old SETTINGS directory since the new one exists
+            rm -rf "$old_settings_dir"
+            if [ $? -eq 0 ]; then
+                echo "The new SETTINGS directory already exists. Removed the old SETTINGS directory."
+            else
+                echo "Error occurred while removing the old SETTINGS directory."
+            fi
         else
             # Move the old SETTINGS directory to the new location
             mv "$old_settings_dir" "$new_settings_dir"
@@ -846,7 +852,13 @@ _migrate_settings_() {
     if [ -d "$old_bin_dir" ]; then
         # Check if the new BIN directory already exists
         if [ -d "$new_bin_dir" ]; then
-            echo "The new BIN directory already exists. Migration is not required."
+            # Remove the old BIN directory since the new one exists
+            rm -rf "$old_bin_dir"
+            if [ $? -eq 0 ]; then
+                echo "The new BIN directory already exists. Removed the old BIN directory."
+            else
+                echo "Error occurred while removing the old BIN directory."
+            fi
         else
             # Move the old BIN directory to the new location
             mv "$old_bin_dir" "$new_bin_dir"
@@ -862,7 +874,13 @@ _migrate_settings_() {
     if [ -d "$old_log_dir" ]; then
         # Check if the new LOG directory already exists
         if [ -d "$new_log_dir" ]; then
-            echo "The new LOG directory already exists. Migration is not required."
+            # Remove the old LOG directory since the new one exists
+            rm -rf "$old_log_dir"
+            if [ $? -eq 0 ]; then
+                echo "The new LOG directory already exists. Removed the old LOG directory."
+            else
+                echo "Error occurred while removing the old LOG directory."
+            fi
         else
             # Move the old LOG directory to the new location
             mv "$old_log_dir" "$new_log_dir"
@@ -875,7 +893,7 @@ _migrate_settings_() {
     fi
 }
 
-_migrate_settings_
+_migrate_settings_move
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-24] ##
@@ -1519,6 +1537,9 @@ _GetCurrentFWInstalledLongVersion_()
 ##----------------------------------------##
 _GetCurrentFWInstalledShortVersion_()
 {
+##FOR DEBUG ONLY##
+if true
+then
     local theVersionStr  extVersNum
 
     extVersNum="$(nvram get extendno | awk -F '-' '{print $1}')"
@@ -1526,6 +1547,10 @@ _GetCurrentFWInstalledShortVersion_()
 
     theVersionStr="$(nvram get buildno).$extVersNum"
     echo "$theVersionStr"
+else
+##FOR DEBUG ONLY##
+echo "388.5.0"
+fi
 }
 
 ##-------------------------------------##
@@ -1816,7 +1841,7 @@ _toggle_beta_updates_() {
 
     if [ "$currentSetting" = "ENABLED" ]; then
         printf "${REDct}*WARNING*:${NOct}\n"
-		printf "Disabling updates from beta to release firmware may limit access to new features and fixes.\n"
+        printf "Disabling updates from beta to release firmware may limit access to new features and fixes.\n"
         printf "Keep this enabled if you prefer to stay up-to-date with the latest releases.\n"
         printf "\nProceed to disable? [y/N]: "
         read -r response
@@ -2305,29 +2330,11 @@ _EntwareServicesHandler_()
 
    if [ -n "$actionStr" ]
    then
+      "$isInteractive" && \
       printf "\n${actionStr} Entware services... Please wait.\n"
       $entwOPT_unslung $1 ; sleep 5
       printf "\nDone.\n"
    fi
-}
-
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-28] ##
-##-------------------------------------##
-_UnmountUSBDrives_()
-{
-   local theDevice  mountPointRegExp="^/dev/sd[a-z][0-9]+.* /tmp/mnt/.*"
-
-   mountedDevices="$(grep -E "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $1}')"
-   [ -z "$mountedDevices" ] && return 1
-
-   "$isInteractive" && \
-   printf "\nUnmounting USB-attached drives. Please wait...\n"
-
-   for theDevice in $mountedDevices
-   do umount -f "$theDevice" 2>/dev/null; sleep 2 ; done
-
-   printf "\nDone.\n"
 }
 
 ##----------------------------------------##
@@ -2413,7 +2420,6 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Get current firmware version #
     current_version="$(_GetCurrentFWInstalledShortVersion_)"
-    ##FOR DEBUG ONLY##current_version="388.5.0"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled 
@@ -2563,7 +2569,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     cd "$FW_BIN_DIR"
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jan-25] ##
+    ## Modified by ExtremeFiretop [2024-Jan-30] ##
     ##------------------------------------------##
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
@@ -2578,42 +2584,62 @@ Please manually update to version $minimum_supported_version or higher to use th
             "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
             return 1
         else
-            # Format current_version by removing the last '.0'
-            formatted_current_version=$(echo $current_version | awk -F. '{print $1"."$2}')
+            # Use awk to format the version based on the number of initial digits
+            formatted_current_version=$(echo "$current_version" | awk -F. '{
+                if (length($1) == 4 && NF >= 3) {
+                    # For version starting with four digits like 3004.388.5.0
+                    # Format as the next two fields (388.5)
+                    printf "%s.%s", $2, $3
+                } else if (NF >= 2) {
+                    # For version with three initial digits like 388.5.0
+                    # Format as the first two fields (388.5)
+                    printf "%s.%s", $1, $2
+                }
+            }')
 
             # Format release_version by removing the prefix '3004.' and the last '.0'
             formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
 
-            # Extract log contents between two firmware versions
-            changelog_contents=$(awk "/$formatted_release_version/,/$formatted_current_version/" "$changelog_file")
+            # Define regex patterns for both versions
+            release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+            current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
 
-            # Define high-risk terms as a single string separated by '|'
-            high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
-            # Search for high-risk terms in the extracted log contents
-            if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
-                if [ "$inMenuMode" = true ]; then
-                    printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
-                    printf "\n ${REDct}Would you like to continue anyways?${NOct}"
-                    if ! _WaitForYESorNO_ ; then
-                        Say "Exiting for change-log review."
-                        _DoCleanUp_ 1 ; return 1
+            # Check if the current version is present in the changelog
+            if ! grep -Eq "$current_version_regex" "$changelog_file"; then
+                Say "Current version not found in change-log. Bypassing change-log verification for this run."
+            else
+                # Extract log contents between two firmware versions
+                changelog_contents=$(awk "/$release_version_regex/,/$current_version_regex/" "$changelog_file")
+                # Define high-risk terms as a single string separated by '|'
+                high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
+
+                # Search for high-risk terms in the extracted log contents
+                if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+                    if [ "$inMenuMode" = true ]; then
+                        printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
+                        printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                        if ! _WaitForYESorNO_ ; then
+                            Say "Exiting for change-log review."
+                            _DoCleanUp_ 1 ; return 1
+                        fi
+                    else
+                        Say "Warning: Found high-risk phrases in the change-logs."
+                        Say "Please run script interactively to approve the upgrade."
+                        _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+                        _DoCleanUp 1
+                        _DoExit_ 1
                     fi
                 else
-                    Say "Warning: Found high-risk phrases in the change-logs."
-                    Say "Please run script interactively to approve the upgrade."
-                    _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
-                    _DoCleanUp 1
-                    _DoExit_ 1
+                    Say "No high-risk phrases found in the change-logs."
                 fi
-            else
-                Say "No high-risk phrases found in the change-logs."
             fi
         fi
     else
         Say "Change-logs check disabled."
     fi
 
+    rog_file=""
     # Detect ROG and pure firmware files
     rog_file="$(ls | grep -i '_rog_')"
     pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
@@ -2744,10 +2770,10 @@ Please manually update to version $minimum_supported_version or higher to use th
     # so that the F/W Update can start without interruptions.
     #------------------------------------------------------------#
     "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
-    /sbin/service restart_httpd &
+    /sbin/service restart_httpd >/dev/null 2>&1 &
     sleep 5
 
-    # Send last email notification before flash #
+    # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
     # Check if '/opt/bin/diversion' exists #
@@ -2757,7 +2783,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         /opt/bin/diversion unmount
     fi
 
-    # Stop entware services before flash #
+    # Stop entware services before F/W flash #
     _EntwareServicesHandler_ stop
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
@@ -2782,7 +2808,13 @@ Please manually update to version $minimum_supported_version or higher to use th
         echo
 
         # *WARNING*: No more logging at this point & beyond #
-        _UnmountUSBDrives_
+        /sbin/ejusb -1 0 -u 1
+
+        #-------------------------------------------------------
+        # Stop toggling LEDs during the F/W flash to avoid
+        # modifying NVRAM during the actual flash process.
+        #-------------------------------------------------------
+        _Reset_LEDs_
 
         nohup curl "${routerURLstr}/upgrade.cgi" \
         --referer ${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp \
@@ -2799,6 +2831,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         -F "file=@${firmware_file}" \
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
         curlPID=$!
+
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
         # some reason & the "curl" cmd never returns, we create 
@@ -2820,10 +2853,8 @@ Please manually update to version $minimum_supported_version or higher to use th
         #----------------------------------------------------------#
         # Let's wait for 3 minutes here. If the router does not 
         # reboot by itself after the process returns, do it now.
-        # Restart the LEDs with a "slower" blinking rate.
         #----------------------------------------------------------#
-        _Reset_LEDs_ ; Toggle_LEDs 3 & Toggle_LEDs_PID=$!
-        sleep 180 ; _Reset_LEDs_ 1
+        sleep 180
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
@@ -3064,9 +3095,9 @@ then
             printf "Automatic firmware update checks will be DISABLED.\n"
             printf "You can enable this feature later through the menu.\n"
             FW_UpdateCheckState=0
+            runfwUpdateCheck=false
             nvram set firmware_check_enable="$FW_UpdateCheckState"
             nvram commit
-            runfwUpdateCheck=false
         fi
     else
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
@@ -3077,8 +3108,6 @@ then
     "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ] && sh $FW_UpdateCheckScript 2>&1 &
     _WaitForEnterKey_
 fi
-
-rog_file=""
 
 FW_RouterProductID="${GRNct}${PRODUCT_ID}${NOct}"
 if [ "$PRODUCT_ID" = "$MODEL_ID" ]
@@ -3291,14 +3320,11 @@ theExitStr="${GRNct}e${NOct}=Exit to main menu"
 
 while true
 do
-   local_choice_set="$(Get_Custom_Setting "ROGBuild")"
    show_menu
 
    # Check if the directory exists again before attempting to navigate to it
    if [ -d "$FW_BIN_DIR" ]; then
        cd "$FW_BIN_DIR"
-       # Check for the presence of "rog" in filenames in the directory again
-       rog_file="$(ls | grep -i '_rog_')"
    fi
 
    printf "Enter selection:  " ; read -r userChoice
