@@ -2691,12 +2691,12 @@ Please manually update to version $minimum_supported_version or higher to use th
         dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
         if [ "$fw_sig" != "$dl_sig" ]; then
             Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
+            _DoCleanUp_ 1
             if [ "$inMenuMode" = true ]; then
                 _WaitForEnterKey_ "$menuReturnPromptStr"
                 return 1
             else
-            # Assume non-interactive mode; perform cleanup and exit.
-            _DoCleanUp_ 1
+            # Assume non-interactive mode; perform exit.
             _DoExit_ 1
             fi
         fi
