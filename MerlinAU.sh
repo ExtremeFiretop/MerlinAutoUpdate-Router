@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jan-31
+# Last Modified: 2024-Feb-01
 ###################################################################
 set -u
 
 #For AMTM versioning:
-readonly SCRIPT_VERSION=1.0.1
+readonly SCRIPT_VERSION=1.0.2
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -446,6 +446,20 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_URL_RELEASE="${FW_URL_BASE}/${PRODUCT_ID}/${FW_URL_RELEASE_SUFFIX}/"
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-01] ##
+##------------------------------------------##
+logo() {
+  echo -e "${YLWct}"
+  echo -e "    __  __           _ _               _    _ "
+  echo -e "   |  \/  |         | (_)         /\  | |  | |"
+  echo -e "   | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
+  echo -e "   | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
+  echo -e "   | |  | |  __| |  | | | | | |/ ____ | |__| |"
+  echo -e "   |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
+  echo -e "                                              ${NOct}"
+}
+
 ##-----------------------------------------------##
 ## Modified by: ExtremeFiretop [2023-Dec-16]     ##
 ##-----------------------------------------------##
@@ -584,20 +598,6 @@ _ValidateUSBMountPoint_()
       then foundPathOK=true ; break ; fi
    done
    "$foundPathOK" && return 0 || return 1
-}
-
-##----------------------------------------##
-## Added by ExtremeFiretop [2023-Nov-26] ##
-##----------------------------------------##
-logo() {
-  echo -e "${YLWct}"
-  echo -e "    __  __           _ _               _    _ "
-  echo -e "   |  \/  |         | (_)         /\  | |  | |"
-  echo -e "   | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
-  echo -e "   | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
-  echo -e "   | |  | |  __| |  | | | | | |/ ____ | |__| |"
-  echo -e "   |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
-  echo -e "                                              ${NOct}"
 }
 
 ##----------------------------------------##
@@ -2569,7 +2569,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     cd "$FW_BIN_DIR"
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jan-30] ##
+    ## Modified by ExtremeFiretop [2024-Feb-01] ##
     ##------------------------------------------##
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
@@ -2627,7 +2627,7 @@ Please manually update to version $minimum_supported_version or higher to use th
                         Say "Warning: Found high-risk phrases in the change-logs."
                         Say "Please run script interactively to approve the upgrade."
                         _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
-                        _DoCleanUp 1
+                        _DoCleanUp_ 1
                         _DoExit_ 1
                     fi
                 else
@@ -2682,13 +2682,23 @@ Please manually update to version $minimum_supported_version or higher to use th
         firmware_file="$pure_file"
     fi
 
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Feb-01] ##
+    ##------------------------------------------##
+
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
         dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
         if [ "$fw_sig" != "$dl_sig" ]; then
             Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
-            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-            return 1
+            _DoCleanUp_ 1
+            if [ "$inMenuMode" = true ]; then
+                _WaitForEnterKey_ "$menuReturnPromptStr"
+                return 1
+            else
+            # Assume non-interactive mode; perform exit.
+            _DoExit_ 1
+            fi
         fi
     fi
 
