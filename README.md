@@ -3,7 +3,8 @@
 ## 2024-02-03
 
 
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/be171e8d-91f4-4424-a714-15ef6379348a)![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/dd08f890-475e-4f25-bbe3-1da44426410e)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/8a79d31f-8df4-408c-a3a6-2394c14816a4)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/b8eb4ee6-637a-436a-b253-798bcdc103d6)
 
 
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
