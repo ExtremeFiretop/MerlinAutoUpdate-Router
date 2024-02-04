@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-01
+# Last Modified: 2024-Feb-03
 ###################################################################
 set -u
 
 #For AMTM versioning:
-readonly SCRIPT_VERSION=1.0.2
+readonly SCRIPT_VERSION=1.0.3
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1164,7 +1164,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
+## Modified by ExtremeFiretop [2024-Feb-03] ##
 ##------------------------------------------##
 _CreateEMailContent_()
 {
@@ -1217,6 +1217,15 @@ _CreateEMailContent_()
              echo "Backup failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled."
              printf "\nPlease check backupmon.sh configuration and retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       FAILED_FW_CHECKSUM_STATUS)
+           {
+             echo
+             echo "<b>WARNING</b>:"
+             echo "Checksum verification failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled due to checksum mismatch."
+             printf "\nPlease retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n\n"
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_UPDATE_STATUS)
@@ -2683,7 +2692,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Feb-01] ##
+    ## Modified by ExtremeFiretop [2024-Feb-03] ##
     ##------------------------------------------##
 
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
@@ -2692,6 +2701,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         if [ "$fw_sig" != "$dl_sig" ]; then
             Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
             _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             if [ "$inMenuMode" = true ]; then
                 _WaitForEnterKey_ "$menuReturnPromptStr"
                 return 1
