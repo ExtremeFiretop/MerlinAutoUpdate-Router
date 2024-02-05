@@ -440,9 +440,9 @@ readonly FW_UpdateDefaultPostponementDays=15
 readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_12:00:00"
 
-##DEBUG ONLY##readonly MODEL_ID="$(_GetRouterModelID_)"
+readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
-readonly PRODUCT_ID="RT-AX92U"
+##DEBUG ONLY##readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 
 ##------------------------------------------##
