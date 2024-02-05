@@ -1658,15 +1658,25 @@ _DoCleanUp_()
    _Reset_LEDs_ 1
 
    # Move file temporarily to save it from deletion #
-   "$keepZIPfile" && [ -f "$FW_ZIP_FPATH.${extension}" ] && \
-   mv -f "$FW_ZIP_FPATH.${extension}" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
+   "$keepZIPfile" && [ -f "$FW_ZIP_FPATH."* ] && \
+   mv -f "$FW_ZIP_FPATH."* "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/" && moveZIPback=true
 
    rm -f "${FW_ZIP_DIR}"/*
    "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
 
-   # Move file back to original location #
-   "$keepZIPfile" && "$moveZIPback" && \
-   mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.${extension}" "$FW_ZIP_FPATH.${extension}"
+   # Move file back to original location, ensuring the original file extension is preserved
+   "$keepZIPfile" && "$moveZIPback" && {
+    for file in "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}."*; do
+        if [ -f "$file" ]; then
+            # Extract the actual extension
+            actual_extension="${file##*.}"
+            # Construct the actual destination file path with the original extension
+            actual_dest="$FW_ZIP_FPATH.$actual_extension"
+            mv -f "$file" "$actual_dest"
+            break # Assuming only one file matches, break after the first move
+        fi
+    done
+   }
 
    if "$doTrace"
    then
@@ -2571,17 +2581,31 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
         echo
-        # Follow redirects and capture the effective URL
-        local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
-        # Use the effective URL to capture the Content-Disposition header
-        local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')
-        # Sanitize filename by removing problematic characters
-        local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')
-        # Extract the file extension
-        extension="${sanitized_filename##*.}"
-        # Combine path, custom file name, and extension before download
-        FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
-        wget -O "$FW_DL_FPATH" "$release_link"
+        if [ "$GnutonFlag" = "True" ]; then
+            # Follow redirects and capture the effective URL
+            local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
+            # Use the effective URL to capture the Content-Disposition header
+            local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')   
+		    # Sanitize filename by removing problematic characters
+            local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
+            # Extract the file extension
+            extension="${sanitized_filename##*.}"   
+            # Combine path, custom file name, and extension before download
+            FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
+            wget -O "$FW_DL_FPATH" "$release_link"
+        else
+            # Follow redirects and capture the effective URL
+            local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")   
+            # Extract the filename from the URL
+            original_filename="${effective_url##*/}"   
+            # Sanitize filename by removing problematic characters (if necessary)
+            sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
+            # Extract the file extension
+            extension="${sanitized_filename##*.}" 
+            # Combine path, custom file name, and extension before download
+            FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"     
+            wget -O "$FW_DL_FPATH" "$release_link"
+	    fi
     fi
 
     ##------------------------------------------##
@@ -2600,7 +2624,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             # Check if ZIP file was downloaded to a USB-attached drive.
             # Take into account special case for Entware "/opt/" paths. 
             #---------------------------------------------------------------#
-            if ! echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+            if ! echo "$FW_DL_FPATH" | grep -qE "^(mnt/|/tmp/mnt/|/tmp/opt/|/opt/)"
             then
                 # It's not on a USB drive, so it's safe to delete it #
                 rm -f "$FW_DL_FPATH"
@@ -2776,7 +2800,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 		    _DoCleanUp_ 1
 		    _DoExit_ 1
         fi
-	fi
+    fi
 
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Jan-28] ##
