@@ -31,6 +31,7 @@ DLRepoVersion=""
 # For supported version and model checks #
 MinFirmwareCheckFailed=0
 ModelCheckFailed=0
+GnutonFlag=""
 
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
@@ -2503,6 +2504,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             release_version="$github_release_version"
             release_link="$github_release_link"
             Say "Using release information for Gnuton"
+			GnutonFlag="True"
             checkChangeLogSetting="DISABLED"
             Update_Custom_Settings "CheckChangeLog" "DISABLED"
         else
@@ -2581,7 +2583,6 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Combine path, custom file name, and extension before download
         FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
         wget -O "$FW_DL_FPATH" "$release_link"
-        mv "$FW_DL_FPATH" "$FW_BIN_DIR"
     fi
 
     ##------------------------------------------##
@@ -2591,6 +2592,48 @@ Please manually update to version $minimum_supported_version or higher to use th
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+
+    if [ ! "$GnutonFlag" = "True" ]; then
+        # Extracting the firmware binary image #
+        if unzip -o "$FW_DL_FPATH" -d "$FW_BIN_DIR" -x README*
+        then
+            #---------------------------------------------------------------#
+            # Check if ZIP file was downloaded to a USB-attached drive.
+            # Take into account special case for Entware "/opt/" paths. 
+            #---------------------------------------------------------------#
+            if ! echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+            then
+                # It's not on a USB drive, so it's safe to delete it #
+                rm -f "$FW_DL_FPATH"
+            #
+            elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+            then
+                #-------------------------------------------------------------#
+                # This should not happen because we already checked for it
+                # at the very beginning of this function, but just in case
+                # it does (drive going bad suddenly?) we'll report it here.
+                #-------------------------------------------------------------#
+                Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+                Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+                "$inMenuMode" && _WaitForEnterKey_
+                # Consider how to handle this error. For now, we'll not delete the ZIP file.
+            else
+                keepZIPfile=1
+            fi
+        else
+            #------------------------------------------------------------#
+            # Remove ZIP file here because it may have been corrupted.
+            # Better to download it again and start all over, instead
+            # of trying to figure out why uncompressing it failed.
+            #------------------------------------------------------------#
+            rm -f "$FW_DL_FPATH"
+            Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_DL_FPATH]."
+            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+            return 1
+        fi
+    else
+        mv "$FW_DL_FPATH" "$FW_BIN_DIR"
+	fi
 
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
@@ -2713,24 +2756,28 @@ Please manually update to version $minimum_supported_version or higher to use th
     ## Modified by ExtremeFiretop [2024-Feb-03] ##
     ##------------------------------------------##
 
-    if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
-        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
-        dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
-        if [ "$fw_sig" != "$dl_sig" ]; then
-            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
-            _DoCleanUp_ 1
-            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
-            if [ "$inMenuMode" = true ]; then
-                _WaitForEnterKey_ "$menuReturnPromptStr"
-                return 1
-            else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
+    if [ ! "$GnutonFlag" = "True" ]; then
+        if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
+            fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+            dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
+            if [ "$fw_sig" != "$dl_sig" ]; then
+                Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
+                _DoCleanUp_ 1
+                _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+                if [ "$inMenuMode" = true ]; then
+                    _WaitForEnterKey_ "$menuReturnPromptStr"
+                    return 1
+                else
+                # Assume non-interactive mode; perform exit.
+                _DoExit_ 1
+                fi
             fi
+	    else
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
+		    _DoCleanUp_ 1
+		    _DoExit_ 1
         fi
-	else
-        Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
-    fi
+	fi
 
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Jan-28] ##
