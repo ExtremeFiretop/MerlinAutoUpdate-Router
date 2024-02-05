@@ -2518,11 +2518,11 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Sanitize filename by removing problematic characters
         sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')
         # Extract the file extension
-		extension="${sanitized_filename##*.}"
+        extension="${sanitized_filename##*.}"
         # Combine path, custom file name, and extension before download
-		FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
-		wget -O "$FW_DL_FPATH" "$release_link"
-		mv "$FW_DL_FPATH" "$FW_BIN_DIR"
+        FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
+        wget -O "$FW_DL_FPATH" "$release_link"
+        mv "$FW_DL_FPATH" "$FW_BIN_DIR"
     fi
 
     ##------------------------------------------##
