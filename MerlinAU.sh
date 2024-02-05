@@ -1636,6 +1636,45 @@ get_required_space() {
     echo "$total_required_kb"
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
+_DoCleanUp_()
+{
+   local delBINfiles=false  keepZIPfile=false  moveZIPback=false
+
+   local doTrace=false
+   [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=false
+   if "$doTrace"
+   then
+       Say "\nSTART _DoCleanUp_"
+       echo "$(date +"$LOGdateFormat") START _DoCleanUp_" >> "$userTraceFile"
+   fi
+
+   [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
+   [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
+
+   # Stop the LEDs blinking #
+   _Reset_LEDs_ 1
+
+   # Move file temporarily to save it from deletion #
+   "$keepZIPfile" && [ -f "$FW_ZIP_FPATH.${extension}" ] && \
+   mv -f "$FW_ZIP_FPATH.${extension}" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
+
+   rm -f "${FW_ZIP_DIR}"/*
+   "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
+
+   # Move file back to original location #
+   "$keepZIPfile" && "$moveZIPback" && \
+   mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.${extension}" "$FW_ZIP_FPATH.${extension}"
+
+   if "$doTrace"
+   then
+       Say "EXIT _DoCleanUp_"
+       echo "$(date +"$LOGdateFormat") EXIT _DoCleanUp_" >> "$userTraceFile"
+   fi
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jan-06] ##
 ##----------------------------------------##
@@ -1671,45 +1710,6 @@ check_memory_and_prompt_reboot() {
             Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
         fi
     fi
-}
-
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
-##------------------------------------------##
-_DoCleanUp_()
-{
-   local delBINfiles=false  keepZIPfile=false  moveZIPback=false
-
-   local doTrace=false
-   [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=false
-   if "$doTrace"
-   then
-       Say "\nSTART _DoCleanUp_"
-       echo "$(date +"$LOGdateFormat") START _DoCleanUp_" >> "$userTraceFile"
-   fi
-
-   [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
-   [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
-
-   # Stop the LEDs blinking #
-   _Reset_LEDs_ 1
-
-   # Move file temporarily to save it from deletion #
-   "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ] && \
-   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
-
-   rm -f "${FW_ZIP_DIR}"/*
-   "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
-
-   # Move file back to original location #
-   "$keepZIPfile" && "$moveZIPback" && \
-   mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}" "$FW_ZIP_FPATH"
-
-   if "$doTrace"
-   then
-       Say "EXIT _DoCleanUp_"
-       echo "$(date +"$LOGdateFormat") EXIT _DoCleanUp_" >> "$userTraceFile"
-   fi
 }
 
 ##------------------------------------------##
@@ -2561,7 +2561,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     freeRAM_kb="$(get_free_ram)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
@@ -2573,11 +2572,11 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Downloading ${GRNct}${release_link}${NOct}"
         echo
         # Follow redirects and capture the effective URL
-        effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
+        local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
         # Use the effective URL to capture the Content-Disposition header
-        original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')
+        local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')
         # Sanitize filename by removing problematic characters
-        sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')
+        local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')
         # Extract the file extension
         extension="${sanitized_filename##*.}"
         # Combine path, custom file name, and extension before download
