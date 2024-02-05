@@ -20,7 +20,9 @@ readonly SCRIPT_BRANCH="master"
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
 
 # Firmware URL Info #
-readonly FW_URL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
+readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
+readonly FW_SFURL_RELEASE_SUFFIX="Release"
+readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
 
 # For new script version updates from source repository #
 UpdateNotify=0
@@ -444,6 +446,7 @@ readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
 ##DEBUG ONLY##readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
+readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-01] ##
@@ -1783,14 +1786,45 @@ _GetLatestFWUpdateVersionFromWebsite_()
 {
     local url="$1"
 
+    local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | 
+        awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
+
+    if [ -z "$links_and_versions" ]
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+
+    local latest="$(echo "$links_and_versions" | tail -n 1)"
+    local linkStr="$(echo "$latest" | cut -d' ' -f2-)"
+    local fileStr="$(echo "$linkStr" | grep -oE "/${PRODUCT_ID}_[0-9]+.*.zip$")"
+    local versionStr
+
+    if [ -z "$fileStr" ]
+    then versionStr="$(echo "$latest" | cut -d ' ' -f1)"
+    else versionStr="$(echo "${fileStr%.*}" | sed "s/\/${PRODUCT_ID}_//" | sed 's/_/./g')"
+    fi
+
+    # Extracting the correct link from the page
+    local correct_link="$(echo "$linkStr" | sed 's|^/|https://sourceforge.net/|')"
+
+    echo "$versionStr"
+    echo "$correct_link"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Feb-23] ##
+##---------------------------------------##
+_GetLatestFWUpdateVersionFromGithub_()
+{
+    local url="$1"
+
     # Use curl to fetch the latest release data from GitHub
     local release_data=$(curl -s "$1")
 
     # Parse the release data to find the download URL of the asset that matches the model number
     local download_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*\"" | grep -o "https://[^ ]*\.w" | head -1)
-
-    if [ -z "$download_url" ]; then
-        echo "**ERROR** No firmware download URL for model $PRODUCT_ID found."
+    
+	if [ -z "$download_url" ]
+    then 
+        echo "**ERROR** **NO_GITHUB_URL**" ; 
         return 1
     else
         # Extract version from the download URL or release data
@@ -2452,10 +2486,35 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    # Use set to read the output of the function into variables
-    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
-    release_version="$1"
-    release_link="$2"
+    # Attempt to fetch release information from the website
+    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+    website_release_version="$1"
+    website_release_link="$2"
+
+    # Check if website fetch resulted in an error
+    if [ "$website_release_version" = "**ERROR**" ]; then
+        # Attempt to fetch release information from GitHub due to error from website
+        set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE")
+        github_release_version="$1"
+        github_release_link="$2"
+    
+        # Use release information from GitHub if available
+        if [ -n "$github_release_link" ]; then
+            release_version="$github_release_version"
+            release_link="$github_release_link"
+            Say "Using release information for Gnuton"
+            checkChangeLogSetting="DISABLED"
+            Update_Custom_Settings "CheckChangeLog" "DISABLED"
+        else
+            Say "No valid release information found from GitHub."
+            # Implement failure handling logic here
+        fi
+    else
+        # No error from website fetch, use its release information
+        release_version="$website_release_version"
+        release_link="$website_release_link"
+        Say "Using release information for Merlin"
+    fi
 
     # Extracting the first octet to use in the curl
     firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
