@@ -2511,14 +2511,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
         echo
-        wget -O "$FW_ZIP_FPATH" "$release_link"
-    fi
-
-    if [ ! -f "$FW_ZIP_FPATH" ]
-    then
-        Say "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
+        wget "$FW_ZIP_FPATH" "$release_link"
     fi
 
     ##------------------------------------------##
