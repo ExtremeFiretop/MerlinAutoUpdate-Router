@@ -2665,6 +2665,8 @@ Please manually update to version $minimum_supported_version or higher to use th
             _DoExit_ 1
             fi
         fi
+	else
+        Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
     fi
 
     ##------------------------------------------##
