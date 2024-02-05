@@ -1633,43 +1633,6 @@ get_required_space() {
     echo "$total_required_kb"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-06] ##
-##----------------------------------------##
-check_memory_and_prompt_reboot() {
-    local required_space_kb="$1"
-    local availableRAM_kb="$2"
-
-    if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
-        Say "Insufficient RAM available."
-
-        # Attempt to clear PageCache #
-        Say "Attempting to free up memory..."
-        sync; echo 1 > /proc/sys/vm/drop_caches
-
-        # Check available memory again #
-        availableRAM_kb=$(_GetAvailableRAM_KB_)
-        if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
-            # In an interactive shell session, ask user to confirm reboot #
-            if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
-            then
-                _AddPostRebootRunScriptHook_
-                Say "Rebooting router..."
-                _ReleaseLock_
-                /sbin/service reboot
-                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
-            else
-                # Exit script if non-interactive or if user answers NO #
-                Say "Insufficient memory to continue. Exiting script."
-                _DoCleanUp_ 1 "$keepZIPfile"
-                _DoExit_ 1
-            fi
-        else
-            Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
-        fi
-    fi
-}
-
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-26] ##
 ##------------------------------------------##
@@ -1707,6 +1670,43 @@ _DoCleanUp_()
        Say "EXIT _DoCleanUp_"
        echo "$(date +"$LOGdateFormat") EXIT _DoCleanUp_" >> "$userTraceFile"
    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-06] ##
+##----------------------------------------##
+check_memory_and_prompt_reboot() {
+    local required_space_kb="$1"
+    local availableRAM_kb="$2"
+
+    if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
+        Say "Insufficient RAM available."
+
+        # Attempt to clear PageCache #
+        Say "Attempting to free up memory..."
+        sync; echo 1 > /proc/sys/vm/drop_caches
+
+        # Check available memory again #
+        availableRAM_kb=$(_GetAvailableRAM_KB_)
+        if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
+            # In an interactive shell session, ask user to confirm reboot #
+            if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
+            then
+                _AddPostRebootRunScriptHook_
+                Say "Rebooting router..."
+                _ReleaseLock_
+                /sbin/service reboot
+                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+            else
+                # Exit script if non-interactive or if user answers NO #
+                Say "Insufficient memory to continue. Exiting script."
+                _DoCleanUp_ 1 "$keepZIPfile"
+                _DoExit_ 1
+            fi
+        else
+            Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+        fi
+    fi
 }
 
 ##------------------------------------------##
@@ -2710,6 +2710,10 @@ Please manually update to version $minimum_supported_version or higher to use th
             _DoExit_ 1
             fi
         fi
+    else
+        Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
+        _DoCleanUp_ 1
+        _DoExit_ 1
     fi
 
     ##------------------------------------------##
