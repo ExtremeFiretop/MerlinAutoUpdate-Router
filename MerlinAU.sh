@@ -444,8 +444,8 @@ readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_12:00:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
-readonly PRODUCT_ID="$(_GetRouterProductID_)"
-##DEBUG ONLY##readonly PRODUCT_ID="RT-AX92U"
+##DEBUG ONLY##readonly PRODUCT_ID="$(_GetRouterProductID_)"
+readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -2655,8 +2655,11 @@ Please manually update to version $minimum_supported_version or higher to use th
             return 1
         fi
     else
+        if ! echo "$FW_DL_FPATH" | grep -qE "^(mnt/|/tmp/mnt/|/tmp/opt/|/opt/)"
+        then
         mv "$FW_DL_FPATH" "$FW_BIN_DIR"
-	fi
+        fi
+    fi
 
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
