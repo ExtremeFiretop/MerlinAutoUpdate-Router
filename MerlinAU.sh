@@ -20,8 +20,7 @@ readonly SCRIPT_BRANCH="master"
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
 
 # Firmware URL Info #
-readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
-readonly FW_URL_RELEASE_SUFFIX="Release"
+readonly FW_URL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
 
 # For new script version updates from source repository #
 UpdateNotify=0
@@ -443,8 +442,8 @@ readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_12:00:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
+##DEBUG ONLY##readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
-readonly FW_URL_RELEASE="${FW_URL_BASE}/${PRODUCT_ID}/${FW_URL_RELEASE_SUFFIX}/"
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-01] ##
@@ -800,7 +799,7 @@ Update_Custom_Settings()
             then
                 FW_ZIP_BASE_DIR="$setting_value"
                 FW_ZIP_DIR="${setting_value}/$FW_ZIP_SUBDIR"
-                FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+                FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}"
             #
             elif [ "$setting_type" = "FW_New_Update_LOG_Directory_Path" ]
             then  # Addition for handling log directory path
@@ -1042,7 +1041,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        fi
        # Remove now the obsolete directory path #
        rm -fr "$FW_ZIP_DIR"
-       rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
+       rm -f "${newZIP_FileDirPath}"/*  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
        _WaitForEnterKey_ "$menuReturnPromptStr"
@@ -1072,7 +1071,7 @@ readonly FW_ZIP_SUBDIR="${ScriptDirNameD}/$FW_FileName"
 FW_BIN_DIR="${FW_BIN_BASE_DIR}/$FW_BIN_SUBDIR"
 FW_LOG_DIR="${FW_LOG_BASE_DIR}/$FW_LOG_SUBDIR"
 FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
-FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}"
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Nov-24] ##
@@ -1700,7 +1699,7 @@ _DoCleanUp_()
 
    # Move file back to original location #
    "$keepZIPfile" && "$moveZIPback" && \
-   mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+   mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}" "$FW_ZIP_FPATH"
 
    if "$doTrace"
    then
@@ -1784,27 +1783,21 @@ _GetLatestFWUpdateVersionFromWebsite_()
 {
     local url="$1"
 
-    local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | 
-        awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
+    # Use curl to fetch the latest release data from GitHub
+    local release_data=$(curl -s "$1")
 
-    if [ -z "$links_and_versions" ]
-    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+    # Parse the release data to find the download URL of the asset that matches the model number
+    local download_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*\"" | grep -o "https://[^ ]*\.w" | head -1)
 
-    local latest="$(echo "$links_and_versions" | tail -n 1)"
-    local linkStr="$(echo "$latest" | cut -d' ' -f2-)"
-    local fileStr="$(echo "$linkStr" | grep -oE "/${PRODUCT_ID}_[0-9]+.*.zip$")"
-    local versionStr
-
-    if [ -z "$fileStr" ]
-    then versionStr="$(echo "$latest" | cut -d ' ' -f1)"
-    else versionStr="$(echo "${fileStr%.*}" | sed "s/\/${PRODUCT_ID}_//" | sed 's/_/./g')"
+    if [ -z "$download_url" ]; then
+        echo "**ERROR** No firmware download URL for model $PRODUCT_ID found."
+        return 1
+    else
+        # Extract version from the download URL or release data
+        local version=$(echo "$download_url" | grep -oE "$PRODUCT_ID[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.zip$//;s/.trx$//;s/_/./g")
+        echo "$version"
+        echo "$download_url"
     fi
-
-    # Extracting the correct link from the page
-    local correct_link="$(echo "$linkStr" | sed 's|^/|https://sourceforge.net/|')"
-
-    echo "$versionStr"
-    echo "$correct_link"
 }
 
 ##---------------------------------------##
@@ -2413,7 +2406,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Continue #
         FW_ZIP_BASE_DIR="/home/root"
         FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
-        FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+        FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}"
     fi
 
     local credsBase64=""
@@ -2535,44 +2528,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
-
-    # Extracting the firmware binary image #
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
-    then
-        #---------------------------------------------------------------#
-        # Check if ZIP file was downloaded to a USB-attached drive.
-        # Take into account special case for Entware "/opt/" paths. 
-        #---------------------------------------------------------------#
-        if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
-        then
-            # It's not on a USB drive, so it's safe to delete it #
-            rm -f "$FW_ZIP_FPATH"
-        #
-        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
-        then
-            #-------------------------------------------------------------#
-            # This should not happen because we already checked for it
-            # at the very beginning of this function, but just in case
-            # it does (drive going bad suddenly?) we'll report it here.
-            #-------------------------------------------------------------#
-            Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
-            Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-            "$inMenuMode" && _WaitForEnterKey_
-            # Consider how to handle this error. For now, we'll not delete the ZIP file.
-        else
-            keepZIPfile=1
-        fi
-    else
-        #------------------------------------------------------------#
-        # Remove ZIP file here because it may have been corrupted.
-        # Better to download it again and start all over, instead
-        # of trying to figure out why uncompressing it failed.
-        #------------------------------------------------------------#
-        rm -f "$FW_ZIP_FPATH"
-        Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
-        return 1
-    fi
 
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
