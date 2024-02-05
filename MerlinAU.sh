@@ -440,9 +440,9 @@ readonly FW_UpdateDefaultPostponementDays=15
 readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_12:00:00"
 
-readonly MODEL_ID="$(_GetRouterModelID_)"
+##DEBUG ONLY##readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
-##DEBUG ONLY##readonly PRODUCT_ID="RT-AX92U"
+readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 
 ##------------------------------------------##
@@ -2511,7 +2511,18 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
         echo
-        wget "$FW_ZIP_FPATH" "$release_link"
+        # Follow redirects and capture the effective URL
+        effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
+        # Use the effective URL to capture the Content-Disposition header
+        original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')
+        # Sanitize filename by removing problematic characters
+        sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')
+        # Extract the file extension
+		extension="${sanitized_filename##*.}"
+        # Combine path, custom file name, and extension before download
+		FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
+		wget -O "$FW_DL_FPATH" "$release_link"
+		mv "$FW_DL_FPATH" "$FW_BIN_DIR"
     fi
 
     ##------------------------------------------##
