@@ -2735,6 +2735,8 @@ Please manually update to version $minimum_supported_version or higher to use th
 
         # Check if BACKUPMON version is greater than or equal to 1.44
         if [ "$current_version" -ge "$required_version" ]; then
+            #Temporarily Reset LEDs for NVRAM Backup
+            _Reset_LEDs_
             # Execute the backup script if it exists #
             Say "\nBackup Started (by BACKUPMON)"
             sh /jffs/scripts/backupmon.sh -backup >/dev/null
@@ -2742,6 +2744,8 @@ Please manually update to version $minimum_supported_version or higher to use th
             Say "Backup Finished\n"
             if [ $BE -eq 0 ]; then
                 Say "Backup Completed Successfully\n"
+                #Restart LED Blink Cycle
+                Toggle_LEDs 2 & Toggle_LEDs_PID=$!
             else
                 Say "Backup Failed\n"
                 _SendEMailNotification_ NEW_BM_BACKUP_FAILED
