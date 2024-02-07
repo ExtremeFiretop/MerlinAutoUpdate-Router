@@ -2713,7 +2713,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     else
         Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
         _DoCleanUp_ 1
-        _DoExit_ 1
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$menuReturnPromptStr"
+            return 1
+        else
+            # Assume non-interactive mode; perform exit.
+            _DoExit_ 1
+        fi
     fi
 
     ##------------------------------------------##
