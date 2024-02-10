@@ -2637,9 +2637,8 @@ Please manually update to version $minimum_supported_version or higher to use th
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]; then
-        # Use find to search for files matching the patterns 'Changelog-NG.txt' or 'Changelog-386.txt'
-        # and pick the first match. If there are multiple matches, this will only consider the first one.
-        changelog_file=$(find "$log_files_dir" -type f \( -name "Changelog-NG.txt" -o -name "Changelog-386.txt" \) -print | head -n 1)
+        #Files matching the patterns 'Changelog-NG.txt' or 'Changelog-386.txt'
+        changelog_file=$(find ${FW_BIN_DIR} -type f \( -name "Changelog-386.txt" -o -name "Changelog-NG.txt" \) -print | head -n 1)
 
         # Check if the log file exists
         if [ ! -f "$changelog_file" ]; then
