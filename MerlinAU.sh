@@ -4,11 +4,10 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-03
+# Last Modified: 2024-Feb-10
 ###################################################################
 set -u
 
-#For AMTM versioning:
 readonly SCRIPT_VERSION=1.0.3
 readonly SCRIPT_NAME="MerlinAU"
 
@@ -78,7 +77,7 @@ inMenuMode=true
 isInteractive=false
 menuReturnPromptStr="Press Enter to return to the main menu..."
 
-[ -t 0 ] && ! echo "$(tty)" | grep -qwi "NOT" && isInteractive=true
+[ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-23] ##
@@ -102,7 +101,7 @@ _UserLogMsg_()
        echo "$logTime" "$1" >> "$userLOGFile"
    elif [ "$1" = "_NOTIME_" ]
    then
-       echo "$2" >> $userLOGFile
+       echo "$2" >> "$userLOGFile"
    else
        echo "$logTime" "${1}: $2" >> "$userLOGFile"
    fi
@@ -1108,7 +1107,7 @@ readonly POST_UPDATE_EMAIL_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_UPDATE_E
 if [ -d "$FW_LOG_DIR" ]
 then
     # Log rotation - delete logs older than 30 days #
-    find "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
+    /usr/bin/find -L "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
 
 ##----------------------------------------##
@@ -1294,7 +1293,7 @@ EOF
 
    ## Footer ##
    cat <<EOF >> "$tempEMailContent"
-Sent by the "<b>${ScriptFNameTag}</b>" Utility.
+Sent by the "<b>${ScriptFNameTag}</b>" utility.
 From the "<b>${FRIENDLY_ROUTER_NAME}</b>" router.
 
 $(date +"%Y-%b-%d, %I:%M:%S %p %Z (%a)")
@@ -1304,9 +1303,9 @@ EOF
     return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-09] ##
+##----------------------------------------##
 _CheckEMailConfigFileFromAMTM_()
 {
    local doLogMsgs
@@ -1326,13 +1325,15 @@ _CheckEMailConfigFileFromAMTM_()
    fi
 
    FROM_NAME=""  TO_NAME=""  FROM_ADDRESS=""  TO_ADDRESS=""
-   USERNAME=""  SMTP=""  PORT=""  PROTOCOL=""  emailPwEnc=""
+   USERNAME=""  SMTP=""  PORT=""  PROTOCOL=""  
+   PASSWORD=""  emailPwEnc=""
 
    . "$amtmMailConfFile"
 
    if [ -z "$TO_NAME" ] || [ -z "$USERNAME" ] || \
       [ -z "$FROM_ADDRESS" ] || [ -z "$TO_ADDRESS" ] || \
-      [ -z "$SMTP" ] || [ -z "$PORT" ] || [ -z "$PROTOCOL" ] || [ -z "$emailPwEnc" ]
+      [ -z "$SMTP" ] || [ -z "$PORT" ] || [ -z "$PROTOCOL" ] || \
+      [ -z "$emailPwEnc" ] || [ "$PASSWORD" = "PUT YOUR PASSWORD HERE" ]
    then
        "$doLogMsgs" && \
        Say "${REDct}**ERROR**${NOct}: Unable to send email notification [Empty variables]."
@@ -1343,9 +1344,9 @@ _CheckEMailConfigFileFromAMTM_()
    return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-09] ##
+##----------------------------------------##
 _SendEMailNotification_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ]  || \
@@ -1360,19 +1361,21 @@ _SendEMailNotification_()
 
    [ "$1" = "POST_REBOOT_FW_UPDATE_SETUP" ] && return 0
 
-   printf "\nSending email notification [$1]. Please wait...\n"
+   printf "\nSending email notification [$1]."
+   printf "\nPlease wait...\n"
 
-   echo "$(date +"$LOGdateFormat")" > "$userTraceFile"
+   date +"$LOGdateFormat" > "$userTraceFile"
 
-   /usr/sbin/curl --url ${PROTOCOL}://${SMTP}:${PORT} \
+   /usr/sbin/curl -v --url "${PROTOCOL}://${SMTP}:${PORT}" \
    --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" \
-   --user "${USERNAME}:$(/usr/sbin/openssl aes-256-cbc $emailPwEnc -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)" \
+   --user "${USERNAME}:$(/usr/sbin/openssl aes-256-cbc "$emailPwEnc" -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)" \
    --upload-file "$tempEMailContent" \
    $SSL_FLAG --ssl-reqd --crlf >> "$userTraceFile" 2>&1
 
    if [ $? -eq 0 ]
    then
        sleep 2
+       rm -f "$userTraceFile"
        Say "The email notification was sent successfully [$1]."
    else
        Say "${REDct}**ERROR**${NOct}: Failure to send email notification [$1]."
@@ -1621,15 +1624,15 @@ get_required_space() {
     local overhead_percentage=50  # Overhead percentage (e.g., 50%)
     
     # Size of the ZIP file in bytes
-    local zip_file_size_bytes=$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')
+    local zip_file_size_bytes="$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
     # Convert bytes to kilobytes
-    zip_file_size_kb=$((zip_file_size_bytes / 1024))
+    zip_file_size_kb="$((zip_file_size_bytes / 1024))"
     
     # Calculate overhead based on the percentage
-    local overhead_kb=$((zip_file_size_kb * overhead_percentage / 100))
+    local overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
     
     # Calculate total required space
-    local total_required_kb=$((zip_file_size_kb + overhead_kb))
+    local total_required_kb="$((zip_file_size_kb + overhead_kb))"
     echo "$total_required_kb"
 }
 
@@ -2328,7 +2331,7 @@ _EntwareServicesHandler_()
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
    then return 0 ; fi  ## Entware is not found ##
 
-   fileCount="$(/usr/bin/find "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -cE "${entwOPT_init}/S[0-9]+")"
+   fileCount="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -cE "${entwOPT_init}/S[0-9]+")"
    [ "$fileCount" -eq 0 ] && return 0
 
    case "$1" in
@@ -2341,7 +2344,7 @@ _EntwareServicesHandler_()
    then
       "$isInteractive" && \
       printf "\n${actionStr} Entware services... Please wait.\n"
-      $entwOPT_unslung $1 ; sleep 5
+      $entwOPT_unslung "$1" ; sleep 5
       printf "\nDone.\n"
    fi
 }
@@ -2515,7 +2518,6 @@ Please manually update to version $minimum_supported_version or higher to use th
         ##------------------------------------------##
         ## Modified by ExtremeFiretop [2024-Jan-28] ##
         ##------------------------------------------##
-
         # Check for the presence of backupmon.sh script
         if [ -f "/jffs/scripts/backupmon.sh" ]; then
             # Extract version number from backupmon.sh
@@ -2623,22 +2625,22 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    freeRAM_kb=$(get_free_ram)
-    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    freeRAM_kb="$(get_free_ram)"
+    availableRAM_kb="$(_GetAvailableRAM_KB_)"
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
 
-    ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Feb-01] ##
-    ##------------------------------------------##
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Feb-10] ##
+    ##----------------------------------------##
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]; then
-        #Files matching the patterns 'Changelog-NG.txt' or 'Changelog-386.txt'
-        changelog_file=$(find ${FW_BIN_DIR} -type f \( -name "Changelog-386.txt" -o -name "Changelog-NG.txt" \) -print | head -n 1)
+        # Files matching the pattern 'Changelog-*.txt' #
+        changelog_file="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-*.txt" -print | head -n 1)"
 
         # Check if the log file exists
         if [ ! -f "$changelog_file" ]; then
@@ -2661,19 +2663,18 @@ Please manually update to version $minimum_supported_version or higher to use th
             }')
 
             # Format release_version by removing the prefix '3004.' and the last '.0'
-            formatted_release_version=$(echo $release_version | awk -F. '{print $2"."$3}')
+            formatted_release_version="$(echo "$release_version" | awk -F. '{print $2"."$3}')"
 
             # Define regex patterns for both versions
             release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
             current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-
 
             # Check if the current version is present in the changelog
             if ! grep -Eq "$current_version_regex" "$changelog_file"; then
                 Say "Current version not found in change-log. Bypassing change-log verification for this run."
             else
                 # Extract log contents between two firmware versions
-                changelog_contents=$(awk "/$release_version_regex/,/$current_version_regex/" "$changelog_file")
+                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changelog_file")"
                 # Define high-risk terms as a single string separated by '|'
                 high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
@@ -2702,8 +2703,8 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Change-logs check disabled."
     fi
 
-    freeRAM_kb=$(get_free_ram)
-    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    freeRAM_kb="$(get_free_ram)"
+    availableRAM_kb="$(_GetAvailableRAM_KB_)"
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
@@ -2753,7 +2754,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Feb-03] ##
     ##------------------------------------------##
-
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
         dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
@@ -2823,7 +2823,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     _EntwareServicesHandler_ stop
 
     curl_response="$(curl "${routerURLstr}/login.cgi" \
-    --referer ${routerURLstr}/Main_Login.asp \
+    --referer "${routerURLstr}/Main_Login.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
     -H 'Content-Type: application/x-www-form-urlencoded' \
@@ -2853,7 +2853,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         _Reset_LEDs_
 
         nohup curl "${routerURLstr}/upgrade.cgi" \
-        --referer ${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp \
+        --referer "${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
         -H 'Accept-Language: en-US,en;q=0.5' \
         -H "Origin: ${routerURLstr}/" \
@@ -3052,7 +3052,7 @@ _DoUninstall_()
 }
 
 keepZIPfile=0
-trap "_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0" HUP INT QUIT ABRT TERM
+trap '_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-26] ##
@@ -3113,7 +3113,7 @@ then
         # If CRON job does not exist, ask user for permission to add #
         printf "Do you want to enable automatic firmware update checks?\n"
         printf "This will create a CRON job to check for updates regularly.\n"
-        printf "The CRON can be disabled at anytime through the menu.\n"
+        printf "The CRON can be disabled at anytime via the main menu.\n"
         if _WaitForYESorNO_
         then
             # Add the cron job since it doesn't exist and user consented
@@ -3128,8 +3128,8 @@ then
             fi
             _AddCronJobRunScriptHook_
         else
-            printf "Automatic firmware update checks will be DISABLED.\n"
-            printf "You can enable this feature later through the menu.\n"
+            printf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
+            printf "You can enable this feature later via the main menu.\n"
             FW_UpdateCheckState=0
             runfwUpdateCheck=false
             nvram set firmware_check_enable="$FW_UpdateCheckState"
@@ -3298,7 +3298,7 @@ _advanced_options_menu_() {
         fi
 
         # Retrieve the current build type setting
-        local current_build_type=$(Get_Custom_Setting "ROGBuild")
+        local current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
         # Convert the setting to a descriptive text
         if [ "$current_build_type" = "y" ]; then
