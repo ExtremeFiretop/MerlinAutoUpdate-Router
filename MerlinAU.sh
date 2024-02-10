@@ -2378,7 +2378,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    Say "Running the task now... Checking for F/W updates..."
+    Say "Running the update task now... Checking for F/W updates..."
 
     #---------------------------------------------------------------#
     # Check if an expected USB-attached drive is still mounted.
@@ -2512,6 +2512,55 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
     then
+        ##------------------------------------------##
+        ## Modified by ExtremeFiretop [2024-Jan-28] ##
+        ##------------------------------------------##
+
+        # Check for the presence of backupmon.sh script
+        if [ -f "/jffs/scripts/backupmon.sh" ]; then
+            # Extract version number from backupmon.sh
+            BM_VERSION=$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')
+
+            # Compare current version with the required version
+            current_version=$(_ScriptVersionStrToNum_ "$BM_VERSION")
+            required_version=$(_ScriptVersionStrToNum_ "1.44")
+
+            # Check if BACKUPMON version is greater than or equal to 1.44
+            if [ "$current_version" -ge "$required_version" ]; then
+                # Execute the backup script if it exists #
+                Say "\nBackup Started (by BACKUPMON)"
+                sh /jffs/scripts/backupmon.sh -backup >/dev/null
+                BE=$?
+                Say "Backup Finished\n"
+                if [ $BE -eq 0 ]; then
+                    Say "Backup Completed Successfully\n"
+                else
+                    Say "Backup Failed\n"
+                    _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+                    _DoCleanUp_ 1
+                    if "$isInteractive"
+                    then
+                        printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+                        printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+                        printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+                        printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+                        _WaitForEnterKey_ "$menuReturnPromptStr"
+                        return 1
+                    else
+                        _DoExit_ 1
+                    fi
+                fi
+            else
+                # BACKUPMON version is not sufficient
+                Say "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+                Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.44.\n"
+                Say "Skipping backup. Please update your version of BACKUPMON.\n"
+            fi
+        else
+            # Print a message if the backup script is not installed
+            Say "Backup script (BACKUPMON) is not installed. Skipping backup.\n"
+        fi
+
         # Background function to create a blinking LED effect #
         Toggle_LEDs 2 & Toggle_LEDs_PID=$!
 
@@ -2574,6 +2623,11 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
+    freeRAM_kb=$(get_free_ram)
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
 
@@ -2583,8 +2637,9 @@ Please manually update to version $minimum_supported_version or higher to use th
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]; then
-        # Define the path to the log file
-        changelog_file="${FW_BIN_DIR}/Changelog-NG.txt"
+        # Use find to search for files matching the patterns 'Changelog-NG.txt' or 'Changelog-386.txt'
+        # and pick the first match. If there are multiple matches, this will only consider the first one.
+        changelog_file=$(find "$log_files_dir" -type f \( -name "Changelog-NG.txt" -o -name "Changelog-386.txt" \) -print | head -n 1)
 
         # Check if the log file exists
         if [ ! -f "$changelog_file" ]; then
@@ -2647,6 +2702,11 @@ Please manually update to version $minimum_supported_version or higher to use th
     else
         Say "Change-logs check disabled."
     fi
+
+    freeRAM_kb=$(get_free_ram)
+    availableRAM_kb=$(_GetAvailableRAM_KB_)
+    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     rog_file=""
     # Detect ROG and pure firmware files
@@ -2720,63 +2780,6 @@ Please manually update to version $minimum_supported_version or higher to use th
             # Assume non-interactive mode; perform exit.
             _DoExit_ 1
         fi
-    fi
-
-    ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jan-28] ##
-    ##------------------------------------------##
-    freeRAM_kb=$(get_free_ram)
-    availableRAM_kb=$(_GetAvailableRAM_KB_)
-    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
-
-    # Check for the presence of backupmon.sh script
-    if [ -f "/jffs/scripts/backupmon.sh" ]; then
-        # Extract version number from backupmon.sh
-        BM_VERSION=$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')
-
-        # Compare current version with the required version
-        current_version=$(_ScriptVersionStrToNum_ "$BM_VERSION")
-        required_version=$(_ScriptVersionStrToNum_ "1.44")
-
-        # Check if BACKUPMON version is greater than or equal to 1.44
-        if [ "$current_version" -ge "$required_version" ]; then
-            #Temporarily Reset LEDs for NVRAM Backup
-            _Reset_LEDs_
-            # Execute the backup script if it exists #
-            Say "\nBackup Started (by BACKUPMON)"
-            sh /jffs/scripts/backupmon.sh -backup >/dev/null
-            BE=$?
-            Say "Backup Finished\n"
-            if [ $BE -eq 0 ]; then
-                Say "Backup Completed Successfully\n"
-                #Restart LED Blink Cycle
-                Toggle_LEDs 2 & Toggle_LEDs_PID=$!
-            else
-                Say "Backup Failed\n"
-                _SendEMailNotification_ NEW_BM_BACKUP_FAILED
-                _DoCleanUp_ 1
-                if "$isInteractive"
-                then
-                    printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
-                    printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
-                    printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
-                    printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
-                    _WaitForEnterKey_ "$menuReturnPromptStr"
-                    return 1
-                else
-                    _DoExit_ 1
-                fi
-            fi
-        else
-            # BACKUPMON version is not sufficient
-            Say "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
-            Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.44.\n"
-            Say "Skipping backup. Please update your version of BACKUPMON.\n"
-        fi
-    else
-        # Print a message if the backup script is not installed
-        Say "Backup script (BACKUPMON) is not installed. Skipping backup.\n"
     fi
 
     ##----------------------------------------##
