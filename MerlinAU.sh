@@ -1946,7 +1946,7 @@ translate_schedule() {
       */*) echo "every $(echo $field | cut -d'/' -f2) $type(s)" ;;
       *-*) echo "from $(echo $field | cut -d'-' -f1) to $(echo $field | cut -d'-' -f2) $type(s)" ;;
       *,*) echo "$(echo $field | sed 's/,/, /g') $type(s)" ;;
-      *) echo "at $field $type" ;;
+      *) echo "$type $field" ;;
     esac
   }
 
@@ -1954,17 +1954,33 @@ translate_schedule() {
   hour_text=$(translate_field "$hour" "hour")
   day_of_month_text=$(translate_field "$day_of_month" "day")
   month_text=$(translate_field "$month" "month")
-  day_of_week_text=$(translate_field "$day_of_week" "day of the week")
+  # Check specifically for day_of_week being "*"
+  if [ "$day_of_week" = "*" ]; then
+    day_of_week_text="any day of the week"
+  else
+    day_of_week_text=$(translate_field "$day_of_week" "week day")
+  fi
+
+  # Special handling for month to map numbers to names
+  month_map="1:January 2:February 3:March 4:April 5:May 6:June 7:July 8:August 9:September 10:October 11:November 12:December"
+  for month_pair in $month_map; do
+    month_number=$(echo "$month_pair" | cut -d':' -f1)
+    month_name=$(echo "$month_pair" | cut -d':' -f2)
+    month_text=$(echo "$month_text" | sed "s/$month_number/$month_name/g")
+  done
 
   # Special handling for day of the week to map numbers to names
   dow_map="0:Sunday 1:Monday 2:Tuesday 3:Wednesday 4:Thursday 5:Friday 6:Saturday"
   for dow_pair in $dow_map; do
     dow_number=$(echo "$dow_pair" | cut -d':' -f1)
     dow_name=$(echo "$dow_pair" | cut -d':' -f2)
-    day_of_week_text=$(echo "$day_of_week_text" | sed "s/$dow_number/$dow_name/g")
+    # Ensure not to replace if day_of_week_text is already set to "any day of the week"
+    if [ "$day_of_week_text" != "any day of the week" ]; then
+      day_of_week_text=$(echo "$day_of_week_text" | sed "s/$dow_number/$dow_name/g")
+    fi
   done
 
-  echo "$minute_text, $hour_text"
+  echo "At $minute_text, and $hour_text,"
   echo "$day_of_month_text, $month_text, $day_of_week_text"
 }
 
