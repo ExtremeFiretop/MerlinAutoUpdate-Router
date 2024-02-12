@@ -1937,6 +1937,16 @@ translate_schedule() {
   month=$(echo "$1" | cut -d' ' -f4)
   day_of_week=$(echo "$1" | cut -d' ' -f5)
 
+  # Function to add ordinal suffix to day
+  get_ordinal() {
+    case $1 in
+      1? | *[04-9]) echo "$1"th ;;
+      *1) echo "$1"st ;;
+      *2) echo "$1"nd ;;
+      *3) echo "$1"rd ;;
+    esac
+  }
+
   # Helper function to translate each field
   translate_field() {
     local field=$1
@@ -1946,17 +1956,21 @@ translate_schedule() {
       */*) echo "every $(echo $field | cut -d'/' -f2) $type(s)" ;;
       *-*) echo "from $(echo $field | cut -d'-' -f1) to $(echo $field | cut -d'-' -f2) $type(s)" ;;
       *,*) echo "$(echo $field | sed 's/,/, /g') $type(s)" ;;
-      *) echo "$type $field" ;;
+      *) if [ "$type" = "day of the month" ]; then
+           echo "$(get_ordinal $field) $type"
+         else
+           echo "$type $field"
+         fi ;;
     esac
   }
 
-  minute_text=$(translate_field "$minute" "minute")
-  hour_text=$(translate_field "$hour" "hour")
-  day_of_month_text=$(translate_field "$day_of_month" "day")
+  minute_text=$(translate_field "$minute" "Minute")
+  hour_text=$(translate_field "$hour" "Hour")
+  day_of_month_text=$(translate_field "$day_of_month" "day of the month")
   month_text=$(translate_field "$month" "month")
   # Check specifically for day_of_week being "*"
   if [ "$day_of_week" = "*" ]; then
-    day_of_week_text="any day of the week"
+    day_of_week_text="Any week day"
   else
     day_of_week_text=$(translate_field "$day_of_week" "week day")
   fi
@@ -1974,14 +1988,13 @@ translate_schedule() {
   for dow_pair in $dow_map; do
     dow_number=$(echo "$dow_pair" | cut -d':' -f1)
     dow_name=$(echo "$dow_pair" | cut -d':' -f2)
-    # Ensure not to replace if day_of_week_text is already set to "any day of the week"
-    if [ "$day_of_week_text" != "any day of the week" ]; then
+    if [ "$day_of_week_text" != "Any week day" ]; then
       day_of_week_text=$(echo "$day_of_week_text" | sed "s/$dow_number/$dow_name/g")
     fi
   done
 
-  echo "At $minute_text, and $hour_text,"
-  echo "$day_of_month_text, $month_text, $day_of_week_text"
+  echo "At $hour_text, and $minute_text."
+  echo "$day_of_week_text, $day_of_month_text, in $month_text."
 }
 
 ##----------------------------------------------##
