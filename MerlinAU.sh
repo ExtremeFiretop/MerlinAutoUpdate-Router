@@ -1927,20 +1927,42 @@ change_build_type() {
     done
 }
 
-# Function to translate cron schedule to English
 translate_schedule() {
-  case "$1" in
-    "0 0 * * 0") schedule_english="Every Sunday at midnight" ;;
-    "0 0 * * 1") schedule_english="Every Monday at midnight" ;;
-    "0 0 * * 2") schedule_english="Every Tuesday at midnight" ;;
-    "0 0 * * 3") schedule_english="Every Wednesday at midnight" ;;
-    "0 0 * * 4") schedule_english="Every Thursday at midnight" ;;
-    "0 0 * * 5") schedule_english="Every Friday at midnight" ;;
-    "0 0 * * 6") schedule_english="Every Saturday at midnight" ;;
-    "0 0 * * *") schedule_english="Every day at midnight" ;;
-    *) schedule_english="Custom [$1]" ;; # for non-standard schedules
-  esac
-  echo "$schedule_english"
+  minute=$(echo "$1" | cut -d' ' -f1)
+  hour=$(echo "$1" | cut -d' ' -f2)
+  day_of_month=$(echo "$1" | cut -d' ' -f3)
+  month=$(echo "$1" | cut -d' ' -f4)
+  day_of_week=$(echo "$1" | cut -d' ' -f5)
+
+  # Helper function to translate each field
+  translate_field() {
+    local field=$1
+    local type=$2
+    case "$field" in
+      '*') echo "every $type" ;;
+      */*) echo "every $(echo $field | cut -d'/' -f2) $type(s)" ;;
+      *-*) echo "from $(echo $field | cut -d'-' -f1) to $(echo $field | cut -d'-' -f2) $type(s)" ;;
+      *,*) echo "$(echo $field | sed 's/,/, /g') $type(s)" ;;
+      *) echo "at $field $type" ;;
+    esac
+  }
+
+  minute_text=$(translate_field "$minute" "minute")
+  hour_text=$(translate_field "$hour" "hour")
+  day_of_month_text=$(translate_field "$day_of_month" "day")
+  month_text=$(translate_field "$month" "month")
+  day_of_week_text=$(translate_field "$day_of_week" "day of the week")
+
+  # Special handling for day of the week to map numbers to names
+  dow_map="0:Sunday 1:Monday 2:Tuesday 3:Wednesday 4:Thursday 5:Friday 6:Saturday"
+  for dow_pair in $dow_map; do
+    dow_number=$(echo "$dow_pair" | cut -d':' -f1)
+    dow_name=$(echo "$dow_pair" | cut -d':' -f2)
+    day_of_week_text=$(echo "$day_of_week_text" | sed "s/$dow_number/$dow_name/g")
+  done
+
+  echo "$minute_text, $hour_text"
+  echo "$day_of_month_text, $month_text, $day_of_week_text"
 }
 
 ##----------------------------------------------##
