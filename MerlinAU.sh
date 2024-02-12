@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-10
+# Last Modified: 2024-Feb-12
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.3
+readonly SCRIPT_VERSION=1.0.4
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1927,6 +1927,9 @@ change_build_type() {
     done
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-12] ##
+##------------------------------------------##
 translate_schedule() {
   minute=$(echo "$1" | cut -d' ' -f1)
   hour=$(echo "$1" | cut -d' ' -f2)
