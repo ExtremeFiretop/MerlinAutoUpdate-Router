@@ -429,7 +429,12 @@ readonly MAGENTAct="\e[1;35m"
 readonly CYANct="\e[1;36m"
 readonly WHITEct="\e[1;37m"
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-12] ##
+##----------------------------------------##
 readonly FW_Update_CRON_DefaultSchedule="0 0 * * 0"
+readonly CRON_DAYofWEEK_NAMES="(Sun|Mon|Tue|Wed|Thu|Fri|Sat)"
+readonly CRON_DAYofWEEK_RegEx="$CRON_DAYofWEEK_NAMES([,-]$CRON_DAYofWEEK_NAMES)*|[0-6]([,-][0-6])*"
 
 ##------------------------------------------##
 ## Modified by Martinski W. [2024-Jan-22]   ##
@@ -2110,7 +2115,7 @@ _Set_FW_UpdatePostponementDays_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-19] ##
+## Modified by Martinski W. [2024-Feb-12] ##
 ##----------------------------------------##
 _Set_FW_UpdateCronSchedule_()
 {
@@ -2147,7 +2152,7 @@ _Set_FW_UpdateCronSchedule_()
         then break ; fi
 
         # Validate the input using grep
-        if echo "$userInput" | grep -qE '^([0-9,*\/-]+[[:space:]]+){4}[0-9,*\/-]+$'
+        if echo "$userInput" | grep -qiE "^([0-9,*\/-]+[[:space:]]+){4}($CRON_DAYofWEEK_RegEx)$"
         then
             new_schedule="$(echo "$userInput" | awk '{print $1, $2, $3, $4, $5}')"
             break  # If valid input, break out of the loop
