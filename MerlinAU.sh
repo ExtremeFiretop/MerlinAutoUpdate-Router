@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-10
+# Last Modified: 2024-Feb-12
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.3
+readonly SCRIPT_VERSION=1.0.4
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1927,20 +1927,74 @@ change_build_type() {
     done
 }
 
-# Function to translate cron schedule to English
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-12] ##
+##------------------------------------------##
 translate_schedule() {
-  case "$1" in
-    "0 0 * * 0") schedule_english="Every Sunday at midnight" ;;
-    "0 0 * * 1") schedule_english="Every Monday at midnight" ;;
-    "0 0 * * 2") schedule_english="Every Tuesday at midnight" ;;
-    "0 0 * * 3") schedule_english="Every Wednesday at midnight" ;;
-    "0 0 * * 4") schedule_english="Every Thursday at midnight" ;;
-    "0 0 * * 5") schedule_english="Every Friday at midnight" ;;
-    "0 0 * * 6") schedule_english="Every Saturday at midnight" ;;
-    "0 0 * * *") schedule_english="Every day at midnight" ;;
-    *) schedule_english="Custom [$1]" ;; # for non-standard schedules
-  esac
-  echo "$schedule_english"
+  minute=$(echo "$1" | cut -d' ' -f1)
+  hour=$(echo "$1" | cut -d' ' -f2)
+  day_of_month=$(echo "$1" | cut -d' ' -f3)
+  month=$(echo "$1" | cut -d' ' -f4)
+  day_of_week=$(echo "$1" | cut -d' ' -f5)
+
+  # Function to add ordinal suffix to day
+  get_ordinal() {
+    case $1 in
+      1? | *[04-9]) echo "$1"th ;;
+      *1) echo "$1"st ;;
+      *2) echo "$1"nd ;;
+      *3) echo "$1"rd ;;
+    esac
+  }
+
+  # Helper function to translate each field
+  translate_field() {
+    local field=$1
+    local type=$2
+    case "$field" in
+      '*') echo "every $type" ;;
+      */*) echo "every $(echo $field | cut -d'/' -f2) $type(s)" ;;
+      *-*) echo "from $(echo $field | cut -d'-' -f1) to $(echo $field | cut -d'-' -f2) $type(s)" ;;
+      *,*) echo "$(echo $field | sed 's/,/, /g') $type(s)" ;;
+      *) if [ "$type" = "day of the month" ]; then
+           echo "$(get_ordinal $field) $type"
+         else
+           echo "$type $field"
+         fi ;;
+    esac
+  }
+
+  minute_text=$(translate_field "$minute" "Minute")
+  hour_text=$(translate_field "$hour" "Hour")
+  day_of_month_text=$(translate_field "$day_of_month" "day of the month")
+  month_text=$(translate_field "$month" "month")
+  # Check specifically for day_of_week being "*"
+  if [ "$day_of_week" = "*" ]; then
+    day_of_week_text="Any week day"
+  else
+    day_of_week_text=$(translate_field "$day_of_week" "week day")
+  fi
+
+  # Special handling for month to map numbers to names
+  month_map="1:January 2:February 3:March 4:April 5:May 6:June 7:July 8:August 9:September 10:October 11:November 12:December"
+  for month_pair in $month_map; do
+    month_number=$(echo "$month_pair" | cut -d':' -f1)
+    month_name=$(echo "$month_pair" | cut -d':' -f2)
+    month_text=$(echo "$month_text" | sed "s/$month_number/$month_name/g")
+  done
+
+  # Special handling for day of the week to map numbers to names
+  dow_map="0:Sunday 1:Monday 2:Tuesday 3:Wednesday 4:Thursday 5:Friday 6:Saturday"
+  for dow_pair in $dow_map; do
+    dow_number=$(echo "$dow_pair" | cut -d':' -f1)
+    dow_name=$(echo "$dow_pair" | cut -d':' -f2)
+    if [ "$day_of_week_text" != "Any week day" ]; then
+      day_of_week_text=$(echo "$day_of_week_text" | sed "s/$dow_number/$dow_name/g")
+    fi
+  done
+
+  echo "At $hour_text, and $minute_text."
+  echo "$day_of_week_text, $day_of_month_text, in $month_text."
 }
 
 ##----------------------------------------------##
