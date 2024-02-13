@@ -1931,11 +1931,11 @@ change_build_type() {
 ## Modified by ExtremeFiretop [2024-Feb-12] ##
 ##------------------------------------------##
 translate_schedule() {
-  minute=$(echo "$1" | cut -d' ' -f1)
-  hour=$(echo "$1" | cut -d' ' -f2)
-  day_of_month=$(echo "$1" | cut -d' ' -f3)
-  month=$(echo "$1" | cut -d' ' -f4)
-  day_of_week=$(echo "$1" | cut -d' ' -f5)
+  minute="$(echo "$1" | cut -d' ' -f1)"
+  hour="$(echo "$1" | cut -d' ' -f2)"
+  day_of_month="$(echo "$1" | cut -d' ' -f3)"
+  month="$(echo "$1" | cut -d' ' -f4)"
+  day_of_week="$(echo "$1" | cut -d' ' -f5)"
 
   # Function to add ordinal suffix to day
   get_ordinal() {
@@ -1949,47 +1949,47 @@ translate_schedule() {
 
   # Helper function to translate each field
   translate_field() {
-    local field=$1
-    local type=$2
+    local field="$1"
+    local type="$2"
     case "$field" in
       '*') echo "every $type" ;;
-      */*) echo "every $(echo $field | cut -d'/' -f2) $type(s)" ;;
-      *-*) echo "from $(echo $field | cut -d'-' -f1) to $(echo $field | cut -d'-' -f2) $type(s)" ;;
-      *,*) echo "$(echo $field | sed 's/,/, /g') $type(s)" ;;
+      */*) echo "every $(echo "$field" | cut -d'/' -f2) $type(s)" ;;
+      *-*) echo "from $(echo "$field" | cut -d'-' -f1) to $(echo "$field" | cut -d'-' -f2) $type(s)" ;;
+      *,*) echo "$(echo "$field" | sed 's/,/, /g') $type(s)" ;;
       *) if [ "$type" = "day of the month" ]; then
-           echo "$(get_ordinal $field) $type"
+           echo "$(get_ordinal "$field") $type"
          else
            echo "$type $field"
          fi ;;
     esac
   }
 
-  minute_text=$(translate_field "$minute" "Minute")
-  hour_text=$(translate_field "$hour" "Hour")
-  day_of_month_text=$(translate_field "$day_of_month" "day of the month")
-  month_text=$(translate_field "$month" "month")
+  minute_text="$(translate_field "$minute" "Minute")"
+  hour_text="$(translate_field "$hour" "Hour")"
+  day_of_month_text="$(translate_field "$day_of_month" "day of the month")"
+  month_text="$(translate_field "$month" "month")"
   # Check specifically for day_of_week being "*"
   if [ "$day_of_week" = "*" ]; then
     day_of_week_text="Any week day"
   else
-    day_of_week_text=$(translate_field "$day_of_week" "week day")
+    day_of_week_text="$(translate_field "$day_of_week" "week day")"
   fi
 
   # Special handling for month to map numbers to names
   month_map="1:January 2:February 3:March 4:April 5:May 6:June 7:July 8:August 9:September 10:October 11:November 12:December"
   for month_pair in $month_map; do
-    month_number=$(echo "$month_pair" | cut -d':' -f1)
-    month_name=$(echo "$month_pair" | cut -d':' -f2)
-    month_text=$(echo "$month_text" | sed "s/$month_number/$month_name/g")
+    month_number="$(echo "$month_pair" | cut -d':' -f1)"
+    month_name="$(echo "$month_pair" | cut -d':' -f2)"
+    month_text="$(echo "$month_text" | sed "s/$month_number/$month_name/g")"
   done
 
   # Special handling for day of the week to map numbers to names
   dow_map="0:Sunday 1:Monday 2:Tuesday 3:Wednesday 4:Thursday 5:Friday 6:Saturday"
   for dow_pair in $dow_map; do
-    dow_number=$(echo "$dow_pair" | cut -d':' -f1)
-    dow_name=$(echo "$dow_pair" | cut -d':' -f2)
+    dow_number="$(echo "$dow_pair" | cut -d':' -f1)"
+    dow_name="$(echo "$dow_pair" | cut -d':' -f2)"
     if [ "$day_of_week_text" != "Any week day" ]; then
-      day_of_week_text=$(echo "$day_of_week_text" | sed "s/$dow_number/$dow_name/g")
+      day_of_week_text="$(echo "$day_of_week_text" | sed "s/$dow_number/$dow_name/g")"
     fi
   done
 
