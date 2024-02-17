@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-12
+# Last Modified: 2024-Feb-16
 ###################################################################
 set -u
 
@@ -66,6 +66,7 @@ readonly amtmMailPswdFile="${amtmMailDirPath}/emailpw.enc"
 readonly tempEMailContent="/tmp/var/tmp/tempEMailContent.$$.TXT"
 readonly tempEMailBodyMsg="/tmp/var/tmp/tempEMailBodyMsg.$$.TXT"
 readonly saveEMailInfoMsg="${SETTINGS_DIR}/savedEMailInfoMsg.SAVE.TXT"
+readonly theEMailDateTimeFormat="%Y-%b-%d, %I:%M:%S %p %Z (%a)"
 
 cronCmd="$(which crontab) -l"
 [ "$cronCmd" = " -l" ] && cronCmd="$(which cru) l"
@@ -75,7 +76,8 @@ cronCmd="$(which crontab) -l"
 ##----------------------------------------------##
 inMenuMode=true
 isInteractive=false
-menuReturnPromptStr="Press Enter to return to the main menu..."
+mainMenuReturnPromptStr="Press Enter to return to the Main Menu..."
+advnMenuReturnPromptStr="Press Enter to return to the Advanced Menu..."
 
 [ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
 
@@ -618,9 +620,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-27] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-13] ##
+##----------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -636,6 +638,8 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
          echo "FW_New_Update_LOG_Preferred_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
+         echo "FW_New_Update_EMail_CC_Name=TBD"
+         echo "FW_New_Update_EMail_CC_Address=TBD"
          echo "CheckChangeLog ENABLED"
          echo "FW_Allow_Beta_Production_Up ENABLED"
       } > "$SETTINGSFILE"
@@ -697,10 +701,9 @@ _Init_Custom_Settings_Config_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-28] ##
-##------------------------------------------##
-# Function to get custom setting value from the settings file
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-16] ##
+##----------------------------------------##
 Get_Custom_Setting()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
@@ -722,7 +725,9 @@ Get_Custom_Setting()
             "FW_New_Update_ZIP_Directory_Path" | \
             "FW_New_Update_LOG_Directory_Path" | \
             "FW_New_Update_LOG_Preferred_Path" | \
-            "FW_New_Update_EMail_Notification")
+            "FW_New_Update_EMail_Notification" | \
+            "FW_New_Update_EMail_CC_Name" | \
+            "FW_New_Update_EMail_CC_Address")
                 grep -q "^${setting_type}=" "$SETTINGSFILE" && \
                 setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
                 ;;
@@ -736,9 +741,9 @@ Get_Custom_Setting()
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-28] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-16] ##
+##----------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -771,7 +776,9 @@ Update_Custom_Settings()
         "FW_New_Update_ZIP_Directory_Path" | \
         "FW_New_Update_LOG_Directory_Path" | \
         "FW_New_Update_LOG_Preferred_Path" | \
-        "FW_New_Update_EMail_Notification")
+        "FW_New_Update_EMail_Notification" | \
+        "FW_New_Update_EMail_CC_Name" | \
+        "FW_New_Update_EMail_CC_Address")
             if [ -f "$SETTINGSFILE" ]
             then
                 if grep -q "^${setting_type}=" "$SETTINGSFILE"
@@ -795,6 +802,14 @@ Update_Custom_Settings()
             elif [ "$setting_type" = "FW_New_Update_EMail_Notification" ]
             then
                 sendEMailNotificationsFlag="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_EMail_CC_Name" ]
+            then
+                sendEMail_CC_Name="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_EMail_CC_Address" ]
+            then
+                sendEMail_CC_Address="$setting_value"
             #
             elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
             then
@@ -975,7 +990,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
        Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
        Update_Custom_Settings FW_New_Update_LOG_Preferred_Path "$newLogBaseDirPath"
        echo "The directory path for the log files was updated successfully."
-       _WaitForEnterKey_ "$menuReturnPromptStr"
+       _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
    return 0
 }
@@ -1049,7 +1064,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
-       _WaitForEnterKey_ "$menuReturnPromptStr"
+       _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
    return 0
 }
@@ -1090,9 +1105,15 @@ readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 # Postponement Days for F/W Update Check #
 FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-16] ##
+##----------------------------------------##
 # F/W Update Email Notifications #
+isEMailFormatHTML=true
 isEMailConfigEnabledInAMTM=false
 sendEMailNotificationsFlag="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
+sendEMail_CC_Name="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
+sendEMail_CC_Address="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
 
 # Define the CRON job command to execute #
 FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
@@ -1167,14 +1188,15 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-03] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-16] ##
+##----------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
-   local fwInstalledVersion  fwNewUpdateVersion  subjectStr
+   local fwInstalledVersion  fwNewUpdateVersion
    local savedInstalledVersion  savedNewUpdateVersion
+   local subjectStr  emailBodyTitle=""
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
@@ -1184,60 +1206,55 @@ _CreateEMailContent_()
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
+           emailBodyTitle="TESTING Email Notifications Setup"
            {
-             echo
-             echo "TESTING:"
              echo "This is a test of the F/W Update email notification from the <b>${MODEL_ID}</b> router."
-             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        NEW_FW_UPDATE_STATUS)
+           emailBodyTitle="New Firmware Update"
            {
-             echo
              echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
-             printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n\n"
+             printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        START_FW_UPDATE_STATUS)
+           emailBodyTitle="New Firmware Flash Started"
            {
-             echo
              echo "Started flashing the new F/W Update version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
-             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        STOP_FW_UPDATE_APPROVAL)
+           emailBodyTitle="WARNING:"
            {
-             echo
-             echo "<b>WARNING</b>:"
              echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
-             printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n\n"
+             printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        NEW_BM_BACKUP_FAILED)
+           emailBodyTitle="WARNING:"
            {
-             echo
-             echo "<b>WARNING</b>:"
              echo "Backup failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled."
-             printf "\nPlease check backupmon.sh configuration and retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n\n"
+             printf "\nPlease check <b>backupmon.sh</b> configuration and retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_CHECKSUM_STATUS)
+           emailBodyTitle="WARNING:"
            {
-             echo
-             echo "<b>WARNING</b>:"
              echo "Checksum verification failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled due to checksum mismatch."
-             printf "\nPlease retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n\n"
+             printf "\nPlease retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_UPDATE_STATUS)
+           emailBodyTitle="**ERROR**:"
            {
-             echo
-             echo "<b>**ERROR**</b>:"
              echo "Flashing of new F/W Update version <b>${fwNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
-             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        POST_REBOOT_FW_UPDATE_SETUP)
@@ -1254,8 +1271,8 @@ _CreateEMailContent_()
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [No saved info file]."
                return 1
            fi
-           savedInstalledVersion="$(cat "$saveEMailInfoMsg" | grep "FW_InstalledVersion=" | awk -F '=' '{print $2}')"
-           savedNewUpdateVersion="$(cat "$saveEMailInfoMsg" | grep "FW_NewUpdateVersion=" | awk -F '=' '{print $2}')"
+           savedInstalledVersion="$(grep "FW_InstalledVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
+           savedNewUpdateVersion="$(grep "FW_NewUpdateVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
            if [ -z "$savedInstalledVersion" ] || [ -z "$savedNewUpdateVersion" ]
            then
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [Saved info is empty]."
@@ -1264,17 +1281,16 @@ _CreateEMailContent_()
            if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ] && \
               [ "$savedInstalledVersion" != "$fwInstalledVersion" ]
            then
+              emailBodyTitle="Successful Firmware Update"
               {
-                echo
                 echo "Flashing of new F/W Update version <b>${fwInstalledVersion}</b> for the <b>${MODEL_ID}</b> router was successful."
-                printf "\nThe F/W version that was previously installed:\n<b>${savedInstalledVersion}</b>\n\n"
+                printf "\nThe F/W version that was previously installed:\n<b>${savedInstalledVersion}</b>\n"
               } > "$tempEMailBodyMsg"
            else
+              emailBodyTitle="**ERROR**:"
               {
-                echo
-                echo "<b>**ERROR**</b>:"
                 echo "Flashing of new F/W Update version <b>${savedNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
-                printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n\n"
+                printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
               } > "$tempEMailBodyMsg"
            fi
            rm -f "$saveEMailInfoMsg"
@@ -1283,33 +1299,84 @@ _CreateEMailContent_()
            ;;
    esac
 
-   ## Header ##
+   ! "$isEMailFormatHTML" && sed -i 's/[<]b[>]//g ; s/[<]\/b[>]//g' "$tempEMailBodyMsg"
+
+   if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
+   then
+       CC_ADDRESS_ARG="--mail-rcpt $CC_ADDRESS"
+       CC_ADDRESS_STR="\"${CC_NAME}\" <$CC_ADDRESS>"
+   fi
+
+   ## Header-1 ##
    cat <<EOF > "$tempEMailContent"
 From: "$FROM_NAME" <$FROM_ADDRESS>
 To: "$TO_NAME" <$TO_ADDRESS>
+EOF
+
+   [ -n "$CC_ADDRESS_STR" ] && \
+   printf "Cc: %s\n" "$CC_ADDRESS_STR" >> "$tempEMailContent"
+
+   ## Header-2 ##
+   cat <<EOF >> "$tempEMailContent"
 Subject: $subjectStr
 Date: $(date -R)
+EOF
+
+   if "$isEMailFormatHTML"
+   then
+       [ -z "$emailBodyTitle" ] && emailBodyTitle="$subjectStr"
+
+       cat <<EOF >> "$tempEMailContent"
 MIME-Version: 1.0
 Content-Type: text/html; charset="UTF-8"
-<!DOCTYPE html><html><body><pre>
-<p style="color:black; font-family:sans-serif; font-size:100%;">
+Content-Disposition: inline
+
+<!DOCTYPE html><html>
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body><h4>${emailBodyTitle}</h4>
+<div style="color:black; font-family: sans-serif; font-size:115%;"><pre>
 EOF
+    else
+        cat <<EOF >> "$tempEMailContent"
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+EOF
+       [ -n "$emailBodyTitle" ] && \
+       printf "%s\n\n" "$emailBodyTitle" >> "$tempEMailContent"
+   fi
+
+   ## Body ##
    cat "$tempEMailBodyMsg" >> "$tempEMailContent"
 
    ## Footer ##
-   cat <<EOF >> "$tempEMailContent"
+   if "$isEMailFormatHTML"
+   then
+       cat <<EOF >> "$tempEMailContent"
+
 Sent by the "<b>${ScriptFNameTag}</b>" utility.
 From the "<b>${FRIENDLY_ROUTER_NAME}</b>" router.
 
-$(date +"%Y-%b-%d, %I:%M:%S %p %Z (%a)")
-</p></pre></body></html>
+$(date +"$theEMailDateTimeFormat")
+</pre></div></body></html>
 EOF
-    rm -f "$tempEMailBodyMsg"
-    return 0
+   else
+       cat <<EOF >> "$tempEMailContent"
+
+Sent by the "${ScriptFNameTag}" utility.
+From the "${FRIENDLY_ROUTER_NAME}" router.
+
+$(date +"$theEMailDateTimeFormat")
+EOF
+   fi
+
+   rm -f "$tempEMailBodyMsg"
+   return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-09] ##
+## Modified by Martinski W. [2024-Feb-16] ##
 ##----------------------------------------##
 _CheckEMailConfigFileFromAMTM_()
 {
@@ -1333,6 +1400,9 @@ _CheckEMailConfigFileFromAMTM_()
    USERNAME=""  SMTP=""  PORT=""  PROTOCOL=""  
    PASSWORD=""  emailPwEnc=""
 
+   # Custom Options ##
+   CC_NAME=""  CC_ADDRESS=""
+
    . "$amtmMailConfFile"
 
    if [ -z "$TO_NAME" ] || [ -z "$USERNAME" ] || \
@@ -1345,12 +1415,19 @@ _CheckEMailConfigFileFromAMTM_()
        return 1
    fi
 
+   if [ -n "$sendEMail_CC_Name" ] && [ "$sendEMail_CC_Name" != "TBD" ] && \
+      [ -n "$sendEMail_CC_Address" ] && [ "$sendEMail_CC_Address" != "TBD" ]
+   then
+       [ -z "$CC_NAME" ] && CC_NAME="$sendEMail_CC_Name"
+       [ -z "$CC_ADDRESS" ] && CC_ADDRESS="$sendEMail_CC_Address"
+   fi
+
    isEMailConfigEnabledInAMTM=true
    return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-09] ##
+## Modified by Martinski W. [2024-Feb-16] ##
 ##----------------------------------------##
 _SendEMailNotification_()
 {
@@ -1359,6 +1436,8 @@ _SendEMailNotification_()
    ! _CheckEMailConfigFileFromAMTM_ 1
    then return 1 ; fi
 
+   local CC_ADDRESS_STR=""  CC_ADDRESS_ARG=""
+
    [ -z "$FROM_NAME" ] && FROM_NAME="$ScriptFNameTag"
    [ -z "$FRIENDLY_ROUTER_NAME" ] && FRIENDLY_ROUTER_NAME="$MODEL_ID"
 
@@ -1366,28 +1445,32 @@ _SendEMailNotification_()
 
    [ "$1" = "POST_REBOOT_FW_UPDATE_SETUP" ] && return 0
 
-   printf "\nSending email notification [$1]."
-   printf "\nPlease wait...\n"
+   if "$isInteractive"
+   then
+       printf "\nSending email notification [$1]."
+       printf "\nPlease wait...\n"
+   fi
 
    date +"$LOGdateFormat" > "$userTraceFile"
 
    /usr/sbin/curl -v --url "${PROTOCOL}://${SMTP}:${PORT}" \
-   --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" \
+   --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" $CC_ADDRESS_ARG \
    --user "${USERNAME}:$(/usr/sbin/openssl aes-256-cbc "$emailPwEnc" -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)" \
    --upload-file "$tempEMailContent" \
    $SSL_FLAG --ssl-reqd --crlf >> "$userTraceFile" 2>&1
+   curlCode="$?"
 
-   if [ $? -eq 0 ]
+   if [ "$curlCode" -eq 0 ]
    then
        sleep 2
        rm -f "$userTraceFile"
        Say "The email notification was sent successfully [$1]."
    else
-       Say "${REDct}**ERROR**${NOct}: Failure to send email notification [$1]."
+       Say "${REDct}**ERROR**${NOct}: Failure to send email notification [Code: $curlCode][$1]."
    fi
    rm -f "$tempEMailContent"
 
-   return 0
+   return "$curlCode"
 }
 
 ##-------------------------------------##
@@ -1402,7 +1485,7 @@ _CreateDirectory_()
     if [ ! -d "$1" ]
     then
         Say "${REDct}**ERROR**${NOct}: Unable to create directory [$1] to download firmware."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
     # Clear directory in case any previous files still exist #
@@ -1770,7 +1853,7 @@ _GetLoginCredentials_()
     if [ -z "$password" ]
     then
         echo "Password cannot be empty. Credentials were not saved."
-        _WaitForEnterKey_ "$menuReturnPromptStr"
+        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
 
@@ -1781,7 +1864,7 @@ _GetLoginCredentials_()
     Update_Custom_Settings credentials_base64 "$credsBase64"
 
     echo "Credentials saved."
-    _WaitForEnterKey_ "$menuReturnPromptStr"
+    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 0
 }
 
@@ -2109,7 +2192,7 @@ _Set_FW_UpdatePostponementDays_()
    then
        Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
        echo "The number of days to postpone F/W Update was updated successfully."
-       _WaitForEnterKey_ "$menuReturnPromptStr"
+       _WaitForEnterKey_ "$mainMenuReturnPromptStr"
    fi
    return 0
 }
@@ -2185,7 +2268,7 @@ _Set_FW_UpdateCronSchedule_()
         printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
     fi
 
-    _WaitForEnterKey_ "$menuReturnPromptStr"
+    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
     return "$retCode"
 }
 
@@ -2282,12 +2365,27 @@ _CheckTimeToUpdateFirmware_()
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
+## Added by Martinski W. [2024-Feb-16] ##
 ##-------------------------------------##
+_RunEMailNotificationTest_()
+{
+   ! "$sendEMailNotificationsFlag" && return 1
+   local retCode=1
+
+   if _WaitForYESorNO_ "\nWould you like to run a test of the email notification?"
+   then
+       retCode=0
+       _SendEMailNotification_ FW_UPDATE_TEST_EMAIL
+   fi
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-16] ##
+##----------------------------------------##
 _Toggle_FW_UpdateEmailNotifications_()
 {
    local emailNotificationEnabled  emailNotificationNewStateStr
-   local runEmailNotifyTestOK=false
 
    if "$sendEMailNotificationsFlag"
    then
@@ -2299,15 +2397,16 @@ _Toggle_FW_UpdateEmailNotifications_()
    fi
 
    if ! _WaitForYESorNO_ "Do you want to ${emailNotificationNewStateStr} F/W Update email notifications?"
-   then return 1 ; fi
+   then
+       _RunEMailNotificationTest_ && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+       return 1
+   fi
 
    if "$emailNotificationEnabled"
    then
-       runEmailNotifyTestOK=false
        sendEMailNotificationsFlag=false
        emailNotificationNewStateStr="${REDct}DISABLED${NOct}"
    else
-       runEmailNotifyTestOK=true
        sendEMailNotificationsFlag=true
        emailNotificationNewStateStr="${GRNct}ENABLED${NOct}"
    fi
@@ -2315,12 +2414,8 @@ _Toggle_FW_UpdateEmailNotifications_()
    Update_Custom_Settings FW_New_Update_EMail_Notification "$sendEMailNotificationsFlag"
    printf "F/W Update email notifications are now ${emailNotificationNewStateStr}.\n"
 
-   if "$runEmailNotifyTestOK" && \
-      _WaitForYESorNO_ "\nWould you like to run a test of the email notification?"
-   then
-       _SendEMailNotification_ FW_UPDATE_TEST_EMAIL
-   fi
-   _WaitForEnterKey_ "$menuReturnPromptStr"
+   _RunEMailNotificationTest_
+   _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
 ##------------------------------------------##
@@ -2372,7 +2467,7 @@ _Toggle_FW_UpdateCheckSetting_()
        printf "\nChecking for new F/W Updates... Please wait.\n"
        sh $FW_UpdateCheckScript 2>&1
    fi
-   _WaitForEnterKey_ "$menuReturnPromptStr"
+   _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
 ##-------------------------------------##
@@ -2425,7 +2520,7 @@ _RunFirmwareUpdateNow_()
                 return 0
             else
                 Say "Uninstallation cancelled. Exiting script."
-                _WaitForEnterKey_ "$menuReturnPromptStr"
+                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
                 return 0
             fi
         else
@@ -2436,7 +2531,7 @@ _RunFirmwareUpdateNow_()
     if [ "$MinFirmwareCheckFailed" != "0" ]; then
         Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
 Please manually update to version $minimum_supported_version or higher to use this script.\n"
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
 
@@ -2451,7 +2546,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
 
@@ -2517,7 +2612,7 @@ Please manually update to version $minimum_supported_version or higher to use th
        ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
     then
         Say "No new firmware version update is found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
 
@@ -2533,7 +2628,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
     then
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 0
     fi
 
@@ -2542,14 +2637,14 @@ Please manually update to version $minimum_supported_version or higher to use th
     if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
     then
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
 
     if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
     then
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
 
@@ -2561,7 +2656,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]; then
         if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
             Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
-            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         fi
     fi
@@ -2605,7 +2700,7 @@ Please manually update to version $minimum_supported_version or higher to use th
                         printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
                         printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
                         printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
-                        _WaitForEnterKey_ "$menuReturnPromptStr"
+                        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
                         return 1
                     else
                         _DoExit_ 1
@@ -2634,7 +2729,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     if [ ! -f "$FW_ZIP_FPATH" ]
     then
         Say "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
 
@@ -2680,7 +2775,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         #------------------------------------------------------------#
         rm -f "$FW_ZIP_FPATH"
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-        "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
 
@@ -2705,7 +2800,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         if [ ! -f "$changelog_file" ]; then
             Say "Change-log file does not exist at $changelog_file"
             _DoCleanUp_
-            "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         else
             # Use awk to format the version based on the number of initial digits
@@ -2821,7 +2916,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             if [ "$inMenuMode" = true ]; then
-                _WaitForEnterKey_ "$menuReturnPromptStr"
+                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
                 return 1
             else
             # Assume non-interactive mode; perform exit.
@@ -2832,7 +2927,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
         _DoCleanUp_ 1
         if [ "$inMenuMode" = true ]; then
-            _WaitForEnterKey_ "$menuReturnPromptStr"
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         else
             # Assume non-interactive mode; perform exit.
@@ -2961,7 +3056,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         _EntwareServicesHandler_ start
     fi
 
-    "$inMenuMode" && _WaitForEnterKey_ "$menuReturnPromptStr"
+    "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
 ##-------------------------------------##
@@ -3204,6 +3299,12 @@ then
     _WaitForEnterKey_
 fi
 
+# menu setup variables #
+theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
+theADExitStr="${GRNct}e${NOct}=Exit to Advanced Menu"
+padStr="      "
+SEPstr="-----------------------------------------------------"
+
 FW_RouterProductID="${GRNct}${PRODUCT_ID}${NOct}"
 if [ "$PRODUCT_ID" = "$MODEL_ID" ]
 then FW_RouterModelID="${FW_RouterProductID}"
@@ -3217,7 +3318,7 @@ FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-23] ##
 ##------------------------------------------##
-show_menu()
+_ShowMainMenu_()
 {
    #-----------------------------------------------------------#
    # Check if router reports a new F/W update is available.
@@ -3228,7 +3329,6 @@ show_menu()
    _CheckNewUpdateFirmwareNotification_ "$FW_InstalledVers" "$FW_NewUpdateVers"
 
    clear
-   SEPstr="-----------------------------------------------------"
    logo
    printf "${YLWct}========= By ExtremeFiretop & Martinski W. ==========${NOct}\n\n"
 
@@ -3252,7 +3352,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 A USB drive is required for F/W updates.\n"
    fi
 
-   padStr="      "  arrowStr=" ${REDct}<<---${NOct}"
+   arrowStr=" ${REDct}<<---${NOct}"
 
    notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    if [ "$notifyDate" = "TBD" ]
@@ -3290,20 +3390,20 @@ A USB drive is required for F/W updates.\n"
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
 
-   # F/W Update EMail Notifications #
+   # F/W Update Email Notifications #
    if _CheckEMailConfigFileFromAMTM_ 0
    then
       if "$sendEMailNotificationsFlag"
       then
-          printf "\n ${GRNct}em${NOct}.  Disable F/W Update EMail Notifications"
+          printf "\n ${GRNct}em${NOct}.  Disable F/W Update Email Notifications"
           printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
       else
-          printf "\n ${GRNct}em${NOct}.  Enable F/W Update EMail Notifications"
+          printf "\n ${GRNct}em${NOct}.  Enable F/W Update Email Notifications"
           printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
       fi
    fi
 
-   # In the show_menu function, add an option for Advanced Options
+   # Add selection for "Advanced Options" sub-menu #
    printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
    # Check for new script updates #
@@ -3320,8 +3420,8 @@ A USB drive is required for F/W updates.\n"
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-27] ##
 ##---------------------------------------##
-_advanced_options_menu_() {
-    theADExitStr="${GRNct}e${NOct}=Exit to advanced menu"
+_advanced_options_menu_()
+{
     while true; do
         clear
         logo
@@ -3411,11 +3511,10 @@ _advanced_options_menu_() {
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
-theExitStr="${GRNct}e${NOct}=Exit to main menu"
 
 while true
 do
-   show_menu
+   _ShowMainMenu_
 
    # Check if the directory exists again before attempting to navigate to it
    if [ -d "$FW_BIN_DIR" ]; then
