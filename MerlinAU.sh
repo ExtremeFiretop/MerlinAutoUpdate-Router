@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-16
+# Last Modified: 2024-Feb-17
 ###################################################################
 set -u
 
@@ -3205,6 +3205,136 @@ _DoUninstall_()
    _DoExit_ 0
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-16] ##
+##-------------------------------------##
+_SetSecondaryEMailAddress_()
+{
+   local currCC_NameOpt  currCC_AddrOpt
+   local nextCC_NameOpt  nextCC_AddrOpt
+   local currCC_NameStr="Current Name/Alias:"
+   local currCC_AddrStr="Current Address:"
+   local clearOptStr="${GRNct}c${NOct}=Clear/Remove Setting"
+   local doReturnToMenu  doClearSetting  minCharLen  maxCharLen  curCharLen
+
+   currCC_NameOpt="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
+   currCC_AddrOpt="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+
+   if [ -z "$currCC_AddrOpt" ] || [ "$currCC_AddrOpt" = "TBD" ]
+   then
+       nextCC_AddrOpt=""  currCC_AddrOpt=""
+       currCC_AddrStr="$currCC_AddrStr ${REDct}NONE${NOct}"
+   else
+       nextCC_AddrOpt="$currCC_AddrOpt"
+       currCC_AddrStr="$currCC_AddrStr ${GRNct}${currCC_AddrOpt}${NOct}"
+   fi
+
+   userInput=""
+   minCharLen=10
+   maxCharLen=64
+   doReturnToMenu=false
+   doClearSetting=false
+
+   while true
+   do
+       printf "\nEnter a secondary email address to receive email notifications.\n"
+       if [ -z "$currCC_AddrOpt" ]
+       then printf "[${theADExitStr}] [${currCC_AddrStr}]:  "
+       else printf "[${theADExitStr}] [${clearOptStr}] [${currCC_AddrStr}]:  "
+       fi
+       read -r userInput
+
+       [ -z "$userInput" ] && break
+
+       if echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       if echo "$userInput" | grep -qE "^(c|C)$"
+       then doClearSetting=true ; break ; fi
+
+       if ! echo "$userInput" | grep -qE ".+[@].+"
+       then
+           printf "${REDct}INVALID input.${NOct} "
+           printf "No ampersand character [${GRNct}@${NOct}] is found.\n"
+           continue
+       fi
+
+       curCharLen="${#userInput}"
+       if [ "$curCharLen" -lt "$minCharLen" ] || [ "$curCharLen" -gt "$maxCharLen" ]
+       then
+           printf "${REDct}INVALID input length${NOct} "
+           printf "[Minimum=${GRNct}${minCharLen}${NOct}, Maximum=${GRNct}${maxCharLen}${NOct}]\n"
+           continue
+       fi
+
+       nextCC_AddrOpt="$userInput"
+       break
+   done
+
+   if "$doReturnToMenu" || \
+      { [ -z "$nextCC_AddrOpt" ] && [ -z "$currCC_AddrOpt" ] ; }
+   then return 0 ; fi   ##NO Change##
+
+   if "$doClearSetting" || \
+      { [ -z "$nextCC_AddrOpt" ] && [ -n "$currCC_AddrOpt" ] ; }
+   then
+       Update_Custom_Settings FW_New_Update_EMail_CC_Name "TBD"
+       Update_Custom_Settings FW_New_Update_EMail_CC_Address "TBD"
+       echo "The secondary email address and associated name/alias were removed successfully."
+       _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+       return 0
+   fi
+
+   if [ -z "$currCC_NameOpt" ] || [ "$currCC_NameOpt" = "TBD" ]
+   then
+       currCC_NameOpt=""
+       nextCC_NameOpt="${nextCC_AddrOpt%%@*}"
+       currCC_NameStr="$currCC_NameStr ${GRNct}${nextCC_NameOpt}${NOct}"
+   else
+       nextCC_NameOpt="$currCC_NameOpt"
+       currCC_NameStr="$currCC_NameStr ${GRNct}${currCC_NameOpt}${NOct}"
+   fi
+
+   userInput=""
+   minCharLen=6
+   maxCharLen=64
+   doReturnToMenu=false
+
+   while true
+   do
+       printf "\nEnter a name or alias for the secondary email address.\n"
+       printf "[${theADExitStr}] [${currCC_NameStr}]:  "
+       read -r userInput
+
+       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       curCharLen="${#userInput}"
+       if [ "$curCharLen" -lt "$minCharLen" ] || [ "$curCharLen" -gt "$maxCharLen" ]
+       then
+           printf "${REDct}INVALID input length${NOct} "
+           printf "[Minimum=${GRNct}${minCharLen}${NOct}, Maximum=${GRNct}${maxCharLen}${NOct}]\n"
+           continue
+       fi
+
+       nextCC_NameOpt="$userInput"
+       break;
+   done
+
+   if [ "$nextCC_AddrOpt" = "$currCC_AddrOpt" ] && [ "$nextCC_NameOpt" = "$currCC_NameOpt" ]
+   then
+       _RunEMailNotificationTest_ && _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+       return 0
+   fi
+
+   Update_Custom_Settings FW_New_Update_EMail_CC_Name "$nextCC_NameOpt"
+   Update_Custom_Settings FW_New_Update_EMail_CC_Address "$nextCC_AddrOpt"
+   printf "\nThe secondary email address and associated name/alias were updated successfully."
+
+   _RunEMailNotificationTest_
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+}
+
 keepZIPfile=0
 trap '_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
 
@@ -3417,68 +3547,89 @@ A USB drive is required for F/W updates.\n"
    printf "${SEPstr}\n"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jan-27] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-17] ##
+##----------------------------------------##
+_ShowAdvancedOptionsMenu_()
+{
+   clear
+   logo
+   printf "=============== Advanced Options Menu ===============\n"
+   printf "${SEPstr}\n"
+   printf "\n  ${GRNct}1${NOct}.  Set F/W Update Check Schedule"
+   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+
+   printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update ZIP File"
+   printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
+
+   printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
+   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+
+   local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+   if [ "$checkChangeLogSetting" = "DISABLED" ]
+   then
+       printf "\n  ${GRNct}4${NOct}.  Enable Change-log Check"
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+   else
+       printf "\n  ${GRNct}4${NOct}.  Disable Change-log Check"
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+   fi
+
+   local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+   if [ "$BetaProductionSetting" = "DISABLED" ]
+   then
+       printf "\n  ${GRNct}5${NOct}.  Enable Beta-to-Release Upgrades"
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+   else
+       printf "\n  ${GRNct}5${NOct}.  Disable Beta-to-Release Upgrades"
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+   fi
+
+   # Retrieve the current build type setting
+   local current_build_type="$(Get_Custom_Setting "ROGBuild")"
+
+   # Convert the setting to a descriptive text
+   if [ "$current_build_type" = "y" ]; then
+       current_build_type_menu="ROG Build"
+   elif [ "$current_build_type" = "n" ]; then
+       current_build_type_menu="Pure Build"
+   else
+       current_build_type_menu="NOT SET"
+   fi
+
+   if echo "$PRODUCT_ID" | grep -q "^GT-"; then
+       printf "\n  ${GRNct}6${NOct}.  Change ROG F/W Build Type"
+       if [ "$current_build_type_menu" = "NOT SET" ]
+       then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+       fi
+   fi
+
+   # Secondary Email Address Setup for "CC" option #
+   if _CheckEMailConfigFileFromAMTM_ 0 && "$sendEMailNotificationsFlag"
+   then
+       printf "\n ${GRNct}em${NOct}.  Set a Secondary Email Address for Notifications"
+       if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
+       then
+           printf "\n${padStr}[Current Name/Alias: ${GRNct}${CC_NAME}${NOct}]"
+           printf "\n${padStr}[Current 2nd Address: ${GRNct}${CC_ADDRESS}${NOct}]\n"
+       else
+           echo
+       fi
+   fi
+
+   printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
+   printf "${SEPstr}"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-17] ##
+##----------------------------------------##
 _advanced_options_menu_()
 {
-    while true; do
-        clear
-        logo
-        printf "=============== Advanced Options Menu ===============\n"
-        printf "${SEPstr}\n"
-        printf "\n  ${GRNct}1${NOct}.  Set F/W Update Check Schedule"
-        printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
-
-        printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update ZIP File"
-        printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
-
-        printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
-        printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
-
-        local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
-        if [ "$checkChangeLogSetting" = "DISABLED" ]
-        then
-            printf "\n  ${GRNct}4${NOct}.  Enable Change-log Check"
-            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
-        else
-            printf "\n  ${GRNct}4${NOct}.  Disable Change-log Check"
-            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
-        fi
-
-        local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
-        if [ "$BetaProductionSetting" = "DISABLED" ]
-        then
-            printf "\n  ${GRNct}5${NOct}.  Enable Beta-to-Release Upgrades"
-            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
-        else
-            printf "\n  ${GRNct}5${NOct}.  Disable Beta-to-Release Upgrades"
-            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
-        fi
-
-        # Retrieve the current build type setting
-        local current_build_type="$(Get_Custom_Setting "ROGBuild")"
-
-        # Convert the setting to a descriptive text
-        if [ "$current_build_type" = "y" ]; then
-            current_build_type_menu="ROG Build"
-        elif [ "$current_build_type" = "n" ]; then
-            current_build_type_menu="Pure Build"
-        else
-            current_build_type_menu="NOT SET"
-        fi
-
-        if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-            printf "\n  ${GRNct}6${NOct}.  Change ROG F/W Build Type"
-            if [ "$current_build_type_menu" = "NOT SET" ]
-            then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-            else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
-            fi
-        fi
-
-        printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-        printf "${SEPstr}"
-
+    while true
+    do
+        _ShowAdvancedOptionsMenu_
         printf "\nEnter selection:  "
         read -r advancedChoice
         echo
@@ -3497,6 +3648,10 @@ _advanced_options_menu_()
                    change_build_type && _WaitForEnterKey_
                fi
                ;;
+            em) "$isEMailConfigEnabledInAMTM" && \
+                "$sendEMailNotificationsFlag" && \
+                _SetSecondaryEMailAddress_
+               ;;
             e|exit) break
                ;;
             *) printf "${REDct}INVALID selection.${NOct} Please try again."
@@ -3514,13 +3669,10 @@ inMenuMode=true
 
 while true
 do
-   _ShowMainMenu_
-
    # Check if the directory exists again before attempting to navigate to it
-   if [ -d "$FW_BIN_DIR" ]; then
-       cd "$FW_BIN_DIR"
-   fi
+   [ -d "$FW_BIN_DIR" ] && cd "$FW_BIN_DIR"
 
+   _ShowMainMenu_
    printf "Enter selection:  " ; read -r userChoice
    echo
    case $userChoice in
