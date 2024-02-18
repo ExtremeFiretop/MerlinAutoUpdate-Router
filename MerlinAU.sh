@@ -1733,7 +1733,7 @@ _DoCleanUp_()
    [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=false
    if "$doTrace"
    then
-       Say "\nSTART _DoCleanUp_"
+       Say "START _DoCleanUp_"
        echo "$(date +"$LOGdateFormat") START _DoCleanUp_" >> "$userTraceFile"
    fi
 
@@ -2692,14 +2692,18 @@ Please manually update to version $minimum_supported_version or higher to use th
             # Check if BACKUPMON version is greater than or equal to 1.5.3
             if [ "$current_version" -ge "$required_version" ]; then
                 # Execute the backup script if it exists #
-                Say "\nBackup Started (by BACKUPMON)"
+                echo ""
+                Say "Backup Started (by BACKUPMON)"
                 sh /jffs/scripts/backupmon.sh -backup >/dev/null
                 BE=$?
-                Say "Backup Finished\n"
+                Say "Backup Finished"
+                echo ""
                 if [ $BE -eq 0 ]; then
-                    Say "Backup Completed Successfully\n"
+                    Say "Backup Completed Successfully"
+                    echo ""
                 else
-                    Say "Backup Failed\n"
+                    Say "Backup Failed"
+                    echo ""
                     _SendEMailNotification_ NEW_BM_BACKUP_FAILED
                     _DoCleanUp_ 1
                     if "$isInteractive"
@@ -2716,13 +2720,17 @@ Please manually update to version $minimum_supported_version or higher to use th
                 fi
             else
                 # BACKUPMON version is not sufficient
-                Say "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
-                Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.44.\n"
-                Say "Skipping backup. Please update your version of BACKUPMON.\n"
+                echo ""
+                Say "${REDct}**IMPORTANT NOTICE**:${NOct}"
+                echo ""
+                Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.5.3."
+                Say "Skipping backup. Please update your version of BACKUPMON."
+                echo ""
             fi
         else
             # Print a message if the backup script is not installed
-            Say "Backup script (BACKUPMON) is not installed. Skipping backup.\n"
+            Say "Backup script (BACKUPMON) is not installed. Skipping backup."
+            echo ""
         fi
 
         # Background function to create a blinking LED effect #
