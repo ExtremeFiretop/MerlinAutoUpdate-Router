@@ -66,7 +66,7 @@ readonly amtmMailPswdFile="${amtmMailDirPath}/emailpw.enc"
 readonly tempEMailContent="/tmp/var/tmp/tempEMailContent.$$.TXT"
 readonly tempEMailBodyMsg="/tmp/var/tmp/tempEMailBodyMsg.$$.TXT"
 readonly saveEMailInfoMsg="${SETTINGS_DIR}/savedEMailInfoMsg.SAVE.TXT"
-readonly theEMailDateTimeFormat="%Y-%b-%d, %I:%M:%S %p %Z (%a)"
+readonly theEMailDateTimeFormat="%Y-%b-%d %a %I:%M:%S %p %Z"
 
 cronCmd="$(which crontab) -l"
 [ "$cronCmd" = " -l" ] && cronCmd="$(which cru) l"
@@ -1189,7 +1189,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-16] ##
+## Modified by Martinski W. [2024-Feb-17] ##
 ##----------------------------------------##
 _CreateEMailContent_()
 {
@@ -1206,9 +1206,9 @@ _CreateEMailContent_()
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
-           emailBodyTitle="TESTING Email Notifications Setup"
+           emailBodyTitle="Testing Email Notification"
            {
-             echo "This is a test of the F/W Update email notification from the <b>${MODEL_ID}</b> router."
+             echo "This is a TEST of the F/W Update email notification from the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
@@ -1324,8 +1324,6 @@ EOF
 
    if "$isEMailFormatHTML"
    then
-       [ -z "$emailBodyTitle" ] && emailBodyTitle="$subjectStr"
-
        cat <<EOF >> "$tempEMailContent"
 MIME-Version: 1.0
 Content-Type: text/html; charset="UTF-8"
@@ -1333,8 +1331,8 @@ Content-Disposition: inline
 
 <!DOCTYPE html><html>
 <head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
-<body><h4>${emailBodyTitle}</h4>
-<div style="color:black; font-family: sans-serif; font-size:115%;"><pre>
+<body><h2>${emailBodyTitle}</h2>
+<div style="color:black; font-family: sans-serif; font-size:130%;"><pre>
 EOF
     else
         cat <<EOF >> "$tempEMailContent"
