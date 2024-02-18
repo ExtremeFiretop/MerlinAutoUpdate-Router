@@ -834,6 +834,87 @@ Update_Custom_Settings()
 }
 
 ##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-30] ##
+##------------------------------------------##
+_migrate_settings_move() {
+    local USBMountPoint="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+    local old_settings_dir="${ADDONS_PATH}/$ScriptFNameTag"
+    local new_settings_dir="${ADDONS_PATH}/$ScriptDirNameD"
+    local old_bin_dir="/home/root/$ScriptFNameTag"
+    local new_bin_dir="/home/root/$ScriptDirNameD"
+    local old_log_dir="${USBMountPoint}/$ScriptFNameTag"
+    local new_log_dir="${USBMountPoint}/$ScriptDirNameD"
+
+    # Check if the old SETTINGS directory exists #
+    if [ -d "$old_settings_dir" ]; then
+        # Check if the new SETTINGS directory already exists
+        if [ -d "$new_settings_dir" ]; then
+            # Remove the old SETTINGS directory since the new one exists
+            rm -rf "$old_settings_dir"
+            if [ $? -eq 0 ]; then
+                echo "The new SETTINGS directory already exists. Removed the old SETTINGS directory."
+            else
+                echo "Error occurred while removing the old SETTINGS directory."
+            fi
+        else
+            # Move the old SETTINGS directory to the new location
+            mv "$old_settings_dir" "$new_settings_dir"
+            if [ $? -eq 0 ]; then
+                echo "SETTINGS directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the SETTINGS directory."
+            fi
+        fi
+    fi
+
+    # Check if the old BIN directory exists #
+    if [ -d "$old_bin_dir" ]; then
+        # Check if the new BIN directory already exists
+        if [ -d "$new_bin_dir" ]; then
+            # Remove the old BIN directory since the new one exists
+            rm -rf "$old_bin_dir"
+            if [ $? -eq 0 ]; then
+                echo "The new BIN directory already exists. Removed the old BIN directory."
+            else
+                echo "Error occurred while removing the old BIN directory."
+            fi
+        else
+            # Move the old BIN directory to the new location
+            mv "$old_bin_dir" "$new_bin_dir"
+            if [ $? -eq 0 ]; then
+                echo "BIN directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the BIN directory."
+            fi
+        fi
+    fi
+
+    # Check if the old LOG directory exists #
+    if [ -d "$old_log_dir" ]; then
+        # Check if the new LOG directory already exists
+        if [ -d "$new_log_dir" ]; then
+            # Remove the old LOG directory since the new one exists
+            rm -rf "$old_log_dir"
+            if [ $? -eq 0 ]; then
+                echo "The new LOG directory already exists. Removed the old LOG directory."
+            else
+                echo "Error occurred while removing the old LOG directory."
+            fi
+        else
+            # Move the old LOG directory to the new location
+            mv "$old_log_dir" "$new_log_dir"
+            if [ $? -eq 0 ]; then
+                echo "LOG directory successfully migrated to the new location."
+            else
+                echo "Error occurred during migration of the LOG directory."
+            fi
+        fi
+    fi
+}
+
+_migrate_settings_move
+
+##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-24] ##
 ##------------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
@@ -1557,7 +1638,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR DEBUG ONLY##
-if true
+if false
 then
     local theVersionStr  extVersNum
 
@@ -2527,13 +2608,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     # "New F/W Release Version" from the router itself.
     # If no new F/W version update is available return.
     #------------------------------------------------------
-    if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
-       ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-    then
-        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
-    fi
+    #if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+    #   ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+    #then
+    #    Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+    #    "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+    #    return 1
+    #fi
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
@@ -2594,21 +2675,26 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Check for the presence of backupmon.sh script
         if [ -f "/jffs/scripts/backupmon.sh" ]; then
             # Extract version number from backupmon.sh
-            BM_VERSION=$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')
+            #BM_VERSION=$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')
+            BM_VERSION="1.46"
 
             # Adjust version format from 1.46 to 1.4.6 if needed
-            DOT_COUNT=$(echo "$BM_VERSION" | tr -cd '.' | wc -c)
-            if [ "$DOT_COUNT" -eq 0 ]; then
-                # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
-                BM_VERSION="${BM_VERSION}.0.0"
-            elif [ "$DOT_COUNT" -eq 1 ]; then
-                # For versions like 1.46, insert a dot before the last two digits
-                BM_VERSION=$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')
-            fi
+            #DOT_COUNT=$(echo "$BM_VERSION" | tr -cd '.' | wc -c)
+            #if [ "$DOT_COUNT" -eq 0 ]; then
+            #    # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
+            #    BM_VERSION="${BM_VERSION}.0.0"
+            #elif [ "$DOT_COUNT" -eq 1 ]; then
+            #    # For versions like 1.46, insert a dot before the last two digits
+            #    BM_VERSION=$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')
+            #fi
 
             # Convert version strings to comparable numbers
             current_version=$(_ScriptVersionStrToNum_ "$BM_VERSION")
             required_version=$(_ScriptVersionStrToNum_ "1.5.3")
+
+			echo "$current_version"
+			echo "$required_version"
+sleep 30
 
             # Check if BACKUPMON version is greater than or equal to 1.5.3
             if [ "$current_version" -ge "$required_version" ]; then
