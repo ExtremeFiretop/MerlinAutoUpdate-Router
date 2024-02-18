@@ -1986,51 +1986,62 @@ _toggle_beta_updates_() {
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-07] ##
-##------------------------------------------##
-change_build_type() {
-    echo "Changing Build Type..."
 
-    # Use Get_Custom_Setting to retrieve the previous choice
-    previous_choice="$(Get_Custom_Setting "ROGBuild")"
+change_build_type()
+{
+   local doReturnToMenu  buildtypechoice
+   printf "Changing Flash Build Type...\n"
 
-    # If the previous choice is not set, default to 'n'
-    if [ "$previous_choice" = "TBD" ]; then
-        previous_choice="n"
-    fi
+   # Use Get_Custom_Setting to retrieve the previous choice
+   previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
-    # Convert previous choice to a descriptive text
-    if [ "$previous_choice" = "y" ]; then
-        display_choice="ROG Build"
-    else
-        display_choice="Pure Build"
-    fi
+   # If the previous choice is not set, default to 'n'
+   if [ "$previous_choice" = "TBD" ]; then
+       previous_choice="n"
+   fi
 
-    printf "Current Build Type: ${GRNct}$display_choice${NOct}.\n"
-    printf "Would you like to use the original ${REDct}ROG${NOct} themed user interface?${NOct}\n"
+   # Convert previous choice to a descriptive text
+   if [ "$previous_choice" = "y" ]; then
+       display_choice="ROG Build"
+   else
+       display_choice="Pure Build"
+   fi
 
-    while true; do
-        printf "\n[${theADExitStr}] Enter your choice (y/n): "
-        read -r choice
-        choice="${choice:-$previous_choice}"
-        choice="$(echo "$choice" | tr '[:upper:]' '[:lower:]')"
+   printf "\nCurrent Build Type: ${GRNct}$display_choice${NOct}.\n"
 
-        if [ "$choice" = "y" ] || [ "$choice" = "yes" ]; then
-			Update_Custom_Settings "ROGBuild" "y"
-			break
-        elif [ "$choice" = "n" ] || [ "$choice" = "no" ]; then
-			Update_Custom_Settings "ROGBuild" "n"
-			break
-        elif [ "$choice" = "exit" ] || [ "$choice" = "e" ]; then
-			echo "Exiting without changing the build type."
-			break
-        else
-			echo "Invalid input! Please enter 'y', 'yes', 'n', 'no', or 'exit'."
-        fi
-    done
+   doReturnToMenu=false
+   while true
+   do
+       printf "\n${SEPstr}"
+       printf "\nChoose your prefered option for the build type to flash:\n"
+       printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface${NOct}\n"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
+       printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
+       printf "${SEPstr}\n"
+       printf "[$display_choice] Enter selection:  "
+       read -r choice
 
-    _WaitForEnterKey_
+       [ -z "$choice" ] && break
+
+       if echo "$choice" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       case $choice in
+           1) buildtypechoice="y" ; break
+              ;;
+           2) buildtypechoice="n" ; break
+              ;;
+           *) echo ; _InvalidMenuSelection_
+              ;;
+       esac
+   done
+
+   "$doReturnToMenu" && return 0
+
+   Update_Custom_Settings "ROGBuild" "$buildtypechoice"
+   printf "\nThe build type to flash was updated successfully.\n"
+
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
 ##------------------------------------------##
