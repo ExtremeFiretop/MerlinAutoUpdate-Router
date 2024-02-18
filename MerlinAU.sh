@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-17
+# Last Modified: 2024-Feb-18
 ###################################################################
 set -u
 
@@ -52,13 +52,14 @@ readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-18] ##
+##----------------------------------------##
 #-------------------------------------------------------#
 # We'll use the built-in AMTM email configuration file
 # to send email notifications *IF* enabled by the user.
 #-------------------------------------------------------#
+readonly FW_UpdateEMailFormatTypeDefault=HTML
 readonly FW_UpdateEMailNotificationDefault=false
 readonly amtmMailDirPath="/jffs/addons/amtm/mail"
 readonly amtmMailConfFile="${amtmMailDirPath}/email.conf"
@@ -621,7 +622,7 @@ else
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-13] ##
+## Modified by Martinski W. [2024-Feb-18] ##
 ##----------------------------------------##
 _Init_Custom_Settings_Config_()
 {
@@ -634,6 +635,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Notification_Vers TBD"
          echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays"
          echo "FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault"
+         echo "FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\""
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
          echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
@@ -667,42 +669,47 @@ _Init_Custom_Settings_Config_()
        sed -i "4 i FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^FW_New_Update_EMail_FormatType=" "$SETTINGSFILE"
+   then
+       sed -i "5 i FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\"" "$SETTINGSFILE"
+       retCode=1
+   fi
    if ! grep -q "^FW_New_Update_Cron_Job_Schedule=" "$SETTINGSFILE"
    then
-       sed -i "5 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$SETTINGSFILE"
+       sed -i "6 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_ZIP_Directory_Path=" "$SETTINGSFILE"
    then
-       sed -i "6 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
+       sed -i "7 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_LOG_Directory_Path=" "$SETTINGSFILE"
    then
-       sed -i "7 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
+       sed -i "8 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_LOG_Preferred_Path=" "$SETTINGSFILE"
    then
        preferredPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
-       sed -i "8 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$SETTINGSFILE"
+       sed -i "9 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^CheckChangeLog" "$SETTINGSFILE"
    then
-       sed -i "9 i CheckChangeLog ENABLED" "$SETTINGSFILE"
+       sed -i "10 i CheckChangeLog ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_Allow_Beta_Production_Up" "$SETTINGSFILE"
    then
-       sed -i "5 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
+       sed -i "11 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
    return "$retCode"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-16] ##
+## Modified by Martinski W. [2024-Feb-18] ##
 ##----------------------------------------##
 Get_Custom_Setting()
 {
@@ -726,6 +733,7 @@ Get_Custom_Setting()
             "FW_New_Update_LOG_Directory_Path" | \
             "FW_New_Update_LOG_Preferred_Path" | \
             "FW_New_Update_EMail_Notification" | \
+            "FW_New_Update_EMail_FormatType" | \
             "FW_New_Update_EMail_CC_Name" | \
             "FW_New_Update_EMail_CC_Address")
                 grep -q "^${setting_type}=" "$SETTINGSFILE" && \
@@ -742,7 +750,7 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-16] ##
+## Modified by Martinski W. [2024-Feb-18] ##
 ##----------------------------------------##
 Update_Custom_Settings()
 {
@@ -777,6 +785,7 @@ Update_Custom_Settings()
         "FW_New_Update_LOG_Directory_Path" | \
         "FW_New_Update_LOG_Preferred_Path" | \
         "FW_New_Update_EMail_Notification" | \
+        "FW_New_Update_EMail_FormatType" | \
         "FW_New_Update_EMail_CC_Name" | \
         "FW_New_Update_EMail_CC_Address")
             if [ -f "$SETTINGSFILE" ]
@@ -802,6 +811,12 @@ Update_Custom_Settings()
             elif [ "$setting_type" = "FW_New_Update_EMail_Notification" ]
             then
                 sendEMailNotificationsFlag="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_EMail_FormatType" ]
+            then
+                sendEMailFormaType="$setting_value"
+                [ "$sendEMailFormaType" = "HTML" ] && \
+                isEMailFormatHTML=true || isEMailFormatHTML=false
             #
             elif [ "$setting_type" = "FW_New_Update_EMail_CC_Name" ]
             then
@@ -1106,14 +1121,17 @@ readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-16] ##
+## Modified by Martinski W. [2024-Feb-18] ##
 ##----------------------------------------##
 # F/W Update Email Notifications #
 isEMailFormatHTML=true
 isEMailConfigEnabledInAMTM=false
+sendEMailFormaType="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
 sendEMailNotificationsFlag="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
 sendEMail_CC_Name="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
 sendEMail_CC_Address="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+[ "$sendEMailFormaType" = "HTML" ] && \
+isEMailFormatHTML=true || isEMailFormatHTML=false
 
 # Define the CRON job command to execute #
 FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
@@ -2011,6 +2029,8 @@ change_build_type() {
 			echo "Invalid input! Please enter 'y', 'yes', 'n', 'no', or 'exit'."
         fi
     done
+
+    _WaitForEnterKey_
 }
 
 ##------------------------------------------##
@@ -3222,6 +3242,66 @@ _DoUninstall_()
 }
 
 ##-------------------------------------##
+## Added by Martinski W. [2024-Feb-18] ##
+##-------------------------------------##
+_SetEMailFormatType_()
+{
+   local doReturnToMenu
+   local currFormatOpt  nextFormatOpt  currFormatStr
+
+   currFormatOpt="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
+   if [ -z "$currFormatOpt" ] || [ "$currFormatOpt" = "TBD" ]
+   then
+       nextFormatOpt=""
+       currFormatOpt="$sendEMailFormaType"
+   else
+       nextFormatOpt="$currFormatOpt"
+   fi
+   currFormatStr="Current Format: ${GRNct}${currFormatOpt}${NOct}"
+
+   doReturnToMenu=false
+   while true
+   do
+       printf "\n${SEPstr}"
+       printf "\nChoose the format type for email notifications:\n"
+       printf "\n  ${GRNct}1${NOct}. HTML\n"
+       printf "\n  ${GRNct}2${NOct}. Plain Text\n"
+       printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
+       printf "${SEPstr}\n"
+       printf "[$currFormatStr] Enter selection:  "
+       read -r userInput
+
+       [ -z "$userInput" ] && break
+
+       if echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       case $userInput in
+           1) nextFormatOpt="HTML" ; break
+              ;;
+           2) nextFormatOpt="Plain Text" ; break
+              ;;
+           *) echo ; _InvalidMenuSelection_
+              ;;
+       esac
+   done
+
+   "$doReturnToMenu" && return 0
+
+   if [ "$nextFormatOpt" = "$currFormatOpt" ]
+   then
+       _RunEMailNotificationTest_ && _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+       return 0
+   fi
+
+   Update_Custom_Settings FW_New_Update_EMail_FormatType "$nextFormatOpt"
+   printf "\nThe email format type was updated successfully.\n"
+
+   _RunEMailNotificationTest_
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+}
+
+##-------------------------------------##
 ## Added by Martinski W. [2024-Feb-16] ##
 ##-------------------------------------##
 _SetSecondaryEMailAddress_()
@@ -3345,7 +3425,7 @@ _SetSecondaryEMailAddress_()
 
    Update_Custom_Settings FW_New_Update_EMail_CC_Name "$nextCC_NameOpt"
    Update_Custom_Settings FW_New_Update_EMail_CC_Address "$nextCC_AddrOpt"
-   printf "\nThe secondary email address and associated name/alias were updated successfully."
+   printf "\nThe secondary email address and associated name/alias were updated successfully.\n"
 
    _RunEMailNotificationTest_
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
@@ -3461,9 +3541,9 @@ FW_InstalledVers="$(_GetCurrentFWInstalledShortVersion_)"
 FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-18] ##
+##----------------------------------------##
 _ShowMainMenu_()
 {
    #-----------------------------------------------------------#
@@ -3542,7 +3622,7 @@ A USB drive is required for F/W updates.\n"
       if "$sendEMailNotificationsFlag"
       then
           printf "\n ${GRNct}em${NOct}.  Disable F/W Update Email Notifications"
-          printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+          printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
       else
           printf "\n ${GRNct}em${NOct}.  Enable F/W Update Email Notifications"
           printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
@@ -3564,7 +3644,7 @@ A USB drive is required for F/W updates.\n"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-17] ##
+## Modified by Martinski W. [2024-Feb-18] ##
 ##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -3621,9 +3701,14 @@ _ShowAdvancedOptionsMenu_()
        fi
    fi
 
-   # Secondary Email Address Setup for "CC" option #
+   # Additional Email Notification Options #
    if _CheckEMailConfigFileFromAMTM_ 0 && "$sendEMailNotificationsFlag"
    then
+       # Format Types: "HTML" or "Plain Text"
+       printf "\n ${GRNct}ef${NOct}.  Set Email Format Type"
+       printf "\n${padStr}[Current Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
+
+       # Secondary Email Address Setup for "CC" option #
        printf "\n ${GRNct}em${NOct}.  Set a Secondary Email Address for Notifications"
        if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
        then
@@ -3639,7 +3724,16 @@ _ShowAdvancedOptionsMenu_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-17] ##
+## Modified by Martinski W. [2024-Feb-18] ##
+##----------------------------------------##
+_InvalidMenuSelection_()
+{
+   printf "${REDct}INVALID selection.${NOct} Please try again."
+   _WaitForEnterKey_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-18] ##
 ##----------------------------------------##
 _advanced_options_menu_()
 {
@@ -3660,18 +3754,26 @@ _advanced_options_menu_()
                ;;
             5) _toggle_beta_updates_ && _WaitForEnterKey_
                ;;
-            6) if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-                   change_build_type && _WaitForEnterKey_
+            6) if echo "$PRODUCT_ID" | grep -q "^GT-"
+               then change_build_type
+               else _InvalidMenuSelection_
                fi
                ;;
-            em) "$isEMailConfigEnabledInAMTM" && \
-                "$sendEMailNotificationsFlag" && \
-                _SetSecondaryEMailAddress_
+            ef) if "$isEMailConfigEnabledInAMTM" && \
+                   "$sendEMailNotificationsFlag"
+                then _SetEMailFormatType_
+                else _InvalidMenuSelection_
+                fi
+               ;;
+            em) if "$isEMailConfigEnabledInAMTM" && \
+                   "$sendEMailNotificationsFlag"
+                then _SetSecondaryEMailAddress_
+                else _InvalidMenuSelection_
+                fi
                ;;
             e|exit) break
                ;;
-            *) printf "${REDct}INVALID selection.${NOct} Please try again."
-               _WaitForEnterKey_
+            *) _InvalidMenuSelection_
                ;;
         esac
     done
@@ -3700,8 +3802,10 @@ do
           ;;
        4) _Set_FW_UpdatePostponementDays_
           ;;
-      em) "$isEMailConfigEnabledInAMTM" && \
-          _Toggle_FW_UpdateEmailNotifications_
+      em) if "$isEMailConfigEnabledInAMTM"
+          then _Toggle_FW_UpdateEmailNotifications_
+          else _InvalidMenuSelection_
+          fi
           ;;
       ad) _advanced_options_menu_
           ;;
@@ -3711,8 +3815,7 @@ do
           ;;
   e|exit) _DoExit_ 0
           ;;
-       *) printf "${REDct}INVALID selection.${NOct} Please try again."
-          _WaitForEnterKey_
+       *) _InvalidMenuSelection_
           ;;
    esac
 done
