@@ -1,10 +1,10 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.0.3
-## 2024-02-10
+## v1.0.4
+## 2024-02-18
 
 
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/c6513bed-3415-4b08-83ad-cfbcd136ad03)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/ad3aabb9-5caf-47aa-a564-43646a0c9711)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/9e1bb3ca-c90d-42a0-99d4-4c1af9a261a0)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/4806b6be-28b9-4126-90e8-e5752e0b162c)
 
 
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
@@ -79,9 +79,6 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Automatically stops all Entware services, if installed, before the flash.
 - Automatically stops diversion, if installed, before the flash.
 - Unmounts any physically attached storage via USB as the last step before the flash.
-
-- Notes:
-  - New routers use UBIFS instead of JFFS2.
 
 ## Installation
 Before using MerlinAU, ensure the following prerequisites are met:
