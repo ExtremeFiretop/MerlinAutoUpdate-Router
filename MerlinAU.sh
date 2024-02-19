@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-18
+# Last Modified: 2024-Feb-19
 ###################################################################
 set -u
 
@@ -1986,6 +1986,9 @@ _toggle_beta_updates_() {
     fi
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-18] ##
+##------------------------------------------##
 change_build_type()
 {
    local doReturnToMenu  buildtypechoice
@@ -3552,9 +3555,9 @@ FW_InstalledVers="$(_GetCurrentFWInstalledShortVersion_)"
 FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-19] ##
+##------------------------------------------##
 _ShowMainMenu_()
 {
    #-----------------------------------------------------------#
@@ -3616,10 +3619,10 @@ A USB drive is required for F/W updates.\n"
    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
    if [ "$FW_UpdateCheckState" -eq 0 ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Enable F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  F/W Update Check"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]"
    else
-       printf "\n  ${GRNct}3${NOct}.  Disable F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  F/W Update Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]"
    fi
    printf "\n${padStr}[Last Notification Date: $notificationStr]\n"
@@ -3632,10 +3635,10 @@ A USB drive is required for F/W updates.\n"
    then
       if "$sendEMailNotificationsFlag"
       then
-          printf "\n ${GRNct}em${NOct}.  Disable F/W Update Email Notifications"
+          printf "\n ${GRNct}em${NOct}.  F/W Update Email Notifications"
           printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
       else
-          printf "\n ${GRNct}em${NOct}.  Enable F/W Update Email Notifications"
+          printf "\n ${GRNct}em${NOct}.  F/W Update Email Notifications"
           printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
       fi
    fi
@@ -3654,9 +3657,9 @@ A USB drive is required for F/W updates.\n"
    printf "${SEPstr}\n"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-19] ##
+##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
    clear
@@ -3675,20 +3678,20 @@ _ShowAdvancedOptionsMenu_()
    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
    if [ "$checkChangeLogSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}4${NOct}.  Enable Change-log Check"
+       printf "\n  ${GRNct}4${NOct}.  Change-log Check"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}4${NOct}.  Disable Change-log Check"
+       printf "\n  ${GRNct}4${NOct}.  Change-log Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}5${NOct}.  Enable Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}5${NOct}.  Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}5${NOct}.  Disable Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}5${NOct}.  Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
