@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.4
+readonly SCRIPT_VERSION=1.0.5
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -2780,7 +2780,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jan-22] ##
+    ## Modified by ExtremeFiretop [2024-Feb-18] ##
     ##------------------------------------------##
     freeRAM_kb="$(get_free_ram)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
@@ -2788,8 +2788,10 @@ Please manually update to version $minimum_supported_version or higher to use th
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
     # Extracting the firmware binary image #
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
-    then
+    if output=$(unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1); then
+        echo "$output" | while IFS= read -r line; do
+            Say "$line"
+        done
         #---------------------------------------------------------------#
         # Check if ZIP file was downloaded to a USB-attached drive.
         # Take into account special case for Entware "/opt/" paths. 
@@ -2798,7 +2800,6 @@ Please manually update to version $minimum_supported_version or higher to use th
         then
             # It's not on a USB drive, so it's safe to delete it #
             rm -f "$FW_ZIP_FPATH"
-        #
         elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
         then
             #-------------------------------------------------------------#
