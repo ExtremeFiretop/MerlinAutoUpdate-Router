@@ -1986,7 +1986,6 @@ _toggle_beta_updates_() {
     fi
 }
 
-
 change_build_type()
 {
    local doReturnToMenu  buildtypechoice
@@ -2013,7 +2012,7 @@ change_build_type()
    while true
    do
        printf "\n${SEPstr}"
-       printf "\nChoose your prefered option for the build type to flash:\n"
+       printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface${NOct}\n"
        printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
