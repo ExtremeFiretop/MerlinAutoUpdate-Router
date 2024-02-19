@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.4
+readonly SCRIPT_VERSION=1.0.5
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -2780,7 +2780,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jan-22] ##
+    ## Modified by ExtremeFiretop [2024-Feb-18] ##
     ##------------------------------------------##
     freeRAM_kb="$(get_free_ram)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
