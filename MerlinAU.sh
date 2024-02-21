@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-19
+# Last Modified: 2024-Feb-20
 ###################################################################
 set -u
 
@@ -1207,7 +1207,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-17] ##
+## Modified by Martinski W. [2024-Feb-20] ##
 ##----------------------------------------##
 _CreateEMailContent_()
 {
@@ -1260,8 +1260,16 @@ _CreateEMailContent_()
              printf "\nPlease check <b>backupmon.sh</b> configuration and retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
+       FAILED_FW_UNZIP_STATUS)
+           emailBodyTitle="**ERROR**:"
+           {
+             echo "Unable to decompress the F/W Update ZIP file for version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled due to decompress error."
+             printf "\nPlease retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
        FAILED_FW_CHECKSUM_STATUS)
-           emailBodyTitle="WARNING:"
+           emailBodyTitle="**ERROR**:"
            {
              echo "Checksum verification failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled due to checksum mismatch."
@@ -1289,8 +1297,8 @@ _CreateEMailContent_()
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [No saved info file]."
                return 1
            fi
-           savedInstalledVersion="$(grep "FW_InstalledVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
-           savedNewUpdateVersion="$(grep "FW_NewUpdateVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
+           savedInstalledVersion="$(grep "^FW_InstalledVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
+           savedNewUpdateVersion="$(grep "^FW_NewUpdateVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
            if [ -z "$savedInstalledVersion" ] || [ -z "$savedNewUpdateVersion" ]
            then
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [Saved info is empty]."
@@ -2706,16 +2714,16 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Check for the presence of backupmon.sh script
         if [ -f "/jffs/scripts/backupmon.sh" ]; then
             # Extract version number from backupmon.sh
-            BM_VERSION=$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')
+            BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
 
             # Adjust version format from 1.46 to 1.4.6 if needed
-            DOT_COUNT=$(echo "$BM_VERSION" | tr -cd '.' | wc -c)
+            DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
             if [ "$DOT_COUNT" -eq 0 ]; then
                 # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
                 BM_VERSION="${BM_VERSION}.0.0"
             elif [ "$DOT_COUNT" -eq 1 ]; then
                 # For versions like 1.46, insert a dot before the last two digits
-                BM_VERSION=$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')
+                BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
             fi
 
             # Convert version strings to comparable numbers
@@ -2790,11 +2798,24 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Feb-20] ##
+    ##----------------------------------------##
+    Say "-----------------------------------------------------------"
+    # List & log the contents of the ZIP file #
+    while IFS="$(printf '\n')" read -r uzLINE
+    do Say "$uzLINE" ; done <<EOT
+$(unzip -l "$FW_ZIP_FPATH" 2>&1)
+EOT
+    Say "-----------------------------------------------------------"
+
     # Extracting the firmware binary image #
-    if output=$(unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1); then
+    if output="$(unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1)"
+    then
         echo "$output" | while IFS= read -r line; do
             Say "$line"
         done
+        Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
         # Check if ZIP file was downloaded to a USB-attached drive.
         # Take into account special case for Entware "/opt/" paths. 
@@ -2824,6 +2845,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         # of trying to figure out why uncompressing it failed.
         #------------------------------------------------------------#
         rm -f "$FW_ZIP_FPATH"
+        _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
@@ -3002,7 +3024,11 @@ Please manually update to version $minimum_supported_version or higher to use th
         printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
         printf "Once started, the flashing process CANNOT be interrupted.\n"
         if ! _WaitForYESorNO_ "Continue?"
-        then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
+        then
+            Say "F/W Update was cancelled by user."
+            _DoCleanUp_ 1 "$keepZIPfile"
+            return 1
+        fi
     fi
 
     #------------------------------------------------------------#
