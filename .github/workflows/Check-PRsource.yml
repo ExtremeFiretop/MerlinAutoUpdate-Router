@@ -8,7 +8,7 @@ on:
       - edited
 jobs:
   check-branches:
-    runs-on: $default-branch
+    runs-on: ubuntu-latest
     steps:
       - name: Check branches
         run: |
