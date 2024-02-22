@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-20
+# Last Modified: 2024-Feb-21
 ###################################################################
 set -u
 
@@ -433,11 +433,11 @@ readonly CYANct="\e[1;36m"
 readonly WHITEct="\e[1;37m"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-12] ##
+## Modified by Martinski W. [2024-Feb-21] ##
 ##----------------------------------------##
 readonly FW_Update_CRON_DefaultSchedule="0 0 * * 0"
 readonly CRON_DAYofWEEK_NAMES="(Sun|Mon|Tue|Wed|Thu|Fri|Sat)"
-readonly CRON_DAYofWEEK_RegEx="$CRON_DAYofWEEK_NAMES([,-]$CRON_DAYofWEEK_NAMES)*|[0-6]([,-][0-6])*"
+readonly CRON_DAYofWEEK_RegEx="$CRON_DAYofWEEK_NAMES([\/,-]$CRON_DAYofWEEK_NAMES)*|[0-6*]([\/,-][0-6])*"
 
 ##------------------------------------------##
 ## Modified by Martinski W. [2024-Jan-22]   ##
