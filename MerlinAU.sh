@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-21
+# Last Modified: 2024-Feb-22
 ###################################################################
 set -u
 
@@ -1246,14 +1246,14 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        STOP_FW_UPDATE_APPROVAL)
-           emailBodyTitle="WARNING:"
+           emailBodyTitle="WARNING"
            {
              echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        NEW_BM_BACKUP_FAILED)
-           emailBodyTitle="WARNING:"
+           emailBodyTitle="WARNING"
            {
              echo "Backup failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled."
@@ -1261,7 +1261,7 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_UNZIP_STATUS)
-           emailBodyTitle="**ERROR**:"
+           emailBodyTitle="**ERROR**"
            {
              echo "Unable to decompress the F/W Update ZIP file for version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled due to decompress error."
@@ -1269,7 +1269,7 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_CHECKSUM_STATUS)
-           emailBodyTitle="**ERROR**:"
+           emailBodyTitle="**ERROR**"
            {
              echo "Checksum verification failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled due to checksum mismatch."
@@ -1277,7 +1277,7 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_UPDATE_STATUS)
-           emailBodyTitle="**ERROR**:"
+           emailBodyTitle="**ERROR**"
            {
              echo "Flashing of new F/W Update version <b>${fwNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
@@ -1313,7 +1313,7 @@ _CreateEMailContent_()
                 printf "\nThe F/W version that was previously installed:\n<b>${savedInstalledVersion}</b>\n"
               } > "$tempEMailBodyMsg"
            else
-              emailBodyTitle="**ERROR**:"
+              emailBodyTitle="**ERROR**"
               {
                 echo "Flashing of new F/W Update version <b>${savedNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
                 printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
@@ -2054,10 +2054,11 @@ change_build_type()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-12] ##
-##------------------------------------------##
-translate_schedule() {
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-22] ##
+##----------------------------------------##
+translate_schedule()
+{
   minute="$(echo "$1" | cut -d' ' -f1)"
   hour="$(echo "$1" | cut -d' ' -f2)"
   day_of_month="$(echo "$1" | cut -d' ' -f3)"
@@ -2107,7 +2108,7 @@ translate_schedule() {
   for month_pair in $month_map; do
     month_number="$(echo "$month_pair" | cut -d':' -f1)"
     month_name="$(echo "$month_pair" | cut -d':' -f2)"
-    month_text="$(echo "$month_text" | sed "s/$month_number/$month_name/g")"
+    month_text="$(echo "$month_text" | sed "s/\b${month_number}\b/$month_name/g")"
   done
 
   # Special handling for day of the week to map numbers to names
@@ -2116,7 +2117,7 @@ translate_schedule() {
     dow_number="$(echo "$dow_pair" | cut -d':' -f1)"
     dow_name="$(echo "$dow_pair" | cut -d':' -f2)"
     if [ "$day_of_week_text" != "Any week day" ]; then
-      day_of_week_text="$(echo "$day_of_week_text" | sed "s/$dow_number/$dow_name/g")"
+      day_of_week_text="$(echo "$day_of_week_text" | sed "s/\b${dow_number}\b/$dow_name/g")"
     fi
   done
 
