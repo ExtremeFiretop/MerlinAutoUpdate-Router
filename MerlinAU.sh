@@ -383,7 +383,7 @@ _FWVersionStrToNum_()
     local verNum  verStr="$1"  nonProductionVersionWeight=0
     local fwBranchVers=""  numFields
 
-    # Check for 'alpha/beta' in the version string and 
+    # Check for 'alpha/beta' in the version string and
     # adjust weight value if USE_BETA_WEIGHT is true
     if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && \
         echo "$verStr" | grep -qiE 'alpha|beta'
@@ -1023,7 +1023,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
 ##------------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
-   local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath="" 
+   local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath=""
 
    while true
    do
@@ -1098,8 +1098,8 @@ _Init_Custom_Settings_Config_
 ## Modified by ExtremeFiretop [2024-Jan-27] ##
 ##------------------------------------------##
 # NOTE:
-# Depending on available RAM & storage capacity of the 
-# target router, it may be required to have USB-attached 
+# Depending on available RAM & storage capacity of the
+# target router, it may be required to have USB-attached
 # storage for the ZIP file so that it can be downloaded
 # in a separate directory from the firmware bin file.
 #-----------------------------------------------------------
@@ -1167,15 +1167,15 @@ fi
 ##----------------------------------------##
 #-------------------------------------------------------------------------------------------
 # This code is in case the user-selected USB mount point isn't available anymore.
-# If the USB drive is selected as the log location but it goes offline for some reason, 
+# If the USB drive is selected as the log location but it goes offline for some reason,
 # any call to the "Say" function creates a new '/tmp/mnt/XXXX' directory.
-# In such a case where the USB drive is unmounted, we need to change the log directory 
-# back to a local directory. First if-statement executes first and updates to local 'jffs' 
-# directory if no USB drives are found. If ANY DefaultUSBMountPoint found, then move the 
-# log files from their local jffs location to the default mount location. 
-# We don't know the user selected yet because it's local at this time and was changed 
-# by the else statement. Remove the old log directory location from jffs, and update the 
-# settings file again to the new default again. This creates a semi-permanent switch which 
+# In such a case where the USB drive is unmounted, we need to change the log directory
+# back to a local directory. First if-statement executes first and updates to local 'jffs'
+# directory if no USB drives are found. If ANY DefaultUSBMountPoint found, then move the
+# log files from their local jffs location to the default mount location.
+# We don't know the user selected yet because it's local at this time and was changed
+# by the else statement. Remove the old log directory location from jffs, and update the
+# settings file again to the new default again. This creates a semi-permanent switch which
 # can reset back to default if the user-selected mount points aren't valid anymore.
 #-------------------------------------------------------------------------------------------
 UserSelectedLogPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
@@ -1429,7 +1429,7 @@ _CheckEMailConfigFileFromAMTM_()
    fi
 
    FROM_NAME=""  TO_NAME=""  FROM_ADDRESS=""  TO_ADDRESS=""
-   USERNAME=""  SMTP=""  PORT=""  PROTOCOL=""  
+   USERNAME=""  SMTP=""  PORT=""  PROTOCOL=""
    PASSWORD=""  emailPwEnc=""
 
    # Custom Options ##
@@ -1703,7 +1703,7 @@ _HasRouterMoreThan256MBtotalRAM_()
 # The actual amount of RAM that is available for any new process
 # (*without* using the swap file) can be roughly estimated from
 # "MemFree" & "Page Cache" (i.e. Active files + Inactive files),
-# This estimate must take into account that the overall system 
+# This estimate must take into account that the overall system
 # (kernel + native services + tmpfs) needs a minimum amount of RAM
 # to continue to work, and that not all reclaimable Page Cache can
 # be reclaimed because some may actually be in used at the time.
@@ -1740,17 +1740,17 @@ get_free_ram() {
 ##---------------------------------------##
 get_required_space() {
     local url="$1"
-    local zip_file_size_kb extracted_file_size_buffer_kb 
+    local zip_file_size_kb extracted_file_size_buffer_kb
     local overhead_percentage=50  # Overhead percentage (e.g., 50%)
-    
+
     # Size of the ZIP file in bytes
     local zip_file_size_bytes="$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
     # Convert bytes to kilobytes
     zip_file_size_kb="$((zip_file_size_bytes / 1024))"
-    
+
     # Calculate overhead based on the percentage
     local overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
-    
+
     # Calculate total required space
     local total_required_kb="$((zip_file_size_kb + overhead_kb))"
     echo "$total_required_kb"
@@ -1907,7 +1907,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
 {
     local url="$1"
 
-    local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | 
+    local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | \
         awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
 
     if [ -z "$links_and_versions" ]
@@ -2114,7 +2114,7 @@ translate_schedule()
    fi
 
    # Special handling for "month" to map short abbreviations to long full names #
-   month_text="$(echo "$month_text" | tr [A-Z] [a-z])"
+   month_text="$(echo "$month_text" | tr 'A-Z' 'a-z')"
    month_map1="jan:January feb:February mar:March apr:April may:May jun:June jul:July aug:August sep:September oct:October nov:November dec:December"
    for month_pair in $month_map1
    do
@@ -2135,7 +2135,7 @@ translate_schedule()
    if [ "$day_of_week_text" != "Any day of the week" ]
    then
        # Special handling for "day of the week" to map short abbreviations to long full names #
-       day_of_week_text="$(echo "$day_of_week_text" | tr [A-Z] [a-z])"
+       day_of_week_text="$(echo "$day_of_week_text" | tr 'A-Z' 'a-z')"
        dow_map1="sun:Sunday mon:Monday tue:Tuesday wed:Wednesday thu:Thursday fri:Friday sat:Saturday"
        for dow_pair in $dow_map1
        do
@@ -2258,7 +2258,7 @@ _Set_FW_UpdatePostponementDays_()
           [ "$userInput" -le "$FW_UpdateMaximumPostponementDays" ]
        then newPostponementDays="$userInput" ; break ; fi
 
-       printf "${REDct}INVALID input.${NOct}\n" 
+       printf "${REDct}INVALID input.${NOct}\n"
    done
 
    if [ "$newPostponementDays" != "$oldPostponementDays" ]
@@ -2268,6 +2268,31 @@ _Set_FW_UpdatePostponementDays_()
        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
    fi
    return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-22] ##
+##-------------------------------------##
+_CapitalizeFirstChar_()
+{
+   if [ $# -eq 0 ] && [ -z "$1" ]
+   then echo "$1" ; return 1; fi
+
+   local upperChar  capWord  origStr="$1"
+   local prevIFS="$IFS"
+
+   IFS="/,-$IFS"
+   for origWord in $1
+   do
+       upperChar="$(echo "${origWord:0:1}" | tr 'a-z' 'A-Z')"
+       if [ -n "$upperChar" ]
+       then
+           capWord="${upperChar}${origWord:1}"
+           origStr="$(echo "$origStr" | sed "s/\b${origWord}\b/$capWord/g")"
+       fi
+   done
+   IFS="$prevIFS"
+   echo "$origStr"
 }
 
 ##-------------------------------------##
@@ -2343,7 +2368,7 @@ _Set_FW_UpdateCronSchedule_()
 
     while true
     do
-        printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * 0${NOct}' for every Sunday at midnight)"
+        printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * Sun${NOct}' for every Sunday at midnight)"
         if [ -z "$currCronSchedule" ]
         then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${nextCronSchedule}${NOct}]:  "
         else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${currCronSchedule}${NOct}]:  "
@@ -2353,14 +2378,20 @@ _Set_FW_UpdateCronSchedule_()
         # If the user enters 'e', break out of the loop and return to the main menu
         if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
         then
-            if _ValidateCronJobSchedule_ "$currCronSchedule"
-            then break ; else continue ; fi
+            ! _ValidateCronJobSchedule_ "$currCronSchedule" && continue
+
+            # Capitalize 1st char of any abbreviated short names #
+            currCronSchedule="$(_CapitalizeFirstChar_ "$currCronSchedule")"
+            currCronSchedule="$(echo "$currCronSchedule" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
+            break
         fi
 
         if _ValidateCronJobSchedule_ "$userInput"
         then
-            nextCronSchedule="$(echo "$userInput" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
-            break  # If valid input, break out of the loop #
+            # Capitalize 1st char of any abbreviated short names #
+            nextCronSchedule="$(_CapitalizeFirstChar_ "$userInput")"
+            nextCronSchedule="$(echo "$nextCronSchedule" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
+            break
         fi
     done
 
@@ -2659,7 +2690,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     #---------------------------------------------------------------#
     # Check if an expected USB-attached drive is still mounted.
-    # Make a special case when USB drive has Entware installed. 
+    # Make a special case when USB drive has Entware installed.
     #---------------------------------------------------------------#
     if echo "$FW_ZIP_BASE_DIR" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
        ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
@@ -2679,7 +2710,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     #---------------------------------------------------------#
     # If the expected directory path for the ZIP file is not
-    # found, we select the $HOME path instead as a temporary 
+    # found, we select the $HOME path instead as a temporary
     # fallback. This should work if free RAM is >= ~150MB.
     #---------------------------------------------------------#
     if [ ! -d "$FW_ZIP_BASE_DIR" ]
@@ -2708,13 +2739,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     current_version="$(_GetCurrentFWInstalledShortVersion_)"
 
     #---------------------------------------------------------#
-    # If the "F/W Update Check" in the WebGUI is disabled 
-    # return without further actions. This allows users to 
+    # If the "F/W Update Check" in the WebGUI is disabled
+    # return without further actions. This allows users to
     # control the "F/W Auto-Update" feature from one place.
     # However, when running in "Menu Mode" the assumption
     # is that the user wants to do a MANUAL Update Check
     # regardless of the state of the "F/W Update Check."
-    #---------------------------------------------------------#  
+    #---------------------------------------------------------#
     FW_UpdateCheckState="$(nvram get firmware_check_enable)"
     [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
     if [ "$FW_UpdateCheckState" -eq 0 ]
@@ -2761,7 +2792,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
+    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ]
     then
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
@@ -2899,7 +2930,7 @@ EOT
         Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
         # Check if ZIP file was downloaded to a USB-attached drive.
-        # Take into account special case for Entware "/opt/" paths. 
+        # Take into account special case for Entware "/opt/" paths.
         #---------------------------------------------------------------#
         if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
         then
@@ -3181,7 +3212,7 @@ EOT
 
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
-        # some reason & the "curl" cmd never returns, we create 
+        # some reason & the "curl" cmd never returns, we create
         # a background child process that sleeps for 3 minutes
         # and then kills the "curl" process if it still exists.
         # Otherwise, this child process does nothing & returns.
@@ -3198,7 +3229,7 @@ EOT
         ) &
         wait $curlPID ; curlPID=0
         #----------------------------------------------------------#
-        # Let's wait for 3 minutes here. If the router does not 
+        # Let's wait for 3 minutes here. If the router does not
         # reboot by itself after the process returns, do it now.
         #----------------------------------------------------------#
         sleep 180
@@ -3686,17 +3717,17 @@ _ShowMainMenu_()
 
    # Unsupported Model Checks #
    if [ "$ModelCheckFailed" != "0" ]; then
-      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script. 
-Please uninstall.\n"
+      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script.
+ Please uninstall.\n"
    fi
    if [ "$MinFirmwareCheckFailed" != "0" ]; then
       Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
-Please manually update to version $minimum_supported_version or higher to use this script.\n"
+ Please manually update to version $minimum_supported_version or higher to use this script.\n"
    fi
 
    if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
-      Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB). 
-A USB drive is required for F/W updates.\n"
+      Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB).
+ A USB drive is required for F/W updates.\n"
    fi
 
    arrowStr=" ${REDct}<<---${NOct}"
