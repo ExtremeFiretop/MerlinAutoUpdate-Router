@@ -433,11 +433,19 @@ readonly CYANct="\e[1;36m"
 readonly WHITEct="\e[1;37m"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-21] ##
+## Modified by Martinski W. [2024-Feb-22] ##
 ##----------------------------------------##
-readonly FW_Update_CRON_DefaultSchedule="0 0 * * 0"
+readonly FW_Update_CRON_DefaultSchedule="0 0 * * Sun"
+
+readonly CRON_MINS_RegEx="([*0-9]|[1-5][0-9])([\/,-]([0-9]|[1-5][0-9]))*"
+readonly CRON_HOUR_RegEx="([*0-9]|1[0-9]|2[0-3])([\/,-]([0-9]|1[0-9]|2[0-3]))*"
+readonly CRON_DAYofMONTH_RegEx="([*1-9]|[1-2][0-9]|3[0-1])([\/,-]([1-9]|[1-2][0-9]|3[0-1]))*"
+
 readonly CRON_DAYofWEEK_NAMES="(Sun|Mon|Tue|Wed|Thu|Fri|Sat)"
-readonly CRON_DAYofWEEK_RegEx="$CRON_DAYofWEEK_NAMES([\/,-]$CRON_DAYofWEEK_NAMES)*|[0-6*]([\/,-][0-6])*"
+readonly CRON_DAYofWEEK_RegEx="$CRON_DAYofWEEK_NAMES([\/,-]$CRON_DAYofWEEK_NAMES)*|[*0-6]([\/,-][0-6])*"
+
+readonly CRON_MONTH_NAMES="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
+readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1[0-2])([\/,-]([1-9]|1[0-2]))*"
 
 ##------------------------------------------##
 ## Modified by Martinski W. [2024-Jan-22]   ##
@@ -2059,70 +2067,95 @@ change_build_type()
 ##----------------------------------------##
 translate_schedule()
 {
-  minute="$(echo "$1" | cut -d' ' -f1)"
-  hour="$(echo "$1" | cut -d' ' -f2)"
-  day_of_month="$(echo "$1" | cut -d' ' -f3)"
-  month="$(echo "$1" | cut -d' ' -f4)"
-  day_of_week="$(echo "$1" | cut -d' ' -f5)"
+   minute="$(echo "$1" | cut -d' ' -f1)"
+   hour="$(echo "$1" | cut -d' ' -f2)"
+   day_of_month="$(echo "$1" | cut -d' ' -f3)"
+   month="$(echo "$1" | cut -d' ' -f4)"
+   day_of_week="$(echo "$1" | cut -d' ' -f5)"
 
-  # Function to add ordinal suffix to day
-  get_ordinal() {
-    case $1 in
-      1? | *[04-9]) echo "$1"th ;;
-      *1) echo "$1"st ;;
-      *2) echo "$1"nd ;;
-      *3) echo "$1"rd ;;
-    esac
-  }
+   # Function to add ordinal suffix to day
+   get_ordinal()
+   {
+      case $1 in
+          1? | *[04-9]) echo "$1"th ;;
+          *1) echo "$1"st ;;
+          *2) echo "$1"nd ;;
+          *3) echo "$1"rd ;;
+      esac
+   }
 
-  # Helper function to translate each field
-  translate_field() {
-    local field="$1"
-    local type="$2"
-    case "$field" in
-      '*') echo "every $type" ;;
-      */*) echo "every $(echo "$field" | cut -d'/' -f2) $type(s)" ;;
-      *-*) echo "from $(echo "$field" | cut -d'-' -f1) to $(echo "$field" | cut -d'-' -f2) $type(s)" ;;
-      *,*) echo "$(echo "$field" | sed 's/,/, /g') $type(s)" ;;
-      *) if [ "$type" = "day of the month" ]; then
-           echo "$(get_ordinal "$field") $type"
-         else
-           echo "$type $field"
-         fi ;;
-    esac
-  }
+   # Helper function to translate each field
+   translate_field()
+   {
+      local field="$1"
+      local type="$2"
+      case "$field" in
+          '*') echo "every $type" ;;
+          */*) echo "every $(echo "$field" | cut -d'/' -f2) $type(s)" ;;
+          *-*) echo "from $(echo "$field" | cut -d'-' -f1) to $(echo "$field" | cut -d'-' -f2) $type(s)" ;;
+          *,*) echo "$(echo "$field" | sed 's/,/, /g') $type(s)" ;;
+            *) if [ "$type" = "day of the month" ]; then
+                   echo "$(get_ordinal "$field") $type"
+               else
+                   echo "$type $field"
+               fi ;;
+      esac
+   }
 
-  minute_text="$(translate_field "$minute" "Minute")"
-  hour_text="$(translate_field "$hour" "Hour")"
-  day_of_month_text="$(translate_field "$day_of_month" "day of the month")"
-  month_text="$(translate_field "$month" "month")"
-  # Check specifically for day_of_week being "*"
-  if [ "$day_of_week" = "*" ]; then
-    day_of_week_text="Any week day"
-  else
-    day_of_week_text="$(translate_field "$day_of_week" "week day")"
-  fi
+   minute_text="$(translate_field "$minute" "Minute")"
+   hour_text="$(translate_field "$hour" "Hour")"
+   day_of_month_text="$(translate_field "$day_of_month" "day of the month")"
+   month_text="$(translate_field "$month" "month")"
+   # Check specifically for "day_of_week" being "*" #
+   if [ "$day_of_week" = "*" ]; then
+       day_of_week_text="Any day of the week"
+   else
+       day_of_week_text="$(translate_field "$day_of_week" "week day")"
+   fi
 
-  # Special handling for month to map numbers to names
-  month_map="1:January 2:February 3:March 4:April 5:May 6:June 7:July 8:August 9:September 10:October 11:November 12:December"
-  for month_pair in $month_map; do
-    month_number="$(echo "$month_pair" | cut -d':' -f1)"
-    month_name="$(echo "$month_pair" | cut -d':' -f2)"
-    month_text="$(echo "$month_text" | sed "s/\b${month_number}\b/$month_name/g")"
-  done
+   # Special handling for "month" to map short abbreviations to long full names #
+   month_text="$(echo "$month_text" | tr [A-Z] [a-z])"
+   month_map1="jan:January feb:February mar:March apr:April may:May jun:June jul:July aug:August sep:September oct:October nov:November dec:December"
+   for month_pair in $month_map1
+   do
+       month_stName="$(echo "$month_pair" | cut -d':' -f1)"
+       month_lnName="$(echo "$month_pair" | cut -d':' -f2)"
+       month_text="$(echo "$month_text" | sed "s/\b${month_stName}\b/$month_lnName/g")"
+   done
 
-  # Special handling for day of the week to map numbers to names
-  dow_map="0:Sunday 1:Monday 2:Tuesday 3:Wednesday 4:Thursday 5:Friday 6:Saturday"
-  for dow_pair in $dow_map; do
-    dow_number="$(echo "$dow_pair" | cut -d':' -f1)"
-    dow_name="$(echo "$dow_pair" | cut -d':' -f2)"
-    if [ "$day_of_week_text" != "Any week day" ]; then
-      day_of_week_text="$(echo "$day_of_week_text" | sed "s/\b${dow_number}\b/$dow_name/g")"
-    fi
-  done
+   # Special handling for "month" to map month numbers to long full names #
+   month_map2="1:January 2:February 3:March 4:April 5:May 6:June 7:July 8:August 9:September 10:October 11:November 12:December"
+   for month_pair in $month_map2
+   do
+       month_number="$(echo "$month_pair" | cut -d':' -f1)"
+       month_lnName="$(echo "$month_pair" | cut -d':' -f2)"
+       month_text="$(echo "$month_text" | sed "s/\b${month_number}\b/$month_lnName/g")"
+   done
 
-  echo "At $hour_text, and $minute_text."
-  echo "$day_of_week_text, $day_of_month_text, in $month_text."
+   if [ "$day_of_week_text" != "Any day of the week" ]
+   then
+       # Special handling for "day of the week" to map short abbreviations to long full names #
+       day_of_week_text="$(echo "$day_of_week_text" | tr [A-Z] [a-z])"
+       dow_map1="sun:Sunday mon:Monday tue:Tuesday wed:Wednesday thu:Thursday fri:Friday sat:Saturday"
+       for dow_pair in $dow_map1
+       do
+           dow_stName="$(echo "$dow_pair" | cut -d':' -f1)"
+           dow_lnName="$(echo "$dow_pair" | cut -d':' -f2)"
+           day_of_week_text="$(echo "$day_of_week_text" | sed "s/\b${dow_stName}\b/$dow_lnName/g")"
+       done
+
+       # Special handling for "day of the week" to map day numbers to long full names #
+       dow_map2="0:Sunday 1:Monday 2:Tuesday 3:Wednesday 4:Thursday 5:Friday 6:Saturday"
+       for dow_pair in $dow_map2
+       do
+           dow_number="$(echo "$dow_pair" | cut -d':' -f1)"
+           dow_lnName="$(echo "$dow_pair" | cut -d':' -f2)"
+           day_of_week_text="$(echo "$day_of_week_text" | sed "s/\b${dow_number}\b/$dow_lnName/g")"
+       done
+   fi
+
+   echo "At $hour_text, and $minute_text."
+   echo "$day_of_week_text, $day_of_month_text, in $month_text."
 }
 
 ##----------------------------------------------##
@@ -2237,54 +2270,101 @@ _Set_FW_UpdatePostponementDays_()
    return 0
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-22] ##
+##-------------------------------------##
+_ValidateCronJobSchedule_()
+{
+   local cronSchedsStr
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       printf "${REDct}INVALID cron schedule string: [EMPTY].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print NF}')"
+   if [ "$cronSchedsStr" -ne 5 ]
+   then
+       printf "${REDct}INVALID cron schedule string [$1]. Incorrect number of parameters.${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $1}')"
+   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_MINS_RegEx})$"
+   then
+       printf "${REDct}INVALID 'minute' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $2}')"
+   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_HOUR_RegEx})$"
+   then
+       printf "${REDct}INVALID 'hour' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $3}')"
+   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_DAYofMONTH_RegEx})$"
+   then
+       printf "${REDct}INVALID 'day of month' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $4}')"
+   if ! echo "$cronSchedsStr" | grep -qiE "^(${CRON_MONTH_RegEx})$"
+   then
+       printf "${REDct}INVALID 'month' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $5}')"
+   if ! echo "$cronSchedsStr" | grep -qiE "^(${CRON_DAYofWEEK_RegEx})$"
+   then
+       printf "${REDct}INVALID 'day of week' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   return 0
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-12] ##
+## Modified by Martinski W. [2024-Feb-22] ##
 ##----------------------------------------##
 _Set_FW_UpdateCronSchedule_()
 {
     printf "Changing Firmware Update Schedule...\n"
 
-    local retCode=1  current_schedule=""  new_schedule=""  userInput
+    local retCode=1  currCronSchedule  nextCronSchedule  userInput
 
-    FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
-    if [ "$FW_UpdateCronJobSchedule" = "TBD" ] ; then FW_UpdateCronJobSchedule="" ; fi
-
-    if [ -n "$FW_UpdateCronJobSchedule" ]
+    currCronSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+    if [ -z "$currCronSchedule" ] || [ "$currCronSchedule" = "TBD" ]
     then
-        # Extract the schedule part (the first five fields) from the current cron job line
-        current_schedule="$(echo "$FW_UpdateCronJobSchedule" | awk '{print $1, $2, $3, $4, $5}')"
-        new_schedule="$current_schedule"
-
-        # Translate the current schedule to English
-        current_schedule_english="$(translate_schedule "$current_schedule")"
-        printf "Current Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+        nextCronSchedule=""
+        currCronSchedule="$FW_UpdateCronJobSchedule"
     else
-        new_schedule="$FW_Update_CRON_DefaultSchedule"
+        nextCronSchedule="$currCronSchedule"
+        # Translate the current schedule to English (human readable form) #
+        current_schedule_english="$(translate_schedule "$currCronSchedule")"
+        printf "Current Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
     fi
 
-    while true; do  # Loop to keep asking for input
+    while true
+    do
         printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * 0${NOct}' for every Sunday at midnight)"
-        if [ -z "$current_schedule" ]
-        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${new_schedule}${NOct}]:  "
-        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${current_schedule}${NOct}]:  "
+        if [ -z "$currCronSchedule" ]
+        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${nextCronSchedule}${NOct}]:  "
+        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${currCronSchedule}${NOct}]:  "
         fi
         read -r userInput
 
         # If the user enters 'e', break out of the loop and return to the main menu
         if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
-        then break ; fi
-
-        # Validate the input using grep
-        if echo "$userInput" | grep -qiE "^([0-9,*\/-]+[[:space:]]+){4}($CRON_DAYofWEEK_RegEx)$"
         then
-            new_schedule="$(echo "$userInput" | awk '{print $1, $2, $3, $4, $5}')"
-            break  # If valid input, break out of the loop
-        else
-            printf "${REDct}INVALID schedule.${NOct}\n"
+            if _ValidateCronJobSchedule_ "$currCronSchedule"
+            then break ; else continue ; fi
+        fi
+
+        if _ValidateCronJobSchedule_ "$userInput"
+        then
+            nextCronSchedule="$(echo "$userInput" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
+            break  # If valid input, break out of the loop #
         fi
     done
 
-    [ "$new_schedule" = "$current_schedule" ] && return 0
+    [ "$nextCronSchedule" = "$currCronSchedule" ] && return 0
 
     FW_UpdateCheckState="$(nvram get firmware_check_enable)"
     [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
@@ -2292,18 +2372,18 @@ _Set_FW_UpdateCronSchedule_()
     then
         # Add/Update cron job ONLY if "F/W Update Check" is enabled #
         printf "Updating '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
-        if _AddCronJobEntry_ "$new_schedule"
+        if _AddCronJobEntry_ "$nextCronSchedule"
         then
             retCode=0
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
-            current_schedule_english="$(translate_schedule "$new_schedule")"
+            current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
         else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
         fi
     else
-        Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$new_schedule"
+        Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$nextCronSchedule"
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was configured but not added.\n"
         printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
     fi
