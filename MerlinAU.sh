@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-18
+# Last Modified: 2024-Feb-22
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.4
+readonly SCRIPT_VERSION=1.0.5
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -383,7 +383,7 @@ _FWVersionStrToNum_()
     local verNum  verStr="$1"  nonProductionVersionWeight=0
     local fwBranchVers=""  numFields
 
-    # Check for 'alpha/beta' in the version string and 
+    # Check for 'alpha/beta' in the version string and
     # adjust weight value if USE_BETA_WEIGHT is true
     if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && \
         echo "$verStr" | grep -qiE 'alpha|beta'
@@ -433,11 +433,19 @@ readonly CYANct="\e[1;36m"
 readonly WHITEct="\e[1;37m"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-12] ##
+## Modified by Martinski W. [2024-Feb-22] ##
 ##----------------------------------------##
-readonly FW_Update_CRON_DefaultSchedule="0 0 * * 0"
+readonly FW_Update_CRON_DefaultSchedule="0 0 * * Sun"
+
+readonly CRON_MINS_RegEx="([*0-9]|[1-5][0-9])([\/,-]([0-9]|[1-5][0-9]))*"
+readonly CRON_HOUR_RegEx="([*0-9]|1[0-9]|2[0-3])([\/,-]([0-9]|1[0-9]|2[0-3]))*"
+readonly CRON_DAYofMONTH_RegEx="([*1-9]|[1-2][0-9]|3[0-1])([\/,-]([1-9]|[1-2][0-9]|3[0-1]))*"
+
 readonly CRON_DAYofWEEK_NAMES="(Sun|Mon|Tue|Wed|Thu|Fri|Sat)"
-readonly CRON_DAYofWEEK_RegEx="$CRON_DAYofWEEK_NAMES([,-]$CRON_DAYofWEEK_NAMES)*|[0-6]([,-][0-6])*"
+readonly CRON_DAYofWEEK_RegEx="$CRON_DAYofWEEK_NAMES([\/,-]$CRON_DAYofWEEK_NAMES)*|[*0-6]([\/,-][0-6])*"
+
+readonly CRON_MONTH_NAMES="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
+readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1[0-2])([\/,-]([1-9]|1[0-2]))*"
 
 ##------------------------------------------##
 ## Modified by Martinski W. [2024-Jan-22]   ##
@@ -1015,7 +1023,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
 ##------------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
-   local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath="" 
+   local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath=""
 
    while true
    do
@@ -1090,8 +1098,8 @@ _Init_Custom_Settings_Config_
 ## Modified by ExtremeFiretop [2024-Jan-27] ##
 ##------------------------------------------##
 # NOTE:
-# Depending on available RAM & storage capacity of the 
-# target router, it may be required to have USB-attached 
+# Depending on available RAM & storage capacity of the
+# target router, it may be required to have USB-attached
 # storage for the ZIP file so that it can be downloaded
 # in a separate directory from the firmware bin file.
 #-----------------------------------------------------------
@@ -1159,15 +1167,15 @@ fi
 ##----------------------------------------##
 #-------------------------------------------------------------------------------------------
 # This code is in case the user-selected USB mount point isn't available anymore.
-# If the USB drive is selected as the log location but it goes offline for some reason, 
+# If the USB drive is selected as the log location but it goes offline for some reason,
 # any call to the "Say" function creates a new '/tmp/mnt/XXXX' directory.
-# In such a case where the USB drive is unmounted, we need to change the log directory 
-# back to a local directory. First if-statement executes first and updates to local 'jffs' 
-# directory if no USB drives are found. If ANY DefaultUSBMountPoint found, then move the 
-# log files from their local jffs location to the default mount location. 
-# We don't know the user selected yet because it's local at this time and was changed 
-# by the else statement. Remove the old log directory location from jffs, and update the 
-# settings file again to the new default again. This creates a semi-permanent switch which 
+# In such a case where the USB drive is unmounted, we need to change the log directory
+# back to a local directory. First if-statement executes first and updates to local 'jffs'
+# directory if no USB drives are found. If ANY DefaultUSBMountPoint found, then move the
+# log files from their local jffs location to the default mount location.
+# We don't know the user selected yet because it's local at this time and was changed
+# by the else statement. Remove the old log directory location from jffs, and update the
+# settings file again to the new default again. This creates a semi-permanent switch which
 # can reset back to default if the user-selected mount points aren't valid anymore.
 #-------------------------------------------------------------------------------------------
 UserSelectedLogPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
@@ -1207,7 +1215,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-17] ##
+## Modified by Martinski W. [2024-Feb-20] ##
 ##----------------------------------------##
 _CreateEMailContent_()
 {
@@ -1246,22 +1254,30 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        STOP_FW_UPDATE_APPROVAL)
-           emailBodyTitle="WARNING:"
+           emailBodyTitle="WARNING"
            {
              echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        NEW_BM_BACKUP_FAILED)
-           emailBodyTitle="WARNING:"
+           emailBodyTitle="WARNING"
            {
              echo "Backup failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled."
              printf "\nPlease check <b>backupmon.sh</b> configuration and retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
+       FAILED_FW_UNZIP_STATUS)
+           emailBodyTitle="**ERROR**"
+           {
+             echo "Unable to decompress the F/W Update ZIP file for version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled due to decompress error."
+             printf "\nPlease retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
        FAILED_FW_CHECKSUM_STATUS)
-           emailBodyTitle="WARNING:"
+           emailBodyTitle="**ERROR**"
            {
              echo "Checksum verification failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled due to checksum mismatch."
@@ -1269,7 +1285,7 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_FW_UPDATE_STATUS)
-           emailBodyTitle="**ERROR**:"
+           emailBodyTitle="**ERROR**"
            {
              echo "Flashing of new F/W Update version <b>${fwNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
@@ -1289,8 +1305,8 @@ _CreateEMailContent_()
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [No saved info file]."
                return 1
            fi
-           savedInstalledVersion="$(grep "FW_InstalledVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
-           savedNewUpdateVersion="$(grep "FW_NewUpdateVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
+           savedInstalledVersion="$(grep "^FW_InstalledVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
+           savedNewUpdateVersion="$(grep "^FW_NewUpdateVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
            if [ -z "$savedInstalledVersion" ] || [ -z "$savedNewUpdateVersion" ]
            then
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [Saved info is empty]."
@@ -1305,7 +1321,7 @@ _CreateEMailContent_()
                 printf "\nThe F/W version that was previously installed:\n<b>${savedInstalledVersion}</b>\n"
               } > "$tempEMailBodyMsg"
            else
-              emailBodyTitle="**ERROR**:"
+              emailBodyTitle="**ERROR**"
               {
                 echo "Flashing of new F/W Update version <b>${savedNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
                 printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
@@ -1413,7 +1429,7 @@ _CheckEMailConfigFileFromAMTM_()
    fi
 
    FROM_NAME=""  TO_NAME=""  FROM_ADDRESS=""  TO_ADDRESS=""
-   USERNAME=""  SMTP=""  PORT=""  PROTOCOL=""  
+   USERNAME=""  SMTP=""  PORT=""  PROTOCOL=""
    PASSWORD=""  emailPwEnc=""
 
    # Custom Options ##
@@ -1687,7 +1703,7 @@ _HasRouterMoreThan256MBtotalRAM_()
 # The actual amount of RAM that is available for any new process
 # (*without* using the swap file) can be roughly estimated from
 # "MemFree" & "Page Cache" (i.e. Active files + Inactive files),
-# This estimate must take into account that the overall system 
+# This estimate must take into account that the overall system
 # (kernel + native services + tmpfs) needs a minimum amount of RAM
 # to continue to work, and that not all reclaimable Page Cache can
 # be reclaimed because some may actually be in used at the time.
@@ -1724,17 +1740,17 @@ get_free_ram() {
 ##---------------------------------------##
 get_required_space() {
     local url="$1"
-    local zip_file_size_kb extracted_file_size_buffer_kb 
+    local zip_file_size_kb extracted_file_size_buffer_kb
     local overhead_percentage=50  # Overhead percentage (e.g., 50%)
-    
+
     # Size of the ZIP file in bytes
     local zip_file_size_bytes="$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
     # Convert bytes to kilobytes
     zip_file_size_kb="$((zip_file_size_bytes / 1024))"
-    
+
     # Calculate overhead based on the percentage
     local overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
-    
+
     # Calculate total required space
     local total_required_kb="$((zip_file_size_kb + overhead_kb))"
     echo "$total_required_kb"
@@ -1891,7 +1907,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
 {
     local url="$1"
 
-    local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | 
+    local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | \
         awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
 
     if [ -z "$links_and_versions" ]
@@ -1986,6 +2002,9 @@ _toggle_beta_updates_() {
     fi
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-18] ##
+##------------------------------------------##
 change_build_type()
 {
    local doReturnToMenu  buildtypechoice
@@ -2043,74 +2062,100 @@ change_build_type()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-12] ##
-##------------------------------------------##
-translate_schedule() {
-  minute="$(echo "$1" | cut -d' ' -f1)"
-  hour="$(echo "$1" | cut -d' ' -f2)"
-  day_of_month="$(echo "$1" | cut -d' ' -f3)"
-  month="$(echo "$1" | cut -d' ' -f4)"
-  day_of_week="$(echo "$1" | cut -d' ' -f5)"
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-22] ##
+##----------------------------------------##
+translate_schedule()
+{
+   minute="$(echo "$1" | cut -d' ' -f1)"
+   hour="$(echo "$1" | cut -d' ' -f2)"
+   day_of_month="$(echo "$1" | cut -d' ' -f3)"
+   month="$(echo "$1" | cut -d' ' -f4)"
+   day_of_week="$(echo "$1" | cut -d' ' -f5)"
 
-  # Function to add ordinal suffix to day
-  get_ordinal() {
-    case $1 in
-      1? | *[04-9]) echo "$1"th ;;
-      *1) echo "$1"st ;;
-      *2) echo "$1"nd ;;
-      *3) echo "$1"rd ;;
-    esac
-  }
+   # Function to add ordinal suffix to day
+   get_ordinal()
+   {
+      case $1 in
+          1? | *[04-9]) echo "$1"th ;;
+          *1) echo "$1"st ;;
+          *2) echo "$1"nd ;;
+          *3) echo "$1"rd ;;
+      esac
+   }
 
-  # Helper function to translate each field
-  translate_field() {
-    local field="$1"
-    local type="$2"
-    case "$field" in
-      '*') echo "every $type" ;;
-      */*) echo "every $(echo "$field" | cut -d'/' -f2) $type(s)" ;;
-      *-*) echo "from $(echo "$field" | cut -d'-' -f1) to $(echo "$field" | cut -d'-' -f2) $type(s)" ;;
-      *,*) echo "$(echo "$field" | sed 's/,/, /g') $type(s)" ;;
-      *) if [ "$type" = "day of the month" ]; then
-           echo "$(get_ordinal "$field") $type"
-         else
-           echo "$type $field"
-         fi ;;
-    esac
-  }
+   # Helper function to translate each field
+   translate_field()
+   {
+      local field="$1"
+      local type="$2"
+      case "$field" in
+          '*') echo "every $type" ;;
+          */*) echo "every $(echo "$field" | cut -d'/' -f2) $type(s)" ;;
+          *-*) echo "from $(echo "$field" | cut -d'-' -f1) to $(echo "$field" | cut -d'-' -f2) $type(s)" ;;
+          *,*) echo "$(echo "$field" | sed 's/,/, /g') $type(s)" ;;
+            *) if [ "$type" = "day of the month" ]; then
+                   echo "$(get_ordinal "$field") $type"
+               else
+                   echo "$type $field"
+               fi ;;
+      esac
+   }
 
-  minute_text="$(translate_field "$minute" "Minute")"
-  hour_text="$(translate_field "$hour" "Hour")"
-  day_of_month_text="$(translate_field "$day_of_month" "day of the month")"
-  month_text="$(translate_field "$month" "month")"
-  # Check specifically for day_of_week being "*"
-  if [ "$day_of_week" = "*" ]; then
-    day_of_week_text="Any week day"
-  else
-    day_of_week_text="$(translate_field "$day_of_week" "week day")"
-  fi
+   minute_text="$(translate_field "$minute" "Minute")"
+   hour_text="$(translate_field "$hour" "Hour")"
+   day_of_month_text="$(translate_field "$day_of_month" "day of the month")"
+   month_text="$(translate_field "$month" "month")"
+   # Check specifically for "day_of_week" being "*" #
+   if [ "$day_of_week" = "*" ]; then
+       day_of_week_text="Any day of the week"
+   else
+       day_of_week_text="$(translate_field "$day_of_week" "week day")"
+   fi
 
-  # Special handling for month to map numbers to names
-  month_map="1:January 2:February 3:March 4:April 5:May 6:June 7:July 8:August 9:September 10:October 11:November 12:December"
-  for month_pair in $month_map; do
-    month_number="$(echo "$month_pair" | cut -d':' -f1)"
-    month_name="$(echo "$month_pair" | cut -d':' -f2)"
-    month_text="$(echo "$month_text" | sed "s/$month_number/$month_name/g")"
-  done
+   # Special handling for "month" to map short abbreviations to long full names #
+   month_text="$(echo "$month_text" | tr 'A-Z' 'a-z')"
+   month_map1="jan:January feb:February mar:March apr:April may:May jun:June jul:July aug:August sep:September oct:October nov:November dec:December"
+   for month_pair in $month_map1
+   do
+       month_stName="$(echo "$month_pair" | cut -d':' -f1)"
+       month_lnName="$(echo "$month_pair" | cut -d':' -f2)"
+       month_text="$(echo "$month_text" | sed "s/\b${month_stName}\b/$month_lnName/g")"
+   done
 
-  # Special handling for day of the week to map numbers to names
-  dow_map="0:Sunday 1:Monday 2:Tuesday 3:Wednesday 4:Thursday 5:Friday 6:Saturday"
-  for dow_pair in $dow_map; do
-    dow_number="$(echo "$dow_pair" | cut -d':' -f1)"
-    dow_name="$(echo "$dow_pair" | cut -d':' -f2)"
-    if [ "$day_of_week_text" != "Any week day" ]; then
-      day_of_week_text="$(echo "$day_of_week_text" | sed "s/$dow_number/$dow_name/g")"
-    fi
-  done
+   # Special handling for "month" to map month numbers to long full names #
+   month_map2="1:January 2:February 3:March 4:April 5:May 6:June 7:July 8:August 9:September 10:October 11:November 12:December"
+   for month_pair in $month_map2
+   do
+       month_number="$(echo "$month_pair" | cut -d':' -f1)"
+       month_lnName="$(echo "$month_pair" | cut -d':' -f2)"
+       month_text="$(echo "$month_text" | sed "s/\b${month_number}\b/$month_lnName/g")"
+   done
 
-  echo "At $hour_text, and $minute_text."
-  echo "$day_of_week_text, $day_of_month_text, in $month_text."
+   if [ "$day_of_week_text" != "Any day of the week" ]
+   then
+       # Special handling for "day of the week" to map short abbreviations to long full names #
+       day_of_week_text="$(echo "$day_of_week_text" | tr 'A-Z' 'a-z')"
+       dow_map1="sun:Sunday mon:Monday tue:Tuesday wed:Wednesday thu:Thursday fri:Friday sat:Saturday"
+       for dow_pair in $dow_map1
+       do
+           dow_stName="$(echo "$dow_pair" | cut -d':' -f1)"
+           dow_lnName="$(echo "$dow_pair" | cut -d':' -f2)"
+           day_of_week_text="$(echo "$day_of_week_text" | sed "s/\b${dow_stName}\b/$dow_lnName/g")"
+       done
+
+       # Special handling for "day of the week" to map day numbers to long full names #
+       dow_map2="0:Sunday 1:Monday 2:Tuesday 3:Wednesday 4:Thursday 5:Friday 6:Saturday"
+       for dow_pair in $dow_map2
+       do
+           dow_number="$(echo "$dow_pair" | cut -d':' -f1)"
+           dow_lnName="$(echo "$dow_pair" | cut -d':' -f2)"
+           day_of_week_text="$(echo "$day_of_week_text" | sed "s/\b${dow_number}\b/$dow_lnName/g")"
+       done
+   fi
+
+   echo "At $hour_text, and $minute_text."
+   echo "$day_of_week_text, $day_of_month_text, in $month_text."
 }
 
 ##----------------------------------------------##
@@ -2213,7 +2258,7 @@ _Set_FW_UpdatePostponementDays_()
           [ "$userInput" -le "$FW_UpdateMaximumPostponementDays" ]
        then newPostponementDays="$userInput" ; break ; fi
 
-       printf "${REDct}INVALID input.${NOct}\n" 
+       printf "${REDct}INVALID input.${NOct}\n"
    done
 
    if [ "$newPostponementDays" != "$oldPostponementDays" ]
@@ -2225,54 +2270,132 @@ _Set_FW_UpdatePostponementDays_()
    return 0
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-22] ##
+##-------------------------------------##
+_CapitalizeFirstChar_()
+{
+   if [ $# -eq 0 ] && [ -z "$1" ]
+   then echo "$1" ; return 1; fi
+
+   local upperChar  capWord  origStr="$1"
+   local prevIFS="$IFS"
+
+   IFS="/,-$IFS"
+   for origWord in $1
+   do
+       upperChar="$(echo "${origWord:0:1}" | tr 'a-z' 'A-Z')"
+       if [ -n "$upperChar" ]
+       then
+           capWord="${upperChar}${origWord:1}"
+           origStr="$(echo "$origStr" | sed "s/\b${origWord}\b/$capWord/g")"
+       fi
+   done
+   IFS="$prevIFS"
+   echo "$origStr"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-22] ##
+##-------------------------------------##
+_ValidateCronJobSchedule_()
+{
+   local cronSchedsStr
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       printf "${REDct}INVALID cron schedule string: [EMPTY].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print NF}')"
+   if [ "$cronSchedsStr" -ne 5 ]
+   then
+       printf "${REDct}INVALID cron schedule string [$1]. Incorrect number of parameters.${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $1}')"
+   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_MINS_RegEx})$"
+   then
+       printf "${REDct}INVALID 'minute' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $2}')"
+   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_HOUR_RegEx})$"
+   then
+       printf "${REDct}INVALID 'hour' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $3}')"
+   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_DAYofMONTH_RegEx})$"
+   then
+       printf "${REDct}INVALID 'day of month' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $4}')"
+   if ! echo "$cronSchedsStr" | grep -qiE "^(${CRON_MONTH_RegEx})$"
+   then
+       printf "${REDct}INVALID 'month' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $5}')"
+   if ! echo "$cronSchedsStr" | grep -qiE "^(${CRON_DAYofWEEK_RegEx})$"
+   then
+       printf "${REDct}INVALID 'day of week' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   return 0
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-12] ##
+## Modified by Martinski W. [2024-Feb-22] ##
 ##----------------------------------------##
 _Set_FW_UpdateCronSchedule_()
 {
     printf "Changing Firmware Update Schedule...\n"
 
-    local retCode=1  current_schedule=""  new_schedule=""  userInput
+    local retCode=1  currCronSchedule  nextCronSchedule  userInput
 
-    FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
-    if [ "$FW_UpdateCronJobSchedule" = "TBD" ] ; then FW_UpdateCronJobSchedule="" ; fi
-
-    if [ -n "$FW_UpdateCronJobSchedule" ]
+    currCronSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+    if [ -z "$currCronSchedule" ] || [ "$currCronSchedule" = "TBD" ]
     then
-        # Extract the schedule part (the first five fields) from the current cron job line
-        current_schedule="$(echo "$FW_UpdateCronJobSchedule" | awk '{print $1, $2, $3, $4, $5}')"
-        new_schedule="$current_schedule"
-
-        # Translate the current schedule to English
-        current_schedule_english="$(translate_schedule "$current_schedule")"
-        printf "Current Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+        nextCronSchedule=""
+        currCronSchedule="$FW_UpdateCronJobSchedule"
     else
-        new_schedule="$FW_Update_CRON_DefaultSchedule"
+        nextCronSchedule="$currCronSchedule"
+        # Translate the current schedule to English (human readable form) #
+        current_schedule_english="$(translate_schedule "$currCronSchedule")"
+        printf "Current Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
     fi
 
-    while true; do  # Loop to keep asking for input
-        printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * 0${NOct}' for every Sunday at midnight)"
-        if [ -z "$current_schedule" ]
-        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${new_schedule}${NOct}]:  "
-        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${current_schedule}${NOct}]:  "
+    while true
+    do
+        printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * Sun${NOct}' for every Sunday at midnight)"
+        if [ -z "$currCronSchedule" ]
+        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${nextCronSchedule}${NOct}]:  "
+        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${currCronSchedule}${NOct}]:  "
         fi
         read -r userInput
 
         # If the user enters 'e', break out of the loop and return to the main menu
         if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
-        then break ; fi
-
-        # Validate the input using grep
-        if echo "$userInput" | grep -qiE "^([0-9,*\/-]+[[:space:]]+){4}($CRON_DAYofWEEK_RegEx)$"
         then
-            new_schedule="$(echo "$userInput" | awk '{print $1, $2, $3, $4, $5}')"
-            break  # If valid input, break out of the loop
-        else
-            printf "${REDct}INVALID schedule.${NOct}\n"
+            ! _ValidateCronJobSchedule_ "$currCronSchedule" && continue
+
+            # Capitalize 1st char of any abbreviated short names #
+            currCronSchedule="$(_CapitalizeFirstChar_ "$currCronSchedule")"
+            currCronSchedule="$(echo "$currCronSchedule" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
+            break
+        fi
+
+        if _ValidateCronJobSchedule_ "$userInput"
+        then
+            # Capitalize 1st char of any abbreviated short names #
+            nextCronSchedule="$(_CapitalizeFirstChar_ "$userInput")"
+            nextCronSchedule="$(echo "$nextCronSchedule" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
+            break
         fi
     done
 
-    [ "$new_schedule" = "$current_schedule" ] && return 0
+    [ "$nextCronSchedule" = "$currCronSchedule" ] && return 0
 
     FW_UpdateCheckState="$(nvram get firmware_check_enable)"
     [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
@@ -2280,18 +2403,18 @@ _Set_FW_UpdateCronSchedule_()
     then
         # Add/Update cron job ONLY if "F/W Update Check" is enabled #
         printf "Updating '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
-        if _AddCronJobEntry_ "$new_schedule"
+        if _AddCronJobEntry_ "$nextCronSchedule"
         then
             retCode=0
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
-            current_schedule_english="$(translate_schedule "$new_schedule")"
+            current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
         else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
         fi
     else
-        Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$new_schedule"
+        Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$nextCronSchedule"
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was configured but not added.\n"
         printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
     fi
@@ -2567,7 +2690,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     #---------------------------------------------------------------#
     # Check if an expected USB-attached drive is still mounted.
-    # Make a special case when USB drive has Entware installed. 
+    # Make a special case when USB drive has Entware installed.
     #---------------------------------------------------------------#
     if echo "$FW_ZIP_BASE_DIR" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
        ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
@@ -2587,7 +2710,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     #---------------------------------------------------------#
     # If the expected directory path for the ZIP file is not
-    # found, we select the $HOME path instead as a temporary 
+    # found, we select the $HOME path instead as a temporary
     # fallback. This should work if free RAM is >= ~150MB.
     #---------------------------------------------------------#
     if [ ! -d "$FW_ZIP_BASE_DIR" ]
@@ -2616,13 +2739,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     current_version="$(_GetCurrentFWInstalledShortVersion_)"
 
     #---------------------------------------------------------#
-    # If the "F/W Update Check" in the WebGUI is disabled 
-    # return without further actions. This allows users to 
+    # If the "F/W Update Check" in the WebGUI is disabled
+    # return without further actions. This allows users to
     # control the "F/W Auto-Update" feature from one place.
     # However, when running in "Menu Mode" the assumption
     # is that the user wants to do a MANUAL Update Check
     # regardless of the state of the "F/W Update Check."
-    #---------------------------------------------------------#  
+    #---------------------------------------------------------#
     FW_UpdateCheckState="$(nvram get firmware_check_enable)"
     [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
     if [ "$FW_UpdateCheckState" -eq 0 ]
@@ -2669,7 +2792,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ] 
+    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ]
     then
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
@@ -2703,16 +2826,16 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Check for the presence of backupmon.sh script
         if [ -f "/jffs/scripts/backupmon.sh" ]; then
             # Extract version number from backupmon.sh
-            BM_VERSION=$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')
+            BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
 
             # Adjust version format from 1.46 to 1.4.6 if needed
-            DOT_COUNT=$(echo "$BM_VERSION" | tr -cd '.' | wc -c)
+            DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
             if [ "$DOT_COUNT" -eq 0 ]; then
                 # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
                 BM_VERSION="${BM_VERSION}.0.0"
             elif [ "$DOT_COUNT" -eq 1 ]; then
                 # For versions like 1.46, insert a dot before the last two digits
-                BM_VERSION=$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')
+                BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
             fi
 
             # Convert version strings to comparable numbers
@@ -2780,25 +2903,39 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jan-22] ##
+    ## Modified by ExtremeFiretop [2024-Feb-18] ##
     ##------------------------------------------##
     freeRAM_kb="$(get_free_ram)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Feb-20] ##
+    ##----------------------------------------##
+    Say "-----------------------------------------------------------"
+    # List & log the contents of the ZIP file #
+    while IFS="$(printf '\n')" read -r uzLINE
+    do Say "$uzLINE" ; done <<EOT
+$(unzip -l "$FW_ZIP_FPATH" 2>&1)
+EOT
+    Say "-----------------------------------------------------------"
+
     # Extracting the firmware binary image #
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README*
+    if output="$(unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1)"
     then
+        echo "$output" | while IFS= read -r line; do
+            Say "$line"
+        done
+        Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
         # Check if ZIP file was downloaded to a USB-attached drive.
-        # Take into account special case for Entware "/opt/" paths. 
+        # Take into account special case for Entware "/opt/" paths.
         #---------------------------------------------------------------#
         if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
         then
             # It's not on a USB drive, so it's safe to delete it #
             rm -f "$FW_ZIP_FPATH"
-        #
         elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
         then
             #-------------------------------------------------------------#
@@ -2820,6 +2957,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         # of trying to figure out why uncompressing it failed.
         #------------------------------------------------------------#
         rm -f "$FW_ZIP_FPATH"
+        _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
@@ -2998,7 +3136,11 @@ Please manually update to version $minimum_supported_version or higher to use th
         printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
         printf "Once started, the flashing process CANNOT be interrupted.\n"
         if ! _WaitForYESorNO_ "Continue?"
-        then _DoCleanUp_ 1 "$keepZIPfile" ; return 1 ; fi
+        then
+            Say "F/W Update was cancelled by user."
+            _DoCleanUp_ 1 "$keepZIPfile"
+            return 1
+        fi
     fi
 
     #------------------------------------------------------------#
@@ -3070,7 +3212,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
-        # some reason & the "curl" cmd never returns, we create 
+        # some reason & the "curl" cmd never returns, we create
         # a background child process that sleeps for 3 minutes
         # and then kills the "curl" process if it still exists.
         # Otherwise, this child process does nothing & returns.
@@ -3087,7 +3229,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         ) &
         wait $curlPID ; curlPID=0
         #----------------------------------------------------------#
-        # Let's wait for 3 minutes here. If the router does not 
+        # Let's wait for 3 minutes here. If the router does not
         # reboot by itself after the process returns, do it now.
         #----------------------------------------------------------#
         sleep 180
@@ -3551,9 +3693,9 @@ FW_InstalledVers="$(_GetCurrentFWInstalledShortVersion_)"
 FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-19] ##
+##------------------------------------------##
 _ShowMainMenu_()
 {
    #-----------------------------------------------------------#
@@ -3575,17 +3717,17 @@ _ShowMainMenu_()
 
    # Unsupported Model Checks #
    if [ "$ModelCheckFailed" != "0" ]; then
-      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script. 
-Please uninstall.\n"
+      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script.
+ Please uninstall.\n"
    fi
    if [ "$MinFirmwareCheckFailed" != "0" ]; then
       Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
-Please manually update to version $minimum_supported_version or higher to use this script.\n"
+ Please manually update to version $minimum_supported_version or higher to use this script.\n"
    fi
 
    if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
-      Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB). 
-A USB drive is required for F/W updates.\n"
+      Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB).
+ A USB drive is required for F/W updates.\n"
    fi
 
    arrowStr=" ${REDct}<<---${NOct}"
@@ -3615,10 +3757,10 @@ A USB drive is required for F/W updates.\n"
    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
    if [ "$FW_UpdateCheckState" -eq 0 ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Enable F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  Toggle F/W Update Check"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]"
    else
-       printf "\n  ${GRNct}3${NOct}.  Disable F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  Toggle F/W Update Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]"
    fi
    printf "\n${padStr}[Last Notification Date: $notificationStr]\n"
@@ -3631,10 +3773,10 @@ A USB drive is required for F/W updates.\n"
    then
       if "$sendEMailNotificationsFlag"
       then
-          printf "\n ${GRNct}em${NOct}.  Disable F/W Update Email Notifications"
+          printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
           printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
       else
-          printf "\n ${GRNct}em${NOct}.  Enable F/W Update Email Notifications"
+          printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
           printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
       fi
    fi
@@ -3653,9 +3795,9 @@ A USB drive is required for F/W updates.\n"
    printf "${SEPstr}\n"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-19] ##
+##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
    clear
@@ -3674,20 +3816,20 @@ _ShowAdvancedOptionsMenu_()
    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
    if [ "$checkChangeLogSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}4${NOct}.  Enable Change-log Check"
+       printf "\n  ${GRNct}4${NOct}.  Toggle Change-log Check"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}4${NOct}.  Disable Change-log Check"
+       printf "\n  ${GRNct}4${NOct}.  Toggle Change-log Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}5${NOct}.  Enable Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}5${NOct}.  Toggle Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}5${NOct}.  Disable Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}5${NOct}.  Toggle Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 

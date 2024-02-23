@@ -9,7 +9,7 @@ These are mostly guidelines, not rules. Use your best judgment, and feel free to
 By participating, you are expected to uphold this code. Please report unacceptable behavior to @ExtremeFiretop.
 
 **License**
-- MerlinAU is licensed under the Unlicense, a license with no conditions whatsoever which dedicates works to the public domain.
+- MerlinAU is licensed under the GNU General Public License v3.0 (GPL-3.0), a free, copyleft license for software and other kinds of works, which ensures end users the freedom to run, study, share, and modify the software.
 
 -------------------------------------
 **How Can I Contribute?**
