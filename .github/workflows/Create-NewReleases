@@ -1,0 +1,36 @@
+name: 'Auto Tag and Release'
+on:
+  push:
+    branches:
+      - 'main'
+jobs:
+  tag-and-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout source code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+      - name: Determine Next Version Tag
+        id: nextver
+        run: |
+          TAG=$(git tag --sort=-v:refname | head -n 1)
+          if [[ $TAG == '' ]]; then TAG='v1.0.4'; fi
+          NEXT_TAG=$(echo $TAG | awk -F. '{print $1"."$2"."$3+1}')
+          echo "Next version tag: $NEXT_TAG"
+          echo "::set-output name=tag::$NEXT_TAG"
+      - name: Create and Push Tag
+        run: |
+          git tag ${{ steps.nextver.outputs.tag }}
+          git push origin ${{ steps.nextver.outputs.tag }}
+      - name: Create Release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          automatic_release_tag: ${{ steps.nextver.outputs.tag }}
+          prerelease: false
+          title: Release ${{ steps.nextver.outputs.tag }}
