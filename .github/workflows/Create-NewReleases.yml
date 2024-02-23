@@ -1,14 +1,16 @@
-name: 'Auto Tag and Release'
+name: Auto Tag and Release
 on:
   push:
     branches:
       - 'main'
+permissions:
+  contents: write
 jobs:
   tag-and-release:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4.0.0
         with:
           fetch-depth: 0
       - name: Configure Git
@@ -22,7 +24,7 @@ jobs:
           if [[ $TAG == '' ]]; then TAG='v1.0.4'; fi
           NEXT_TAG=$(echo $TAG | awk -F. '{print $1"."$2"."$3+1}')
           echo "Next version tag: $NEXT_TAG"
-          echo "::set-output name=tag::$NEXT_TAG"
+          echo "tag=$NEXT_TAG" >> $GITHUB_OUTPUT
       - name: Create and Push Tag
         run: |
           git tag ${{ steps.nextver.outputs.tag }}
