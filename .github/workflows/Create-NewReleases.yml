@@ -22,7 +22,7 @@ jobs:
           if [[ $TAG == '' ]]; then TAG='v1.0.4'; fi
           NEXT_TAG=$(echo $TAG | awk -F. '{print $1"."$2"."$3+1}')
           echo "Next version tag: $NEXT_TAG"
-          echo "::set-output name=tag::$NEXT_TAG"
+          echo "tag=$NEXT_TAG" >> $GITHUB_OUTPUT
       - name: Create and Push Tag
         run: |
           git tag ${{ steps.nextver.outputs.tag }}
