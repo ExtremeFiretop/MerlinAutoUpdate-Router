@@ -1,5 +1,5 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.0.5
+## v1.0.6
 ## 2024-02-22
 
 
@@ -15,6 +15,8 @@
  - RT-AC86U (Tested)
  - RT-AX86U (Tested)
  - XT12 (Tested)
+ - GT-AX11000_PRO (Tested)
+ - GT-AX6000 (Tested)
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
 Blocked due to low RAM/ROM space and/or have not received updates in several years.
@@ -34,9 +36,7 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
 ## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
  - GT-AXE16000 (Untested)
- - GT-AX6000 (Untested)
  - GT-AX11000 (Untested)
- - GT-AX11000_PRO (Untested)
  - GT-AC2900 (Untested)
  - RT-AX86U_PRO (Untested)
  - RT-AX68U (Untested)
