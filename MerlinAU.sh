@@ -371,7 +371,7 @@ _ScriptVersionStrToNum_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-28] ##
+## Modified by Martinski W. [2024-Feb-27] ##
 ##----------------------------------------##
 _FWVersionStrToNum_()
 {
@@ -389,8 +389,10 @@ _FWVersionStrToNum_()
         echo "$verStr" | grep -qiE 'alpha|beta'
     then
         nonProductionVersionWeight=-100
-        # Remove 'alpha/beta' and any following numbers #
-        verStr="$(echo "$verStr" | sed 's/[._-]\?[Aa]lpha[0-9]*// ; s/[._-]\?[Bb]eta[0-9]*//')"
+        # Replace '.alpha|.beta' and anything following with ".0" #
+        verStr="$(echo "$verStr" | sed 's/[.][Aa]lpha.*/.0/ ; s/[.][Bb]eta.*/.0/')"
+        # Remove 'alpha|beta' and anything following it #
+        verStr="$(echo "$verStr" | sed 's/[Aa]lpha.*// ; s/[Bb]eta.*//')"
     fi
 
     numFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
@@ -408,12 +410,12 @@ _FWVersionStrToNum_()
         fwBranchVers="$(echo "$verStr" | cut -d'.' -f1)"
         verStr="$(echo "$verStr" | cut -d'.' -f2-)"
     fi
-    verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%01d\n", $1,$2,$3);}')"
+    verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')"
 
     # Subtract non-production weight from the version number #
     verNum="$((verNum + nonProductionVersionWeight))"
 
-    # Now add the F/W Branch version #
+    # Now prepend the F/W Branch version #
     [ -n "$fwBranchVers" ] && verNum="${fwBranchVers}$verNum"
 
     echo "$verNum" ; return 0
@@ -1226,12 +1228,12 @@ _CreateEMailContent_()
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
-   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
-   case "$fwInstalledVersion" in
-      *_rog) fwInstalledVersion=$(echo "$fwInstalledVersion" | sed 's/_rog$//') ;;
-   esac
-   fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
    subjectStr="F/W Update Status for $MODEL_ID"
+   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+   fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+
+   # Remove "_rog" suffix to avoid version comparison failures #
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -1668,13 +1670,14 @@ _GetCurrentFWInstalledLongVersion_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-22] ##
+## Modified by Martinski W. [2024-Feb-27] ##
 ##----------------------------------------##
 _GetCurrentFWInstalledShortVersion_()
 {
-##FOR DEBUG ONLY##
-if true
-then
+##FOR TESTING/DEBUG ONLY##
+if false ; then echo "388.5.0" ; return 0 ; fi
+##FOR TESTING/DEBUG ONLY##
+
     local theVersionStr  extVersNum
 
     extVersNum="$(nvram get extendno | awk -F '-' '{print $1}')"
@@ -1682,10 +1685,6 @@ then
 
     theVersionStr="$(nvram get buildno).$extVersNum"
     echo "$theVersionStr"
-else
-##FOR DEBUG ONLY##
-echo "388.5.0"
-fi
 }
 
 ##-------------------------------------##
@@ -1728,7 +1727,7 @@ _GetAvailableRAM_KB_()
    # Since not all Page Cache is guaranteed to be reclaimed at any
    # moment, we simply estimate that only half will be reclaimable.
    #----------------------------------------------------------------#
-   theMemAvailable_KB="$((theMemFree_KB + ((thePageCache_KB / 2))))"
+   theMemAvailable_KB="$((theMemFree_KB + (thePageCache_KB / 2)))"
    echo "$theMemAvailable_KB" ; return 0
 }
 
