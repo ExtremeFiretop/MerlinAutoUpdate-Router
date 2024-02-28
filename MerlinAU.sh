@@ -2899,6 +2899,14 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
         echo
+
+        ##----------------------------------------##
+        ## Modified by Martinski W. [2024-Feb-28] ##
+        ##----------------------------------------##
+        # Avoid error message about HSTS database #
+        wgetHstsFile="/tmp/home/root/.wget-hsts"
+        [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
+
         wget -O "$FW_ZIP_FPATH" "$release_link"
     fi
 
@@ -3594,11 +3602,19 @@ keepZIPfile=0
 trap '_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-26] ##
+## Modified by Martinski W. [2024-Feb-28] ##
 ##----------------------------------------##
 # Prevent running this script multiple times simultaneously #
 if ! _AcquireLock_
-then Say "Exiting..." ; exit 1 ; fi
+then
+    if [ $# -eq 1 ] && [ "$1" = "resetLockFile" ]
+    then
+        _ReleaseLock_
+        Say "Lock file has now been reset. Exiting..."
+        exit 0
+    fi
+    Say "Exiting..." ; exit 1
+fi
 
 # Check if the router model is supported OR if
 # it has the minimum firmware version supported.
