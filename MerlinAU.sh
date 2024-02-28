@@ -3179,7 +3179,11 @@ EOT
     # Stop entware services before F/W flash #
     _EntwareServicesHandler_ stop
 
-    curl_response="$(curl "${routerURLstr}/login.cgi" \
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Feb-28] ##
+    ##------------------------------------------##
+
+    curl_response="$(curl -k "${routerURLstr}/login.cgi" \
     --referer "${routerURLstr}/Main_Login.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
@@ -3193,8 +3197,9 @@ EOT
     # the following 'curl' command MUST always be the last step in this block.
     # Do NOT insert any operations after it! (unless you understand the implications).
 
-    if echo "$curl_response" | grep -q 'url=index.asp'
+    if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
+
         _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
 
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
@@ -3209,7 +3214,7 @@ EOT
         #-------------------------------------------------------
         _Reset_LEDs_
 
-        nohup curl "${routerURLstr}/upgrade.cgi" \
+        nohup curl -k "${routerURLstr}/upgrade.cgi" \
         --referer "${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
         -H 'Accept-Language: en-US,en;q=0.5' \
