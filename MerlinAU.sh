@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-27
+# Last Modified: 2024-Feb-28
 ###################################################################
 set -u
 
@@ -371,7 +371,7 @@ _ScriptVersionStrToNum_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-27] ##
+## Modified by Martinski W. [2024-Feb-28] ##
 ##----------------------------------------##
 _FWVersionStrToNum_()
 {
@@ -383,13 +383,16 @@ _FWVersionStrToNum_()
     local verNum  verStr="$1"  nonProductionVersionWeight=0
     local fwBranchVers=""  numFields
 
-    # Check for 'alpha/beta' in the version string and
-    # adjust weight value if USE_BETA_WEIGHT is true
-    if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && \
-        echo "$verStr" | grep -qiE 'alpha|beta'
+    #--------------------------------------------------------------
+    # Handle any 'alpha/beta' in the version string to be sure
+    # that we always get good numerical values for comparison.
+    #--------------------------------------------------------------
+    if echo "$verStr" | grep -qiE '(alpha|beta)'
     then
-        nonProductionVersionWeight=-100
-        # Replace '.alpha|.beta' and anything following with ".0" #
+        # Adjust weight value if "Beta-to-Production" update is enabled #
+        [ "$USE_BETA_WEIGHT" = "ENABLED" ] && nonProductionVersionWeight=-100
+
+        # Replace '.alpha|.beta' and anything following it with ".0" #
         verStr="$(echo "$verStr" | sed 's/[.][Aa]lpha.*/.0/ ; s/[.][Bb]eta.*/.0/')"
         # Remove 'alpha|beta' and anything following it #
         verStr="$(echo "$verStr" | sed 's/[_-]\?[Aa]lpha.*// ; s/[_-]\?[Bb]eta.*//')"
@@ -1651,9 +1654,9 @@ _AddPostRebootRunScriptHook_()
    _WaitForEnterKey_
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-22] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-28] ##
+##----------------------------------------##
 _GetCurrentFWInstalledLongVersion_()
 {
    local theBranchVers  theVersionStr  extVersNum
@@ -1661,6 +1664,7 @@ _GetCurrentFWInstalledLongVersion_()
    theBranchVers="$(nvram get firmver | sed 's/\.//g')"
 
    extVersNum="$(nvram get extendno)"
+   echo "$extVersNum" | grep -qiE "^(alpha|beta)" && extVersNum="0_$extVersNum"
    [ -z "$extVersNum" ] && extVersNum=0
 
    theVersionStr="$(nvram get buildno).$extVersNum"
@@ -1670,7 +1674,7 @@ _GetCurrentFWInstalledLongVersion_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-27] ##
+## Modified by Martinski W. [2024-Feb-28] ##
 ##----------------------------------------##
 _GetCurrentFWInstalledShortVersion_()
 {
@@ -1681,6 +1685,7 @@ if false ; then echo "388.5.0" ; return 0 ; fi
     local theVersionStr  extVersNum
 
     extVersNum="$(nvram get extendno | awk -F '-' '{print $1}')"
+    echo "$extVersNum" | grep -qiE "^(alpha|beta)" && extVersNum="0_$extVersNum"
     [ -z "$extVersNum" ] && extVersNum=0
 
     theVersionStr="$(nvram get buildno).$extVersNum"
