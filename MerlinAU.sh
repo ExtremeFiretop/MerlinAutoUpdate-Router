@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-22
+# Last Modified: 2024-Feb-27
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.5
+readonly SCRIPT_VERSION=1.0.6
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1214,9 +1214,9 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-20] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-27] ##
+##------------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -1227,6 +1227,9 @@ _CreateEMailContent_()
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+   case "$fwInstalledVersion" in
+      *_rog) fwInstalledVersion=$(echo "$fwInstalledVersion" | sed 's/_rog$//') ;;
+   esac
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
    subjectStr="F/W Update Status for $MODEL_ID"
 
