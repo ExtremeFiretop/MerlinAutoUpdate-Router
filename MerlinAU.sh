@@ -392,7 +392,7 @@ _FWVersionStrToNum_()
         # Replace '.alpha|.beta' and anything following with ".0" #
         verStr="$(echo "$verStr" | sed 's/[.][Aa]lpha.*/.0/ ; s/[.][Bb]eta.*/.0/')"
         # Remove 'alpha|beta' and anything following it #
-        verStr="$(echo "$verStr" | sed 's/[Aa]lpha.*// ; s/[Bb]eta.*//')"
+        verStr="$(echo "$verStr" | sed 's/[_-]\?[Aa]lpha.*// ; s/[_-]\?[Bb]eta.*//')"
     fi
 
     numFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
