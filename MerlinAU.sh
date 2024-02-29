@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-28
+# Last Modified: 2024-Feb-29
 ###################################################################
 set -u
 
@@ -1874,35 +1874,91 @@ check_model_support() {
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-16] ##
-##----------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Feb-29] ##
+##---------------------------------------##
+_TestLoginCredentials_()
+{
+    local credsBase64="$1"
+    local curl_response routerURLstr
+
+    # Define routerURLstr
+    routerURLstr="$(_GetRouterURL_)"
+
+    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+    /sbin/service restart_httpd >/dev/null 2>&1 &
+    sleep 5
+
+    curl_response="$(curl -k "${routerURLstr}/login.cgi" \
+    --referer "${routerURLstr}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${routerURLstr}/" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsBase64}" \
+    --cookie-jar /tmp/cookie.txt)"
+
+    # Interpret the curl_response to determine login success or failure
+    # This is a basic check
+    if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'; then
+        printf "\n${GRNct}Login test passed.${NOct}"
+        "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+        /sbin/service restart_httpd >/dev/null 2>&1 &
+        sleep 5
+        return 0
+    else
+        printf "\n${REDct}Login test failed.${NOct}\n"
+        if _WaitForYESorNO_ "Would you like to try again?"; then
+            return 1 # Indicates failure but with intent to retry
+        else
+            return 0 # User opted not to retry; treated as a graceful exit
+        fi
+    fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-29] ##
+##------------------------------------------##
 _GetLoginCredentials_()
 {
-    echo "=== Login Credentials ==="
-    local username  password  credsBase64
+    local retry="yes"
+    while [ "$retry" = "yes" ]; do
+        echo "=== Login Credentials ==="
+        local username  password  credsBase64
 
-    # Get the username from nvram
-    username="$(nvram get http_username)"
+        # Get the username from nvram
+        username="$(nvram get http_username)"
 
-    # Prompt the user only for a password [-s flag hides the password input]
-    printf "Enter password for user ${GRNct}${username}${NOct}: "
-    read -rs password
-    echo
-    if [ -z "$password" ]
-    then
-        echo "Password cannot be empty. Credentials were not saved."
-        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
-    fi
+        # Prompt the user only for a password [-s flag hides the password input]
+        printf "Enter password for user ${GRNct}${username}${NOct}: "
+        read -rs password
+        echo
+        if [ -z "$password" ]
+        then
+            echo "Password cannot be empty. Credentials were not saved."
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            continue
+        fi
 
-    # Encode the username and password in Base64 #
-    credsBase64="$(echo -n "${username}:${password}" | openssl base64 -A)"
+        # Encode the username and password in Base64 #
+        credsBase64="$(echo -n "${username}:${password}" | openssl base64 -A)"
 
-    # Save the credentials to the SETTINGSFILE #
-    Update_Custom_Settings credentials_base64 "$credsBase64"
+        # Save the credentials to the SETTINGSFILE #
+        Update_Custom_Settings credentials_base64 "$credsBase64"
 
-    echo "Credentials saved."
+        printf "${GRNct}Credentials saved.${NOct}"
+	    printf "\nEncoded Credentials: " 
+	    printf "${GRNct}$credsBase64${NOct}\n"
+
+        # Prompt to test the credentials
+        if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"; then
+            _TestLoginCredentials_ "$credsBase64" || continue
+        fi
+
+        retry="no"  # Stop the loop if the test passes or if the user chooses not to test
+    done
+
     _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 0
 }
