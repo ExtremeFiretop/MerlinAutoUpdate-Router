@@ -1905,7 +1905,7 @@ _TestLoginCredentials_()
         printf "\n${GRNct}Login test passed.${NOct}"
         "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
         /sbin/service restart_httpd >/dev/null 2>&1 &
-        sleep 5
+        sleep 1
         return 0
     else
         printf "\n${REDct}Login test failed.${NOct}\n"
@@ -1917,43 +1917,164 @@ _TestLoginCredentials_()
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-29] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-29] ##
+##-------------------------------------##
+_GetPasswordInput_()
+{
+   local PSWDstrLenMIN=1  PSWDstrLenMAX=64
+   local PSWDstring  PSWDtmpStr  PSWDprompt
+   local retCode  charNum  prevChar  pswdLength  showPSWD
+
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       printf "${REDct}**ERROR**${NOct}: NO prompt string was provided.\n"
+       return 1
+   fi
+   PSWDprompt="$1"
+
+   _showPSWDPrompt_()
+   {
+      local pswdTemp  LENct  LENwd
+      [ "$showPSWD" = "1" ] && pswdTemp="$PSWDstring" || pswdTemp="$PSWDtmpStr"
+      if [ "$pswdLength" -lt "$PSWDstrLenMIN" ] || [ "$pswdLength" -gt "$PSWDstrLenMAX" ]
+      then LENct="$REDct" ; LENwd=""
+      else LENct="$GRNct" ; LENwd="02"
+      fi
+      printf "\r\033[0K$PSWDprompt [Length=${LENct}%${LENwd}d${NOct}]: %s" "$pswdLength" "$pswdTemp"
+   }
+
+   showPSWD=0
+   charNum=""  prevChar=""
+   PSWDstring="$pswdString"
+   pswdLength="${#PSWDstring}"
+   if [ -z "$PSWDstring" ]
+   then PSWDtmpStr=""
+   else PSWDtmpStr="$(printf "%*s" "$pswdLength" " " | tr ' ' '*')"
+   fi
+   echo ; _showPSWDPrompt_
+
+   while IFS='' read -n 1 -rs theChar
+   do
+      if [ "$theChar" = "" ]
+      then
+          if [ "$pswdLength" -ge "$PSWDstrLenMIN" ] && [ "$pswdLength" -le "$PSWDstrLenMAX" ]
+          then
+              echo
+              retCode=0
+          elif [ "$pswdLength" -lt "$PSWDstrLenMIN" ]
+          then
+              PSWDstring=""
+              printf "\n${REDct}**ERROR**${NOct}: Password length is less than allowed minimum length "
+              printf "[MIN=${GRNct}${PSWDstrLenMIN}${NOct}].\n"
+              retCode=1
+          elif [ "$pswdLength" -gt "$PSWDstrLenMAX" ]
+          then
+              PSWDstring=""
+              printf "\n${REDct}**ERROR**${NOct}: Password length is greater than allowed maximum length "
+              printf "[MAX=${GRNct}${PSWDstrLenMAX}${NOct}].\n"
+              retCode=1
+          fi
+          break
+      fi
+      charNum="$(printf "%d" "'$theChar")"
+
+      ## TAB keypress is a toggle to make password string "visible" ##
+      if [ "$charNum" -eq 9 ]
+      then
+          showPSWD="$((! showPSWD))"
+          _showPSWDPrompt_
+          continue
+      fi
+
+      ## Ignore Escape Sequences ##
+      if [ "$charNum" -eq 27 ]
+      then prevChar="${charNum}" ; continue ; fi
+
+      if [ -n "$prevChar" ] && \
+         { [ "$prevChar" -eq 27 ]     || \
+           [ "$prevChar" -eq 2791 ]   || \
+           [ "$prevChar" -eq 279150 ] || \
+           [ "$prevChar" -eq 279151 ] || \
+           [ "$prevChar" -eq 279153 ] || \
+           [ "$prevChar" -eq 279154 ] ; }
+      then prevChar="${prevChar}${charNum}" ; continue
+      else prevChar="" ; fi
+
+      ## Backspace keypress ##
+      if [ "$charNum" -eq 8 ] || [ "$charNum" -eq 127 ]
+      then
+          if [ "$pswdLength" -gt 0 ]
+          then
+              PSWDtmpStr="${PSWDtmpStr%?}"
+              PSWDstring="${PSWDstring%?}"
+              pswdLength="$((pswdLength - 1))"
+              _showPSWDPrompt_
+              continue
+          fi
+      fi
+
+      ## ONLY 7-bit ASCII printable characters are VALID ##
+      if [ "$charNum" -gt 31 ] && [ "$charNum" -lt 127 ]
+      then
+          if [ "$pswdLength" -le "$PSWDstrLenMAX" ]
+          then
+              PSWDtmpStr="${PSWDtmpStr}*"
+              pswdLength="$((pswdLength + 1))"
+              PSWDstring="${PSWDstring}${theChar}"
+          fi
+          _showPSWDPrompt_
+      fi
+   done
+
+   pswdString="$PSWDstring"
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-29] ##
+##----------------------------------------##
 _GetLoginCredentials_()
 {
-    local retry="yes"
-    while [ "$retry" = "yes" ]; do
+    local retry="yes"  userName  pswdString
+    local loginCredsENC  loginCredsDEC
+
+    # Get the Username from NVRAM #
+    userName="$(nvram get http_username)"
+
+    loginCredsENC="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$loginCredsENC" ] || [ "$loginCredsENC" = "TBD" ]
+    then
+        pswdString=""
+    else
+        loginCredsDEC="$(echo "$loginCredsENC" | openssl base64 -d)"
+        pswdString="$(echo "$loginCredsDEC" | sed "s/${userName}://")"
+    fi
+
+    while [ "$retry" = "yes" ]
+    do
         echo "=== Login Credentials ==="
-        local username  password  credsBase64
-
-        # Get the username from nvram
-        username="$(nvram get http_username)"
-
-        # Prompt the user only for a password [-s flag hides the password input]
-        printf "Enter password for user ${GRNct}${username}${NOct}: "
-        read -rs password
-        echo
-        if [ -z "$password" ]
+        _GetPasswordInput_ "Enter password for user ${GRNct}${userName}${NOct}"
+        if [ -z "$pswdString" ]
         then
-            echo "Password cannot be empty. Credentials were not saved."
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            printf "\nPassword string is ${REDct}NOT${NOct} valid. Credentials were not saved.\n"
+            _WaitForEnterKey_
             continue
         fi
 
-        # Encode the username and password in Base64 #
-        credsBase64="$(echo -n "${username}:${password}" | openssl base64 -A)"
+        # Encode the Username and Password in Base64 #
+        loginCredsENC="$(echo -n "${userName}:${pswdString}" | openssl base64 -A)"
 
         # Save the credentials to the SETTINGSFILE #
-        Update_Custom_Settings credentials_base64 "$credsBase64"
+        Update_Custom_Settings credentials_base64 "$loginCredsENC"
 
-        printf "${GRNct}Credentials saved.${NOct}"
-	    printf "\nEncoded Credentials: " 
-	    printf "${GRNct}$credsBase64${NOct}\n"
+        printf "\n${GRNct}Credentials saved.${NOct}\n"
+	    printf "Encoded Credentials:\n"
+	    printf "${GRNct}$loginCredsENC${NOct}\n"
 
         # Prompt to test the credentials
         if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"; then
-            _TestLoginCredentials_ "$credsBase64" || continue
+            _TestLoginCredentials_ "$loginCredsENC" || continue
         fi
 
         retry="no"  # Stop the loop if the test passes or if the user chooses not to test
@@ -3255,7 +3376,6 @@ EOT
 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
-
         _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
 
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
