@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-22
+# Last Modified: 2024-Feb-29
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.5
+readonly SCRIPT_VERSION=1.0.6
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -371,7 +371,7 @@ _ScriptVersionStrToNum_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-28] ##
+## Modified by Martinski W. [2024-Feb-28] ##
 ##----------------------------------------##
 _FWVersionStrToNum_()
 {
@@ -383,14 +383,19 @@ _FWVersionStrToNum_()
     local verNum  verStr="$1"  nonProductionVersionWeight=0
     local fwBranchVers=""  numFields
 
-    # Check for 'alpha/beta' in the version string and
-    # adjust weight value if USE_BETA_WEIGHT is true
-    if [ "$USE_BETA_WEIGHT" = "ENABLED" ] && \
-        echo "$verStr" | grep -qiE 'alpha|beta'
+    #--------------------------------------------------------------
+    # Handle any 'alpha/beta' in the version string to be sure
+    # that we always get good numerical values for comparison.
+    #--------------------------------------------------------------
+    if echo "$verStr" | grep -qiE '(alpha|beta)'
     then
-        nonProductionVersionWeight=-100
-        # Remove 'alpha/beta' and any following numbers #
-        verStr="$(echo "$verStr" | sed 's/[._-]\?[Aa]lpha[0-9]*// ; s/[._-]\?[Bb]eta[0-9]*//')"
+        # Adjust weight value if "Beta-to-Production" update is enabled #
+        [ "$USE_BETA_WEIGHT" = "ENABLED" ] && nonProductionVersionWeight=-100
+
+        # Replace '.alpha|.beta' and anything following it with ".0" #
+        verStr="$(echo "$verStr" | sed 's/[.][Aa]lpha.*/.0/ ; s/[.][Bb]eta.*/.0/')"
+        # Remove 'alpha|beta' and anything following it #
+        verStr="$(echo "$verStr" | sed 's/[_-]\?[Aa]lpha.*// ; s/[_-]\?[Bb]eta.*//')"
     fi
 
     numFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
@@ -408,12 +413,12 @@ _FWVersionStrToNum_()
         fwBranchVers="$(echo "$verStr" | cut -d'.' -f1)"
         verStr="$(echo "$verStr" | cut -d'.' -f2-)"
     fi
-    verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%01d\n", $1,$2,$3);}')"
+    verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')"
 
     # Subtract non-production weight from the version number #
     verNum="$((verNum + nonProductionVersionWeight))"
 
-    # Now add the F/W Branch version #
+    # Now prepend the F/W Branch version #
     [ -n "$fwBranchVers" ] && verNum="${fwBranchVers}$verNum"
 
     echo "$verNum" ; return 0
@@ -1214,9 +1219,9 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-20] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-27] ##
+##------------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -1226,9 +1231,12 @@ _CreateEMailContent_()
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
+   subjectStr="F/W Update Status for $MODEL_ID"
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-   subjectStr="F/W Update Status for $MODEL_ID"
+
+   # Remove "_rog" suffix to avoid version comparison failures #
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -1646,9 +1654,9 @@ _AddPostRebootRunScriptHook_()
    _WaitForEnterKey_
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-22] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-28] ##
+##----------------------------------------##
 _GetCurrentFWInstalledLongVersion_()
 {
    local theBranchVers  theVersionStr  extVersNum
@@ -1656,6 +1664,7 @@ _GetCurrentFWInstalledLongVersion_()
    theBranchVers="$(nvram get firmver | sed 's/\.//g')"
 
    extVersNum="$(nvram get extendno)"
+   echo "$extVersNum" | grep -qiE "^(alpha|beta)" && extVersNum="0_$extVersNum"
    [ -z "$extVersNum" ] && extVersNum=0
 
    theVersionStr="$(nvram get buildno).$extVersNum"
@@ -1665,24 +1674,22 @@ _GetCurrentFWInstalledLongVersion_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-22] ##
+## Modified by Martinski W. [2024-Feb-28] ##
 ##----------------------------------------##
 _GetCurrentFWInstalledShortVersion_()
 {
-##FOR DEBUG ONLY##
-if true
-then
+##FOR TESTING/DEBUG ONLY##
+if false ; then echo "388.5.0" ; return 0 ; fi
+##FOR TESTING/DEBUG ONLY##
+
     local theVersionStr  extVersNum
 
     extVersNum="$(nvram get extendno | awk -F '-' '{print $1}')"
+    echo "$extVersNum" | grep -qiE "^(alpha|beta)" && extVersNum="0_$extVersNum"
     [ -z "$extVersNum" ] && extVersNum=0
 
     theVersionStr="$(nvram get buildno).$extVersNum"
     echo "$theVersionStr"
-else
-##FOR DEBUG ONLY##
-echo "388.5.0"
-fi
 }
 
 ##-------------------------------------##
@@ -1725,7 +1732,7 @@ _GetAvailableRAM_KB_()
    # Since not all Page Cache is guaranteed to be reclaimed at any
    # moment, we simply estimate that only half will be reclaimable.
    #----------------------------------------------------------------#
-   theMemAvailable_KB="$((theMemFree_KB + ((thePageCache_KB / 2))))"
+   theMemAvailable_KB="$((theMemFree_KB + (thePageCache_KB / 2)))"
    echo "$theMemAvailable_KB" ; return 0
 }
 
@@ -1867,35 +1874,219 @@ check_model_support() {
     fi
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Feb-29] ##
+##---------------------------------------##
+_TestLoginCredentials_()
+{
+    local credsBase64="$1"
+    local curl_response routerURLstr
+
+    # Define routerURLstr
+    routerURLstr="$(_GetRouterURL_)"
+
+    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+    /sbin/service restart_httpd >/dev/null 2>&1 &
+    sleep 5
+
+    curl_response="$(curl -k "${routerURLstr}/login.cgi" \
+    --referer "${routerURLstr}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${routerURLstr}/" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsBase64}" \
+    --cookie-jar /tmp/cookie.txt)"
+
+    # Interpret the curl_response to determine login success or failure
+    # This is a basic check
+    if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'; then
+        printf "\n${GRNct}Login test passed.${NOct}"
+        "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+        /sbin/service restart_httpd >/dev/null 2>&1 &
+        sleep 1
+        return 0
+    else
+        printf "\n${REDct}Login test failed.${NOct}\n"
+        if _WaitForYESorNO_ "Would you like to try again?"; then
+            return 1 # Indicates failure but with intent to retry
+        else
+            return 0 # User opted not to retry; treated as a graceful exit
+        fi
+    fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-29] ##
+##-------------------------------------##
+_GetPasswordInput_()
+{
+   local PSWDstrLenMIN=1  PSWDstrLenMAX=64
+   local PSWDstring  PSWDtmpStr  PSWDprompt
+   local retCode  charNum  prevChar  pswdLength  showPSWD
+   local lastTabTime=0  # Added for debounce
+
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       printf "${REDct}**ERROR**${NOct}: NO prompt string was provided.\n"
+       return 1
+   fi
+   PSWDprompt="$1"
+
+   _showPSWDPrompt_()
+   {
+      local pswdTemp  LENct  LENwd
+      [ "$showPSWD" = "1" ] && pswdTemp="$PSWDstring" || pswdTemp="$PSWDtmpStr"
+      if [ "$pswdLength" -lt "$PSWDstrLenMIN" ] || [ "$pswdLength" -gt "$PSWDstrLenMAX" ]
+      then LENct="$REDct" ; LENwd=""
+      else LENct="$GRNct" ; LENwd="02"
+      fi
+      printf "\r\033[0K$PSWDprompt [Length=${LENct}%${LENwd}d${NOct}]: %s" "$pswdLength" "$pswdTemp"
+   }
+
+   showPSWD=0
+   charNum=""  prevChar=""
+   PSWDstring="$pswdString"
+   pswdLength="${#PSWDstring}"
+   if [ -z "$PSWDstring" ]
+   then PSWDtmpStr=""
+   else PSWDtmpStr="$(printf "%*s" "$pswdLength" " " | tr ' ' '*')"
+   fi
+   echo ; _showPSWDPrompt_
+
+   while IFS='' read -n 1 -rs theChar
+   do
+      if [ "$theChar" = "" ]
+      then
+          if [ "$pswdLength" -ge "$PSWDstrLenMIN" ] && [ "$pswdLength" -le "$PSWDstrLenMAX" ]
+          then
+              echo
+              retCode=0
+          elif [ "$pswdLength" -lt "$PSWDstrLenMIN" ]
+          then
+              PSWDstring=""
+              printf "\n${REDct}**ERROR**${NOct}: Password length is less than allowed minimum length "
+              printf "[MIN=${GRNct}${PSWDstrLenMIN}${NOct}].\n"
+              retCode=1
+          elif [ "$pswdLength" -gt "$PSWDstrLenMAX" ]
+          then
+              PSWDstring=""
+              printf "\n${REDct}**ERROR**${NOct}: Password length is greater than allowed maximum length "
+              printf "[MAX=${GRNct}${PSWDstrLenMAX}${NOct}].\n"
+              retCode=1
+          fi
+          break
+      fi
+      charNum="$(printf "%d" "'$theChar")"
+
+      ## TAB keypress with debounce ##
+      if [ "$charNum" -eq 9 ]
+      then
+          local currentTime=$(date +%s)
+          local timeDiff=$((currentTime - lastTabTime))
+          if [ "$timeDiff" -ge 1 ] # Check if at least 1 second has passed
+          then
+              showPSWD="$((! showPSWD))"
+              lastTabTime=$currentTime # Update last TAB press time
+              _showPSWDPrompt_
+          fi
+          continue
+      fi
+
+      ## Ignore Escape Sequences ##
+      if [ "$charNum" -eq 27 ]
+      then prevChar="${charNum}" ; continue ; fi
+
+      if [ -n "$prevChar" ] && \
+         { [ "$prevChar" -eq 27 ]     || \
+           [ "$prevChar" -eq 2791 ]   || \
+           [ "$prevChar" -eq 279150 ] || \
+           [ "$prevChar" -eq 279151 ] || \
+           [ "$prevChar" -eq 279153 ] || \
+           [ "$prevChar" -eq 279154 ] ; }
+      then prevChar="${prevChar}${charNum}" ; continue
+      else prevChar="" ; fi
+
+      ## Backspace keypress ##
+      if [ "$charNum" -eq 8 ] || [ "$charNum" -eq 127 ]
+      then
+          if [ "$pswdLength" -gt 0 ]
+          then
+              PSWDtmpStr="${PSWDtmpStr%?}"
+              PSWDstring="${PSWDstring%?}"
+              pswdLength="$((pswdLength - 1))"
+              _showPSWDPrompt_
+              continue
+          fi
+      fi
+
+      ## ONLY 7-bit ASCII printable characters are VALID ##
+      if [ "$charNum" -gt 31 ] && [ "$charNum" -lt 127 ]
+      then
+          if [ "$pswdLength" -le "$PSWDstrLenMAX" ]
+          then
+              PSWDtmpStr="${PSWDtmpStr}*"
+              pswdLength="$((pswdLength + 1))"
+              PSWDstring="${PSWDstring}${theChar}"
+          fi
+          _showPSWDPrompt_
+      fi
+   done
+
+   pswdString="$PSWDstring"
+   return "$retCode"
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-16] ##
+## Modified by Martinski W. [2024-Feb-29] ##
 ##----------------------------------------##
 _GetLoginCredentials_()
 {
-    echo "=== Login Credentials ==="
-    local username  password  credsBase64
+    local retry="yes"  userName  pswdString
+    local loginCredsENC  loginCredsDEC
 
-    # Get the username from nvram
-    username="$(nvram get http_username)"
+    # Get the Username from NVRAM #
+    userName="$(nvram get http_username)"
 
-    # Prompt the user only for a password [-s flag hides the password input]
-    printf "Enter password for user ${GRNct}${username}${NOct}: "
-    read -rs password
-    echo
-    if [ -z "$password" ]
+    loginCredsENC="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$loginCredsENC" ] || [ "$loginCredsENC" = "TBD" ]
     then
-        echo "Password cannot be empty. Credentials were not saved."
-        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
+        pswdString=""
+    else
+        loginCredsDEC="$(echo "$loginCredsENC" | openssl base64 -d)"
+        pswdString="$(echo "$loginCredsDEC" | sed "s/${userName}://")"
     fi
 
-    # Encode the username and password in Base64 #
-    credsBase64="$(echo -n "${username}:${password}" | openssl base64 -A)"
+    while [ "$retry" = "yes" ]
+    do
+        echo "=== Login Credentials ==="
+        _GetPasswordInput_ "Enter password for user ${GRNct}${userName}${NOct}"
+        if [ -z "$pswdString" ]
+        then
+            printf "\nPassword string is ${REDct}NOT${NOct} valid. Credentials were not saved.\n"
+            _WaitForEnterKey_
+            continue
+        fi
 
-    # Save the credentials to the SETTINGSFILE #
-    Update_Custom_Settings credentials_base64 "$credsBase64"
+        # Encode the Username and Password in Base64 #
+        loginCredsENC="$(echo -n "${userName}:${pswdString}" | openssl base64 -A)"
 
-    echo "Credentials saved."
+        # Save the credentials to the SETTINGSFILE #
+        Update_Custom_Settings credentials_base64 "$loginCredsENC"
+
+        printf "\n${GRNct}Credentials saved.${NOct}\n"
+	    printf "Encoded Credentials:\n"
+	    printf "${GRNct}$loginCredsENC${NOct}\n"
+
+        # Prompt to test the credentials
+        if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"; then
+            _TestLoginCredentials_ "$loginCredsENC" || continue
+        fi
+
+        retry="no"  # Stop the loop if the test passes or if the user chooses not to test
+    done
+
     _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 0
 }
@@ -2892,6 +3083,14 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
         echo
+
+        ##----------------------------------------##
+        ## Modified by Martinski W. [2024-Feb-28] ##
+        ##----------------------------------------##
+        # Avoid error message about HSTS database #
+        wgetHstsFile="/tmp/home/root/.wget-hsts"
+        [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
+
         wget -O "$FW_ZIP_FPATH" "$release_link"
     fi
 
@@ -3164,7 +3363,11 @@ EOT
     # Stop entware services before F/W flash #
     _EntwareServicesHandler_ stop
 
-    curl_response="$(curl "${routerURLstr}/login.cgi" \
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Feb-28] ##
+    ##------------------------------------------##
+
+    curl_response="$(curl -k "${routerURLstr}/login.cgi" \
     --referer "${routerURLstr}/Main_Login.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
@@ -3178,7 +3381,7 @@ EOT
     # the following 'curl' command MUST always be the last step in this block.
     # Do NOT insert any operations after it! (unless you understand the implications).
 
-    if echo "$curl_response" | grep -q 'url=index.asp'
+    if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
         _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
 
@@ -3194,7 +3397,7 @@ EOT
         #-------------------------------------------------------
         _Reset_LEDs_
 
-        nohup curl "${routerURLstr}/upgrade.cgi" \
+        nohup curl -k "${routerURLstr}/upgrade.cgi" \
         --referer "${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
         -H 'Accept-Language: en-US,en;q=0.5' \
@@ -3587,11 +3790,19 @@ keepZIPfile=0
 trap '_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-26] ##
+## Modified by Martinski W. [2024-Feb-28] ##
 ##----------------------------------------##
 # Prevent running this script multiple times simultaneously #
 if ! _AcquireLock_
-then Say "Exiting..." ; exit 1 ; fi
+then
+    if [ $# -eq 1 ] && [ "$1" = "resetLockFile" ]
+    then
+        _ReleaseLock_
+        Say "Lock file has now been reset. Exiting..."
+        exit 0
+    fi
+    Say "Exiting..." ; exit 1
+fi
 
 # Check if the router model is supported OR if
 # it has the minimum firmware version supported.
