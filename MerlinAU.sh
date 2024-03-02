@@ -1925,6 +1925,7 @@ _GetPasswordInput_()
    local PSWDstrLenMIN=1  PSWDstrLenMAX=64
    local PSWDstring  PSWDtmpStr  PSWDprompt
    local retCode  charNum  prevChar  pswdLength  showPSWD
+   local lastTabTime=0  # Added for debounce
 
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
@@ -1979,11 +1980,17 @@ _GetPasswordInput_()
       fi
       charNum="$(printf "%d" "'$theChar")"
 
-      ## TAB keypress is a toggle to make password string "visible" ##
+      ## TAB keypress with debounce ##
       if [ "$charNum" -eq 9 ]
       then
-          showPSWD="$((! showPSWD))"
-          _showPSWDPrompt_
+          local currentTime=$(date +%s)
+          local timeDiff=$((currentTime - lastTabTime))
+          if [ "$timeDiff" -ge 1 ] # Check if at least 1 second has passed
+          then
+              showPSWD="$((! showPSWD))"
+              lastTabTime=$currentTime # Update last TAB press time
+              _showPSWDPrompt_
+          fi
           continue
       fi
 
