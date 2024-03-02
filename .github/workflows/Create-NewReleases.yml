@@ -1,22 +1,30 @@
-name: Auto Tag and Release
+name: Auto Tag, Release on PR Merge
 on:
-  push:
+  pull_request:
     branches:
       - 'main'
+    types:
+      - closed
+
 permissions:
   contents: write
+
 jobs:
   tag-and-release:
+    if: github.event.pull_request.merged == true && github.head_ref == 'dev'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
         uses: actions/checkout@v4.0.0
         with:
           fetch-depth: 0
+          ref: 'main' # Ensure we're tagging the main branch after the merge
+          
       - name: Configure Git
         run: |
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
+          
       - name: Determine Next Version Tag
         id: nextver
         run: |
@@ -43,10 +51,12 @@ jobs:
           NEXT_TAG="v$MAJOR.$MINOR.$PATCH"
           echo "Next version tag: $NEXT_TAG"
           echo "tag=$NEXT_TAG" >> $GITHUB_OUTPUT
+          
       - name: Create and Push Tag
         run: |
           git tag ${{ steps.nextver.outputs.tag }}
           git push origin ${{ steps.nextver.outputs.tag }}
+          
       - name: Create Release with Automated Release Notes
         uses: softprops/action-gh-release@v0.1.15
         with:
