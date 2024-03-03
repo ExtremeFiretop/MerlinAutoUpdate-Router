@@ -2002,7 +2002,7 @@ _GetPasswordInput_()
           if [ "$timeDiff" -gt 0 ]
           then
               showPSWD="$((! showPSWD))"
-              lastTabTime=$currentTime  # Update last TAB press time #
+              lastTabTime="$currentTime"  # Update last TAB press time #
               _showPSWDPrompt_
           fi
           continue
