@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Feb-29
+# Last Modified: 2024-Mar-03
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.6
+readonly SCRIPT_VERSION=1.0.7
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -1917,15 +1917,16 @@ _TestLoginCredentials_()
     fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Feb-29] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-03] ##
+##----------------------------------------##
 _GetPasswordInput_()
 {
    local PSWDstrLenMIN=1  PSWDstrLenMAX=64
    local PSWDstring  PSWDtmpStr  PSWDprompt
-   local retCode  charNum  prevChar  pswdLength  showPSWD
-   local lastTabTime=0  # Added for debounce
+   local retCode  charNum  pswdLength  showPSWD
+   # Added for TAB keypress debounce #
+   local lastTabTime=0  currentTime  timeDiff
 
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
@@ -1933,6 +1934,15 @@ _GetPasswordInput_()
        return 1
    fi
    PSWDprompt="$1"
+
+   _GetKeypress_()
+   {
+      local savedSettings
+      savedSettings="$(stty -g)"
+      stty -echo raw
+      echo "$(dd count=1 2>/dev/null)"
+      stty "$savedSettings"
+   }
 
    _showPSWDPrompt_()
    {
@@ -1946,7 +1956,7 @@ _GetPasswordInput_()
    }
 
    showPSWD=0
-   charNum=""  prevChar=""
+   charNum=""
    PSWDstring="$pswdString"
    pswdLength="${#PSWDstring}"
    if [ -z "$PSWDstring" ]
@@ -1955,9 +1965,11 @@ _GetPasswordInput_()
    fi
    echo ; _showPSWDPrompt_
 
-   while IFS='' read -n 1 -rs theChar
+   while IFS='' theChar="$(_GetKeypress_)"
    do
-      if [ "$theChar" = "" ]
+      charNum="$(printf "%d" "'$theChar")"
+
+      if [ "$theChar" = "" ] || [ "$charNum" -eq 13 ]
       then
           if [ "$pswdLength" -ge "$PSWDstrLenMIN" ] && [ "$pswdLength" -le "$PSWDstrLenMAX" ]
           then
@@ -1978,37 +1990,25 @@ _GetPasswordInput_()
           fi
           break
       fi
-      charNum="$(printf "%d" "'$theChar")"
 
-      ## TAB keypress with debounce ##
+      ## Ignore Escape Sequences ##
+      [ "$charNum" -eq 27 ] && continue
+
+      ## TAB keypress as toggle with debounce ##
       if [ "$charNum" -eq 9 ]
       then
-          local currentTime=$(date +%s)
-          local timeDiff=$((currentTime - lastTabTime))
-          if [ "$timeDiff" -ge 1 ] # Check if at least 1 second has passed
+          currentTime="$(date +%s)"
+          timeDiff="$((currentTime - lastTabTime))"
+          if [ "$timeDiff" -gt 0 ]
           then
               showPSWD="$((! showPSWD))"
-              lastTabTime=$currentTime # Update last TAB press time
+              lastTabTime="$currentTime"  # Update last TAB press time #
               _showPSWDPrompt_
           fi
           continue
       fi
 
-      ## Ignore Escape Sequences ##
-      if [ "$charNum" -eq 27 ]
-      then prevChar="${charNum}" ; continue ; fi
-
-      if [ -n "$prevChar" ] && \
-         { [ "$prevChar" -eq 27 ]     || \
-           [ "$prevChar" -eq 2791 ]   || \
-           [ "$prevChar" -eq 279150 ] || \
-           [ "$prevChar" -eq 279151 ] || \
-           [ "$prevChar" -eq 279153 ] || \
-           [ "$prevChar" -eq 279154 ] ; }
-      then prevChar="${prevChar}${charNum}" ; continue
-      else prevChar="" ; fi
-
-      ## Backspace keypress ##
+      ## BACKSPACE keypress ##
       if [ "$charNum" -eq 8 ] || [ "$charNum" -eq 127 ]
       then
           if [ "$pswdLength" -gt 0 ]
