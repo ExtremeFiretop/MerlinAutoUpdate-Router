@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-03
+# Last Modified: 2024-Mar-14
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.7
+readonly SCRIPT_VERSION=1.0.8
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -579,7 +579,7 @@ _SCRIPTUPDATE_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-27] ##
+## Modified by Martinski W. [2024-Mar-14] ##
 ##----------------------------------------##
 #-------------------------------------------------------------#
 # Since a list of current mount points can have a different
@@ -593,7 +593,7 @@ _ValidateUSBMountPoint_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
 
-   local mounPointPaths  expectedPath
+   local mounPointPaths  expectedPath  mountPointList
    local symblPath  realPath1  realPath2  foundPathOK
    local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
 
@@ -611,13 +611,21 @@ _ValidateUSBMountPoint_()
        expectedPath="$(/usr/bin/dirname "$realPath1")"
    fi
 
+   mountPointList=""
    foundPathOK=false
+
    for thePATH in $mounPointPaths
    do
       if echo "${expectedPath}/" | grep -qE "^${thePATH}/"
       then foundPathOK=true ; break ; fi
+      mountPointList="$mountPointList $thePATH"
    done
-   "$foundPathOK" && return 0 || return 1
+   "$foundPathOK" && return 0
+
+   ## Report found Mount Points on failure ##
+   if [ $# -gt 1 ] && [ "$2" -eq 1 ] && [ -n "$mountPointList" ]
+   then Say "Mount points found:$mountPointList" ; fi
+   return 1
 }
 
 ##----------------------------------------##
@@ -2884,7 +2892,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Make a special case when USB drive has Entware installed.
     #---------------------------------------------------------------#
     if echo "$FW_ZIP_BASE_DIR" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
-       ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+       ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
     then
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
@@ -2996,7 +3004,8 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Get the required space for the firmware download and extraction
     required_space_kb=$(get_required_space "$release_link")
     if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]; then
-        if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+        if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+        then
             Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
@@ -3135,7 +3144,7 @@ EOT
         then
             # It's not on a USB drive, so it's safe to delete it #
             rm -f "$FW_ZIP_FPATH"
-        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
             #-------------------------------------------------------------#
             # This should not happen because we already checked for it
