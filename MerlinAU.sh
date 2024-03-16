@@ -3225,17 +3225,19 @@ EOT
     cd "$FW_BIN_DIR"
 
     ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Feb-10] ##
+    ## Modified by Martinski W. [2024-Mar-16] ##
     ##----------------------------------------##
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
-    if [ "$checkChangeLogSetting" = "ENABLED" ]; then
-        # Files matching the pattern 'Changelog-*.txt' #
-        changelog_file="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-*.txt" -print | head -n 1)"
+    if [ "$checkChangeLogSetting" = "ENABLED" ]
+    then
+        # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
+        changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
+        changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
 
-        # Check if the log file exists
-        if [ ! -f "$changelog_file" ]; then
-            Say "Change-log file does not exist at $changelog_file"
+        if [ ! -f "$changeLogFile" ]
+        then
+            Say "Change-log file [$changeLogFile] does NOT exist."
             _DoCleanUp_
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
@@ -3261,32 +3263,32 @@ EOT
             current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
 
             # Check if the current version is present in the changelog
-            if ! grep -Eq "$current_version_regex" "$changelog_file"; then
+            if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
                 Say "Current version not found in change-log. Bypassing change-log verification for this run."
             else
                 # Extract log contents between two firmware versions
-                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changelog_file")"
+                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
                 # Define high-risk terms as a single string separated by '|'
                 high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
                 # Search for high-risk terms in the extracted log contents
                 if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
                     if [ "$inMenuMode" = true ]; then
-                        printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
+                        printf "\n ${REDct}Warning: Found high-risk phrases in the change-log.${NOct}"
                         printf "\n ${REDct}Would you like to continue anyways?${NOct}"
                         if ! _WaitForYESorNO_ ; then
                             Say "Exiting for change-log review."
                             _DoCleanUp_ 1 ; return 1
                         fi
                     else
-                        Say "Warning: Found high-risk phrases in the change-logs."
+                        Say "Warning: Found high-risk phrases in the change-log."
                         Say "Please run script interactively to approve the upgrade."
                         _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
                         _DoCleanUp_ 1
                         _DoExit_ 1
                     fi
                 else
-                    Say "No high-risk phrases found in the change-logs."
+                    Say "No high-risk phrases found in the change-log."
                 fi
             fi
         fi
