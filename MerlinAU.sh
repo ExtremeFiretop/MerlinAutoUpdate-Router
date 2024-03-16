@@ -1836,7 +1836,7 @@ check_memory_and_prompt_reboot() {
 
             sync; echo 2 > /proc/sys/vm/drop_caches
 
-        	# Check available memory again #
+            # Check available memory again #
             availableRAM_kb=$(_GetAvailableRAM_KB_)
             if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
 
@@ -1858,7 +1858,7 @@ check_memory_and_prompt_reboot() {
 
                 sync; echo 3 > /proc/sys/vm/drop_caches
 
-        		# Check available memory again #
+                # Check available memory again #
                 availableRAM_kb=$(_GetAvailableRAM_KB_)
                 if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
 
@@ -1873,14 +1873,14 @@ check_memory_and_prompt_reboot() {
                     else
                         # Exit script if non-interactive or if user answers NO #
                         Say "Insufficient memory to continue. Exiting script."
-						# Restart Entware services #
-						_EntwareServicesHandler_ start
-						# Check if '/opt/bin/diversion' exists #
-						if [ -f /opt/bin/diversion ]; then
-                    		# Start Diversion services #
-                    		Say "Starting Diversion service..."
-                    		/opt/bin/diversion mount
-						fi
+                        # Restart Entware services #
+                        _EntwareServicesHandler_ start
+                        # Check if '/opt/bin/diversion' exists #
+                        if [ -f /opt/bin/diversion ]; then
+                            # Start Diversion services #
+                            Say "Starting Diversion service..."
+                            /opt/bin/diversion mount
+                        fi
                         _DoCleanUp_ 1 "$keepZIPfile"
                         _DoExit_ 1
                     fi
@@ -3503,7 +3503,7 @@ EOT
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
         _EntwareServicesHandler_ start
-		# Check if '/opt/bin/diversion' exists #
+        # Check if '/opt/bin/diversion' exists #
         if [ -f /opt/bin/diversion ]; then
             # Start Diversion services #
             Say "Starting Diversion service..."
