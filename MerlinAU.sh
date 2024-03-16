@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-14
+# Last Modified: 2024-Mar-15
 ###################################################################
 set -u
 
@@ -1810,9 +1810,9 @@ _DoCleanUp_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-15] ##
+##------------------------------------------##
 check_memory_and_prompt_reboot() {
     local required_space_kb="$1"
     local availableRAM_kb="$2"
@@ -1827,19 +1827,68 @@ check_memory_and_prompt_reboot() {
         # Check available memory again #
         availableRAM_kb=$(_GetAvailableRAM_KB_)
         if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
-            # In an interactive shell session, ask user to confirm reboot #
-            if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
-            then
-                _AddPostRebootRunScriptHook_
-                Say "Rebooting router..."
-                _ReleaseLock_
-                /sbin/service reboot
-                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+
+            freeRAM_kb="$(get_free_ram)"
+            Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+            
+            # Attempt to clear dentries and inodes. #
+            Say "Attempting to free up memory again more aggressively..."
+
+            sync; echo 2 > /proc/sys/vm/drop_caches
+
+        	# Check available memory again #
+            availableRAM_kb=$(_GetAvailableRAM_KB_)
+            if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
+
+                freeRAM_kb="$(get_free_ram)"
+                Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+                
+                # Attempt to clear clears pagecache, dentries, and inodes after shutting down services		
+                Say "Attempting to free up memory once more even more aggressively..."
+
+                # Check if '/opt/bin/diversion' exists #
+                if [ -f /opt/bin/diversion ]; then
+                    # Stop Diversion services before flash #
+                    Say "Stopping Diversion service..."
+                    /opt/bin/diversion unmount
+                fi
+
+                # Stop entware services before F/W flash #
+                _EntwareServicesHandler_ stop
+
+                sync; echo 3 > /proc/sys/vm/drop_caches
+
+        		# Check available memory again #
+                availableRAM_kb=$(_GetAvailableRAM_KB_)
+                if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
+
+                    # In an interactive shell session, ask user to confirm reboot #
+                    if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
+                    then
+                        _AddPostRebootRunScriptHook_
+                        Say "Rebooting router..."
+                        _ReleaseLock_
+                        /sbin/service reboot
+                        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+                    else
+                        # Exit script if non-interactive or if user answers NO #
+                        Say "Insufficient memory to continue. Exiting script."
+						# Restart Entware services #
+						_EntwareServicesHandler_ start
+						# Check if '/opt/bin/diversion' exists #
+						if [ -f /opt/bin/diversion ]; then
+                    		# Start Diversion services #
+                    		Say "Starting Diversion service..."
+                    		/opt/bin/diversion mount
+						fi
+                        _DoCleanUp_ 1 "$keepZIPfile"
+                        _DoExit_ 1
+                    fi
+                else
+                    Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+                fi
             else
-                # Exit script if non-interactive or if user answers NO #
-                Say "Insufficient memory to continue. Exiting script."
-                _DoCleanUp_ 1 "$keepZIPfile"
-                _DoExit_ 1
+                Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
             fi
         else
             Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
@@ -3373,7 +3422,7 @@ EOT
     _EntwareServicesHandler_ stop
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Feb-28] ##
+    ## Modified by ExtremeFiretop [2024-Mar-15] ##
     ##------------------------------------------##
 
     curl_response="$(curl -k "${routerURLstr}/login.cgi" \
@@ -3454,6 +3503,12 @@ EOT
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
         _EntwareServicesHandler_ start
+		# Check if '/opt/bin/diversion' exists #
+        if [ -f /opt/bin/diversion ]; then
+            # Start Diversion services #
+            Say "Starting Diversion service..."
+            /opt/bin/diversion mount
+        fi
     fi
 
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
