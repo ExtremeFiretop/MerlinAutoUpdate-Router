@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-15
+# Last Modified: 2024-Mar-16
 ###################################################################
 set -u
 
@@ -77,8 +77,8 @@ cronCmd="$(which crontab) -l"
 ##----------------------------------------------##
 inMenuMode=true
 isInteractive=false
-mainMenuReturnPromptStr="Press Enter to return to the Main Menu..."
-advnMenuReturnPromptStr="Press Enter to return to the Advanced Menu..."
+mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
+advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Menu..."
 
 [ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
 
@@ -132,7 +132,7 @@ _WaitForEnterKey_()
 
    if [ $# -gt 0 ] && [ -n "$1" ]
    then promptStr="$1"
-   else promptStr="Press Enter to continue..."
+   else promptStr="Press <Enter> to continue..."
    fi
 
    printf "\n$promptStr"
@@ -1810,58 +1810,55 @@ _DoCleanUp_()
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-15] ##
-##------------------------------------------##
-check_memory_and_prompt_reboot() {
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-16] ##
+##----------------------------------------##
+check_memory_and_prompt_reboot()
+{
     local required_space_kb="$1"
     local availableRAM_kb="$2"
 
-    if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
+    if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+    then
         Say "Insufficient RAM available."
 
         # Attempt to clear PageCache #
         Say "Attempting to free up memory..."
         sync; echo 1 > /proc/sys/vm/drop_caches
+        sleep 2
 
         # Check available memory again #
-        availableRAM_kb=$(_GetAvailableRAM_KB_)
-        if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
-
+        availableRAM_kb="$(_GetAvailableRAM_KB_)"
+        if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+        then
             freeRAM_kb="$(get_free_ram)"
             Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
             
             # Attempt to clear dentries and inodes. #
             Say "Attempting to free up memory again more aggressively..."
-
             sync; echo 2 > /proc/sys/vm/drop_caches
+            sleep 2
 
             # Check available memory again #
-            availableRAM_kb=$(_GetAvailableRAM_KB_)
-            if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
-
+            availableRAM_kb="$(_GetAvailableRAM_KB_)"
+            if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+            then
                 freeRAM_kb="$(get_free_ram)"
                 Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                 
                 # Attempt to clear clears pagecache, dentries, and inodes after shutting down services		
                 Say "Attempting to free up memory once more even more aggressively..."
 
-                # Check if '/opt/bin/diversion' exists #
-                if [ -f /opt/bin/diversion ]; then
-                    # Stop Diversion services before flash #
-                    Say "Stopping Diversion service..."
-                    /opt/bin/diversion unmount
-                fi
-
-                # Stop entware services before F/W flash #
+                # Stop Entware services before F/W flash #
                 _EntwareServicesHandler_ stop
 
                 sync; echo 3 > /proc/sys/vm/drop_caches
+                sleep 2
 
                 # Check available memory again #
-                availableRAM_kb=$(_GetAvailableRAM_KB_)
-                if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
-
+                availableRAM_kb="$(_GetAvailableRAM_KB_)"
+                if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+                then
                     # In an interactive shell session, ask user to confirm reboot #
                     if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
                     then
@@ -1875,12 +1872,7 @@ check_memory_and_prompt_reboot() {
                         Say "Insufficient memory to continue. Exiting script."
                         # Restart Entware services #
                         _EntwareServicesHandler_ start
-                        # Check if '/opt/bin/diversion' exists #
-                        if [ -f /opt/bin/diversion ]; then
-                            # Start Diversion services #
-                            Say "Starting Diversion service..."
-                            /opt/bin/diversion mount
-                        fi
+
                         _DoCleanUp_ 1 "$keepZIPfile"
                         _DoExit_ 1
                     fi
@@ -2869,37 +2861,41 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-25] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-16] ##
+##----------------------------------------##
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
 
-   local fileCount  entwOPT_init  entwOPT_unslung  actionStr=""
+   local serviceCnt  entwOPT_init  entwOPT_unslung  actionStr=""  divAction=""
+
+   case "$1" in
+       stop) actionStr="Stopping" ; divAction="unmount" ;;
+      start) actionStr="Restarting" ; divAction="mount" ;;
+          *) return 1 ;;
+   esac
+
+   if [ -f /opt/bin/diversion ]
+   then
+       Say "${actionStr} Diversion service..."
+       /opt/bin/diversion "$divAction"
+       sleep 1
+   fi
 
    entwOPT_init="/opt/etc/init.d"
    entwOPT_unslung="${entwOPT_init}/rc.unslung"
 
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
-   then return 0 ; fi  ## Entware is not found ##
+   then return 0 ; fi  ## Entware is NOT found ##
 
-   fileCount="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -cE "${entwOPT_init}/S[0-9]+")"
-   [ "$fileCount" -eq 0 ] && return 0
+   serviceCnt="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -cE "${entwOPT_init}/S[0-9]+")"
+   [ "$serviceCnt" -eq 0 ] && return 0
 
-   case "$1" in
-       stop) actionStr="Stopping" ;;
-      start) actionStr="Restarting" ;;
-          *) return 1 ;;
-   esac
-
-   if [ -n "$actionStr" ]
-   then
-      "$isInteractive" && \
-      printf "\n${actionStr} Entware services... Please wait.\n"
-      $entwOPT_unslung "$1" ; sleep 5
-      printf "\nDone.\n"
-   fi
+   Say "${actionStr} Entware services..."
+   "$isInteractive" && printf "\nPlease wait.\n"
+   $entwOPT_unslung "$1" ; sleep 5
+   "$isInteractive" && printf "\nDone.\n"
 }
 
 ##----------------------------------------##
@@ -3377,7 +3373,7 @@ EOT
     fi
 
     ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Jan-06] ##
+    ## Modified by Martinski W. [2024-Mar-16] ##
     ##----------------------------------------##
     freeRAM_kb="$(get_free_ram)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
@@ -3390,7 +3386,7 @@ EOT
     if "$isInteractive"
     then
         printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
-        printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
+        printf "Press <Enter> to stop now, or type ${GRNct}Y${NOct} to continue.\n"
         printf "Once started, the flashing process CANNOT be interrupted.\n"
         if ! _WaitForYESorNO_ "Continue?"
         then
@@ -3411,14 +3407,7 @@ EOT
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
-    # Check if '/opt/bin/diversion' exists #
-    if [ -f /opt/bin/diversion ]; then
-        # Stop Diversion services before flash #
-        Say "Stopping Diversion service..."
-        /opt/bin/diversion unmount
-    fi
-
-    # Stop entware services before F/W flash #
+    # Stop Entware services before F/W flash #
     _EntwareServicesHandler_ stop
 
     ##------------------------------------------##
@@ -3503,12 +3492,6 @@ EOT
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
         _EntwareServicesHandler_ start
-        # Check if '/opt/bin/diversion' exists #
-        if [ -f /opt/bin/diversion ]; then
-            # Start Diversion services #
-            Say "Starting Diversion service..."
-            /opt/bin/diversion mount
-        fi
     fi
 
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
