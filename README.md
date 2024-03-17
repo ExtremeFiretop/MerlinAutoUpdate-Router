@@ -1,6 +1,6 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.0.7
-## 2024-03-09
+## v1.0.8
+## 2024-03-17
 
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/21774f93-ce0a-43a9-986c-a02538e1526d)
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/2a12c08b-87e8-42d4-b231-e4bff58a4465)
@@ -15,6 +15,8 @@
  - RT-AC86U (Tested)
  - RT-AX86U (Tested)
  - RT-AX86U_PRO (Tested)
+ - RT-AX86S (Tested)
+ - RT-AX58U (Tested)
  - XT12 (Tested)
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
