@@ -42,7 +42,6 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AX86U_PRO (Untested)
  - RT-AX68U (Untested)
  - RT-AX56U (Untested)
- - RT-AX58U (Untested)
  - RT-AX3000 (Untested)
 
  ## TESTERS NEEDED!
