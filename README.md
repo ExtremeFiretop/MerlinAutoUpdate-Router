@@ -10,6 +10,7 @@
  - GT-AX6000 (Tested)
  - GT-AXE11000 (Tested)
  - GT-AX11000_PRO (Tested)
+ - GT-AX11000 (Tested)
  - RT-AX88U_PRO (Tested)
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
@@ -37,9 +38,7 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
 ## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
  - GT-AXE16000 (Untested)
- - GT-AX11000 (Untested)
  - GT-AC2900 (Untested)
- - RT-AX86U_PRO (Untested)
  - RT-AX68U (Untested)
  - RT-AX56U (Untested)
  - RT-AX3000 (Untested)
