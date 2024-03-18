@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-03
+# Last Modified: 2024-Mar-16
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.7
+readonly SCRIPT_VERSION=1.0.8
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -77,8 +77,8 @@ cronCmd="$(which crontab) -l"
 ##----------------------------------------------##
 inMenuMode=true
 isInteractive=false
-mainMenuReturnPromptStr="Press Enter to return to the Main Menu..."
-advnMenuReturnPromptStr="Press Enter to return to the Advanced Menu..."
+mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
+advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Menu..."
 
 [ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
 
@@ -132,7 +132,7 @@ _WaitForEnterKey_()
 
    if [ $# -gt 0 ] && [ -n "$1" ]
    then promptStr="$1"
-   else promptStr="Press Enter to continue..."
+   else promptStr="Press <Enter> to continue..."
    fi
 
    printf "\n$promptStr"
@@ -579,7 +579,7 @@ _SCRIPTUPDATE_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-27] ##
+## Modified by Martinski W. [2024-Mar-14] ##
 ##----------------------------------------##
 #-------------------------------------------------------------#
 # Since a list of current mount points can have a different
@@ -593,7 +593,7 @@ _ValidateUSBMountPoint_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
 
-   local mounPointPaths  expectedPath
+   local mounPointPaths  expectedPath  mountPointList
    local symblPath  realPath1  realPath2  foundPathOK
    local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
 
@@ -611,13 +611,21 @@ _ValidateUSBMountPoint_()
        expectedPath="$(/usr/bin/dirname "$realPath1")"
    fi
 
+   mountPointList=""
    foundPathOK=false
+
    for thePATH in $mounPointPaths
    do
       if echo "${expectedPath}/" | grep -qE "^${thePATH}/"
       then foundPathOK=true ; break ; fi
+      mountPointList="$mountPointList $thePATH"
    done
-   "$foundPathOK" && return 0 || return 1
+   "$foundPathOK" && return 0
+
+   ## Report found Mount Points on failure ##
+   if [ $# -gt 1 ] && [ "$2" -eq 1 ] && [ -n "$mountPointList" ]
+   then Say "Mount points found:$mountPointList" ; fi
+   return 1
 }
 
 ##----------------------------------------##
@@ -1803,35 +1811,76 @@ _DoCleanUp_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-06] ##
+## Modified by Martinski W. [2024-Mar-16] ##
 ##----------------------------------------##
-check_memory_and_prompt_reboot() {
+check_memory_and_prompt_reboot()
+{
     local required_space_kb="$1"
     local availableRAM_kb="$2"
 
-    if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
+    if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+    then
         Say "Insufficient RAM available."
 
         # Attempt to clear PageCache #
         Say "Attempting to free up memory..."
         sync; echo 1 > /proc/sys/vm/drop_caches
+        sleep 2
 
         # Check available memory again #
-        availableRAM_kb=$(_GetAvailableRAM_KB_)
-        if [ "$availableRAM_kb" -lt "$required_space_kb" ]; then
-            # In an interactive shell session, ask user to confirm reboot #
-            if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
+        availableRAM_kb="$(_GetAvailableRAM_KB_)"
+        if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+        then
+            freeRAM_kb="$(get_free_ram)"
+            Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+            
+            # Attempt to clear dentries and inodes. #
+            Say "Attempting to free up memory again more aggressively..."
+            sync; echo 2 > /proc/sys/vm/drop_caches
+            sleep 2
+
+            # Check available memory again #
+            availableRAM_kb="$(_GetAvailableRAM_KB_)"
+            if [ "$availableRAM_kb" -lt "$required_space_kb" ]
             then
-                _AddPostRebootRunScriptHook_
-                Say "Rebooting router..."
-                _ReleaseLock_
-                /sbin/service reboot
-                exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+                freeRAM_kb="$(get_free_ram)"
+                Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+                
+                # Attempt to clear clears pagecache, dentries, and inodes after shutting down services		
+                Say "Attempting to free up memory once more even more aggressively..."
+
+                # Stop Entware services before F/W flash #
+                _EntwareServicesHandler_ stop
+
+                sync; echo 3 > /proc/sys/vm/drop_caches
+                sleep 2
+
+                # Check available memory again #
+                availableRAM_kb="$(_GetAvailableRAM_KB_)"
+                if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+                then
+                    # In an interactive shell session, ask user to confirm reboot #
+                    if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
+                    then
+                        _AddPostRebootRunScriptHook_
+                        Say "Rebooting router..."
+                        _ReleaseLock_
+                        /sbin/service reboot
+                        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+                    else
+                        # Exit script if non-interactive or if user answers NO #
+                        Say "Insufficient memory to continue. Exiting script."
+                        # Restart Entware services #
+                        _EntwareServicesHandler_ start
+
+                        _DoCleanUp_ 1 "$keepZIPfile"
+                        _DoExit_ 1
+                    fi
+                else
+                    Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+                fi
             else
-                # Exit script if non-interactive or if user answers NO #
-                Say "Insufficient memory to continue. Exiting script."
-                _DoCleanUp_ 1 "$keepZIPfile"
-                _DoExit_ 1
+                Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
             fi
         else
             Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
@@ -2812,37 +2861,41 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-25] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-16] ##
+##----------------------------------------##
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
 
-   local fileCount  entwOPT_init  entwOPT_unslung  actionStr=""
+   local serviceCnt  entwOPT_init  entwOPT_unslung  actionStr=""  divAction=""
+
+   case "$1" in
+       stop) actionStr="Stopping" ; divAction="unmount" ;;
+      start) actionStr="Restarting" ; divAction="mount" ;;
+          *) return 1 ;;
+   esac
+
+   if [ -f /opt/bin/diversion ]
+   then
+       Say "${actionStr} Diversion service..."
+       /opt/bin/diversion "$divAction"
+       sleep 1
+   fi
 
    entwOPT_init="/opt/etc/init.d"
    entwOPT_unslung="${entwOPT_init}/rc.unslung"
 
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
-   then return 0 ; fi  ## Entware is not found ##
+   then return 0 ; fi  ## Entware is NOT found ##
 
-   fileCount="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -cE "${entwOPT_init}/S[0-9]+")"
-   [ "$fileCount" -eq 0 ] && return 0
+   serviceCnt="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -cE "${entwOPT_init}/S[0-9]+")"
+   [ "$serviceCnt" -eq 0 ] && return 0
 
-   case "$1" in
-       stop) actionStr="Stopping" ;;
-      start) actionStr="Restarting" ;;
-          *) return 1 ;;
-   esac
-
-   if [ -n "$actionStr" ]
-   then
-      "$isInteractive" && \
-      printf "\n${actionStr} Entware services... Please wait.\n"
-      $entwOPT_unslung "$1" ; sleep 5
-      printf "\nDone.\n"
-   fi
+   Say "${actionStr} Entware services..."
+   "$isInteractive" && printf "\nPlease wait.\n"
+   $entwOPT_unslung "$1" ; sleep 5
+   "$isInteractive" && printf "\nDone.\n"
 }
 
 ##----------------------------------------##
@@ -2884,7 +2937,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Make a special case when USB drive has Entware installed.
     #---------------------------------------------------------------#
     if echo "$FW_ZIP_BASE_DIR" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
-       ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+       ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
     then
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
@@ -2996,7 +3049,8 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Get the required space for the firmware download and extraction
     required_space_kb=$(get_required_space "$release_link")
     if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]; then
-        if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+        if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+        then
             Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
@@ -3135,7 +3189,7 @@ EOT
         then
             # It's not on a USB drive, so it's safe to delete it #
             rm -f "$FW_ZIP_FPATH"
-        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
             #-------------------------------------------------------------#
             # This should not happen because we already checked for it
@@ -3171,17 +3225,19 @@ EOT
     cd "$FW_BIN_DIR"
 
     ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Feb-10] ##
+    ## Modified by Martinski W. [2024-Mar-16] ##
     ##----------------------------------------##
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
-    if [ "$checkChangeLogSetting" = "ENABLED" ]; then
-        # Files matching the pattern 'Changelog-*.txt' #
-        changelog_file="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-*.txt" -print | head -n 1)"
+    if [ "$checkChangeLogSetting" = "ENABLED" ]
+    then
+        # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
+        changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
+        changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
 
-        # Check if the log file exists
-        if [ ! -f "$changelog_file" ]; then
-            Say "Change-log file does not exist at $changelog_file"
+        if [ ! -f "$changeLogFile" ]
+        then
+            Say "Change-log file [$changeLogFile] does NOT exist."
             _DoCleanUp_
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
@@ -3207,32 +3263,32 @@ EOT
             current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
 
             # Check if the current version is present in the changelog
-            if ! grep -Eq "$current_version_regex" "$changelog_file"; then
+            if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
                 Say "Current version not found in change-log. Bypassing change-log verification for this run."
             else
                 # Extract log contents between two firmware versions
-                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changelog_file")"
+                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
                 # Define high-risk terms as a single string separated by '|'
                 high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
                 # Search for high-risk terms in the extracted log contents
                 if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
                     if [ "$inMenuMode" = true ]; then
-                        printf "\n ${REDct}Warning: Found high-risk phrases in the change-logs.${NOct}"
+                        printf "\n ${REDct}Warning: Found high-risk phrases in the change-log.${NOct}"
                         printf "\n ${REDct}Would you like to continue anyways?${NOct}"
                         if ! _WaitForYESorNO_ ; then
                             Say "Exiting for change-log review."
                             _DoCleanUp_ 1 ; return 1
                         fi
                     else
-                        Say "Warning: Found high-risk phrases in the change-logs."
+                        Say "Warning: Found high-risk phrases in the change-log."
                         Say "Please run script interactively to approve the upgrade."
                         _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
                         _DoCleanUp_ 1
                         _DoExit_ 1
                     fi
                 else
-                    Say "No high-risk phrases found in the change-logs."
+                    Say "No high-risk phrases found in the change-log."
                 fi
             fi
         fi
@@ -3319,7 +3375,7 @@ EOT
     fi
 
     ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Jan-06] ##
+    ## Modified by Martinski W. [2024-Mar-16] ##
     ##----------------------------------------##
     freeRAM_kb="$(get_free_ram)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
@@ -3332,7 +3388,7 @@ EOT
     if "$isInteractive"
     then
         printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
-        printf "Press Enter to stop now, or type ${GRNct}Y${NOct} to continue.\n"
+        printf "Press <Enter> to stop now, or type ${GRNct}Y${NOct} to continue.\n"
         printf "Once started, the flashing process CANNOT be interrupted.\n"
         if ! _WaitForYESorNO_ "Continue?"
         then
@@ -3353,18 +3409,11 @@ EOT
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
-    # Check if '/opt/bin/diversion' exists #
-    if [ -f /opt/bin/diversion ]; then
-        # Stop Diversion services before flash #
-        Say "Stopping Diversion service..."
-        /opt/bin/diversion unmount
-    fi
-
-    # Stop entware services before F/W flash #
+    # Stop Entware services before F/W flash #
     _EntwareServicesHandler_ stop
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Feb-28] ##
+    ## Modified by ExtremeFiretop [2024-Mar-15] ##
     ##------------------------------------------##
 
     curl_response="$(curl -k "${routerURLstr}/login.cgi" \
