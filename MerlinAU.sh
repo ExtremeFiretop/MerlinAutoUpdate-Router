@@ -3146,7 +3146,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Initialize the total size counter
     total_size_bytes=0
 
-    # Convert newline characters to a unique character not expected in file names, here using a null character for illustration
+    # Convert newline characters to a unique character not expected in file names
     # Note: This approach assumes file names do not contain newlines or null characters
     IFS=$'\n' # Set IFS to newline to correctly iterate over files in case they contain spaces
     for file in $foundFiles; do
@@ -3162,7 +3162,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Total size of files: $total_size_bytes bytes"
 
     # Convert total size from bytes to KB and adjust the required space
-    # Bash and POSIX shells perform integer division, so we add 1023 before dividing to round up
     total_size_kb="$((total_size_bytes / 1024))"
 
     # Subtract the calculated size from required_space_kb
