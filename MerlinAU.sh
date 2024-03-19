@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-16
+# Last Modified: 2024-Mar-18
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.8
+readonly SCRIPT_VERSION=1.0.9
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -870,87 +870,6 @@ Update_Custom_Settings()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-30] ##
-##------------------------------------------##
-_migrate_settings_move() {
-    local USBMountPoint="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
-    local old_settings_dir="${ADDONS_PATH}/$ScriptFNameTag"
-    local new_settings_dir="${ADDONS_PATH}/$ScriptDirNameD"
-    local old_bin_dir="/home/root/$ScriptFNameTag"
-    local new_bin_dir="/home/root/$ScriptDirNameD"
-    local old_log_dir="${USBMountPoint}/$ScriptFNameTag"
-    local new_log_dir="${USBMountPoint}/$ScriptDirNameD"
-
-    # Check if the old SETTINGS directory exists #
-    if [ -d "$old_settings_dir" ]; then
-        # Check if the new SETTINGS directory already exists
-        if [ -d "$new_settings_dir" ]; then
-            # Remove the old SETTINGS directory since the new one exists
-            rm -rf "$old_settings_dir"
-            if [ $? -eq 0 ]; then
-                echo "The new SETTINGS directory already exists. Removed the old SETTINGS directory."
-            else
-                echo "Error occurred while removing the old SETTINGS directory."
-            fi
-        else
-            # Move the old SETTINGS directory to the new location
-            mv "$old_settings_dir" "$new_settings_dir"
-            if [ $? -eq 0 ]; then
-                echo "SETTINGS directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the SETTINGS directory."
-            fi
-        fi
-    fi
-
-    # Check if the old BIN directory exists #
-    if [ -d "$old_bin_dir" ]; then
-        # Check if the new BIN directory already exists
-        if [ -d "$new_bin_dir" ]; then
-            # Remove the old BIN directory since the new one exists
-            rm -rf "$old_bin_dir"
-            if [ $? -eq 0 ]; then
-                echo "The new BIN directory already exists. Removed the old BIN directory."
-            else
-                echo "Error occurred while removing the old BIN directory."
-            fi
-        else
-            # Move the old BIN directory to the new location
-            mv "$old_bin_dir" "$new_bin_dir"
-            if [ $? -eq 0 ]; then
-                echo "BIN directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the BIN directory."
-            fi
-        fi
-    fi
-
-    # Check if the old LOG directory exists #
-    if [ -d "$old_log_dir" ]; then
-        # Check if the new LOG directory already exists
-        if [ -d "$new_log_dir" ]; then
-            # Remove the old LOG directory since the new one exists
-            rm -rf "$old_log_dir"
-            if [ $? -eq 0 ]; then
-                echo "The new LOG directory already exists. Removed the old LOG directory."
-            else
-                echo "Error occurred while removing the old LOG directory."
-            fi
-        else
-            # Move the old LOG directory to the new location
-            mv "$old_log_dir" "$new_log_dir"
-            if [ $? -eq 0 ]; then
-                echo "LOG directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the LOG directory."
-            fi
-        fi
-    fi
-}
-
-_migrate_settings_move
-
-##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-24] ##
 ##------------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
@@ -1810,9 +1729,9 @@ _DoCleanUp_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-16] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-18] ##
+##------------------------------------------##
 check_memory_and_prompt_reboot()
 {
     local required_space_kb="$1"
@@ -1852,6 +1771,9 @@ check_memory_and_prompt_reboot()
                 # Stop Entware services before F/W flash #
                 _EntwareServicesHandler_ stop
 
+                /sbin/service stop_samba >/dev/null
+                /sbin/service stop_nasapps >/dev/null
+
                 sync; echo 3 > /proc/sys/vm/drop_caches
                 sleep 2
 
@@ -1862,6 +1784,8 @@ check_memory_and_prompt_reboot()
                     # In an interactive shell session, ask user to confirm reboot #
                     if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
                     then
+                        freeRAM_kb="$(get_free_ram)"
+                        Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         _AddPostRebootRunScriptHook_
                         Say "Rebooting router..."
                         _ReleaseLock_
@@ -1869,6 +1793,8 @@ check_memory_and_prompt_reboot()
                         exit 1  # Although the reboot command should end the script, it's good practice to exit after.
                     else
                         # Exit script if non-interactive or if user answers NO #
+                        freeRAM_kb="$(get_free_ram)"
+                        Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         Say "Insufficient memory to continue. Exiting script."
                         # Restart Entware services #
                         _EntwareServicesHandler_ start
@@ -3168,18 +3094,16 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##----------------------------------------##
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file #
-    while IFS="$(printf '\n')" read -r uzLINE
-    do Say "$uzLINE" ; done <<EOT
-$(unzip -l "$FW_ZIP_FPATH" 2>&1)
-EOT
+    unzip -l "$FW_ZIP_FPATH" 2>&1 | while IFS= read -r uzLINE; do
+        Say "$uzLINE"
+    done
     Say "-----------------------------------------------------------"
 
     # Extracting the firmware binary image #
-    if output="$(unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1)"
-    then
-        echo "$output" | while IFS= read -r line; do
+    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | while IFS= read -r line; do
             Say "$line"
         done
+    then
         Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
         # Check if ZIP file was downloaded to a USB-attached drive.
@@ -3214,6 +3138,39 @@ EOT
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
+    fi
+
+    # Step 1: Find files
+    foundFiles=$( { /usr/bin/find -L "$FW_BIN_DIR" -name "*.w" -print; /usr/bin/find -L "$FW_BIN_DIR" -name "*.pkgtb" -print; } )
+
+    # Initialize the total size counter
+    total_size_bytes=0
+
+    # Convert newline characters to a unique character not expected in file names, here using a null character for illustration
+    # Note: This approach assumes file names do not contain newlines or null characters
+    IFS=$'\n' # Set IFS to newline to correctly iterate over files in case they contain spaces
+    for file in $foundFiles; do
+        if [ -f "$file" ]; then # Ensure the file exists and is a regular file
+            # Use wc -c to count the file size in bytes and add it to the total
+            size=$(wc -c <"$file")
+            total_size_bytes=$((total_size_bytes + size)) # Accumulate total size
+        fi
+    done
+    unset IFS # Reset IFS to default
+
+    # Display the total size in bytes
+    Say "Total size of files: $total_size_bytes bytes"
+
+    # Convert total size from bytes to KB and adjust the required space
+    # Bash and POSIX shells perform integer division, so we add 1023 before dividing to round up
+    total_size_kb="$((total_size_bytes / 1024))"
+
+    # Subtract the calculated size from required_space_kb
+    if [ "$total_size_kb" -gt 0 ]; then
+        required_space_kb=$((required_space_kb - total_size_kb))
+        Say "Adjusted required RAM by subtracting sizes of .w and .pkgtb files: $total_size_kb KB. New required RAM: ${required_space_kb} KB"
+    else
+        Say "No .w or .pkgtb file found for adjustment."
     fi
 
     freeRAM_kb="$(get_free_ram)"
