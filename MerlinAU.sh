@@ -3180,7 +3180,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             # Add the difference to fulfill the minimum cushion
             cushion_diff=$((minimum_cushion_kb - required_space_kb))
             required_space_kb=$((required_space_kb + cushion_diff))
-            Say "Added cushion of $cushion_diff KB to meet the minimum required RAM of 32MB."
+            Say "Added cushion of $cushion_diff KB to meet the minimum required RAM of 35MB."
         fi
     else
         Say "No .w or .pkgtb file found for adjustment."
