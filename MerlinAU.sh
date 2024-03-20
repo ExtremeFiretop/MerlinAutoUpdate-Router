@@ -3181,8 +3181,8 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     else
         Say "No .w or .pkgtb file found for adjustment."
-		_DoCleanUp_ 1
-		_DoExit_ 1
+        _DoCleanUp_ 1
+        _DoExit_ 1
     fi
 
     freeRAM_kb="$(get_free_ram)"
