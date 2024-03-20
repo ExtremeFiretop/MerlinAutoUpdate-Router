@@ -3089,9 +3089,9 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Feb-20] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Mar-19] ##
+    ##------------------------------------------##
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file #
     unzip -l "$FW_ZIP_FPATH" 2>&1 | while IFS= read -r uzLINE; do
@@ -3140,6 +3140,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Mar-19] ##
+    ##------------------------------------------##
     # Step 1: Find files
     foundFiles=$( { /usr/bin/find -L "$FW_BIN_DIR" -name "*.w" -print; /usr/bin/find -L "$FW_BIN_DIR" -name "*.pkgtb" -print; } )
 
