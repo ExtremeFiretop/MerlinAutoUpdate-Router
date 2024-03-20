@@ -3164,12 +3164,25 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Convert total size from bytes to KB and adjust the required space
     total_size_kb="$((total_size_bytes / 1024))"
 
+    # Set the minimum required RAM cushion to 32MB (32 * 1024 = 32768+5KB for good measure.)
+    minimum_cushion_kb=32773
+
     # Subtract the calculated size from required_space_kb
     if [ "$total_size_kb" -gt 0 ]; then
         required_space_kb=$((required_space_kb - total_size_kb))
         Say "Adjusted required RAM by subtracting sizes of .w and .pkgtb files: $total_size_kb KB. New required RAM: ${required_space_kb} KB"
+    
+        # Check if the adjusted required space is less than the minimum cushion
+        if [ "$required_space_kb" -lt "$minimum_cushion_kb" ]; then
+            # Add the difference to fulfill the minimum cushion
+            cushion_diff=$((minimum_cushion_kb - required_space_kb))
+            required_space_kb=$((required_space_kb + cushion_diff))
+            Say "Added cushion of $cushion_diff KB to meet the minimum required RAM of 32MB."
+        fi
     else
         Say "No .w or .pkgtb file found for adjustment."
+		_DoCleanUp_ 1
+		_DoExit_ 1
     fi
 
     freeRAM_kb="$(get_free_ram)"
