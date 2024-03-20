@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-18
+# Last Modified: 2024-Mar-20
 ###################################################################
 set -u
 
@@ -642,9 +642,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -735,9 +735,9 @@ _Init_Custom_Settings_Config_()
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 Get_Custom_Setting()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
@@ -777,9 +777,9 @@ Get_Custom_Setting()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -1738,7 +1738,7 @@ _DoCleanUp_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-18] ##
+## Modified by ExtremeFiretop [2024-Mar-19] ##
 ##------------------------------------------##
 check_memory_and_prompt_reboot()
 {
@@ -3035,7 +3035,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
     then
         ##------------------------------------------##
-        ## Modified by ExtremeFiretop [2024-Feb-17] ##
+        ## Modified by ExtremeFiretop [2024-Mar-20] ##
         ##------------------------------------------##
         # Check for the presence of backupmon.sh script
         if [ -f "/jffs/scripts/backupmon.sh" ]; then
@@ -3102,8 +3102,7 @@ Please manually update to version $minimum_supported_version or higher to use th
                 echo ""
             fi
         else
-            # Print a message if the backup script is not installed
-            Say "Backup script (BACKUPMON) is not installed. Skipping backup."
+            Say "Backup script (BACKUPMON) is disabled in the advanced options. Skipping backup."
             echo ""
         fi
 
@@ -3190,9 +3189,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Mar-19] ##
-    ##------------------------------------------##
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2024-Mar-19] ##
+    ##---------------------------------------##
     # Step 1: Find files
     foundFiles=$( { /usr/bin/find -L "$FW_BIN_DIR" -name "*.w" -print; /usr/bin/find -L "$FW_BIN_DIR" -name "*.pkgtb" -print; } )
 
@@ -4078,7 +4077,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-19] ##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -4115,10 +4114,10 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
-   # Retrieve the current backup settings
-   local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-
    if [ -f "/jffs/scripts/backupmon.sh" ]; then
+       # Retrieve the current backup settings
+       local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
        printf "\n  ${GRNct}6${NOct}.  Toggle Auto-Backups"
        if [ "$current_backup_settings" = "DISABLED" ]
        then printf "\n${padStr}[Current Build Type: ${REDct}${current_backup_settings}${NOct}]\n"
@@ -4177,9 +4176,9 @@ _InvalidMenuSelection_()
    _WaitForEnterKey_
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 _advanced_options_menu_()
 {
     while true
