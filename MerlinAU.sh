@@ -3167,8 +3167,8 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Convert total size from bytes to KB and adjust the required space
     total_size_kb="$((total_size_bytes / 1024))"
 
-    # Set the minimum required RAM cushion to 32MB (32 * 1024 = 32768+5KB for good measure.)
-    minimum_cushion_kb=32773
+    # Set the minimum required RAM cushion to 32MB (33 * 1024 = 33792+5KB for good measure.)
+    minimum_cushion_kb=33797
 
     # Subtract the calculated size from required_space_kb
     if [ "$total_size_kb" -gt 0 ]; then
