@@ -2876,6 +2876,14 @@ _EntwareServicesHandler_()
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
+
+    # Double-check the directory exists before using it #
+    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
+
+    # Set up the custom log file #
+    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
+
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
     if [ "$ModelCheckFailed" != "0" ]; then
@@ -2902,6 +2910,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
+    Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
     Say "Running the update task now... Checking for F/W updates..."
 
     #---------------------------------------------------------------#
@@ -2916,13 +2925,6 @@ Please manually update to version $minimum_supported_version or higher to use th
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
-
-    # Double-check the directory exists before using it #
-    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
-
-    # Set up the custom log file #
-    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
-    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
 
     #---------------------------------------------------------#
     # If the expected directory path for the ZIP file is not
