@@ -485,6 +485,9 @@ logo() {
 ##-----------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
+
+   echo ""
+   Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
    local DLRepoVersionNum  ScriptVersionNum
 
    # Download the latest version file from the source repository
