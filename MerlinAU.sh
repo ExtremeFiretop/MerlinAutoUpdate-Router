@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-16
+# Last Modified: 2024-Mar-20
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.8
+readonly SCRIPT_VERSION=1.0.9
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -459,7 +459,7 @@ readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1
 readonly FW_UpdateMinimumPostponementDays=0
 readonly FW_UpdateDefaultPostponementDays=15
 readonly FW_UpdateMaximumPostponementDays=60
-readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_12:00:00"
+readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:00:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
@@ -2713,9 +2713,9 @@ _CheckNewUpdateFirmwareNotification_()
    return 0
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-12] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-20] ##
+##----------------------------------------##
 _CheckTimeToUpdateFirmware_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -2744,14 +2744,14 @@ _CheckTimeToUpdateFirmware_()
    notifyTimeStrn="$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')"
    notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
 
-   if [ "$((currentTimeSecs - notifyTimeSecs))" -gt "$postponeTimeSecs" ]
+   if [ "$((currentTimeSecs - notifyTimeSecs))" -ge "$postponeTimeSecs" ]
    then return 0 ; fi
 
    upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
-   upfwDateTimeStrn="$(echo "$upfwDateTimeSecs" | awk '{print strftime("%Y-%b-%d",$1)}')"
+   upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:00 %p")"
 
    Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
-   Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct} depending on when your cron job is scheduled to check again."
+   Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
    return 1
 }
 
@@ -3953,6 +3953,17 @@ FW_InstalledVers="$(_GetCurrentFWInstalledShortVersion_)"
 FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Mar-20] ##
+##-------------------------------------##
+_SimpleNotificationDate_()
+{
+   local notifyTimeStrn  notifyTimeSecs
+   notifyTimeStrn="$(echo "$1" | sed 's/_/ /g')"
+   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+   echo "$(date -d @$notifyTimeSecs +"%Y-%b-%d %I:%M %p")"
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-19] ##
 ##------------------------------------------##
@@ -3995,7 +4006,7 @@ _ShowMainMenu_()
    notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    if [ "$notifyDate" = "TBD" ]
    then notificationStr="${REDct}NOT SET${NOct}"
-   else notificationStr="${GRNct}${notifyDate%%_*}${NOct}"
+   else notificationStr="${GRNct}$(_SimpleNotificationDate_ "$notifyDate")${NOct}"
    fi
 
    printf "${SEPstr}"
