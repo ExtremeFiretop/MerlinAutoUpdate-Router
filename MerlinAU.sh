@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-20
+# Last Modified: 2024-Mar-21
 ###################################################################
 set -u
 
@@ -69,8 +69,10 @@ readonly tempEMailBodyMsg="/tmp/var/tmp/tempEMailBodyMsg.$$.TXT"
 readonly saveEMailInfoMsg="${SETTINGS_DIR}/savedEMailInfoMsg.SAVE.TXT"
 readonly theEMailDateTimeFormat="%Y-%b-%d %a %I:%M:%S %p %Z"
 
-cronCmd="$(which crontab) -l"
-[ "$cronCmd" = " -l" ] && cronCmd="$(which cru) l"
+if [ -z "$(which crontab)" ]
+then cronListCmd="cru l"
+else cronListCmd="crontab -l"
+fi
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2024-Jan-06] ##
@@ -459,7 +461,7 @@ readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1
 readonly FW_UpdateMinimumPostponementDays=0
 readonly FW_UpdateDefaultPostponementDays=15
 readonly FW_UpdateMaximumPostponementDays=60
-readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:00:00"
+readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
@@ -1833,7 +1835,7 @@ check_memory_and_prompt_reboot()
         then
             freeRAM_kb="$(get_free_ram)"
             Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-            
+
             # Attempt to clear dentries and inodes. #
             Say "Attempting to free up memory again more aggressively..."
             sync; echo 2 > /proc/sys/vm/drop_caches
@@ -1845,8 +1847,8 @@ check_memory_and_prompt_reboot()
             then
                 freeRAM_kb="$(get_free_ram)"
                 Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-                
-                # Attempt to clear clears pagecache, dentries, and inodes after shutting down services		
+
+                # Attempt to clear clears pagecache, dentries, and inodes after shutting down services
                 Say "Attempting to free up memory once more even more aggressively..."
 
                 # Stop Entware services before F/W flash #
@@ -2419,7 +2421,7 @@ _AddCronJobEntry_()
 
    cru a "$CRON_JOB_TAG" "$newSchedule $CRON_JOB_RUN"
    sleep 1
-   if $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        retCode=0
        "$newSetting" && \
@@ -2434,10 +2436,10 @@ _AddCronJobEntry_()
 _DelCronJobEntry_()
 {
    local retCode
-   if $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        cru d "$CRON_JOB_TAG" ; sleep 1
-       if $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+       if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
        then
            retCode=1
            printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
@@ -2714,14 +2716,14 @@ _CheckNewUpdateFirmwareNotification_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-20] ##
+## Modified by Martinski W. [2024-Mar-21] ##
 ##----------------------------------------##
 _CheckTimeToUpdateFirmware_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local notifyTimeSecs  postponeTimeSecs  currentTimeSecs
+   local notifyTimeSecs  postponeTimeSecs  currentTimeSecs  dstAdjustSecs  dstAdjustDays
    local fwNewUpdateNotificationDate  fwNewUpdateNotificationVers  fwNewUpdatePostponementDays
 
    _CheckNewUpdateFirmwareNotification_ "$1" "$2"
@@ -2739,16 +2741,32 @@ _CheckTimeToUpdateFirmware_()
    if [ "$fwNewUpdatePostponementDays" -eq 0 ]
    then return 0 ; fi
 
-   postponeTimeSecs="$((fwNewUpdatePostponementDays * 86400))"
    currentTimeSecs="$(date +%s)"
    notifyTimeStrn="$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')"
    notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+
+   #----------------------------------------------------------------------
+   # Adjust calculation of postponed days as elapsed time in seconds to
+   # account for the hour discrepancy when Daylight Saving Time happens.
+   # This way we can avoid a scenario where the F/W Update "date+time"
+   # threshold is set one hour *after* the scheduled cron job is set
+   # to run again and check if it's time to update the router.
+   #----------------------------------------------------------------------
+   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
+   then dstAdjustSecs=86400  #24-hour day is same as always#
+   else dstAdjustSecs=82800  #23-hour day only when DST happens#
+   fi
+   dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
+   if [ "$dstAdjustDays" -eq 0 ]
+   then postponeTimeSecs="$dstAdjustSecs"
+   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
+   fi
 
    if [ "$((currentTimeSecs - notifyTimeSecs))" -ge "$postponeTimeSecs" ]
    then return 0 ; fi
 
    upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
-   upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:00 %p")"
+   upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
 
    Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
    Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
@@ -3899,7 +3917,7 @@ if [ "$FW_UpdateCheckState" -eq 1 ]
 then
     runfwUpdateCheck=true
     # Check if the CRON job already exists #
-    if ! $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+    if ! $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
     then
         logo
         # If CRON job does not exist, ask user for permission to add #
