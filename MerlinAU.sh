@@ -3102,11 +3102,11 @@ Please manually update to version $minimum_supported_version or higher to use th
                     echo ""
                 fi
             else
-                Say "Backup script (BACKUPMON) is not installed. Skipping backup."
+                Say "Backup script (BACKUPMON) is disabled in the advanced options. Skipping backup."
                 echo ""
             fi
         else
-            Say "Backup script (BACKUPMON) is disabled in the advanced options. Skipping backup."
+            Say "Backup script (BACKUPMON) is not installed. Skipping backup."
             echo ""
         fi
 
