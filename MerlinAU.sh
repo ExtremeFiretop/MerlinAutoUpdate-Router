@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-20
+# Last Modified: 2024-Mar-23
 ###################################################################
 set -u
 
@@ -1700,6 +1700,26 @@ get_required_space() {
     echo "$total_required_kb"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Mar-23] ##
+##-------------------------------------##
+_ShutDownNonCriticalServices_() {
+
+    for procName in nt_center nt_monitor nt_actMail
+    do
+         procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
+         printf "$procName: [$procNum]\n"
+         [ "$procNum" -gt 0 ] && killall -9 "$procName" && sleep 1
+    done
+
+    for service_name in stop_conn_diag stop_samba stop_nasapps
+    do
+        procNum="$(ps w | grep -w "$service_name" | grep -cv "grep -w")"
+        printf "$service_name: [$procNum]\n"
+        [ "$procNum" -gt 0 ] && service "$service_name" && sleep 1
+    done
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-26] ##
 ##------------------------------------------##
@@ -1740,7 +1760,7 @@ _DoCleanUp_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-19] ##
+## Modified by ExtremeFiretop [2024-Mar-23] ##
 ##------------------------------------------##
 check_memory_and_prompt_reboot()
 {
@@ -1781,8 +1801,7 @@ check_memory_and_prompt_reboot()
                 # Stop Entware services before F/W flash #
                 _EntwareServicesHandler_ stop
 
-                /sbin/service stop_samba >/dev/null
-                /sbin/service stop_nasapps >/dev/null
+                _ShutDownNonCriticalServices_
 
                 sync; echo 3 > /proc/sys/vm/drop_caches
                 sleep 2
@@ -3191,54 +3210,6 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
-    fi
-
-    ##---------------------------------------##
-    ## Added by ExtremeFiretop [2024-Mar-19] ##
-    ##---------------------------------------##
-    # Step 1: Find files
-    foundFiles=$( { /usr/bin/find -L "$FW_BIN_DIR" -name "*.w" -print; /usr/bin/find -L "$FW_BIN_DIR" -name "*.pkgtb" -print; } )
-
-    # Initialize the total size counter
-    total_size_bytes=0
-
-    # Convert newline characters to a unique character not expected in file names
-    # Note: This approach assumes file names do not contain newlines or null characters
-    IFS=$'\n' # Set IFS to newline to correctly iterate over files in case they contain spaces
-    for file in $foundFiles; do
-        if [ -f "$file" ]; then # Ensure the file exists and is a regular file
-            # Use wc -c to count the file size in bytes and add it to the total
-            size=$(wc -c <"$file")
-            total_size_bytes=$((total_size_bytes + size)) # Accumulate total size
-        fi
-    done
-    unset IFS # Reset IFS to default
-
-    # Display the total size in bytes
-    Say "Total size of files: $total_size_bytes bytes"
-
-    # Convert total size from bytes to KB and adjust the required space
-    total_size_kb="$((total_size_bytes / 1024))"
-
-    # Set the minimum required RAM cushion to 40MB (40 * 1024 = 40960)
-    minimum_cushion_kb=40960
-
-    # Subtract the calculated size from required_space_kb
-    if [ "$total_size_kb" -gt 0 ]; then
-        required_space_kb=$((required_space_kb - total_size_kb))
-        Say "Adjusted required RAM by subtracting sizes of .w and .pkgtb files: $total_size_kb KB. New required RAM: ${required_space_kb} KB"
-    
-        # Check if the adjusted required space is less than the minimum cushion
-        if [ "$required_space_kb" -lt "$minimum_cushion_kb" ]; then
-            # Add the difference to fulfill the minimum cushion
-            cushion_diff=$((minimum_cushion_kb - required_space_kb))
-            required_space_kb=$((required_space_kb + cushion_diff))
-            Say "Added cushion of $cushion_diff KB to meet the minimum required RAM of 40MB."
-        fi
-    else
-        Say "No .w or .pkgtb file found for adjustment."
-        _DoCleanUp_ 1
-        _DoExit_ 1
     fi
 
     freeRAM_kb="$(get_free_ram)"
