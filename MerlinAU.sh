@@ -4059,6 +4059,9 @@ _ShowMainMenu_()
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
 
+   printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
+   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+
    # F/W Update Email Notifications #
    if _CheckEMailConfigFileFromAMTM_ 0
    then
@@ -4095,32 +4098,30 @@ _ShowAdvancedOptionsMenu_()
    logo
    printf "=============== Advanced Options Menu ===============\n"
    printf "${SEPstr}\n"
-   printf "\n  ${GRNct}1${NOct}.  Set F/W Update Check Schedule"
-   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
-   printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update ZIP File"
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
-   printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
+   printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update Log Files"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 
    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
    if [ "$checkChangeLogSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}4${NOct}.  Toggle Change-log Check"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Change-log Check"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}4${NOct}.  Toggle Change-log Check"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Change-log Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}5${NOct}.  Toggle Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}4${NOct}.  Toggle Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}5${NOct}.  Toggle Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}4${NOct}.  Toggle Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
@@ -4200,15 +4201,13 @@ _advanced_options_menu_()
         read -r advancedChoice
         echo
         case $advancedChoice in
-            1) _Set_FW_UpdateCronSchedule_
+            1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
-            2) _Set_FW_UpdateZIP_DirectoryPath_
+            2) _Set_FW_UpdateLOG_DirectoryPath_
                ;;
-            3) _Set_FW_UpdateLOG_DirectoryPath_
+            3) _toggle_change_log_check_
                ;;
-            4) _toggle_change_log_check_
-               ;;
-            5) _toggle_beta_updates_
+            4) _toggle_beta_updates_
                ;;
             ab) if [ -f "/jffs/scripts/backupmon.sh" ]
                 then _Toggle_Auto_Backups_
@@ -4262,6 +4261,8 @@ do
        3) _Toggle_FW_UpdateCheckSetting_
           ;;
        4) _Set_FW_UpdatePostponementDays_
+          ;;
+       5) _Set_FW_UpdateCronSchedule_
           ;;
       em) if "$isEMailConfigEnabledInAMTM"
           then _Toggle_FW_UpdateEmailNotifications_
