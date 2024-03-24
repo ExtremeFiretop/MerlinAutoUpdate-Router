@@ -4118,17 +4118,6 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
-   if [ -f "/jffs/scripts/backupmon.sh" ]; then
-       # Retrieve the current backup settings
-       local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-
-       printf "\n  ${GRNct}6${NOct}.  Toggle Auto-Backups"
-       if [ "$current_backup_settings" = "DISABLED" ]
-       then printf "\n${padStr}[Current Build Type: ${REDct}${current_backup_settings}${NOct}]\n"
-       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_backup_settings}${NOct}]\n"
-       fi
-   fi
-
    # Retrieve the current build type setting
    local current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
@@ -4142,10 +4131,21 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-       printf "\n  ${GRNct}7${NOct}.  Change ROG F/W Build Type"
+       printf "\n  ${GRNct}6${NOct}.  Change ROG F/W Build Type"
        if [ "$current_build_type_menu" = "NOT SET" ]
        then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
        else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+       fi
+   fi
+
+   if [ -f "/jffs/scripts/backupmon.sh" ]; then
+       # Retrieve the current backup settings
+       local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+       printf "\n ${GRNct}bm${NOct}.  Toggle Auto-Backups"
+       if [ "$current_backup_settings" = "DISABLED" ]
+       then printf "\n${padStr}[Current Build Type: ${REDct}${current_backup_settings}${NOct}]\n"
+       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_backup_settings}${NOct}]\n"
        fi
    fi
 
@@ -4202,12 +4202,15 @@ _advanced_options_menu_()
                ;;
             5) _toggle_beta_updates_ && _WaitForEnterKey_
                ;;
-            6) _Toggle_Auto_Backups_ && _WaitForEnterKey_
-               ;;
-            7) if echo "$PRODUCT_ID" | grep -q "^GT-"
+            6) if echo "$PRODUCT_ID" | grep -q "^GT-"
                then change_build_type
                else _InvalidMenuSelection_
                fi
+               ;;
+            bm) if [ -f "/jffs/scripts/backupmon.sh" ]
+                then _Toggle_Auto_Backups_ && _WaitForEnterKey_
+                else _InvalidMenuSelection_
+                fi
                ;;
             ef) if "$isEMailConfigEnabledInAMTM" && \
                    "$sendEMailNotificationsFlag"
