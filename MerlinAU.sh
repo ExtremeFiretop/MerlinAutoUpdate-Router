@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-16
+# Last Modified: 2024-Mar-23
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.8
+readonly SCRIPT_VERSION=1.0.9
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -69,8 +69,10 @@ readonly tempEMailBodyMsg="/tmp/var/tmp/tempEMailBodyMsg.$$.TXT"
 readonly saveEMailInfoMsg="${SETTINGS_DIR}/savedEMailInfoMsg.SAVE.TXT"
 readonly theEMailDateTimeFormat="%Y-%b-%d %a %I:%M:%S %p %Z"
 
-cronCmd="$(which crontab) -l"
-[ "$cronCmd" = " -l" ] && cronCmd="$(which cru) l"
+if [ -z "$(which crontab)" ]
+then cronListCmd="cru l"
+else cronListCmd="crontab -l"
+fi
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2024-Jan-06] ##
@@ -459,7 +461,7 @@ readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1
 readonly FW_UpdateMinimumPostponementDays=0
 readonly FW_UpdateDefaultPostponementDays=15
 readonly FW_UpdateMaximumPostponementDays=60
-readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_12:00:00"
+readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
@@ -487,6 +489,7 @@ _CheckForNewScriptUpdates_()
 {
    local DLRepoVersionNum  ScriptVersionNum
 
+   echo ""
    # Download the latest version file from the source repository
    curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
 
@@ -642,9 +645,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -665,6 +668,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_EMail_CC_Address=TBD"
          echo "CheckChangeLog ENABLED"
          echo "FW_Allow_Beta_Production_Up ENABLED"
+         echo "FW_Auto_Backupmon ENABLED"
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -726,12 +730,17 @@ _Init_Custom_Settings_Config_()
        sed -i "11 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^FW_Auto_Backupmon" "$SETTINGSFILE"
+   then
+       sed -i "12 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 Get_Custom_Setting()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
@@ -744,6 +753,7 @@ Get_Custom_Setting()
         case "$setting_type" in
             "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
             "FW_Allow_Beta_Production_Up" | \
+            "FW_Auto_Backupmon" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -770,9 +780,9 @@ Get_Custom_Setting()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -786,6 +796,7 @@ Update_Custom_Settings()
     case "$setting_type" in
         "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
         "FW_Allow_Beta_Production_Up" | \
+        "FW_Auto_Backupmon" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
@@ -868,87 +879,6 @@ Update_Custom_Settings()
             ;;
     esac
 }
-
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-30] ##
-##------------------------------------------##
-_migrate_settings_move() {
-    local USBMountPoint="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
-    local old_settings_dir="${ADDONS_PATH}/$ScriptFNameTag"
-    local new_settings_dir="${ADDONS_PATH}/$ScriptDirNameD"
-    local old_bin_dir="/home/root/$ScriptFNameTag"
-    local new_bin_dir="/home/root/$ScriptDirNameD"
-    local old_log_dir="${USBMountPoint}/$ScriptFNameTag"
-    local new_log_dir="${USBMountPoint}/$ScriptDirNameD"
-
-    # Check if the old SETTINGS directory exists #
-    if [ -d "$old_settings_dir" ]; then
-        # Check if the new SETTINGS directory already exists
-        if [ -d "$new_settings_dir" ]; then
-            # Remove the old SETTINGS directory since the new one exists
-            rm -rf "$old_settings_dir"
-            if [ $? -eq 0 ]; then
-                echo "The new SETTINGS directory already exists. Removed the old SETTINGS directory."
-            else
-                echo "Error occurred while removing the old SETTINGS directory."
-            fi
-        else
-            # Move the old SETTINGS directory to the new location
-            mv "$old_settings_dir" "$new_settings_dir"
-            if [ $? -eq 0 ]; then
-                echo "SETTINGS directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the SETTINGS directory."
-            fi
-        fi
-    fi
-
-    # Check if the old BIN directory exists #
-    if [ -d "$old_bin_dir" ]; then
-        # Check if the new BIN directory already exists
-        if [ -d "$new_bin_dir" ]; then
-            # Remove the old BIN directory since the new one exists
-            rm -rf "$old_bin_dir"
-            if [ $? -eq 0 ]; then
-                echo "The new BIN directory already exists. Removed the old BIN directory."
-            else
-                echo "Error occurred while removing the old BIN directory."
-            fi
-        else
-            # Move the old BIN directory to the new location
-            mv "$old_bin_dir" "$new_bin_dir"
-            if [ $? -eq 0 ]; then
-                echo "BIN directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the BIN directory."
-            fi
-        fi
-    fi
-
-    # Check if the old LOG directory exists #
-    if [ -d "$old_log_dir" ]; then
-        # Check if the new LOG directory already exists
-        if [ -d "$new_log_dir" ]; then
-            # Remove the old LOG directory since the new one exists
-            rm -rf "$old_log_dir"
-            if [ $? -eq 0 ]; then
-                echo "The new LOG directory already exists. Removed the old LOG directory."
-            else
-                echo "Error occurred while removing the old LOG directory."
-            fi
-        else
-            # Move the old LOG directory to the new location
-            mv "$old_log_dir" "$new_log_dir"
-            if [ $? -eq 0 ]; then
-                echo "LOG directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the LOG directory."
-            fi
-        fi
-    fi
-}
-
-_migrate_settings_move
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-24] ##
@@ -1771,6 +1701,32 @@ get_required_space() {
     echo "$total_required_kb"
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2023-Mar-24] ##
+##----------------------------------------##
+_ShutDownNonCriticalServices_()
+{
+    for procName in nt_center nt_monitor nt_actMail
+    do
+         procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
+         if [ "$procNum" -gt 0 ]
+         then
+             printf "$procName: [$procNum]\n"
+             killall -9 "$procName" && sleep 1
+         fi
+    done
+
+    for service_name in conn_diag samba nasapps
+    do
+        procNum="$(ps w | grep -w "$service_name" | grep -cv "grep -w")"
+        if [ "$procNum" -gt 0 ]
+        then
+            printf "$service_name: [$procNum]\n"
+            service "stop_$service_name" && sleep 1
+        fi
+    done
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-26] ##
 ##------------------------------------------##
@@ -1810,9 +1766,9 @@ _DoCleanUp_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-16] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-23] ##
+##------------------------------------------##
 check_memory_and_prompt_reboot()
 {
     local required_space_kb="$1"
@@ -1833,7 +1789,7 @@ check_memory_and_prompt_reboot()
         then
             freeRAM_kb="$(get_free_ram)"
             Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-            
+
             # Attempt to clear dentries and inodes. #
             Say "Attempting to free up memory again more aggressively..."
             sync; echo 2 > /proc/sys/vm/drop_caches
@@ -1845,12 +1801,14 @@ check_memory_and_prompt_reboot()
             then
                 freeRAM_kb="$(get_free_ram)"
                 Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-                
-                # Attempt to clear clears pagecache, dentries, and inodes after shutting down services		
+
+                # Attempt to clear clears pagecache, dentries, and inodes after shutting down services
                 Say "Attempting to free up memory once more even more aggressively..."
 
                 # Stop Entware services before F/W flash #
                 _EntwareServicesHandler_ stop
+
+                _ShutDownNonCriticalServices_
 
                 sync; echo 3 > /proc/sys/vm/drop_caches
                 sleep 2
@@ -1862,6 +1820,8 @@ check_memory_and_prompt_reboot()
                     # In an interactive shell session, ask user to confirm reboot #
                     if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
                     then
+                        freeRAM_kb="$(get_free_ram)"
+                        Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         _AddPostRebootRunScriptHook_
                         Say "Rebooting router..."
                         _ReleaseLock_
@@ -1869,6 +1829,8 @@ check_memory_and_prompt_reboot()
                         exit 1  # Although the reboot command should end the script, it's good practice to exit after.
                     else
                         # Exit script if non-interactive or if user answers NO #
+                        freeRAM_kb="$(get_free_ram)"
+                        Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         Say "Insufficient memory to continue. Exiting script."
                         # Restart Entware services #
                         _EntwareServicesHandler_ start
@@ -2125,8 +2087,8 @@ _GetLoginCredentials_()
         Update_Custom_Settings credentials_base64 "$loginCredsENC"
 
         printf "\n${GRNct}Credentials saved.${NOct}\n"
-	    printf "Encoded Credentials:\n"
-	    printf "${GRNct}$loginCredsENC${NOct}\n"
+        printf "Encoded Credentials:\n"
+        printf "${GRNct}$loginCredsENC${NOct}\n"
 
         # Prompt to test the credentials
         if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"; then
@@ -2203,6 +2165,7 @@ _toggle_change_log_check_() {
                 ;;
         esac
     fi
+    _WaitForEnterKey_
 }
 
 ##---------------------------------------##
@@ -2240,6 +2203,43 @@ _toggle_beta_updates_() {
                 ;;
         esac
     fi
+    _WaitForEnterKey_
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-20] ##
+##---------------------------------------##
+_Toggle_Auto_Backups_() {
+    local currentSetting="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+    if [ "$currentSetting" = "ENABLED" ]; then
+        printf "${REDct}*WARNING*:${NOct} Disabling auto backups may risk data loss or inconsistency.\n"
+        printf "The advice is to proceed only if you're sure you want to disable auto backups.\n"
+        printf "\nProceed to disable? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "FW_Auto_Backupmon" "DISABLED"
+                printf "Auto backups are now ${REDct}DISABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Auto backups remain ${GRNct}ENABLED.${NOct}\n"
+                ;;
+        esac
+    else
+        printf "Are you sure you want to enable auto backups? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "FW_Auto_Backupmon" "ENABLED"
+                printf "Auto backups are now ${GRNct}ENABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Auto backups remain ${REDct}DISABLED.${NOct}\n"
+                ;;
+        esac
+    fi
+    _WaitForEnterKey_
 }
 
 ##------------------------------------------##
@@ -2419,7 +2419,7 @@ _AddCronJobEntry_()
 
    cru a "$CRON_JOB_TAG" "$newSchedule $CRON_JOB_RUN"
    sleep 1
-   if $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        retCode=0
        "$newSetting" && \
@@ -2434,10 +2434,10 @@ _AddCronJobEntry_()
 _DelCronJobEntry_()
 {
    local retCode
-   if $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        cru d "$CRON_JOB_TAG" ; sleep 1
-       if $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+       if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
        then
            retCode=1
            printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
@@ -2713,15 +2713,15 @@ _CheckNewUpdateFirmwareNotification_()
    return 0
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-12] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-21] ##
+##----------------------------------------##
 _CheckTimeToUpdateFirmware_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local notifyTimeSecs  postponeTimeSecs  currentTimeSecs
+   local notifyTimeSecs  postponeTimeSecs  currentTimeSecs  dstAdjustSecs  dstAdjustDays
    local fwNewUpdateNotificationDate  fwNewUpdateNotificationVers  fwNewUpdatePostponementDays
 
    _CheckNewUpdateFirmwareNotification_ "$1" "$2"
@@ -2739,19 +2739,35 @@ _CheckTimeToUpdateFirmware_()
    if [ "$fwNewUpdatePostponementDays" -eq 0 ]
    then return 0 ; fi
 
-   postponeTimeSecs="$((fwNewUpdatePostponementDays * 86400))"
    currentTimeSecs="$(date +%s)"
    notifyTimeStrn="$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')"
    notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
 
-   if [ "$((currentTimeSecs - notifyTimeSecs))" -gt "$postponeTimeSecs" ]
+   #----------------------------------------------------------------------
+   # Adjust calculation of postponed days as elapsed time in seconds to
+   # account for the hour discrepancy when Daylight Saving Time happens.
+   # This way we can avoid a scenario where the F/W Update "date+time"
+   # threshold is set one hour *after* the scheduled cron job is set
+   # to run again and check if it's time to update the router.
+   #----------------------------------------------------------------------
+   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
+   then dstAdjustSecs=86400  #24-hour day is same as always#
+   else dstAdjustSecs=82800  #23-hour day only when DST happens#
+   fi
+   dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
+   if [ "$dstAdjustDays" -eq 0 ]
+   then postponeTimeSecs="$dstAdjustSecs"
+   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
+   fi
+
+   if [ "$((currentTimeSecs - notifyTimeSecs))" -ge "$postponeTimeSecs" ]
    then return 0 ; fi
 
    upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
-   upfwDateTimeStrn="$(echo "$upfwDateTimeSecs" | awk '{print strftime("%Y-%b-%d",$1)}')"
+   upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
 
    Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
-   Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct} depending on when your cron job is scheduled to check again."
+   Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
    return 1
 }
 
@@ -2904,6 +2920,13 @@ _EntwareServicesHandler_()
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
+    # Double-check the directory exists before using it #
+    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
+
+    # Set up the custom log file #
+    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
+
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
     if [ "$ModelCheckFailed" != "0" ]; then
@@ -2930,6 +2953,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
+    Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
     Say "Running the update task now... Checking for F/W updates..."
 
     #---------------------------------------------------------------#
@@ -2944,13 +2968,6 @@ Please manually update to version $minimum_supported_version or higher to use th
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
-
-    # Double-check the directory exists before using it #
-    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
-
-    # Set up the custom log file #
-    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
-    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
 
     #---------------------------------------------------------#
     # If the expected directory path for the ZIP file is not
@@ -3066,67 +3083,74 @@ Please manually update to version $minimum_supported_version or higher to use th
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
     then
         ##------------------------------------------##
-        ## Modified by ExtremeFiretop [2024-Feb-17] ##
+        ## Modified by ExtremeFiretop [2024-Mar-20] ##
         ##------------------------------------------##
         # Check for the presence of backupmon.sh script
-        if [ -f "/jffs/scripts/backupmon.sh" ]; then
-            # Extract version number from backupmon.sh
-            BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
+        if [ -f "/jffs/scripts/backupmon.sh" ]
+        then
+            local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+            if [ "$current_backup_settings" = "ENABLED" ]
+            then
+                # Extract version number from backupmon.sh
+                BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
 
-            # Adjust version format from 1.46 to 1.4.6 if needed
-            DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
-            if [ "$DOT_COUNT" -eq 0 ]; then
-                # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
-                BM_VERSION="${BM_VERSION}.0.0"
-            elif [ "$DOT_COUNT" -eq 1 ]; then
-                # For versions like 1.46, insert a dot before the last two digits
-                BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
-            fi
+                # Adjust version format from 1.46 to 1.4.6 if needed
+                DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
+                if [ "$DOT_COUNT" -eq 0 ]; then
+                    # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
+                    BM_VERSION="${BM_VERSION}.0.0"
+                elif [ "$DOT_COUNT" -eq 1 ]; then
+                    # For versions like 1.46, insert a dot before the last two digits
+                    BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
+                fi
 
-            # Convert version strings to comparable numbers
-            current_version=$(_ScriptVersionStrToNum_ "$BM_VERSION")
-            required_version=$(_ScriptVersionStrToNum_ "1.5.3")
+                # Convert version strings to comparable numbers
+                current_version="$(_ScriptVersionStrToNum_ "$BM_VERSION")"
+                required_version="$(_ScriptVersionStrToNum_ "1.5.3")"
 
-            # Check if BACKUPMON version is greater than or equal to 1.5.3
-            if [ "$current_version" -ge "$required_version" ]; then
-                # Execute the backup script if it exists #
-                echo ""
-                Say "Backup Started (by BACKUPMON)"
-                sh /jffs/scripts/backupmon.sh -backup >/dev/null
-                BE=$?
-                Say "Backup Finished"
-                echo ""
-                if [ $BE -eq 0 ]; then
-                    Say "Backup Completed Successfully"
+                # Check if BACKUPMON version is greater than or equal to 1.5.3
+                if [ "$current_version" -ge "$required_version" ]; then
+                    # Execute the backup script if it exists #
                     echo ""
-                else
-                    Say "Backup Failed"
+                    Say "Backup Started (by BACKUPMON)"
+                    sh /jffs/scripts/backupmon.sh -backup >/dev/null
+                    BE=$?
+                    Say "Backup Finished"
                     echo ""
-                    _SendEMailNotification_ NEW_BM_BACKUP_FAILED
-                    _DoCleanUp_ 1
-                    if "$isInteractive"
-                    then
-                        printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
-                        printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
-                        printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
-                        printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
-                        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                        return 1
+                    if [ $BE -eq 0 ]; then
+                        Say "Backup Completed Successfully"
+                        echo ""
                     else
-                        _DoExit_ 1
+                        Say "Backup Failed"
+                        echo ""
+                        _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+                        _DoCleanUp_ 1
+                        if "$isInteractive"
+                        then
+                            printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+                            printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+                            printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+                            printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+                            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                            return 1
+                        else
+                            _DoExit_ 1
+                        fi
                     fi
+                else
+                    # BACKUPMON version is not sufficient
+                    echo ""
+                    Say "${REDct}**IMPORTANT NOTICE**:${NOct}"
+                    echo ""
+                    Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.5.3."
+                    Say "Skipping backup. Please update your version of BACKUPMON."
+                    echo ""
                 fi
             else
-                # BACKUPMON version is not sufficient
-                echo ""
-                Say "${REDct}**IMPORTANT NOTICE**:${NOct}"
-                echo ""
-                Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.5.3."
-                Say "Skipping backup. Please update your version of BACKUPMON."
+                Say "Backup script (BACKUPMON) is disabled in the advanced options. Skipping backup."
                 echo ""
             fi
         else
-            # Print a message if the backup script is not installed
             Say "Backup script (BACKUPMON) is not installed. Skipping backup."
             echo ""
         fi
@@ -3163,23 +3187,19 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Feb-20] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Mar-19] ##
+    ##------------------------------------------##
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file #
-    while IFS="$(printf '\n')" read -r uzLINE
-    do Say "$uzLINE" ; done <<EOT
-$(unzip -l "$FW_ZIP_FPATH" 2>&1)
-EOT
+    unzip -l "$FW_ZIP_FPATH" 2>&1 | \
+    while IFS= read -r uzLINE ; do Say "$uzLINE" ; done
     Say "-----------------------------------------------------------"
 
     # Extracting the firmware binary image #
-    if output="$(unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1)"
+    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
+    while IFS= read -r line ; do Say "$line" ; done
     then
-        echo "$output" | while IFS= read -r line; do
-            Say "$line"
-        done
         Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
         # Check if ZIP file was downloaded to a USB-attached drive.
@@ -3899,7 +3919,7 @@ if [ "$FW_UpdateCheckState" -eq 1 ]
 then
     runfwUpdateCheck=true
     # Check if the CRON job already exists #
-    if ! $cronCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+    if ! $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
     then
         logo
         # If CRON job does not exist, ask user for permission to add #
@@ -3953,6 +3973,17 @@ FW_InstalledVers="$(_GetCurrentFWInstalledShortVersion_)"
 FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Mar-20] ##
+##-------------------------------------##
+_SimpleNotificationDate_()
+{
+   local notifyTimeStrn  notifyTimeSecs
+   notifyTimeStrn="$(echo "$1" | sed 's/_/ /g')"
+   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+   echo "$(date -d @$notifyTimeSecs +"%Y-%b-%d %I:%M %p")"
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-19] ##
 ##------------------------------------------##
@@ -3995,7 +4026,7 @@ _ShowMainMenu_()
    notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    if [ "$notifyDate" = "TBD" ]
    then notificationStr="${REDct}NOT SET${NOct}"
-   else notificationStr="${GRNct}${notifyDate%%_*}${NOct}"
+   else notificationStr="${GRNct}$(_SimpleNotificationDate_ "$notifyDate")${NOct}"
    fi
 
    printf "${SEPstr}"
@@ -4028,6 +4059,9 @@ _ShowMainMenu_()
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
 
+   printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
+   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+
    # F/W Update Email Notifications #
    if _CheckEMailConfigFileFromAMTM_ 0
    then
@@ -4055,42 +4089,52 @@ _ShowMainMenu_()
    printf "${SEPstr}\n"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-19] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-24] ##
+##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
    clear
    logo
    printf "=============== Advanced Options Menu ===============\n"
    printf "${SEPstr}\n"
-   printf "\n  ${GRNct}1${NOct}.  Set F/W Update Check Schedule"
-   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
-   printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update ZIP File"
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
-   printf "\n  ${GRNct}3${NOct}.  Set Directory for F/W Update Log Files"
+   printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update Log Files"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 
    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
    if [ "$checkChangeLogSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}4${NOct}.  Toggle Change-log Check"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Change-log Check"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}4${NOct}.  Toggle Change-log Check"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Change-log Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}5${NOct}.  Toggle Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}4${NOct}.  Toggle Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}5${NOct}.  Toggle Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}4${NOct}.  Toggle Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+   fi
+
+   if [ -f "/jffs/scripts/backupmon.sh" ]
+   then
+       # Retrieve the current backup settings
+       local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+       printf "\n ${GRNct}ab${NOct}.  Toggle Automatic Backups"
+       if [ "$current_backup_settings" = "DISABLED" ]
+       then printf "\n${padStr}[Currently ${REDct}${current_backup_settings}${NOct}]\n"
+       else printf "\n${padStr}[Currently ${GRNct}${current_backup_settings}${NOct}]\n"
+       fi
    fi
 
    # Retrieve the current build type setting
@@ -4105,8 +4149,9 @@ _ShowAdvancedOptionsMenu_()
        current_build_type_menu="NOT SET"
    fi
 
-   if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-       printf "\n  ${GRNct}6${NOct}.  Change ROG F/W Build Type"
+   if echo "$PRODUCT_ID" | grep -q "^GT-"
+   then
+       printf "\n ${GRNct}bt${NOct}.  Change ROG F/W Build Type"
        if [ "$current_build_type_menu" = "NOT SET" ]
        then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
        else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
@@ -4145,7 +4190,7 @@ _InvalidMenuSelection_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
+## Modified by Martinski W. [2024-Mar-24] ##
 ##----------------------------------------##
 _advanced_options_menu_()
 {
@@ -4156,21 +4201,24 @@ _advanced_options_menu_()
         read -r advancedChoice
         echo
         case $advancedChoice in
-            1) _Set_FW_UpdateCronSchedule_
+            1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
-            2) _Set_FW_UpdateZIP_DirectoryPath_
+            2) _Set_FW_UpdateLOG_DirectoryPath_
                ;;
-            3) _Set_FW_UpdateLOG_DirectoryPath_
+            3) _toggle_change_log_check_
                ;;
-            4) _toggle_change_log_check_ && _WaitForEnterKey_
+            4) _toggle_beta_updates_
                ;;
-            5) _toggle_beta_updates_ && _WaitForEnterKey_
-               ;;
-            6) if echo "$PRODUCT_ID" | grep -q "^GT-"
-               then change_build_type
-               else _InvalidMenuSelection_
-               fi
-               ;;
+            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
+                then _Toggle_Auto_Backups_
+                else _InvalidMenuSelection_
+                fi
+                ;;
+            bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
+                then change_build_type
+                else _InvalidMenuSelection_
+                fi
+                ;;
             ef) if "$isEMailConfigEnabledInAMTM" && \
                    "$sendEMailNotificationsFlag"
                 then _SetEMailFormatType_
@@ -4213,6 +4261,8 @@ do
        3) _Toggle_FW_UpdateCheckSetting_
           ;;
        4) _Set_FW_UpdatePostponementDays_
+          ;;
+       5) _Set_FW_UpdateCronSchedule_
           ;;
       em) if "$isEMailConfigEnabledInAMTM"
           then _Toggle_FW_UpdateEmailNotifications_
