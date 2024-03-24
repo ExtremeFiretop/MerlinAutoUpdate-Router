@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-21
+# Last Modified: 2024-Mar-23
 ###################################################################
 set -u
 
@@ -487,6 +487,8 @@ logo() {
 ##-----------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
+
+   echo ""
    local DLRepoVersionNum  ScriptVersionNum
 
    # Download the latest version file from the source repository
@@ -644,9 +646,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -667,6 +669,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_EMail_CC_Address=TBD"
          echo "CheckChangeLog ENABLED"
          echo "FW_Allow_Beta_Production_Up ENABLED"
+         echo "FW_Auto_Backupmon ENABLED"
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -728,12 +731,17 @@ _Init_Custom_Settings_Config_()
        sed -i "11 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^FW_Auto_Backupmon" "$SETTINGSFILE"
+   then
+       sed -i "12 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 Get_Custom_Setting()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
@@ -746,6 +754,7 @@ Get_Custom_Setting()
         case "$setting_type" in
             "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
             "FW_Allow_Beta_Production_Up" | \
+            "FW_Auto_Backupmon" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -772,9 +781,9 @@ Get_Custom_Setting()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -788,6 +797,7 @@ Update_Custom_Settings()
     case "$setting_type" in
         "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
         "FW_Allow_Beta_Production_Up" | \
+        "FW_Auto_Backupmon" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]; then
@@ -870,87 +880,6 @@ Update_Custom_Settings()
             ;;
     esac
 }
-
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-30] ##
-##------------------------------------------##
-_migrate_settings_move() {
-    local USBMountPoint="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
-    local old_settings_dir="${ADDONS_PATH}/$ScriptFNameTag"
-    local new_settings_dir="${ADDONS_PATH}/$ScriptDirNameD"
-    local old_bin_dir="/home/root/$ScriptFNameTag"
-    local new_bin_dir="/home/root/$ScriptDirNameD"
-    local old_log_dir="${USBMountPoint}/$ScriptFNameTag"
-    local new_log_dir="${USBMountPoint}/$ScriptDirNameD"
-
-    # Check if the old SETTINGS directory exists #
-    if [ -d "$old_settings_dir" ]; then
-        # Check if the new SETTINGS directory already exists
-        if [ -d "$new_settings_dir" ]; then
-            # Remove the old SETTINGS directory since the new one exists
-            rm -rf "$old_settings_dir"
-            if [ $? -eq 0 ]; then
-                echo "The new SETTINGS directory already exists. Removed the old SETTINGS directory."
-            else
-                echo "Error occurred while removing the old SETTINGS directory."
-            fi
-        else
-            # Move the old SETTINGS directory to the new location
-            mv "$old_settings_dir" "$new_settings_dir"
-            if [ $? -eq 0 ]; then
-                echo "SETTINGS directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the SETTINGS directory."
-            fi
-        fi
-    fi
-
-    # Check if the old BIN directory exists #
-    if [ -d "$old_bin_dir" ]; then
-        # Check if the new BIN directory already exists
-        if [ -d "$new_bin_dir" ]; then
-            # Remove the old BIN directory since the new one exists
-            rm -rf "$old_bin_dir"
-            if [ $? -eq 0 ]; then
-                echo "The new BIN directory already exists. Removed the old BIN directory."
-            else
-                echo "Error occurred while removing the old BIN directory."
-            fi
-        else
-            # Move the old BIN directory to the new location
-            mv "$old_bin_dir" "$new_bin_dir"
-            if [ $? -eq 0 ]; then
-                echo "BIN directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the BIN directory."
-            fi
-        fi
-    fi
-
-    # Check if the old LOG directory exists #
-    if [ -d "$old_log_dir" ]; then
-        # Check if the new LOG directory already exists
-        if [ -d "$new_log_dir" ]; then
-            # Remove the old LOG directory since the new one exists
-            rm -rf "$old_log_dir"
-            if [ $? -eq 0 ]; then
-                echo "The new LOG directory already exists. Removed the old LOG directory."
-            else
-                echo "Error occurred while removing the old LOG directory."
-            fi
-        else
-            # Move the old LOG directory to the new location
-            mv "$old_log_dir" "$new_log_dir"
-            if [ $? -eq 0 ]; then
-                echo "LOG directory successfully migrated to the new location."
-            else
-                echo "Error occurred during migration of the LOG directory."
-            fi
-        fi
-    fi
-}
-
-_migrate_settings_move
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-24] ##
@@ -1773,6 +1702,26 @@ get_required_space() {
     echo "$total_required_kb"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2023-Mar-23] ##
+##-------------------------------------##
+_ShutDownNonCriticalServices_() {
+
+    for procName in nt_center nt_monitor nt_actMail
+    do
+         procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
+         printf "$procName: [$procNum]\n"
+         [ "$procNum" -gt 0 ] && killall -9 "$procName" && sleep 1
+    done
+
+    for service_name in stop_conn_diag stop_samba stop_nasapps
+    do
+        procNum="$(ps w | grep -w "$service_name" | grep -cv "grep -w")"
+        printf "$service_name: [$procNum]\n"
+        [ "$procNum" -gt 0 ] && service "$service_name" && sleep 1
+    done
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-26] ##
 ##------------------------------------------##
@@ -1812,9 +1761,9 @@ _DoCleanUp_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-16] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-23] ##
+##------------------------------------------##
 check_memory_and_prompt_reboot()
 {
     local required_space_kb="$1"
@@ -1854,6 +1803,8 @@ check_memory_and_prompt_reboot()
                 # Stop Entware services before F/W flash #
                 _EntwareServicesHandler_ stop
 
+                _ShutDownNonCriticalServices_
+
                 sync; echo 3 > /proc/sys/vm/drop_caches
                 sleep 2
 
@@ -1864,6 +1815,8 @@ check_memory_and_prompt_reboot()
                     # In an interactive shell session, ask user to confirm reboot #
                     if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
                     then
+                        freeRAM_kb="$(get_free_ram)"
+                        Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         _AddPostRebootRunScriptHook_
                         Say "Rebooting router..."
                         _ReleaseLock_
@@ -1871,6 +1824,8 @@ check_memory_and_prompt_reboot()
                         exit 1  # Although the reboot command should end the script, it's good practice to exit after.
                     else
                         # Exit script if non-interactive or if user answers NO #
+                        freeRAM_kb="$(get_free_ram)"
+                        Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         Say "Insufficient memory to continue. Exiting script."
                         # Restart Entware services #
                         _EntwareServicesHandler_ start
@@ -2239,6 +2194,41 @@ _toggle_beta_updates_() {
                 ;;
             *)
                 printf "Updates from beta firmwares to production firmwares remain ${REDct}DISABLED.${NOct}\n"
+                ;;
+        esac
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-20] ##
+##---------------------------------------##
+_Toggle_Auto_Backups_() {
+    local currentSetting="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+    if [ "$currentSetting" = "ENABLED" ]; then
+        printf "${REDct}*WARNING*:${NOct} Disabling auto backups may risk data loss or inconsistency.\n"
+        printf "The advice is to proceed only if you're sure you want to disable auto backups.\n"
+        printf "\nProceed to disable? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "FW_Auto_Backupmon" "DISABLED"
+                printf "Auto backups are now ${REDct}DISABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Auto backups remain ${GRNct}ENABLED.${NOct}\n"
+                ;;
+        esac
+    else
+        printf "Are you sure you want to enable auto backups? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "FW_Auto_Backupmon" "ENABLED"
+                printf "Auto backups are now ${GRNct}ENABLED.${NOct}\n"
+                ;;
+            *)
+                printf "Auto backups remain ${REDct}DISABLED.${NOct}\n"
                 ;;
         esac
     fi
@@ -2922,6 +2912,14 @@ _EntwareServicesHandler_()
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
+
+    # Double-check the directory exists before using it #
+    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
+
+    # Set up the custom log file #
+    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
+
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
     if [ "$ModelCheckFailed" != "0" ]; then
@@ -2948,6 +2946,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
+    Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
     Say "Running the update task now... Checking for F/W updates..."
 
     #---------------------------------------------------------------#
@@ -2962,13 +2961,6 @@ Please manually update to version $minimum_supported_version or higher to use th
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
-
-    # Double-check the directory exists before using it #
-    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
-
-    # Set up the custom log file #
-    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
-    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
 
     #---------------------------------------------------------#
     # If the expected directory path for the ZIP file is not
@@ -3084,67 +3076,73 @@ Please manually update to version $minimum_supported_version or higher to use th
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
     then
         ##------------------------------------------##
-        ## Modified by ExtremeFiretop [2024-Feb-17] ##
+        ## Modified by ExtremeFiretop [2024-Mar-20] ##
         ##------------------------------------------##
         # Check for the presence of backupmon.sh script
         if [ -f "/jffs/scripts/backupmon.sh" ]; then
-            # Extract version number from backupmon.sh
-            BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
+            local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+			if [ "$FW_Auto_Backupmon" = "ENABLED" ]
+			then
+                # Extract version number from backupmon.sh
+                BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
 
-            # Adjust version format from 1.46 to 1.4.6 if needed
-            DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
-            if [ "$DOT_COUNT" -eq 0 ]; then
-                # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
-                BM_VERSION="${BM_VERSION}.0.0"
-            elif [ "$DOT_COUNT" -eq 1 ]; then
-                # For versions like 1.46, insert a dot before the last two digits
-                BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
-            fi
+                # Adjust version format from 1.46 to 1.4.6 if needed
+                DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
+                if [ "$DOT_COUNT" -eq 0 ]; then
+                    # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
+                    BM_VERSION="${BM_VERSION}.0.0"
+                elif [ "$DOT_COUNT" -eq 1 ]; then
+                    # For versions like 1.46, insert a dot before the last two digits
+                    BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
+                fi
 
-            # Convert version strings to comparable numbers
-            current_version=$(_ScriptVersionStrToNum_ "$BM_VERSION")
-            required_version=$(_ScriptVersionStrToNum_ "1.5.3")
+                # Convert version strings to comparable numbers
+                current_version=$(_ScriptVersionStrToNum_ "$BM_VERSION")
+                required_version=$(_ScriptVersionStrToNum_ "1.5.3")
 
-            # Check if BACKUPMON version is greater than or equal to 1.5.3
-            if [ "$current_version" -ge "$required_version" ]; then
-                # Execute the backup script if it exists #
-                echo ""
-                Say "Backup Started (by BACKUPMON)"
-                sh /jffs/scripts/backupmon.sh -backup >/dev/null
-                BE=$?
-                Say "Backup Finished"
-                echo ""
-                if [ $BE -eq 0 ]; then
-                    Say "Backup Completed Successfully"
+                # Check if BACKUPMON version is greater than or equal to 1.5.3
+                if [ "$current_version" -ge "$required_version" ]; then
+                    # Execute the backup script if it exists #
                     echo ""
-                else
-                    Say "Backup Failed"
+                    Say "Backup Started (by BACKUPMON)"
+                    sh /jffs/scripts/backupmon.sh -backup >/dev/null
+                    BE=$?
+                    Say "Backup Finished"
                     echo ""
-                    _SendEMailNotification_ NEW_BM_BACKUP_FAILED
-                    _DoCleanUp_ 1
-                    if "$isInteractive"
-                    then
-                        printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
-                        printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
-                        printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
-                        printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
-                        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                        return 1
+                    if [ $BE -eq 0 ]; then
+                        Say "Backup Completed Successfully"
+                        echo ""
                     else
-                        _DoExit_ 1
+                        Say "Backup Failed"
+                        echo ""
+                        _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+                        _DoCleanUp_ 1
+                        if "$isInteractive"
+                        then
+                            printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+                            printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+                            printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+                            printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+                            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                            return 1
+                        else
+                            _DoExit_ 1
+                        fi
                     fi
+                else
+                    # BACKUPMON version is not sufficient
+                    echo ""
+                    Say "${REDct}**IMPORTANT NOTICE**:${NOct}"
+                    echo ""
+                    Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.5.3."
+                    Say "Skipping backup. Please update your version of BACKUPMON."
+                    echo ""
                 fi
             else
-                # BACKUPMON version is not sufficient
-                echo ""
-                Say "${REDct}**IMPORTANT NOTICE**:${NOct}"
-                echo ""
-                Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.5.3."
-                Say "Skipping backup. Please update your version of BACKUPMON."
+                Say "Backup script (BACKUPMON) is disabled in the advanced options. Skipping backup."
                 echo ""
             fi
         else
-            # Print a message if the backup script is not installed
             Say "Backup script (BACKUPMON) is not installed. Skipping backup."
             echo ""
         fi
@@ -3181,23 +3179,21 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Feb-20] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Mar-19] ##
+    ##------------------------------------------##
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file #
-    while IFS="$(printf '\n')" read -r uzLINE
-    do Say "$uzLINE" ; done <<EOT
-$(unzip -l "$FW_ZIP_FPATH" 2>&1)
-EOT
+    unzip -l "$FW_ZIP_FPATH" 2>&1 | while IFS= read -r uzLINE; do
+        Say "$uzLINE"
+    done
     Say "-----------------------------------------------------------"
 
     # Extracting the firmware binary image #
-    if output="$(unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1)"
-    then
-        echo "$output" | while IFS= read -r line; do
+    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | while IFS= read -r line; do
             Say "$line"
         done
+    then
         Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
         # Check if ZIP file was downloaded to a USB-attached drive.
@@ -4085,7 +4081,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-19] ##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -4122,6 +4118,17 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
+   if [ -f "/jffs/scripts/backupmon.sh" ]; then
+       # Retrieve the current backup settings
+       local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+       printf "\n  ${GRNct}6${NOct}.  Toggle Auto-Backups"
+       if [ "$current_backup_settings" = "DISABLED" ]
+       then printf "\n${padStr}[Current Build Type: ${REDct}${current_backup_settings}${NOct}]\n"
+       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_backup_settings}${NOct}]\n"
+       fi
+   fi
+
    # Retrieve the current build type setting
    local current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
@@ -4135,7 +4142,7 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-       printf "\n  ${GRNct}6${NOct}.  Change ROG F/W Build Type"
+       printf "\n  ${GRNct}7${NOct}.  Change ROG F/W Build Type"
        if [ "$current_build_type_menu" = "NOT SET" ]
        then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
        else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
@@ -4173,9 +4180,9 @@ _InvalidMenuSelection_()
    _WaitForEnterKey_
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-20] ##
+##------------------------------------------##
 _advanced_options_menu_()
 {
     while true
@@ -4195,7 +4202,9 @@ _advanced_options_menu_()
                ;;
             5) _toggle_beta_updates_ && _WaitForEnterKey_
                ;;
-            6) if echo "$PRODUCT_ID" | grep -q "^GT-"
+            6) _Toggle_Auto_Backups_ && _WaitForEnterKey_
+               ;;
+            7) if echo "$PRODUCT_ID" | grep -q "^GT-"
                then change_build_type
                else _InvalidMenuSelection_
                fi
