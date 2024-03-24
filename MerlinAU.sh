@@ -487,10 +487,9 @@ logo() {
 ##-----------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
-
-   echo ""
    local DLRepoVersionNum  ScriptVersionNum
 
+   echo ""
    # Download the latest version file from the source repository
    curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
 
@@ -1702,23 +1701,29 @@ get_required_space() {
     echo "$total_required_kb"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Mar-23] ##
-##-------------------------------------##
-_ShutDownNonCriticalServices_() {
-
+##----------------------------------------##
+## Modified by Martinski W. [2023-Mar-24] ##
+##----------------------------------------##
+_ShutDownNonCriticalServices_()
+{
     for procName in nt_center nt_monitor nt_actMail
     do
          procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
-         printf "$procName: [$procNum]\n"
-         [ "$procNum" -gt 0 ] && killall -9 "$procName" && sleep 1
+         if [ "$procNum" -gt 0 ]
+         then
+             printf "$procName: [$procNum]\n"
+             killall -9 "$procName" && sleep 1
+         fi
     done
 
-    for service_name in stop_conn_diag stop_samba stop_nasapps
+    for service_name in conn_diag samba nasapps
     do
         procNum="$(ps w | grep -w "$service_name" | grep -cv "grep -w")"
-        printf "$service_name: [$procNum]\n"
-        [ "$procNum" -gt 0 ] && service "$service_name" && sleep 1
+        if [ "$procNum" -gt 0 ]
+        then
+            printf "$service_name: [$procNum]\n"
+            service "stop_$service_name" && sleep 1
+        fi
     done
 }
 
@@ -2082,8 +2087,8 @@ _GetLoginCredentials_()
         Update_Custom_Settings credentials_base64 "$loginCredsENC"
 
         printf "\n${GRNct}Credentials saved.${NOct}\n"
-	    printf "Encoded Credentials:\n"
-	    printf "${GRNct}$loginCredsENC${NOct}\n"
+        printf "Encoded Credentials:\n"
+        printf "${GRNct}$loginCredsENC${NOct}\n"
 
         # Prompt to test the credentials
         if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"; then
@@ -2160,6 +2165,7 @@ _toggle_change_log_check_() {
                 ;;
         esac
     fi
+    _WaitForEnterKey_
 }
 
 ##---------------------------------------##
@@ -2197,6 +2203,7 @@ _toggle_beta_updates_() {
                 ;;
         esac
     fi
+    _WaitForEnterKey_
 }
 
 ##---------------------------------------##
@@ -2232,6 +2239,7 @@ _Toggle_Auto_Backups_() {
                 ;;
         esac
     fi
+    _WaitForEnterKey_
 }
 
 ##------------------------------------------##
@@ -2912,7 +2920,6 @@ _EntwareServicesHandler_()
 # Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
-
     # Double-check the directory exists before using it #
     [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
 
@@ -3079,10 +3086,11 @@ Please manually update to version $minimum_supported_version or higher to use th
         ## Modified by ExtremeFiretop [2024-Mar-20] ##
         ##------------------------------------------##
         # Check for the presence of backupmon.sh script
-        if [ -f "/jffs/scripts/backupmon.sh" ]; then
+        if [ -f "/jffs/scripts/backupmon.sh" ]
+        then
             local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-			if [ "$FW_Auto_Backupmon" = "ENABLED" ]
-			then
+            if [ "$current_backup_settings" = "ENABLED" ]
+            then
                 # Extract version number from backupmon.sh
                 BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
 
@@ -3097,8 +3105,8 @@ Please manually update to version $minimum_supported_version or higher to use th
                 fi
 
                 # Convert version strings to comparable numbers
-                current_version=$(_ScriptVersionStrToNum_ "$BM_VERSION")
-                required_version=$(_ScriptVersionStrToNum_ "1.5.3")
+                current_version="$(_ScriptVersionStrToNum_ "$BM_VERSION")"
+                required_version="$(_ScriptVersionStrToNum_ "1.5.3")"
 
                 # Check if BACKUPMON version is greater than or equal to 1.5.3
                 if [ "$current_version" -ge "$required_version" ]; then
@@ -3184,15 +3192,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file #
-    unzip -l "$FW_ZIP_FPATH" 2>&1 | while IFS= read -r uzLINE; do
-        Say "$uzLINE"
-    done
+    unzip -l "$FW_ZIP_FPATH" 2>&1 | \
+    while IFS= read -r uzLINE ; do Say "$uzLINE" ; done
     Say "-----------------------------------------------------------"
 
     # Extracting the firmware binary image #
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | while IFS= read -r line; do
-            Say "$line"
-        done
+    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
+    while IFS= read -r line ; do Say "$line" ; done
     then
         Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
@@ -4080,9 +4086,9 @@ _ShowMainMenu_()
    printf "${SEPstr}\n"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-20] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-24] ##
+##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
    clear
@@ -4118,14 +4124,15 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
-   if [ -f "/jffs/scripts/backupmon.sh" ]; then
+   if [ -f "/jffs/scripts/backupmon.sh" ]
+   then
        # Retrieve the current backup settings
        local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
-       printf "\n  ${GRNct}6${NOct}.  Toggle Auto-Backups"
+       printf "\n ${GRNct}ab${NOct}.  Toggle Automatic Backups"
        if [ "$current_backup_settings" = "DISABLED" ]
-       then printf "\n${padStr}[Current Build Type: ${REDct}${current_backup_settings}${NOct}]\n"
-       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_backup_settings}${NOct}]\n"
+       then printf "\n${padStr}[Currently ${REDct}${current_backup_settings}${NOct}]\n"
+       else printf "\n${padStr}[Currently ${GRNct}${current_backup_settings}${NOct}]\n"
        fi
    fi
 
@@ -4141,8 +4148,9 @@ _ShowAdvancedOptionsMenu_()
        current_build_type_menu="NOT SET"
    fi
 
-   if echo "$PRODUCT_ID" | grep -q "^GT-"; then
-       printf "\n  ${GRNct}7${NOct}.  Change ROG F/W Build Type"
+   if echo "$PRODUCT_ID" | grep -q "^GT-"
+   then
+       printf "\n ${GRNct}bt${NOct}.  Change ROG F/W Build Type"
        if [ "$current_build_type_menu" = "NOT SET" ]
        then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
        else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
@@ -4180,9 +4188,9 @@ _InvalidMenuSelection_()
    _WaitForEnterKey_
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-20] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-24] ##
+##----------------------------------------##
 _advanced_options_menu_()
 {
     while true
@@ -4198,17 +4206,20 @@ _advanced_options_menu_()
                ;;
             3) _Set_FW_UpdateLOG_DirectoryPath_
                ;;
-            4) _toggle_change_log_check_ && _WaitForEnterKey_
+            4) _toggle_change_log_check_
                ;;
-            5) _toggle_beta_updates_ && _WaitForEnterKey_
+            5) _toggle_beta_updates_
                ;;
-            6) _Toggle_Auto_Backups_ && _WaitForEnterKey_
-               ;;
-            7) if echo "$PRODUCT_ID" | grep -q "^GT-"
-               then change_build_type
-               else _InvalidMenuSelection_
-               fi
-               ;;
+            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
+                then _Toggle_Auto_Backups_
+                else _InvalidMenuSelection_
+                fi
+                ;;
+            bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
+                then change_build_type
+                else _InvalidMenuSelection_
+                fi
+                ;;
             ef) if "$isEMailConfigEnabledInAMTM" && \
                    "$sendEMailNotificationsFlag"
                 then _SetEMailFormatType_
