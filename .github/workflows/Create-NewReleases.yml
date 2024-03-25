@@ -28,9 +28,13 @@ jobs:
       - name: Determine Next Version Tag
         id: nextver
         run: |
-          TAG=$(git tag --sort=-v:refname | head -n 1)
-          if [[ $TAG == '' ]]; then 
-            TAG='v0.1.0' # Start from v0.1.0 if no tags are found
+          if [[ -f version.txt ]]; then
+            TAG=$(cat version.txt)
+          else
+            TAG=$(git tag --sort=-v:refname | head -n 1)
+            if [[ $TAG == '' ]]; then 
+              TAG='v0.1.0' # Start from v0.1.0 if no tags are found
+            fi
           fi
           MAJOR=$(echo $TAG | cut -d '.' -f 1 | cut -c 2-)
           MINOR=$(echo $TAG | cut -d '.' -f 2)
