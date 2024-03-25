@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-23
+# Last Modified: 2024-Mar-24
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.9
+readonly SCRIPT_VERSION=1.0.10
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -2419,7 +2419,7 @@ _AddCronJobEntry_()
 
    cru a "$CRON_JOB_TAG" "$newSchedule $CRON_JOB_RUN"
    sleep 1
-   if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        retCode=0
        "$newSetting" && \
@@ -2434,10 +2434,10 @@ _AddCronJobEntry_()
 _DelCronJobEntry_()
 {
    local retCode
-   if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        cru d "$CRON_JOB_TAG" ; sleep 1
-       if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+       if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
        then
            retCode=1
            printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
@@ -3033,6 +3033,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     release_version="$1"
     release_link="$2"
 
+    if [ "$release_version" = "**ERROR**" ] && [ "$release_link" = "**NO_URL**" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
+    fi
+
     # Extracting the first octet to use in the curl
     firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
     # Inserting dots between each number
@@ -3053,19 +3060,13 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ]
-    then
-        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
-    fi
-
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2023-Dec-09] ##
     ##---------------------------------------##
     # Get the required space for the firmware download and extraction
-    required_space_kb=$(get_required_space "$release_link")
-    if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]; then
+    required_space_kb="$(get_required_space "$release_link")"
+    if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]
+    then
         if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
             Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
@@ -3919,7 +3920,7 @@ if [ "$FW_UpdateCheckState" -eq 1 ]
 then
     runfwUpdateCheck=true
     # Check if the CRON job already exists #
-    if ! $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+    if ! eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
     then
         logo
         # If CRON job does not exist, ask user for permission to add #
