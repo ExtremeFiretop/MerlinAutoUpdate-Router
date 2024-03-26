@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-24
+# Last Modified: 2024-Mar-25
 ###################################################################
 set -u
 
@@ -377,7 +377,7 @@ _ScriptVersionStrToNum_()
 ##----------------------------------------##
 _FWVersionStrToNum_()
 {
-    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
     then echo ; return 1 ; fi
 
     USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
@@ -2103,7 +2103,7 @@ _GetLoginCredentials_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-20] ##
+## Modified by Martinski W. [2024-Mar-25] ##
 ##----------------------------------------##
 _GetLatestFWUpdateVersionFromWebsite_()
 {
@@ -2128,8 +2128,12 @@ _GetLatestFWUpdateVersionFromWebsite_()
     # Extracting the correct link from the page
     local correct_link="$(echo "$linkStr" | sed 's|^/|https://sourceforge.net/|')"
 
+    if [ -z "$versionStr" ] || [ -z "$correct_link" ]
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+
     echo "$versionStr"
     echo "$correct_link"
+    return 0
 }
 
 ##---------------------------------------##
@@ -2668,7 +2672,7 @@ _Set_FW_UpdateCronSchedule_()
 ##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
-   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
    local numVersionFields  fwNewUpdateVersNum
@@ -2718,7 +2722,7 @@ _CheckNewUpdateFirmwareNotification_()
 ##----------------------------------------##
 _CheckTimeToUpdateFirmware_()
 {
-   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
    local notifyTimeSecs  postponeTimeSecs  currentTimeSecs  dstAdjustSecs  dstAdjustDays
