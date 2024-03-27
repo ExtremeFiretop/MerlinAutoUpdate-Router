@@ -4167,7 +4167,7 @@ _ShowMainMenu_()
    num_ips=$(echo "$node_list" | wc -w)
 
    # Print the result
-   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Nodes(s): $num_ips ${NOct}"
+   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}"
    # Get the value of cfg_device_list
    local online_status="$(nvram get cfg_device_list)"
     
@@ -4178,7 +4178,7 @@ _ShowMainMenu_()
       then   
             printf "\n${node_productid}: F/W Version Installed: ${GRNct}${Node_combinedVer}${NOct}"
       else   
-            printf "\n${padStr}${padStr}${padStr}${REDct}Nodes(s) Offline${NOct}"
+            printf "\n${padStr}${padStr}${padStr}${REDct}Node(s) Offline${NOct}"
       fi
    else
       printf "${REDct}No AiMesh Node(s)${NOct}"
