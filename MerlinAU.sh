@@ -4264,20 +4264,22 @@ _ShowMainMenu_()
    num_ips=$(echo "$node_list" | wc -w)
 
    # Print the result
-   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}"
+   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}  ${padStr}  (H)ide"
     
    # Iterate over the list of nodes and print information for each node
    if [ -n "$node_list" ]; then
-       for node_info in $node_list; do
-           if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)" # Temporary Function; to be updated with Node update function when available.
-           then Node_FW_NewUpdateVersion="NONE FOUND"
-           else Node_FW_NewUpdateVersion="{Node_FW_NewUpdateVersion}"
-           fi
-           _GetNodeInfo_ "$node_info"
-           _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion"
-       done
+        if [ "$HIDE_NODE_SECTION" = false ]; then
+            for node_info in $node_list; do
+                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)" # Temporary Function; to be updated with Node update function when available.
+                then Node_FW_NewUpdateVersion="NONE FOUND"
+                else Node_FW_NewUpdateVersion="{Node_FW_NewUpdateVersion}"
+                fi
+                _GetNodeInfo_ "$node_info"
+                _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion"
+            done
+        fi
    else
-       printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
+      printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
    fi
    printf "\n${SEPstr}"
 
@@ -4485,6 +4487,7 @@ _advanced_options_menu_()
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
+HIDE_NODE_SECTION=false
 
 while true
 do
@@ -4495,6 +4498,13 @@ do
    printf "Enter selection:  " ; read -r userChoice
    echo
    case $userChoice in
+		h|H)
+           if $HIDE_NODE_SECTION; then
+               HIDE_NODE_SECTION=false
+           else
+               HIDE_NODE_SECTION=true
+           fi
+           ;;
        1) _RunFirmwareUpdateNow_
           ;;
        2) _GetLoginCredentials_
