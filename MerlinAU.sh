@@ -2116,7 +2116,8 @@ _PermNodeList_() {
         
         # Check if IP addresses are not empty
         if [ -n "$ip_addresses" ]; then
-            echo "$ip_addresses"
+            # Print each IP address on a separate line
+            printf "%s\n" "$ip_addresses"
         else
             echo "Error: Unable to extract IP addresses from asus_device_list."
             return 1
@@ -2132,27 +2133,30 @@ _PermNodeList_() {
 ##---------------------------------------##
 _GetNodeURL_()
 {
-    local NodeIP_Address="$(_PermNodeList_)"
-    local urlProto  urlDomain  urlPort
+    local NodeIP_Address="$1"
+    local urlProto urlDomain urlPort
 
-    if [ "$(nvram get http_enable)" = "1" ]
-    then urlProto="https"
-    else urlProto="http"
+    if [ "$(nvram get http_enable)" = "1" ]; then
+        urlProto="https"
+    else
+        urlProto="http"
     fi
 
     urlDomain="$(nvram get lan_domain)"
-    if [ -z "$urlDomain" ]
-    then urlDomain="$NodeIP_Address"
-    else urlDomain="$(nvram get lan_hostname).$urlDomain"
+    if [ -z "$urlDomain" ]; then
+        urlDomain="$NodeIP_Address"
+    else
+        urlDomain="$(nvram get lan_hostname).$urlDomain"
     fi
 
     urlPort="$(nvram get "${urlProto}_lanport")"
-    if [ "$urlPort" -eq 80 ] || [ "$urlPort" -eq 443 ]
-    then urlPort=""
-    else urlPort=":$urlPort"
+    if [ "$urlPort" -eq 80 ] || [ "$urlPort" -eq 443 ]; then
+        urlPort=""
+    else
+        urlPort=":$urlPort"
     fi
 
-    echo "${urlProto}://${urlDomain}${urlPort}"
+    echo "${urlProto}://${NodeIP_Address}${urlPort}"
 }
 
 ##---------------------------------------##
@@ -2160,7 +2164,8 @@ _GetNodeURL_()
 ##---------------------------------------##
 _GetNodeInfo_()
 {
-    local NodeURLstr="$(_GetNodeURL_)"
+    local NodeIP_Address="$1"
+    local NodeURLstr="$(_GetNodeURL_ "$NodeIP_Address")"
 
     ## Check for Login Credentials ##
     credsBase64="$(Get_Custom_Setting credentials_base64)"
@@ -4100,6 +4105,22 @@ _SimpleNotificationDate_()
    echo "$(date -d @$notifyTimeSecs +"%Y-%b-%d %I:%M %p")"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-26] ##
+##---------------------------------------##
+# Define a function to print information about each AiMesh node
+_PrintNodeInfo() {
+    local node_online_status="$1"
+    local node_productid="$(echo "$node_productid" | cut -d' ' -f1)"
+    local node_version="$(echo "$Node_combinedVer" | cut -d' ' -f2)"
+
+    if [ -n "$node_online_status" ]; then
+        printf "\n${node_productid}: F/W Version Installed: ${GRNct}${node_version}${NOct}"
+    else
+        printf "\n${padStr}${padStr}${padStr}${REDct}${node_productid}: Node Offline${NOct}"
+    fi
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-19] ##
 ##------------------------------------------##
@@ -4160,7 +4181,6 @@ _ShowMainMenu_()
    ##---------------------------------------##
    printf "\n${SEPstr}"
    # Get the output of _PermNodeList_ into a temporary variable
-   _GetNodeInfo_
    node_list=$(_PermNodeList_)
 
    # Count the number of IP addresses
@@ -4169,19 +4189,16 @@ _ShowMainMenu_()
    # Print the result
    printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}"
    # Get the value of cfg_device_list
-   local online_status="$(nvram get cfg_device_list)"
+   local node_online_status="$(nvram get cfg_device_list)"
     
-   if [ -n "$node_list" ];
-   then
-      # Check if cfg_device_list is not empty
-      if [ -n "$online_status" ];
-      then   
-            printf "\n${node_productid}: F/W Version Installed: ${GRNct}${Node_combinedVer}${NOct}"
-      else   
-            printf "\n${padStr}${padStr}${padStr}${REDct}Node(s) Offline${NOct}"
-      fi
+   # Iterate over the list of nodes and print information for each node
+   if [ -n "$node_list" ]; then
+       for node_info in $node_list; do
+           _GetNodeInfo_ "$node_info"
+           _PrintNodeInfo "$node_online_status"
+       done
    else
-      printf "${REDct}No AiMesh Node(s)${NOct}"
+       printf "${REDct}No AiMesh Node(s)${NOct}"
    fi
    printf "\n${SEPstr}"
 
