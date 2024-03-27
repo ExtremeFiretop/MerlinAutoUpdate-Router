@@ -2129,6 +2129,123 @@ _GetLoginCredentials_()
     return 0
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-26] ##
+##---------------------------------------##
+_PermNodeList_() {
+    # Get the value of asus_device_list
+    local device_list="$(nvram get asus_device_list)"
+
+    # Check if asus_device_list is not empty
+    if [ -n "$device_list" ]; then
+        # Extract the IP addresses from the device list
+        local ip_addresses=$(echo "$device_list" | awk -F'>' '{print $3}')
+        
+        # Check if IP addresses are not empty
+        if [ -n "$ip_addresses" ]; then
+            # Print each IP address on a separate line
+            printf "%s\n" "$ip_addresses"
+        else
+            echo "Error: Unable to extract IP addresses from asus_device_list."
+            return 1
+        fi
+    else
+        echo "Error: asus_device_list is not populated."
+        return 1
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-26] ##
+##---------------------------------------##
+_GetNodeURL_()
+{
+    local NodeIP_Address="$1"
+    local urlProto urlDomain urlPort
+
+    if [ "$(nvram get http_enable)" = "1" ]; then
+        urlProto="https"
+    else
+        urlProto="http"
+    fi
+
+    urlDomain="$(nvram get lan_domain)"
+    if [ -z "$urlDomain" ]; then
+        urlDomain="$NodeIP_Address"
+    else
+        urlDomain="$(nvram get lan_hostname).$urlDomain"
+    fi
+
+    urlPort="$(nvram get "${urlProto}_lanport")"
+    if [ "$urlPort" -eq 80 ] || [ "$urlPort" -eq 443 ]; then
+        urlPort=""
+    else
+        urlPort=":$urlPort"
+    fi
+
+    echo "${urlProto}://${NodeIP_Address}${urlPort}"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-26] ##
+##---------------------------------------##
+_GetNodeInfo_()
+{
+    local NodeIP_Address="$1"
+    local NodeURLstr="$(_GetNodeURL_ "$NodeIP_Address")"
+
+    ## Check for Login Credentials ##
+    credsBase64="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
+    fi
+
+    # Perform login request
+    curl -s -k "${NodeURLstr}/login.cgi" \
+    --referer "${NodeURLstr}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${NodeURLstr}" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
+    --cookie-jar '/tmp/nodecookies.txt' \
+    --max-time 2 > /tmp/login_response.txt 2>&1
+
+    # Run the curl command to retrieve the HTML content
+    htmlContent=$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)" \
+    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Accept-Encoding: gzip, deflate' \
+    -H 'Connection: keep-alive' \
+    -H "Referer: ${NodeURLstr}/index.asp" \
+    -H 'Upgrade-Insecure-Requests: 0' \
+    --cookie '/tmp/nodecookies.txt' \
+    --max-time 2 2>&1)
+
+    # Extract values using regular expressions
+    node_productid=$(echo "$htmlContent" | grep -o '"productid":"[^"]*' | sed 's/"productid":"//')
+    node_asus_device_list=$(echo "$htmlContent" | grep -o '"asus_device_list":"[^"]*' | sed 's/"asus_device_list":"//')
+    node_cfg_device_list=$(echo "$htmlContent" | grep -o '"cfg_device_list":"[^"]*' | sed 's/"cfg_device_list":"//')
+    node_firmver=$(echo "$htmlContent" | grep -o '"firmver":"[^"]*' | sed 's/"firmver":"//' | tr -d '.')
+    node_buildno=$(echo "$htmlContent" | grep -o '"buildno":"[^"]*' | sed 's/"buildno":"//')
+    node_extendno=$(echo "$htmlContent" | grep -o '"extendno":"[^"]*' | sed 's/"extendno":"//')
+    node_webs_state_flag=$(echo "$htmlContent" | grep -o '"webs_state_flag":"[^"]*' | sed 's/"webs_state_flag":"//')
+    node_odmpid=$(echo "$htmlContent" | grep -o '"odmpid":"[^"]*' | sed 's/"odmpid":"//')
+    node_wps_modelnum=$(echo "$htmlContent" | grep -o '"wps_modelnum":"[^"]*' | sed 's/"wps_modelnum":"//')
+    node_model=$(echo "$htmlContent" | grep -o '"model":"[^"]*' | sed 's/"model":"//')
+    node_build_name=$(echo "$htmlContent" | grep -o '"build_name":"[^"]*' | sed 's/"build_name":"//')
+    node_lan_hostname=$(echo "$htmlContent" | grep -o '"lan_hostname":"[^"]*' | sed 's/"lan_hostname":"//')
+
+    # Combine extracted information into one string
+    Node_combinedVer="$node_firmver.$node_buildno.$node_extendno"
+}
+
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Mar-25] ##
 ##----------------------------------------##
@@ -4016,6 +4133,58 @@ _SimpleNotificationDate_()
    echo "$(date -d @$notifyTimeSecs +"%Y-%b-%d %I:%M %p")"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-26] ##
+##---------------------------------------##
+# Define a function to print information about each AiMesh node
+_PrintNodeInfo() {
+    local node_info="$1"
+    local node_online_status="$2"
+
+    # Trim to first word if needed
+    local node_productid="$(echo "$node_productid" | cut -d' ' -f1)"
+    local node_version="$(echo "$Node_combinedVer" | cut -d' ' -f2)"
+    node_info="$(echo "$node_info" | cut -d' ' -f1)"
+
+    # Calculate box width based on the longest line
+    local max_length=0
+    local line length
+    for line in "${node_productid}/${node_lan_hostname}: ${node_info}" "F/W Version Installed: ${node_version}"; do
+        length=$(printf "%s" "$line" | awk '{print length}')
+        [ $length -gt $max_length ] && max_length=$length
+    done
+
+    local box_width=$((max_length + 0))  # Adjust box padding here
+
+    # Build the horizontal line without using seq
+    local h_line=""
+    for i in $(awk "BEGIN{for(i=1;i<=$box_width;i++) print i}"); do
+        h_line="${h_line}─"
+    done
+
+    # Assume ANSI color codes are used but do not manually adjust padding for them.
+    if [ -n "$node_online_status" ]; then
+        printf "\n   ┌─%s─┐" "$h_line"
+
+        # Calculate visual length and determine required padding.
+        visible_text_length=$(printf "%s/%s: %s" "$node_productid" "$node_lan_hostname" "$node_info" | wc -m)
+        padding=$((box_width - visible_text_length))
+        printf "\n   │ %s/%s: ${GRNct}%s${NOct}%*s │" "$node_productid" "$node_lan_hostname" "$node_info" "$padding" ""
+
+        visible_text_length=$(printf "F/W Version Installed: %s" "$node_version" | wc -m)
+        padding=$((box_width - visible_text_length))
+        printf "\n   │ F/W Version Installed: ${GRNct}%s${NOct}%*s │" "$node_version" "$padding" ""
+
+        printf "\n   └─%s─┘" "$h_line"
+    else
+        visible_text_length=$(printf "%s/%s: Node Offline" "$node_productid" "$node_lan_hostname" | wc -m)
+        padding=$((box_width - visible_text_length))
+        printf "\n   ┌─%s─┐" "$h_line"
+        printf "\n   │ %s/%s: ${REDct}Node Offline${NOct}%*s │" "$node_productid" "$node_lan_hostname" "$padding" ""
+        printf "\n   └─%s─┘" "$h_line"
+    fi
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-19] ##
 ##------------------------------------------##
@@ -4071,7 +4240,32 @@ _ShowMainMenu_()
    printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
    printf "\n${padStr}USB Storage Connected: $USBConnected"
 
+   ##---------------------------------------##
+   ## Added by ExtremeFiretop [2024-Mar-26] ##
+   ##---------------------------------------##
    printf "\n${SEPstr}"
+   # Get the output of _PermNodeList_ into a temporary variable
+   node_list=$(_PermNodeList_)
+
+   # Count the number of IP addresses
+   num_ips=$(echo "$node_list" | wc -w)
+
+   # Print the result
+   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}"
+   # Get the value of cfg_device_list
+   local node_online_status="$(nvram get cfg_device_list)"
+    
+   # Iterate over the list of nodes and print information for each node
+   if [ -n "$node_list" ]; then
+       for node_info in $node_list; do
+           _GetNodeInfo_ "$node_info"
+           _PrintNodeInfo "$node_info" "$node_online_status"
+       done
+   else
+       printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
+   fi
+   printf "\n${SEPstr}"
+
    printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
    printf "\n  ${GRNct}2${NOct}.  Configure Router Login Credentials\n"
 
