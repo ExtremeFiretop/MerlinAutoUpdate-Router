@@ -2189,7 +2189,7 @@ _GetNodeInfo_()
     --max-time 2 > /tmp/login_response.txt 2>&1
 
     # Run the curl command to retrieve the HTML content
-    htmlContent=$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)" \
+    htmlContent=$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
     -H 'Accept-Language: en-US,en;q=0.5' \
@@ -2212,6 +2212,7 @@ _GetNodeInfo_()
     node_wps_modelnum=$(echo "$htmlContent" | grep -o '"wps_modelnum":"[^"]*' | sed 's/"wps_modelnum":"//')
     node_model=$(echo "$htmlContent" | grep -o '"model":"[^"]*' | sed 's/"model":"//')
     node_build_name=$(echo "$htmlContent" | grep -o '"build_name":"[^"]*' | sed 's/"build_name":"//')
+    node_lan_hostname=$(echo "$htmlContent" | grep -o '"lan_hostname":"[^"]*' | sed 's/"lan_hostname":"//')
 
     # Combine extracted information into one string
     Node_combinedVer="$node_firmver.$node_buildno.$node_extendno"
@@ -4110,14 +4111,21 @@ _SimpleNotificationDate_()
 ##---------------------------------------##
 # Define a function to print information about each AiMesh node
 _PrintNodeInfo() {
-    local node_online_status="$1"
+    local node_info="$1"
+    local node_online_status="$2"
     local node_productid="$(echo "$node_productid" | cut -d' ' -f1)"
     local node_version="$(echo "$Node_combinedVer" | cut -d' ' -f2)"
+    local node_info="$(echo "$node_info" | cut -d' ' -f1)"
 
     if [ -n "$node_online_status" ]; then
-        printf "\n${node_productid}: F/W Version Installed: ${GRNct}${node_version}${NOct}"
+        printf "\n   ┌─────────────────────────────────────────────┐"
+        printf "\n   │ ${node_productid}/${node_lan_hostname}: ${GRNct}${node_info}${NOct}  │"
+        printf "\n   │ F/W Version Installed: ${GRNct}${node_version}${NOct}     │"
+        printf "\n   └─────────────────────────────────────────────┘"
     else
-        printf "\n${padStr}${padStr}${padStr}${REDct}${node_productid}: Node Offline${NOct}"
+        printf "\n   ┌─────────────────────────────────────────────┐"
+        printf "\n   │ ${node_productid}/${node_lan_hostname}: ${REDct}Node Offline${NOct}  │"
+        printf "\n   └─────────────────────────────────────────────┘"
     fi
 }
 
@@ -4195,10 +4203,10 @@ _ShowMainMenu_()
    if [ -n "$node_list" ]; then
        for node_info in $node_list; do
            _GetNodeInfo_ "$node_info"
-           _PrintNodeInfo "$node_online_status"
+           _PrintNodeInfo "$node_info" "$node_online_status"
        done
    else
-       printf "${REDct}No AiMesh Node(s)${NOct}"
+       printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
    fi
    printf "\n${SEPstr}"
 
