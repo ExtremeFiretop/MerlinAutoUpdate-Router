@@ -2180,7 +2180,8 @@ _GetNodeInfo_()
     -H "Origin: ${NodeURLstr}" \
     -H 'Connection: keep-alive' \
     --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
-    --cookie-jar '/tmp/nodecookies.txt' > /tmp/login_response.txt 2>&1
+    --cookie-jar '/tmp/nodecookies.txt' \
+    --max-time 2 > /tmp/login_response.txt 2>&1
 
     # Run the curl command to retrieve the HTML content
     htmlContent=$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)" \
@@ -2191,7 +2192,8 @@ _GetNodeInfo_()
     -H 'Connection: keep-alive' \
     -H "Referer: ${NodeURLstr}/index.asp" \
     -H 'Upgrade-Insecure-Requests: 0' \
-    --cookie '/tmp/nodecookies.txt' 2>&1)
+    --cookie '/tmp/nodecookies.txt' \
+    --max-time 2 2>&1)
 
     # Extract values using regular expressions
     node_productid=$(echo "$htmlContent" | grep -o '"productid":"[^"]*' | sed 's/"productid":"//')
@@ -4158,7 +4160,6 @@ _ShowMainMenu_()
    ##---------------------------------------##
    printf "\n${SEPstr}"
    # Get the output of _PermNodeList_ into a temporary variable
-   global_counter=0
    _GetNodeInfo_
    node_list=$(_PermNodeList_)
 
@@ -4166,7 +4167,7 @@ _ShowMainMenu_()
    num_ips=$(echo "$node_list" | wc -w)
 
    # Print the result
-   printf "\n${padStr}${padStr}${padStr}${GRNct} AIMESH NODE(s): $num_ips ${NOct}"
+   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Nodes(s): $num_ips ${NOct}"
    # Get the value of cfg_device_list
    local online_status="$(nvram get cfg_device_list)"
     
@@ -4177,7 +4178,7 @@ _ShowMainMenu_()
       then   
             printf "\n${node_productid}: F/W Version Installed: ${GRNct}${Node_combinedVer}${NOct}"
       else   
-            printf "\n${padStr}${padStr}${padStr}${REDct}NODE(s) OFFLINE${NOct}"
+            printf "\n${padStr}${padStr}${padStr}${REDct}Nodes(s) Offline${NOct}"
       fi
    else
       printf "${REDct}No AiMesh Node(s)${NOct}"
