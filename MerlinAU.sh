@@ -4113,19 +4113,48 @@ _SimpleNotificationDate_()
 _PrintNodeInfo() {
     local node_info="$1"
     local node_online_status="$2"
+
+    # Trim to first word if needed
     local node_productid="$(echo "$node_productid" | cut -d' ' -f1)"
     local node_version="$(echo "$Node_combinedVer" | cut -d' ' -f2)"
-    local node_info="$(echo "$node_info" | cut -d' ' -f1)"
+    node_info="$(echo "$node_info" | cut -d' ' -f1)"
 
+    # Calculate box width based on the longest line
+    local max_length=0
+    local line length
+    for line in "${node_productid}/${node_lan_hostname}: ${node_info}" "F/W Version Installed: ${node_version}"; do
+        length=$(printf "%s" "$line" | awk '{print length}')
+        [ $length -gt $max_length ] && max_length=$length
+    done
+
+    local box_width=$((max_length + 0))  # Adjust box padding here
+
+    # Build the horizontal line without using seq
+    local h_line=""
+    for i in $(awk "BEGIN{for(i=1;i<=$box_width;i++) print i}"); do
+        h_line="${h_line}─"
+    done
+
+    # Assume ANSI color codes are used but do not manually adjust padding for them.
     if [ -n "$node_online_status" ]; then
-        printf "\n   ┌─────────────────────────────────────────────┐"
-        printf "\n   │ ${node_productid}/${node_lan_hostname}: ${GRNct}${node_info}${NOct}  │"
-        printf "\n   │ F/W Version Installed: ${GRNct}${node_version}${NOct}     │"
-        printf "\n   └─────────────────────────────────────────────┘"
+        printf "\n   ┌─%s─┐" "$h_line"
+
+        # Calculate visual length and determine required padding.
+        visible_text_length=$(printf "%s/%s: %s" "$node_productid" "$node_lan_hostname" "$node_info" | wc -m)
+        padding=$((box_width - visible_text_length))
+        printf "\n   │ %s/%s: ${GRNct}%s${NOct}%*s │" "$node_productid" "$node_lan_hostname" "$node_info" "$padding" ""
+
+        visible_text_length=$(printf "F/W Version Installed: %s" "$node_version" | wc -m)
+        padding=$((box_width - visible_text_length))
+        printf "\n   │ F/W Version Installed: ${GRNct}%s${NOct}%*s │" "$node_version" "$padding" ""
+
+        printf "\n   └─%s─┘" "$h_line"
     else
-        printf "\n   ┌─────────────────────────────────────────────┐"
-        printf "\n   │ ${node_productid}/${node_lan_hostname}: ${REDct}Node Offline${NOct}  │"
-        printf "\n   └─────────────────────────────────────────────┘"
+        visible_text_length=$(printf "%s/%s: Node Offline" "$node_productid" "$node_lan_hostname" | wc -m)
+        padding=$((box_width - visible_text_length))
+        printf "\n   ┌─%s─┐" "$h_line"
+        printf "\n   │ %s/%s: ${REDct}Node Offline${NOct}%*s │" "$node_productid" "$node_lan_hostname" "$padding" ""
+        printf "\n   └─%s─┘" "$h_line"
     fi
 }
 
