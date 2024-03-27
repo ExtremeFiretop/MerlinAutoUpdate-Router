@@ -4498,7 +4498,7 @@ do
    printf "Enter selection:  " ; read -r userChoice
    echo
    case $userChoice in
-		h|H)
+        h|H)
            if $HIDE_NODE_SECTION; then
                HIDE_NODE_SECTION=false
            else
