@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-25
+# Last Modified: 2024-Mar-26
 ###################################################################
 set -u
 
@@ -89,6 +89,7 @@ advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Menu..."
 ##----------------------------------------##
 userLOGFile=""
 userTraceFile="${SETTINGS_DIR}/${ScriptFNameTag}_Trace.LOG"
+userDebugFile="${SETTINGS_DIR}/${ScriptFNameTag}_Debug.LOG"
 LOGdateFormat="%Y-%m-%d %H:%M:%S"
 _LogMsgNoTime_() { _UserLogMsg_ "_NOTIME_" "$@" ; }
 
@@ -1766,9 +1767,31 @@ _DoCleanUp_()
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-23] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2023-Mar-26] ##
+##-------------------------------------##
+_LogMemoryDebugInfo_()
+{
+   {
+     printf "Uptime\n------\n" ; uptime ; echo
+     df -hT | grep -E '(^Filesystem|/jffs$|/tmp$|/var$)' | sort -d -t ' ' -k 1
+     echo
+     printf "/proc/meminfo\n-------------\n"
+     grep -E '^Mem[TFA].*:[[:blank:]]+.*' /proc/meminfo
+     grep -E '^(Buffers|Cached):[[:blank:]]+.*' /proc/meminfo
+     grep -E '^Swap[TFC].*:[[:blank:]]+.*' /proc/meminfo
+     grep -E '^(Active|Inactive)(\([af].*\))?:[[:blank:]]+.*' /proc/meminfo
+     grep -E '^(Dirty|Writeback|AnonPages|Unevictable):[[:blank:]]+.*' /proc/meminfo
+     echo "------------------------------"
+   } > "$userDebugFile"
+   "$isInteractive" && cat "$userDebugFile"
+   _LogMsgNoTime_ "$(cat "$userDebugFile")"
+   rm -f "$userDebugFile"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-26] ##
+##----------------------------------------##
 check_memory_and_prompt_reboot()
 {
     local required_space_kb="$1"
@@ -1789,6 +1812,7 @@ check_memory_and_prompt_reboot()
         then
             freeRAM_kb="$(get_free_ram)"
             Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+            _LogMemoryDebugInfo_
 
             # Attempt to clear dentries and inodes. #
             Say "Attempting to free up memory again more aggressively..."
@@ -1801,6 +1825,7 @@ check_memory_and_prompt_reboot()
             then
                 freeRAM_kb="$(get_free_ram)"
                 Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+                _LogMemoryDebugInfo_
 
                 # Attempt to clear clears pagecache, dentries, and inodes after shutting down services
                 Say "Attempting to free up memory once more even more aggressively..."
@@ -1817,6 +1842,8 @@ check_memory_and_prompt_reboot()
                 availableRAM_kb="$(_GetAvailableRAM_KB_)"
                 if [ "$availableRAM_kb" -lt "$required_space_kb" ]
                 then
+                    _LogMemoryDebugInfo_
+
                     # In an interactive shell session, ask user to confirm reboot #
                     if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
                     then
