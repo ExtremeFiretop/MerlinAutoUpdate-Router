@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-26
+# Last Modified: 2024-Mar-27
 ###################################################################
 set -u
 
@@ -2129,6 +2129,32 @@ _PermNodeList_() {
 }
 
 ##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-27] ##
+##---------------------------------------##
+_NodeActiveStatus_() {
+    # Get the value of asus_device_list
+    local node_online_status="$(nvram get cfg_device_list)"
+
+    # Check if asus_device_list is not empty
+    if [ -n "$node_online_status" ]; then
+        # Extract the IP addresses from the device list
+        local ip_addresses=$(echo "$node_online_status" | awk -F'>' '{print $2}')
+        
+        # Check if IP addresses are not empty
+        if [ -n "$ip_addresses" ]; then
+            # Print each IP address on a separate line
+            printf "%s\n" "$ip_addresses"
+        else
+            echo "Error: Unable to extract IP addresses from asus_device_list."
+            return 1
+        fi
+    else
+        echo "Error: asus_device_list is not populated."
+        return 1
+    fi
+}
+
+##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Mar-26] ##
 ##---------------------------------------##
 _GetNodeURL_()
@@ -4107,12 +4133,13 @@ _SimpleNotificationDate_()
 }
 
 ##---------------------------------------##
-## Added by ExtremeFiretop [2024-Mar-26] ##
+## Added by ExtremeFiretop [2024-Mar-27] ##
 ##---------------------------------------##
 # Define a function to print information about each AiMesh node
 _PrintNodeInfo() {
     local node_info="$1"
     local node_online_status="$2"
+    local Node_FW_NewUpdateVersion="$3" # Variable to be updated with Node update variable when available
 
     # Trim to first word if needed
     local node_productid="$(echo "$node_productid" | cut -d' ' -f1)"
@@ -4122,10 +4149,11 @@ _PrintNodeInfo() {
     # Calculate box width based on the longest line
     local max_length=0
     local line length
-    for line in "${node_productid}/${node_lan_hostname}: ${node_info}" "F/W Version Installed: ${node_version}"; do
+    for line in "${node_productid}/${node_lan_hostname}: ${node_info}" "F/W Version Installed: ${node_version}" "F/W Update Available: ${Node_FW_NewUpdateVersion}"; do
         length=$(printf "%s" "$line" | awk '{print length}')
         [ $length -gt $max_length ] && max_length=$length
     done
+	# Variable to be updated with Node update variable when available
 
     local box_width=$((max_length + 0))  # Adjust box padding here
 
@@ -4136,7 +4164,7 @@ _PrintNodeInfo() {
     done
 
     # Assume ANSI color codes are used but do not manually adjust padding for them.
-    if [ -n "$node_online_status" ]; then
+    if echo "$node_online_status" | grep -q "$node_info"; then
         printf "\n   ┌─%s─┐" "$h_line"
 
         # Calculate visual length and determine required padding.
@@ -4148,12 +4176,23 @@ _PrintNodeInfo() {
         padding=$((box_width - visible_text_length))
         printf "\n   │ F/W Version Installed: ${GRNct}%s${NOct}%*s │" "$node_version" "$padding" ""
 
+        # 
+        if [ ! -z "$Node_FW_NewUpdateVersion" ]; then # Variable to be updated with Node update variable when available
+            visible_text_length=$(printf "F/W Update Available: %s" "$Node_FW_NewUpdateVersion" | wc -m)
+            padding=$((box_width - visible_text_length))
+            printf "\n   │ F/W Update Available: ${REDct}%s${NOct}%*s │" "$Node_FW_NewUpdateVersion" "$padding" ""
+        fi
+
         printf "\n   └─%s─┘" "$h_line"
     else
-        visible_text_length=$(printf "%s/%s: Node Offline" "$node_productid" "$node_lan_hostname" | wc -m)
-        padding=$((box_width - visible_text_length))
+        visible_text_length=$(printf "Node Offline" | wc -m)
+        total_padding=$((box_width - visible_text_length))
+        # Ensure even padding for left and right by dividing total_padding by 2
+        left_padding=$((total_padding / 2)) # Add 1 to make the division round up in case of an odd number
+
         printf "\n   ┌─%s─┐" "$h_line"
-        printf "\n   │ %s/%s: ${REDct}Node Offline${NOct}%*s │" "$node_productid" "$node_lan_hostname" "$padding" ""
+        # Apply the left padding. The '%*s' uses left_padding as its width specifier to insert spaces before "Node Offline"
+        printf "\n   │%*s ${REDct}Node Offline${NOct}%*s │" "$left_padding" "" "$((total_padding - left_padding))" ""
         printf "\n   └─%s─┘" "$h_line"
     fi
 }
@@ -4214,25 +4253,28 @@ _ShowMainMenu_()
    printf "\n${padStr}USB Storage Connected: $USBConnected"
 
    ##---------------------------------------##
-   ## Added by ExtremeFiretop [2024-Mar-26] ##
+   ## Added by ExtremeFiretop [2024-Mar-27] ##
    ##---------------------------------------##
    printf "\n${SEPstr}"
    # Get the output of _PermNodeList_ into a temporary variable
    node_list=$(_PermNodeList_)
+   node_online_status=$(_NodeActiveStatus_)
 
    # Count the number of IP addresses
    num_ips=$(echo "$node_list" | wc -w)
 
    # Print the result
    printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}"
-   # Get the value of cfg_device_list
-   local node_online_status="$(nvram get cfg_device_list)"
     
    # Iterate over the list of nodes and print information for each node
    if [ -n "$node_list" ]; then
        for node_info in $node_list; do
+           if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)" # Temporary Function; to be updated with Node update function when available.
+           then Node_FW_NewUpdateVersion="NONE FOUND"
+           else Node_FW_NewUpdateVersion="{Node_FW_NewUpdateVersion}"
+           fi
            _GetNodeInfo_ "$node_info"
-           _PrintNodeInfo "$node_info" "$node_online_status"
+           _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion"
        done
    else
        printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
