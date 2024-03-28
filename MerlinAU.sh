@@ -4501,16 +4501,14 @@ do
    printf "Enter selection:  " ; read -r userChoice
    echo
    case $userChoice in
-        s|S)
-           if $HIDE_NODE_SECTION; then
+        s|S) if $HIDE_NODE_SECTION; then
                HIDE_NODE_SECTION=false
-           fi
-           ;;
-        h|H)
-           if HIDE_NODE_SECTION=false; then
+             fi
+             ;;
+        h|H) if HIDE_NODE_SECTION=false; then
                HIDE_NODE_SECTION=true
-           fi
-           ;;
+             fi
+             ;;
        1) _RunFirmwareUpdateNow_
           ;;
        2) _GetLoginCredentials_
