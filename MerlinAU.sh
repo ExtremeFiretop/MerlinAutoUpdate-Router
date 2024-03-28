@@ -2252,11 +2252,11 @@ _GetLatestFWUpdateVersionFromNode_()
 {
    local retCode=0  webState  newVersionStr
 
-   webState="$($node_webs_state_flag)"
+   webState="${node_webs_state_flag}"
    if [ -z "$webState" ] || [ "$webState" -eq 0 ]
    then retCode=1 ; fi
 
-   newVersionStr="$($node_webs_state_info | sed 's/_/./g')"
+   newVersionStr="(${node_webs_state_info} | sed 's/_/./g')"
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
        newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
@@ -4292,11 +4292,11 @@ _ShowMainMenu_()
    if [ -n "$node_list" ]; then
         if [ "$HIDE_NODE_SECTION" = false ]; then
             for node_info in $node_list; do
-                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-                then Node_FW_NewUpdateVersion="NONE FOUND"
-                else Node_FW_NewUpdateVersion="{Node_FW_NewUpdateVersion}"
-                fi
                 _GetNodeInfo_ "$node_info"
+                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+                then Node_FW_NewUpdateVersion="NONE FOUND"
+                else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
+                fi
                 _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion"
             done
         fi
