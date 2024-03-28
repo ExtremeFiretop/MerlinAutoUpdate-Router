@@ -2215,7 +2215,7 @@ _GetNodeInfo_()
     --max-time 2 > /tmp/login_response.txt 2>&1
 
     # Run the curl command to retrieve the HTML content
-    htmlContent=$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)" \
+    htmlContent=$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
     -H 'Accept-Language: en-US,en;q=0.5' \
@@ -2234,6 +2234,7 @@ _GetNodeInfo_()
     node_buildno=$(echo "$htmlContent" | grep -o '"buildno":"[^"]*' | sed 's/"buildno":"//')
     node_extendno=$(echo "$htmlContent" | grep -o '"extendno":"[^"]*' | sed 's/"extendno":"//')
     node_webs_state_flag=$(echo "$htmlContent" | grep -o '"webs_state_flag":"[^"]*' | sed 's/"webs_state_flag":"//')
+    node_webs_state_info=$(echo "$htmlContent" | grep -o '"webs_state_info":"[^"]*' | sed 's/"webs_state_info":"//')
     node_odmpid=$(echo "$htmlContent" | grep -o '"odmpid":"[^"]*' | sed 's/"odmpid":"//')
     node_wps_modelnum=$(echo "$htmlContent" | grep -o '"wps_modelnum":"[^"]*' | sed 's/"wps_modelnum":"//')
     node_model=$(echo "$htmlContent" | grep -o '"model":"[^"]*' | sed 's/"model":"//')
@@ -2244,6 +2245,26 @@ _GetNodeInfo_()
     Node_combinedVer="$node_firmver.$node_buildno.$node_extendno"
 }
 
+##----------------------------------------------##
+## Added/Modified by ExtremeFiretop [2024-Mar-27] ##
+##----------------------------------------------##
+_GetLatestFWUpdateVersionFromNode_()
+{
+   local retCode=0  webState  newVersionStr
+
+   webState="$($node_webs_state_flag)"
+   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
+   then retCode=1 ; fi
+
+   newVersionStr="$($node_webs_state_info | sed 's/_/./g')"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
+   fi
+
+   [ -z "$newVersionStr" ] && retCode=1
+   echo "$newVersionStr" ; return "$retCode"
+}
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Mar-25] ##
@@ -4139,7 +4160,7 @@ _SimpleNotificationDate_()
 _PrintNodeInfo() {
     local node_info="$1"
     local node_online_status="$2"
-    local Node_FW_NewUpdateVersion="$3" # Variable to be updated with Node update variable when available
+    local Node_FW_NewUpdateVersion="$3"
 
     # Trim to first word if needed
     local node_productid="$(echo "$node_productid" | cut -d' ' -f1)"
@@ -4153,7 +4174,6 @@ _PrintNodeInfo() {
         length=$(printf "%s" "$line" | awk '{print length}')
         [ $length -gt $max_length ] && max_length=$length
     done
-	# Variable to be updated with Node update variable when available
 
     local box_width=$((max_length + 0))  # Adjust box padding here
 
@@ -4177,7 +4197,7 @@ _PrintNodeInfo() {
         printf "\n   │ F/W Version Installed: ${GRNct}%s${NOct}%*s │" "$node_version" "$padding" ""
 
         # 
-        if [ ! -z "$Node_FW_NewUpdateVersion" ]; then # Variable to be updated with Node update variable when available
+        if [ ! -z "$Node_FW_NewUpdateVersion" ]; then
             visible_text_length=$(printf "F/W Update Available: %s" "$Node_FW_NewUpdateVersion" | wc -m)
             padding=$((box_width - visible_text_length))
             printf "\n   │ F/W Update Available: ${REDct}%s${NOct}%*s │" "$Node_FW_NewUpdateVersion" "$padding" ""
@@ -4256,7 +4276,6 @@ _ShowMainMenu_()
    ## Added by ExtremeFiretop [2024-Mar-27] ##
    ##---------------------------------------##
    printf "\n${SEPstr}"
-   # Get the output of _PermNodeList_ into a temporary variable
    node_list=$(_PermNodeList_)
    node_online_status=$(_NodeActiveStatus_)
 
@@ -4273,7 +4292,7 @@ _ShowMainMenu_()
    if [ -n "$node_list" ]; then
         if [ "$HIDE_NODE_SECTION" = false ]; then
             for node_info in $node_list; do
-                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)" # Temporary Function; to be updated with Node update function when available.
+                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
                 then Node_FW_NewUpdateVersion="NONE FOUND"
                 else Node_FW_NewUpdateVersion="{Node_FW_NewUpdateVersion}"
                 fi
