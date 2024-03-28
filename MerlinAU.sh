@@ -4264,7 +4264,10 @@ _ShowMainMenu_()
    num_ips=$(echo "$node_list" | wc -w)
 
    # Print the result
-   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}  ${padStr}  (H)ide"
+   if [ "$HIDE_NODE_SECTION" = false ]
+   then   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}  ${padStr}  (H)ide"
+   else   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}  ${padStr}  (S)how"
+   fi
     
    # Iterate over the list of nodes and print information for each node
    if [ -n "$node_list" ]; then
@@ -4483,7 +4486,7 @@ _advanced_options_menu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-23] ##
+## Modified by ExtremeFiretop [2024-Mar-27] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -4498,10 +4501,13 @@ do
    printf "Enter selection:  " ; read -r userChoice
    echo
    case $userChoice in
-        h|H)
+        s|S)
            if $HIDE_NODE_SECTION; then
                HIDE_NODE_SECTION=false
-           else
+           fi
+           ;;
+        h|H)
+           if HIDE_NODE_SECTION=false; then
                HIDE_NODE_SECTION=true
            fi
            ;;
