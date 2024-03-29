@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-27
+# Last Modified: 2024-Mar-28
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.10
+readonly SCRIPT_VERSION=1.1.0
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -89,6 +89,7 @@ advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Menu..."
 ##----------------------------------------##
 userLOGFile=""
 userTraceFile="${SETTINGS_DIR}/${ScriptFNameTag}_Trace.LOG"
+userDebugFile="${SETTINGS_DIR}/${ScriptFNameTag}_Debug.LOG"
 LOGdateFormat="%Y-%m-%d %H:%M:%S"
 _LogMsgNoTime_() { _UserLogMsg_ "_NOTIME_" "$@" ; }
 
@@ -4287,47 +4288,23 @@ _ShowMainMenu_()
    else notificationStr="${GRNct}$(_SimpleNotificationDate_ "$notifyDate")${NOct}"
    fi
 
+   ##------------------------------------------##
+   ## Modified by ExtremeFiretop [2024-Mar-27] ##
+   ##------------------------------------------##
    printf "${SEPstr}"
-   if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-   then FW_NewUpdateVersion="${REDct}NONE FOUND${NOct}"
-   else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
+   if [ "$HIDE_ROUTER_SECTION" = false ]; then   
+      if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+		   then FW_NewUpdateVersion="${REDct}NONE FOUND${NOct}"
+		   else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
+      fi
+      printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(H)ide"
+      printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
+      printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
+      printf "\n${padStr}USB Storage Connected: $USBConnected"
+   else   
+      printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}S)how"
    fi
-   printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID"
-   printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
-   printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
-   printf "\n${padStr}USB Storage Connected: $USBConnected"
 
-   ##---------------------------------------##
-   ## Added by ExtremeFiretop [2024-Mar-27] ##
-   ##---------------------------------------##
-   printf "\n${SEPstr}"
-   node_list=$(_PermNodeList_)
-   node_online_status=$(_NodeActiveStatus_)
-
-   # Count the number of IP addresses
-   num_ips=$(echo "$node_list" | wc -w)
-
-   # Print the result
-   if [ "$HIDE_NODE_SECTION" = false ]
-   then   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}  ${padStr}  (H)ide"
-   else   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}  ${padStr}  (S)how"
-   fi
-    
-   # Iterate over the list of nodes and print information for each node
-   if [ -n "$node_list" ]; then
-        if [ "$HIDE_NODE_SECTION" = false ]; then
-            for node_info in $node_list; do
-                _GetNodeInfo_ "$node_info"
-                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
-                then Node_FW_NewUpdateVersion="NONE FOUND"
-                else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
-                fi
-                _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion"
-            done
-        fi
-   else
-      printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
-   fi
    printf "\n${SEPstr}"
 
    printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
@@ -4352,17 +4329,10 @@ _ShowMainMenu_()
    printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
    printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
-   # F/W Update Email Notifications #
-   if _CheckEMailConfigFileFromAMTM_ 0
-   then
-      if "$sendEMailNotificationsFlag"
-      then
-          printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
-          printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
-      else
-          printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
-          printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
-      fi
+   node_list=$(_PermNodeList_)
+   # Check for new script updates #
+   if [ -n "$node_list" ]; then
+      printf "\n ${GRNct}mn${NOct}.  AiMesh Nodes Info Menu\n"
    fi
 
    # Add selection for "Advanced Options" sub-menu #
@@ -4427,6 +4397,31 @@ _ShowAdvancedOptionsMenu_()
        fi
    fi
 
+   # Additional Email Notification Options #
+   if _CheckEMailConfigFileFromAMTM_ 0 && "$sendEMailNotificationsFlag"
+   then
+       # F/W Update Email Notifications #
+       printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
+
+       # Format Types: "HTML" or "Plain Text"
+       printf "\n ${GRNct}ef${NOct}.  Toggle Email Format Type"
+       printf "\n${padStr}[Current Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
+
+       # Secondary Email Address Setup for "CC" option #
+       printf "\n ${GRNct}se${NOct}.  Set Email Notifications Secondary Address"
+       if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
+       then
+           printf "\n${padStr}[Current Name/Alias: ${GRNct}${CC_NAME}${NOct}]"
+           printf "\n${padStr}[Current 2nd Address: ${GRNct}${CC_ADDRESS}${NOct}]\n"
+       else
+           echo
+       fi
+	else 
+       printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+   fi
+
    # Retrieve the current build type setting
    local current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
@@ -4441,30 +4436,46 @@ _ShowAdvancedOptionsMenu_()
 
    if echo "$PRODUCT_ID" | grep -q "^GT-"
    then
-       printf "\n ${GRNct}bt${NOct}.  Change ROG F/W Build Type"
+       printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
        if [ "$current_build_type_menu" = "NOT SET" ]
        then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
        else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
        fi
    fi
 
-   # Additional Email Notification Options #
-   if _CheckEMailConfigFileFromAMTM_ 0 && "$sendEMailNotificationsFlag"
-   then
-       # Format Types: "HTML" or "Plain Text"
-       printf "\n ${GRNct}ef${NOct}.  Set Email Format Type"
-       printf "\n${padStr}[Current Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
+   printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
+   printf "${SEPstr}"
+}
 
-       # Secondary Email Address Setup for "CC" option #
-       printf "\n ${GRNct}em${NOct}.  Set a Secondary Email Address for Notifications"
-       if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
-       then
-           printf "\n${padStr}[Current Name/Alias: ${GRNct}${CC_NAME}${NOct}]"
-           printf "\n${padStr}[Current 2nd Address: ${GRNct}${CC_ADDRESS}${NOct}]\n"
-       else
-           echo
-       fi
+_ShowNodesMenu_()
+{
+   clear
+   logo
+   printf "============== AiMesh Node(s) Info Menu ==============\n"
+   printf "${SEPstr}\n"
+
+   node_online_status=$(_NodeActiveStatus_)
+
+   # Count the number of IP addresses
+   num_ips=$(echo "$node_list" | wc -w)
+
+   # Print the result
+   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}"
+    
+   # Iterate over the list of nodes and print information for each node
+   if [ -n "$node_list" ]; then
+            for node_info in $node_list; do
+                _GetNodeInfo_ "$node_info"
+                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+                then Node_FW_NewUpdateVersion="NONE FOUND"
+                else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
+                fi
+                _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion"
+            done
+   else
+      printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
    fi
+   echo ""
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
    printf "${SEPstr}"
@@ -4504,23 +4515,80 @@ _advanced_options_menu_()
                 else _InvalidMenuSelection_
                 fi
                 ;;
-            bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
-                then change_build_type
-                else _InvalidMenuSelection_
-                fi
-                ;;
+            em) if "$isEMailConfigEnabledInAMTM"
+               then _Toggle_FW_UpdateEmailNotifications_
+               else _InvalidMenuSelection_
+               fi
+               ;;
             ef) if "$isEMailConfigEnabledInAMTM" && \
                    "$sendEMailNotificationsFlag"
                 then _SetEMailFormatType_
                 else _InvalidMenuSelection_
                 fi
                ;;
-            em) if "$isEMailConfigEnabledInAMTM" && \
+            se) if "$isEMailConfigEnabledInAMTM" && \
                    "$sendEMailNotificationsFlag"
                 then _SetSecondaryEMailAddress_
                 else _InvalidMenuSelection_
                 fi
                ;;
+            bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
+                then change_build_type
+                else _InvalidMenuSelection_
+                fi
+                ;;
+            e|exit) break
+               ;;
+            *) _InvalidMenuSelection_
+               ;;
+        esac
+    done
+}
+
+_NodesMenu_()
+{
+    while true
+    do
+        _ShowNodesMenu_
+        printf "\nEnter selection:  "
+        read -r advancedChoice
+        echo
+        case $advancedChoice in
+            1) _Set_FW_UpdateZIP_DirectoryPath_
+               ;;
+            2) _Set_FW_UpdateLOG_DirectoryPath_
+               ;;
+            3) _toggle_change_log_check_
+               ;;
+            4) _toggle_beta_updates_
+               ;;
+            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
+                then _Toggle_Auto_Backups_
+                else _InvalidMenuSelection_
+                fi
+                ;;
+            em) if "$isEMailConfigEnabledInAMTM"
+               then _Toggle_FW_UpdateEmailNotifications_
+               else _InvalidMenuSelection_
+               fi
+               ;;
+            ef) if "$isEMailConfigEnabledInAMTM" && \
+                   "$sendEMailNotificationsFlag"
+                then _SetEMailFormatType_
+                else _InvalidMenuSelection_
+                fi
+               ;;
+            se) if "$isEMailConfigEnabledInAMTM" && \
+                   "$sendEMailNotificationsFlag"
+                then _SetSecondaryEMailAddress_
+                else _InvalidMenuSelection_
+                fi
+               ;;
+            bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
+                then change_build_type
+                else _InvalidMenuSelection_
+                fi
+                ;;
             e|exit) break
                ;;
             *) _InvalidMenuSelection_
@@ -4534,7 +4602,7 @@ _advanced_options_menu_()
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
-HIDE_NODE_SECTION=false
+HIDE_ROUTER_SECTION=false
 
 while true
 do
@@ -4545,12 +4613,12 @@ do
    printf "Enter selection:  " ; read -r userChoice
    echo
    case $userChoice in
-        s|S) if $HIDE_NODE_SECTION; then
-               HIDE_NODE_SECTION=false
+        s|S) if $HIDE_ROUTER_SECTION; then
+               HIDE_ROUTER_SECTION=false
              fi
              ;;
-        h|H) if HIDE_NODE_SECTION=false; then
-               HIDE_NODE_SECTION=true
+        h|H) if HIDE_ROUTER_SECTION=false; then
+               HIDE_ROUTER_SECTION=true
              fi
              ;;
        1) _RunFirmwareUpdateNow_
@@ -4563,8 +4631,8 @@ do
           ;;
        5) _Set_FW_UpdateCronSchedule_
           ;;
-      em) if "$isEMailConfigEnabledInAMTM"
-          then _Toggle_FW_UpdateEmailNotifications_
+      mn) if [ -n "$node_list" ]; 
+          then _NodesMenu_
           else _InvalidMenuSelection_
           fi
           ;;
