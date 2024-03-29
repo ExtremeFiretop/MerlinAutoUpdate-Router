@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-23
+# Last Modified: 2024-Mar-26
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.0.9
+readonly SCRIPT_VERSION=1.0.10
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -89,6 +89,7 @@ advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Menu..."
 ##----------------------------------------##
 userLOGFile=""
 userTraceFile="${SETTINGS_DIR}/${ScriptFNameTag}_Trace.LOG"
+userDebugFile="${SETTINGS_DIR}/${ScriptFNameTag}_Debug.LOG"
 LOGdateFormat="%Y-%m-%d %H:%M:%S"
 _LogMsgNoTime_() { _UserLogMsg_ "_NOTIME_" "$@" ; }
 
@@ -377,7 +378,7 @@ _ScriptVersionStrToNum_()
 ##----------------------------------------##
 _FWVersionStrToNum_()
 {
-    if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
     then echo ; return 1 ; fi
 
     USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
@@ -1766,9 +1767,31 @@ _DoCleanUp_()
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-23] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2023-Mar-26] ##
+##-------------------------------------##
+_LogMemoryDebugInfo_()
+{
+   {
+     printf "Uptime\n------\n" ; uptime ; echo
+     df -hT | grep -E '(^Filesystem|/jffs$|/tmp$|/var$)' | sort -d -t ' ' -k 1
+     echo
+     printf "/proc/meminfo\n-------------\n"
+     grep -E '^Mem[TFA].*:[[:blank:]]+.*' /proc/meminfo
+     grep -E '^(Buffers|Cached):[[:blank:]]+.*' /proc/meminfo
+     grep -E '^Swap[TFC].*:[[:blank:]]+.*' /proc/meminfo
+     grep -E '^(Active|Inactive)(\([af].*\))?:[[:blank:]]+.*' /proc/meminfo
+     grep -E '^(Dirty|Writeback|AnonPages|Unevictable):[[:blank:]]+.*' /proc/meminfo
+     echo "------------------------------"
+   } > "$userDebugFile"
+   "$isInteractive" && cat "$userDebugFile"
+   _LogMsgNoTime_ "$(cat "$userDebugFile")"
+   rm -f "$userDebugFile"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-26] ##
+##----------------------------------------##
 check_memory_and_prompt_reboot()
 {
     local required_space_kb="$1"
@@ -1789,6 +1812,7 @@ check_memory_and_prompt_reboot()
         then
             freeRAM_kb="$(get_free_ram)"
             Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+            _LogMemoryDebugInfo_
 
             # Attempt to clear dentries and inodes. #
             Say "Attempting to free up memory again more aggressively..."
@@ -1801,6 +1825,7 @@ check_memory_and_prompt_reboot()
             then
                 freeRAM_kb="$(get_free_ram)"
                 Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+                _LogMemoryDebugInfo_
 
                 # Attempt to clear clears pagecache, dentries, and inodes after shutting down services
                 Say "Attempting to free up memory once more even more aggressively..."
@@ -1817,6 +1842,8 @@ check_memory_and_prompt_reboot()
                 availableRAM_kb="$(_GetAvailableRAM_KB_)"
                 if [ "$availableRAM_kb" -lt "$required_space_kb" ]
                 then
+                    _LogMemoryDebugInfo_
+
                     # In an interactive shell session, ask user to confirm reboot #
                     if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
                     then
@@ -2103,7 +2130,7 @@ _GetLoginCredentials_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-20] ##
+## Modified by Martinski W. [2024-Mar-25] ##
 ##----------------------------------------##
 _GetLatestFWUpdateVersionFromWebsite_()
 {
@@ -2128,8 +2155,12 @@ _GetLatestFWUpdateVersionFromWebsite_()
     # Extracting the correct link from the page
     local correct_link="$(echo "$linkStr" | sed 's|^/|https://sourceforge.net/|')"
 
+    if [ -z "$versionStr" ] || [ -z "$correct_link" ]
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+
     echo "$versionStr"
     echo "$correct_link"
+    return 0
 }
 
 ##---------------------------------------##
@@ -2419,7 +2450,7 @@ _AddCronJobEntry_()
 
    cru a "$CRON_JOB_TAG" "$newSchedule $CRON_JOB_RUN"
    sleep 1
-   if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        retCode=0
        "$newSetting" && \
@@ -2434,10 +2465,10 @@ _AddCronJobEntry_()
 _DelCronJobEntry_()
 {
    local retCode
-   if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        cru d "$CRON_JOB_TAG" ; sleep 1
-       if $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+       if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
        then
            retCode=1
            printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
@@ -2668,7 +2699,7 @@ _Set_FW_UpdateCronSchedule_()
 ##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
-   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
    local numVersionFields  fwNewUpdateVersNum
@@ -2718,7 +2749,7 @@ _CheckNewUpdateFirmwareNotification_()
 ##----------------------------------------##
 _CheckTimeToUpdateFirmware_()
 {
-   if [ $# -eq 0 ] || [ -z "$1" ] || [ -z "$2" ]
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
    local notifyTimeSecs  postponeTimeSecs  currentTimeSecs  dstAdjustSecs  dstAdjustDays
@@ -3033,6 +3064,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     release_version="$1"
     release_link="$2"
 
+    if [ "$release_version" = "**ERROR**" ] && [ "$release_link" = "**NO_URL**" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
+    fi
+
     # Extracting the first octet to use in the curl
     firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
     # Inserting dots between each number
@@ -3053,19 +3091,13 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    if [ "$1" = "**ERROR**" ] && [ "$2" = "**NO_URL**" ]
-    then
-        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
-    fi
-
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2023-Dec-09] ##
     ##---------------------------------------##
     # Get the required space for the firmware download and extraction
-    required_space_kb=$(get_required_space "$release_link")
-    if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]; then
+    required_space_kb="$(get_required_space "$release_link")"
+    if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]
+    then
         if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
             Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
@@ -3919,7 +3951,7 @@ if [ "$FW_UpdateCheckState" -eq 1 ]
 then
     runfwUpdateCheck=true
     # Check if the CRON job already exists #
-    if ! $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+    if ! eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
     then
         logo
         # If CRON job does not exist, ask user for permission to add #
