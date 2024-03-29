@@ -2162,7 +2162,7 @@ _NodeActiveStatus_() {
     # Get the value of asus_device_list
     local node_online_status="$(nvram get cfg_device_list)"
 
-    # Check if asus_device_list is not empty
+    # Check if cfg_device_list is not empty
     if [ -n "$node_online_status" ]; then
         # Extract the IP addresses from the device list
         local ip_addresses=$(echo "$node_online_status" | awk -F'>' '{print $2}')
@@ -2172,11 +2172,34 @@ _NodeActiveStatus_() {
             # Print each IP address on a separate line
             printf "%s\n" "$ip_addresses"
         else
-            echo "Error: Unable to extract IP addresses from asus_device_list."
+            echo "Error: Unable to extract IP addresses from cfg_device_list."
             return 1
         fi
     else
-        echo "Error: asus_device_list is not populated."
+        echo "Error: cfg_device_list is not populated."
+        return 1
+    fi
+}
+
+_GetNodeMAC_() {
+    # Get the value of cfg_device_list
+    local node_online_status="$(nvram get cfg_device_list)"
+
+    # Check if cfg_device_list is not empty
+    if [ -n "$node_online_status" ]; then
+        # Extract the MAC address from the device list
+        local mac_address=$(echo "$node_online_status" | awk -F'>' '{print $3}')
+        
+        # Check if MAC address is not empty
+        if [ -n "$mac_address" ]; then
+            # Print the MAC address
+            echo "$mac_address"
+        else
+            echo "Error: Unable to extract MAC address from cfg_device_list."
+            return 1
+        fi
+    else
+        echo "Error: cfg_device_list is not populated."
         return 1
     fi
 }
@@ -2270,6 +2293,43 @@ _GetNodeInfo_()
 
     # Combine extracted information into one string
     Node_combinedVer="$node_firmver.$node_buildno.$node_extendno"
+}
+
+_RebootNode_()
+{
+    local RouterURLstr="$(_GetRouterURL_)"
+    local NodeMAC_Address="$(_GetNodeMAC_)"
+
+    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+    /sbin/service restart_httpd >/dev/null 2>&1 &
+    sleep 5
+
+    # Perform login request
+    curl -s -k "${RouterURLstr}/login.cgi" \
+    --referer "${RouterURLstr}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${RouterURLstr}" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
+    --cookie-jar '/tmp/cookie.txt' \
+    --max-time 2 > /tmp/login_response.txt 2>&1
+
+    sleep 2
+
+    curl -s -k "${RouterURLstr}/applyapp.cgi" \
+    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Accept-Encoding: gzip, deflate' \
+    -H 'Connection: keep-alive' \
+    -H "Referer: ${RouterURLstr}/AiMesh.asp" \
+    -H 'Upgrade-Insecure-Requests: 0' \
+    --data-urlencode "device_list=${NodeMAC_Address}" \
+    --data-urlencode "action_mode=device_reboot" \
+    --cookie '/tmp/cookie.txt' \
+    --max-time 2 2>&1
 }
 
 ##----------------------------------------------##
@@ -4477,6 +4537,7 @@ _ShowNodesMenu_()
       printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
    fi
    echo ""
+   printf "\n  ${GRNct}ts${NOct}.  Test Reboot\n"
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
    printf "${SEPstr}"
@@ -4552,44 +4613,12 @@ _NodesMenu_()
     do
         _ShowNodesMenu_
         printf "\nEnter selection:  "
-        read -r advancedChoice
+        read -r nodesChoice
         echo
-        case $advancedChoice in
-            1) _Set_FW_UpdateZIP_DirectoryPath_
+        case $nodesChoice in
+
+            ts) _RebootNode_
                ;;
-            2) _Set_FW_UpdateLOG_DirectoryPath_
-               ;;
-            3) _toggle_change_log_check_
-               ;;
-            4) _toggle_beta_updates_
-               ;;
-            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
-                then _Toggle_Auto_Backups_
-                else _InvalidMenuSelection_
-                fi
-                ;;
-            em) if "$isEMailConfigEnabledInAMTM"
-               then _Toggle_FW_UpdateEmailNotifications_
-               else _InvalidMenuSelection_
-               fi
-               ;;
-            ef) if "$isEMailConfigEnabledInAMTM" && \
-                   "$sendEMailNotificationsFlag"
-                then _SetEMailFormatType_
-                else _InvalidMenuSelection_
-                fi
-               ;;
-            se) if "$isEMailConfigEnabledInAMTM" && \
-                   "$sendEMailNotificationsFlag"
-                then _SetSecondaryEMailAddress_
-                else _InvalidMenuSelection_
-                fi
-               ;;
-            bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
-                then change_build_type
-                else _InvalidMenuSelection_
-                fi
-                ;;
             e|exit) break
                ;;
             *) _InvalidMenuSelection_
@@ -4614,14 +4643,13 @@ do
    printf "Enter selection:  " ; read -r userChoice
    echo
    case $userChoice in
-        s|S) if $HIDE_ROUTER_SECTION; then
-               HIDE_ROUTER_SECTION=false
-             fi
-             ;;
-        h|H) if HIDE_ROUTER_SECTION=false; then
-               HIDE_ROUTER_SECTION=true
-             fi
-             ;;
+        s|S|h|H)
+            if [ "$userChoice" = "s" ] || [ "$userChoice" = "S" ]; then
+                HIDE_ROUTER_SECTION=false
+            elif [ "$userChoice" = "h" ] || [ "$userChoice" = "H" ]; then
+                HIDE_ROUTER_SECTION=true
+            fi
+            ;;
        1) _RunFirmwareUpdateNow_
           ;;
        2) _GetLoginCredentials_
