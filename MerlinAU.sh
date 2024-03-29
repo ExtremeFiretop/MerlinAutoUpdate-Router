@@ -4626,25 +4626,15 @@ _NodesMenu_()
         printf "\nEnter selection:  "
         read -r nodesChoice
         echo
-        if [ "$nodesChoice" -eq "$nodesChoice" ] 2>/dev/null; then
-            # Assuming node_list is a space-separated list of node identifiers,
-            # convert it to an array (POSIX-compliant way).
-            set -- $node_list
-            selected_node=$(eval echo \$$nodesChoice)
+        case $nodesChoice in
 
-            if [ -n "$selected_node" ]; then
-                echo "You selected node: $selected_node"
-                # Perform actions on the selected node
-            else
-                echo "Invalid selection"
-            fi
-        else
-            case $nodesChoice in
-                tr) _RebootNode_ $node_label_mac ;;
-                e|exit) break ;;
-                *) _InvalidMenuSelection_ ;;
-            esac
-        fi
+            ts) _RebootNode_
+               ;;
+            e|exit) break
+               ;;
+            *) _InvalidMenuSelection_
+               ;;
+        esac
     done
 }
 
