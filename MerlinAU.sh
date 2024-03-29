@@ -4303,7 +4303,7 @@ _ShowMainMenu_()
       printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
       printf "\n${padStr}USB Storage Connected: $USBConnected"
    else   
-      printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}S)how"
+      printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(S)how"
    fi
 
    printf "\n${SEPstr}"
@@ -4333,7 +4333,7 @@ _ShowMainMenu_()
    node_list=$(_PermNodeList_)
    # Check for new script updates #
    if [ -n "$node_list" ]; then
-      printf "\n ${GRNct}mn${NOct}.  AiMesh Nodes Info Menu\n"
+      printf "\n ${GRNct}mn${NOct}.  AiMesh Node(s) Info\n"
    fi
 
    # Add selection for "Advanced Options" sub-menu #
