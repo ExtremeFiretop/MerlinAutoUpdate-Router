@@ -3705,7 +3705,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
 1. Confirm you are not already logged into the router using a web browser.
-2. Update credentials by selecting \"Configure Router Login Credentials\" from the Main Menu."
+2. Update credentials by selecting \"Set Router Login Credentials\" from the Main Menu."
 
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
@@ -4309,7 +4309,7 @@ _ShowMainMenu_()
    printf "\n${SEPstr}"
 
    printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
-   printf "\n  ${GRNct}2${NOct}.  Configure Router Login Credentials\n"
+   printf "\n  ${GRNct}2${NOct}.  Set Router Login Credentials\n"
 
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
