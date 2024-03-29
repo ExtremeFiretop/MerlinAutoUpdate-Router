@@ -2265,7 +2265,7 @@ _GetNodeInfo_()
     --max-time 2 > /tmp/login_response.txt 2>&1
 
     # Run the curl command to retrieve the HTML content
-    htmlContent=$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)" \
+    htmlContent=$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
     -H 'Accept-Language: en-US,en;q=0.5' \
@@ -2290,6 +2290,7 @@ _GetNodeInfo_()
     node_model=$(echo "$htmlContent" | grep -o '"model":"[^"]*' | sed 's/"model":"//')
     node_build_name=$(echo "$htmlContent" | grep -o '"build_name":"[^"]*' | sed 's/"build_name":"//')
     node_lan_hostname=$(echo "$htmlContent" | grep -o '"lan_hostname":"[^"]*' | sed 's/"lan_hostname":"//')
+    node_label_mac=$(echo "$htmlContent" | grep -o '"label_mac":"[^"]*' | sed 's/"label_mac":"//')
 
     # Combine extracted information into one string
     Node_combinedVer="$node_firmver.$node_buildno.$node_extendno"
@@ -2297,8 +2298,8 @@ _GetNodeInfo_()
 
 _RebootNode_()
 {
+    local NodeMAC_Address="$1"
     local RouterURLstr="$(_GetRouterURL_)"
-    local NodeMAC_Address="$(_GetNodeMAC_)"
 
     "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
     /sbin/service restart_httpd >/dev/null 2>&1 &
@@ -4248,6 +4249,7 @@ _PrintNodeInfo() {
     local node_info="$1"
     local node_online_status="$2"
     local Node_FW_NewUpdateVersion="$3"
+    local uid="$4"
 
     # Trim to first word if needed
     local node_productid="$(echo "$node_productid" | cut -d' ' -f1)"
@@ -4273,6 +4275,13 @@ _PrintNodeInfo() {
     # Assume ANSI color codes are used but do not manually adjust padding for them.
     if echo "$node_online_status" | grep -q "$node_info"; then
         printf "\n   ┌─%s─┐" "$h_line"
+
+        # Calculate visual length and determine required padding.
+        visible_text_length=$(printf "Node ID: %s" "${uid}" | wc -m)
+        padding=$((box_width - visible_text_length))
+        # Ensure even padding for left and right by dividing total_padding by 2
+        left_padding=$((padding / 2)) # Add 1 to make the division round up in case of an odd number
+        printf "\n   │%*s Node ID: ${REDct}${uid}${NOct}%*s │" "$left_padding" "" "$((padding - left_padding))" ""
 
         # Calculate visual length and determine required padding.
         visible_text_length=$(printf "%s/%s: %s" "$node_productid" "$node_lan_hostname" "$node_info" | wc -m)
@@ -4524,6 +4533,7 @@ _ShowNodesMenu_()
    printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}"
     
    # Iterate over the list of nodes and print information for each node
+   local uid=0
    if [ -n "$node_list" ]; then
             for node_info in $node_list; do
                 _GetNodeInfo_ "$node_info"
@@ -4531,13 +4541,14 @@ _ShowNodesMenu_()
                 then Node_FW_NewUpdateVersion="NONE FOUND"
                 else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
                 fi
-                _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion"
+                uid=$((uid + 1))
+                _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
             done
    else
       printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
    fi
    echo ""
-   printf "\n  ${GRNct}ts${NOct}.  Test Reboot\n"
+   printf "\n  ${GRNct}tr${NOct}.  Test Reboot\n"
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
    printf "${SEPstr}"
@@ -4615,15 +4626,25 @@ _NodesMenu_()
         printf "\nEnter selection:  "
         read -r nodesChoice
         echo
-        case $nodesChoice in
+        if [ "$nodesChoice" -eq "$nodesChoice" ] 2>/dev/null; then
+            # Assuming node_list is a space-separated list of node identifiers,
+            # convert it to an array (POSIX-compliant way).
+            set -- $node_list
+            selected_node=$(eval echo \$$nodesChoice)
 
-            ts) _RebootNode_
-               ;;
-            e|exit) break
-               ;;
-            *) _InvalidMenuSelection_
-               ;;
-        esac
+            if [ -n "$selected_node" ]; then
+                echo "You selected node: $selected_node"
+                # Perform actions on the selected node
+            else
+                echo "Invalid selection"
+            fi
+        else
+            case $nodesChoice in
+                tr) _RebootNode_ $node_label_mac ;;
+                e|exit) break ;;
+                *) _InvalidMenuSelection_ ;;
+            esac
+        fi
     done
 }
 
