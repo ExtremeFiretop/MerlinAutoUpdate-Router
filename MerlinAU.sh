@@ -1843,7 +1843,8 @@ check_memory_and_prompt_reboot()
                 if [ "$availableRAM_kb" -lt "$required_space_kb" ]
                 then
                     _LogMemoryDebugInfo_
-                    # In an interactive shell session, ask user to confirm reboot #
+
+                     In an interactive shell session, ask user to confirm reboot #
                     if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
                     then
                         freeRAM_kb="$(get_free_ram)"
