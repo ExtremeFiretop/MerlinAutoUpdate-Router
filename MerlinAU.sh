@@ -2132,15 +2132,15 @@ _GetLoginCredentials_()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Mar-26] ##
 ##---------------------------------------##
-_PermNodeList_() {
+PermNodeList() {
     # Get the value of asus_device_list
     local device_list="$(nvram get asus_device_list)"
 
     # Check if asus_device_list is not empty
     if [ -n "$device_list" ]; then
-        # Extract the IP addresses from the device list
-        local ip_addresses=$(echo "$device_list" | awk -F'>' '{print $3}')
-        
+        # Split the device list into records and extract the IP addresses
+        local ip_addresses=$(echo "$device_list" | tr '<' '\n' | awk -F'>' '{if (NF>=4) print $3}')
+
         # Check if IP addresses are not empty
         if [ -n "$ip_addresses" ]; then
             # Print each IP address on a separate line
@@ -2159,14 +2159,14 @@ _PermNodeList_() {
 ## Added by ExtremeFiretop [2024-Mar-27] ##
 ##---------------------------------------##
 _NodeActiveStatus_() {
-    # Get the value of asus_device_list
+    # Get the value of cfg_device_list
     local node_online_status="$(nvram get cfg_device_list)"
 
     # Check if cfg_device_list is not empty
     if [ -n "$node_online_status" ]; then
-        # Extract the IP addresses from the device list
-        local ip_addresses=$(echo "$node_online_status" | awk -F'>' '{print $2}')
-        
+        # Split the device list into records and extract the IP addresses
+        local ip_addresses=$(echo "$node_online_status" | tr '<' '\n' | awk -F'>' '{if (NF>=3) print $2}')
+
         # Check if IP addresses are not empty
         if [ -n "$ip_addresses" ]; then
             # Print each IP address on a separate line
