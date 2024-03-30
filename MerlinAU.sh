@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-28
+# Last Modified: 2024-Mar-29
 ###################################################################
 set -u
 
@@ -2273,10 +2273,13 @@ _GetNodeInfo_()
     Node_combinedVer="$node_firmver.$node_buildno.$node_extendno"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-29] ##
+##---------------------------------------##
 _RebootNode_()
 {
     local NodeIP_Address="$1"
-	_GetNodeInfo_ "$NodeIP_Address"
+    _GetNodeInfo_ "$NodeIP_Address"
     local NodeMAC_Address="$node_label_mac"
     local RouterURLstr="$(_GetRouterURL_)"
 
@@ -4496,6 +4499,9 @@ _ShowAdvancedOptionsMenu_()
    printf "${SEPstr}"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-29] ##
+##---------------------------------------##
 _SelectNodeByUid_() {
     # Prompt the user for the node UID
     printf "Please enter the node ID: " >&2
