@@ -2132,7 +2132,7 @@ _GetLoginCredentials_()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Mar-26] ##
 ##---------------------------------------##
-PermNodeList() {
+_PermNodeList_() {
     # Get the value of asus_device_list
     local device_list="$(nvram get asus_device_list)"
 
