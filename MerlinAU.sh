@@ -2181,29 +2181,6 @@ _NodeActiveStatus_() {
     fi
 }
 
-_GetNodeMAC_() {
-    # Get the value of cfg_device_list
-    local node_online_status="$(nvram get cfg_device_list)"
-
-    # Check if cfg_device_list is not empty
-    if [ -n "$node_online_status" ]; then
-        # Extract the MAC address from the device list
-        local mac_address=$(echo "$node_online_status" | awk -F'>' '{print $3}')
-        
-        # Check if MAC address is not empty
-        if [ -n "$mac_address" ]; then
-            # Print the MAC address
-            echo "$mac_address"
-        else
-            echo "Error: Unable to extract MAC address from cfg_device_list."
-            return 1
-        fi
-    else
-        echo "Error: cfg_device_list is not populated."
-        return 1
-    fi
-}
-
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Mar-26] ##
 ##---------------------------------------##
@@ -2298,7 +2275,8 @@ _GetNodeInfo_()
 
 _RebootNode_()
 {
-    local NodeMAC_Address="$1"
+    #local NodeMAC_Address="$1" #One Node Selection is Built
+    local NodeMAC_Address="$node_label_mac"
     local RouterURLstr="$(_GetRouterURL_)"
 
     "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
