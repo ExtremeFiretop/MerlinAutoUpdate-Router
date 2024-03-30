@@ -2275,7 +2275,8 @@ _GetNodeInfo_()
 
 _RebootNode_()
 {
-    #local NodeMAC_Address="$1" #One Node Selection is Built
+    local NodeIP_Address="$1"
+	_GetNodeInfo_ "$NodeIP_Address"
     local NodeMAC_Address="$node_label_mac"
     local RouterURLstr="$(_GetRouterURL_)"
 
@@ -4495,6 +4496,33 @@ _ShowAdvancedOptionsMenu_()
    printf "${SEPstr}"
 }
 
+_SelectNodeByUid_() {
+    # Prompt the user for the node UID
+    printf "Please enter the node ID: " >&2
+    read selected_uid
+
+    # Validate the input to ensure it's a number
+    case $selected_uid in
+        ''|*[!0-9]*) 
+            echo "Invalid input: Please enter a numeric value." >&2
+            return 1
+            ;;
+        *)  
+            # Extract the selected node_info using awk, assuming node_info_string ends with a newline
+            selected_node_info=$(printf "%b" "$node_info_string" | awk "NR==$selected_uid")
+            
+            if [ -n "$selected_node_info" ]; then
+                echo "$selected_node_info"
+                # Additional logic for the selected node can be added here
+                return 0
+            else
+                echo "No node found with UID: $selected_uid" >&2
+                return 1
+            fi
+            ;;
+    esac
+}
+
 _ShowNodesMenu_()
 {
    clear
@@ -4511,7 +4539,8 @@ _ShowNodesMenu_()
    printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}"
     
    # Iterate over the list of nodes and print information for each node
-   local uid=0
+   node_info_string=""
+   local uid=1
    if [ -n "$node_list" ]; then
             for node_info in $node_list; do
                 _GetNodeInfo_ "$node_info"
@@ -4519,8 +4548,9 @@ _ShowNodesMenu_()
                 then Node_FW_NewUpdateVersion="NONE FOUND"
                 else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
                 fi
-                uid=$((uid + 1))
+                node_info_string="${node_info_string}${node_info}\n"
                 _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
+                uid=$((uid + 1))
             done
    else
       printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
@@ -4605,9 +4635,13 @@ _NodesMenu_()
         read -r nodesChoice
         echo
         case $nodesChoice in
-
-            ts) _RebootNode_
-               ;;
+            tr) selected_node=$(_SelectNodeByUid_)
+                if [ $? -eq 0 ]; then
+                    _RebootNode_ "$selected_node"
+                else
+                    printf "Node selection failed. Please try again."
+                fi
+                ;;
             e|exit) break
                ;;
             *) _InvalidMenuSelection_
