@@ -2224,7 +2224,7 @@ _GetNodeInfo_()
 
     ## Default values for specific variables
     node_productid="Unreachable"
-	Node_combinedVer="Unreachable"
+    Node_combinedVer="Unreachable"
     node_asus_device_list=""
     node_cfg_device_list=""
     node_firmver="Unreachable"
