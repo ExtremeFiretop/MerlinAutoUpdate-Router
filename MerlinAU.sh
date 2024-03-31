@@ -2222,6 +2222,23 @@ _GetNodeInfo_()
     local NodeIP_Address="$1"
     local NodeURLstr="$(_GetNodeURL_ "$NodeIP_Address")"
 
+    ## Default values for specific variables
+    node_productid="Unreachable"
+	Node_combinedVer="Unreachable"
+    node_asus_device_list=""
+    node_cfg_device_list=""
+    node_firmver="Unreachable"
+    node_buildno="Unreachable"
+    node_extendno="Unreachable"
+    node_webs_state_flag=""
+    node_webs_state_info=""
+    node_odmpid="Unreachable"
+    node_wps_modelnum="Unreachable"
+    node_model="Unreachable"
+    node_build_name="Unreachable"
+    node_lan_hostname="Unreachable"
+    node_label_mac="Unreachable"
+
     ## Check for Login Credentials ##
     credsBase64="$(Get_Custom_Setting credentials_base64)"
     if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
@@ -2243,6 +2260,10 @@ _GetNodeInfo_()
     --cookie-jar '/tmp/nodecookies.txt' \
     --max-time 2 > /tmp/login_response.txt 2>&1
 
+    if [ $? -ne 0 ]; then
+        return 2
+    fi
+
     # Run the curl command to retrieve the HTML content
     htmlContent=$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -2254,6 +2275,10 @@ _GetNodeInfo_()
     -H 'Upgrade-Insecure-Requests: 0' \
     --cookie '/tmp/nodecookies.txt' \
     --max-time 2 2>&1)
+
+    if [ $? -ne 0 ]; then
+        return 2
+    fi
 
     # Extract values using regular expressions
     node_productid=$(echo "$htmlContent" | grep -o '"productid":"[^"]*' | sed 's/"productid":"//')
@@ -4341,7 +4366,6 @@ _ShowMainMenu_()
    printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
    printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
-   node_list=$(_PermNodeList_)
    # Check for new script updates #
    if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
       printf "\n ${GRNct}mn${NOct}.  AiMesh Node(s) Info\n"
@@ -4590,6 +4614,7 @@ do
    # Check if the directory exists again before attempting to navigate to it
    [ -d "$FW_BIN_DIR" ] && cd "$FW_BIN_DIR"
 
+   node_list=$(_PermNodeList_)
    _ShowMainMenu_
    printf "Enter selection:  " ; read -r userChoice
    echo
