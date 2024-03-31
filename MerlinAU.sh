@@ -2135,11 +2135,12 @@ _GetLoginCredentials_()
 _PermNodeList_() {
     # Get the value of asus_device_list
     local device_list="$(nvram get asus_device_list)"
+    local urlDomain="$(nvram get lan_ipaddr)"
 
     # Check if asus_device_list is not empty
     if [ -n "$device_list" ]; then
-        # Split the device list into records and extract the IP addresses
-        local ip_addresses=$(echo "$device_list" | tr '<' '\n' | awk -F'>' '{if (NF>=4) print $3}')
+        # Split the device list into records and extract the IP addresses, excluding the lan_ipaddr
+        local ip_addresses=$(echo "$device_list" | tr '<' '\n' | awk -v exclude="$urlDomain" -F'>' '{if (NF>=4 && $3 != exclude) print $3}')
 
         # Check if IP addresses are not empty
         if [ -n "$ip_addresses" ]; then
@@ -2161,11 +2162,12 @@ _PermNodeList_() {
 _NodeActiveStatus_() {
     # Get the value of cfg_device_list
     local node_online_status="$(nvram get cfg_device_list)"
+    local urlDomain="$(nvram get lan_ipaddr)"
 
     # Check if cfg_device_list is not empty
     if [ -n "$node_online_status" ]; then
-        # Split the device list into records and extract the IP addresses
-        local ip_addresses=$(echo "$node_online_status" | tr '<' '\n' | awk -F'>' '{if (NF>=3) print $2}')
+       # Split the device list into records and extract the IP addresses, excluding the lan_ipaddr
+        local ip_addresses=$(echo "$node_online_status" | tr '<' '\n' | awk -v exclude="$urlDomain" -F'>' '{if (NF>=3 && $2 != exclude) print $2}')
 
         # Check if IP addresses are not empty
         if [ -n "$ip_addresses" ]; then
