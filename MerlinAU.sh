@@ -815,33 +815,6 @@ _GetAllNodeSettings_() {
     fi
 }
 
-Update_Node_Settings() {
-    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]; then return 1; fi
-
-    local setting_key="$1"
-    local setting_value="$2"
-
-    # Ensure the settings directory and file exist
-    [ ! -d "$SETTINGS_DIR" ] && mkdir -p "$SETTINGS_DIR"
-    touch "$SETTINGSFILE" # This will create the file if it doesn't exist, but won't modify it if it already exists
-
-    # Create a temporary file without relying on mktemp
-    local tmp_file="/tmp/update_node_settings_$$"
-
-    # Escape potential slashes in setting_value to avoid breaking the sed replacement pattern
-    local escaped_value=$(echo "$setting_value" | sed 's/[\/&]/\\&/g')
-    sed "s/^${setting_key}=.*/${setting_key}=\"${escaped_value}\"/g" "$SETTINGSFILE" > "$tmp_file"
-
-    # Ensure the operation succeeded before moving the temporary file
-    if [ -f "$tmp_file" ]; then
-        mv "$tmp_file" "$SETTINGSFILE"
-    else
-        echo "Failed to update setting: Temporary file creation failed"
-        return 1
-    fi
-}
-
-
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Mar-20] ##
 ##------------------------------------------##
