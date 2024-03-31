@@ -781,8 +781,42 @@ Get_Custom_Setting()
     fi
 }
 
+_GetAllNodeSettings_() {
+    if [ $# -lt 3 ]; then
+        echo "Usage: _GetAllNodeSettings_ <MAC_ADDRESS> <SETTING_PART> <DEFAULT_VALUE>"
+        return 1
+    fi
+
+    local node_mac_address="$1"
+    local setting_part="$2"
+    local default_value="$3"
+
+    # Ensure the settings directory exists
+    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
+
+    if [ -f "$SETTINGSFILE" ]; then
+        # Construct the setting key pattern to match
+        # This pattern assumes the MAC address is part of the setting name in some way
+        local pattern="${node_mac_address}.*${setting_part}"
+
+        # Search for the setting in the settings file
+        # The grep pattern is designed to be flexible to match the setting name containing the MAC address
+        local matched_lines=$(grep -o "FW_Node.*_${setting_part}=\"[^\"]*\"" "$SETTINGSFILE" | grep -o "${pattern}=\"[^\"]*\"" || echo "")
+
+        if [ -n "$matched_lines" ]; then
+            # If multiple lines match, this extracts the value from the first matched line
+            local setting_value=$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')
+            echo "$setting_value"
+        else
+            echo "$default_value"
+        fi
+    else
+        echo "$default_value"
+    fi
+}
+
 Update_Node_Settings() {
-    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]; then return 1; fi
 
     local setting_key="$1"
     local setting_value="$2"
@@ -791,17 +825,19 @@ Update_Node_Settings() {
     [ ! -d "$SETTINGS_DIR" ] && mkdir -p "$SETTINGS_DIR"
     touch "$SETTINGSFILE" # This will create the file if it doesn't exist, but won't modify it if it already exists
 
-    # Check if the setting already exists in the file
-    if grep -q "^${setting_key}=" "$SETTINGSFILE"; then
-        # Setting exists, update it
-        # Use a temporary file to handle the case where sed -i is not supported (e.g., macOS)
-        local tmp_file=$(mktemp)
-        # Escape potential slashes in setting_value to avoid breaking the sed replacement pattern
-        local escaped_value=$(echo "$setting_value" | sed 's/[\/&]/\\&/g')
-        sed "s/^${setting_key}=.*/${setting_key}=\"${escaped_value}\"/g" "$SETTINGSFILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGSFILE"
+    # Create a temporary file without relying on mktemp
+    local tmp_file="/tmp/update_node_settings_$$"
+
+    # Escape potential slashes in setting_value to avoid breaking the sed replacement pattern
+    local escaped_value=$(echo "$setting_value" | sed 's/[\/&]/\\&/g')
+    sed "s/^${setting_key}=.*/${setting_key}=\"${escaped_value}\"/g" "$SETTINGSFILE" > "$tmp_file"
+
+    # Ensure the operation succeeded before moving the temporary file
+    if [ -f "$tmp_file" ]; then
+        mv "$tmp_file" "$SETTINGSFILE"
     else
-        # Setting does not exist, add it
-        echo "${setting_key}=\"${setting_value}\"" >> "$SETTINGSFILE"
+        echo "Failed to update setting: Temporary file creation failed"
+        return 1
     fi
 }
 
@@ -835,6 +871,18 @@ Update_Custom_Settings()
                 fi
             else
                 echo "$setting_type $setting_value" > "$SETTINGSFILE"
+            fi
+            ;;
+        *)
+            # Generic handling for arbitrary settings
+            if grep -q "^${setting_type}=" "$SETTINGSFILE"; then
+                oldVal="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]; then
+                    fixedVal="$(echo "$setting_value" | sed 's/[\/&]/\\&/g')"
+                    sed -i "s/^${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$SETTINGSFILE"
+                fi
+            else
+                echo "${setting_type}=\"${setting_value}\"" >> "$SETTINGSFILE"
             fi
             ;;
         "FW_New_Update_Postponement_Days"  | \
@@ -2227,10 +2275,10 @@ _Populate_Node_Settings_() {
     local node_prefix="FW_Node"
     
     # Update or add each piece of information
-    Update_Node_Settings "${node_prefix}${node_suffix}_MAC_Address" "$mac_address"
-    Update_Node_Settings "${node_prefix}${node_suffix}_Model_NameID" "\"$model_id\""
-    Update_Node_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Date" "$update_date"
-    Update_Node_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Vers" "$update_vers"
+    Update_Custom_Settings "${node_prefix}${node_suffix}_MAC_Address" "$mac_address"
+    Update_Custom_Settings "${node_prefix}${node_suffix}_Model_NameID" "\"$model_id\""
+    Update_Custom_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Date" "$update_date"
+    Update_Custom_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Vers" "$update_vers"
 }
 
 ##---------------------------------------##
@@ -3003,7 +3051,7 @@ _CheckNodeFWUpdateNotification_()
        return 1
    fi
 
-   nodefwNewUpdateNotificationVers="$(Get_Custom_Setting FW_New_Update_Notification_Vers TBD)"
+   nodefwNewUpdateNotificationVers="$(_GetAllNodeSettings_ "$node_label_mac" "New_Update_Notification_Vers" "TBD")"
    if [ -z "$nodefwNewUpdateNotificationVers" ] || [ "$nodefwNewUpdateNotificationVers" = "TBD" ]
    then
        nodefwNewUpdateNotificationVers="$2"
@@ -3020,7 +3068,7 @@ _CheckNodeFWUpdateNotification_()
        fi
    fi
 
-   nodefwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   nodefwNewUpdateNotificationDate="$(_GetAllNodeSettings_ "$node_label_mac" FW_New_Update_Notification_Date)"
    if [ -z "$fwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
    then
        nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
@@ -4601,7 +4649,7 @@ _ShowNodesMenu_()
                 then Node_FW_NewUpdateVersion="NONE FOUND"
                 else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
                 fi
-				_CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
+                _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
                 _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
                 uid=$((uid + 1))
             done
