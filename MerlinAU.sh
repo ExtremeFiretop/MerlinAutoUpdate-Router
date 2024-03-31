@@ -2273,48 +2273,6 @@ _GetNodeInfo_()
     Node_combinedVer="$node_firmver.$node_buildno.$node_extendno"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Mar-29] ##
-##---------------------------------------##
-_RebootNode_()
-{
-    local NodeIP_Address="$1"
-    _GetNodeInfo_ "$NodeIP_Address"
-    local NodeMAC_Address="$node_label_mac"
-    local RouterURLstr="$(_GetRouterURL_)"
-
-    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
-    /sbin/service restart_httpd >/dev/null 2>&1 &
-    sleep 5
-
-    # Perform login request
-    curl -s -k "${RouterURLstr}/login.cgi" \
-    --referer "${RouterURLstr}/Main_Login.asp" \
-    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Content-Type: application/x-www-form-urlencoded' \
-    -H "Origin: ${RouterURLstr}" \
-    -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
-    --cookie-jar '/tmp/cookie.txt' \
-    --max-time 2 > /tmp/login_response.txt 2>&1
-
-    sleep 2
-
-    curl -s -k "${RouterURLstr}/applyapp.cgi" \
-    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Accept-Encoding: gzip, deflate' \
-    -H 'Connection: keep-alive' \
-    -H "Referer: ${RouterURLstr}/AiMesh.asp" \
-    -H 'Upgrade-Insecure-Requests: 0' \
-    --data-urlencode "device_list=${NodeMAC_Address}" \
-    --data-urlencode "action_mode=device_reboot" \
-    --cookie '/tmp/cookie.txt' \
-    --max-time 2 2>&1
-}
-
 ##----------------------------------------------##
 ## Added/Modified by ExtremeFiretop [2024-Mar-27] ##
 ##----------------------------------------------##
@@ -4499,36 +4457,6 @@ _ShowAdvancedOptionsMenu_()
    printf "${SEPstr}"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Mar-29] ##
-##---------------------------------------##
-_SelectNodeByUid_() {
-    # Prompt the user for the node UID
-    printf "Please enter the node ID: " >&2
-    read selected_uid
-
-    # Validate the input to ensure it's a number
-    case $selected_uid in
-        ''|*[!0-9]*) 
-            echo "Invalid input: Please enter a numeric value." >&2
-            return 1
-            ;;
-        *)  
-            # Extract the selected node_info using awk, assuming node_info_string ends with a newline
-            selected_node_info=$(printf "%b" "$node_info_string" | awk "NR==$selected_uid")
-            
-            if [ -n "$selected_node_info" ]; then
-                echo "$selected_node_info"
-                # Additional logic for the selected node can be added here
-                return 0
-            else
-                echo "No node found with UID: $selected_uid" >&2
-                return 1
-            fi
-            ;;
-    esac
-}
-
 _ShowNodesMenu_()
 {
    clear
@@ -4562,7 +4490,6 @@ _ShowNodesMenu_()
       printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
    fi
    echo ""
-   printf "\n  ${GRNct}tr${NOct}.  Test Reboot\n"
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
    printf "${SEPstr}"
@@ -4641,13 +4568,6 @@ _NodesMenu_()
         read -r nodesChoice
         echo
         case $nodesChoice in
-            tr) selected_node=$(_SelectNodeByUid_)
-                if [ $? -eq 0 ]; then
-                    _RebootNode_ "$selected_node"
-                else
-                    printf "Node selection failed. Please try again."
-                fi
-                ;;
             e|exit) break
                ;;
             *) _InvalidMenuSelection_
