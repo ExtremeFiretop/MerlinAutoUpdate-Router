@@ -3045,7 +3045,7 @@ _CheckNodeFWUpdateNotification_()
    if [ -z "$nodefwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
    then
        nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
-       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "TBD" "$uid"
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
        _SendEMailNotification_ NEW_FW_UPDATE_NODE_STATUS
    fi
    return 0
