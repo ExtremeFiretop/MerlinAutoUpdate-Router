@@ -783,7 +783,6 @@ Get_Custom_Setting()
 
 _GetAllNodeSettings_() {
     if [ $# -lt 3 ]; then
-        echo "Usage: _GetAllNodeSettings_ <MAC_ADDRESS> <SETTING_PART> <DEFAULT_VALUE>"
         return 1
     fi
 
@@ -1219,6 +1218,7 @@ _CreateEMailContent_()
    subjectStr="F/W Update Status for $MODEL_ID"
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
 
    # Remove "_rog" suffix to avoid version comparison failures #
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
@@ -1232,7 +1232,7 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        NEW_FW_UPDATE_STATUS)
-           emailBodyTitle="New Firmware Update"
+           emailBodyTitle="New Firmware Update for ASUS Router"
            {
              echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
@@ -1240,9 +1240,9 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        NEW_FW_UPDATE_NODE_STATUS)
-           emailBodyTitle="New Firmware Update"
+           emailBodyTitle="New Firmware Update for AiMesh Node"
            {
-             echo "A new F/W Update version <b>${nodefwNewUpdateVersion}</b> is available for the <b>${node_lan_hostname}</b> router."
+             echo "A new F/W Update version <b>${nodefwNewUpdateVersion}</b> is available for the <b>${node_lan_hostname}</b> AiMesh Node."
              printf "\nThe F/W version that is currently installed:\n<b>${Node_combinedVer}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
@@ -2382,7 +2382,7 @@ _GetLatestFWUpdateVersionFromNode_()
    if [ -z "$webState" ] || [ "$webState" -eq 0 ]
    then retCode=1 ; fi
 
-   newVersionStr="(${node_webs_state_info} | sed 's/_/./g')"
+   newVersionStr="$(echo "${node_webs_state_info}" | sed 's/_/./g')"
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
        newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
@@ -3042,10 +3042,10 @@ _CheckNodeFWUpdateNotification_()
    fi
 
    nodefwNewUpdateNotificationDate="$(_GetAllNodeSettings_ "$node_label_mac" FW_New_Update_Notification_Date)"
-   if [ -z "$fwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
+   if [ -z "$nodefwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
    then
        nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
-       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$TBD" "$uid"
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "TBD" "$uid"
        _SendEMailNotification_ NEW_FW_UPDATE_NODE_STATUS
    fi
    return 0
