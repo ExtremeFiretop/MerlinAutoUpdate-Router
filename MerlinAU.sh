@@ -4341,7 +4341,7 @@ _ShowMainMenu_()
 
    node_list=$(_PermNodeList_)
    # Check for new script updates #
-   if [ -n "$node_list" ]; then
+   if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
       printf "\n ${GRNct}mn${NOct}.  AiMesh Node(s) Info\n"
    fi
 
@@ -4475,7 +4475,7 @@ _ShowNodesMenu_()
    # Iterate over the list of nodes and print information for each node
    node_info_string=""
    local uid=1
-   if [ -n "$node_list" ]; then
+   if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
             for node_info in $node_list; do
                 _GetNodeInfo_ "$node_info"
                 if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
@@ -4609,8 +4609,8 @@ do
           ;;
        5) _Set_FW_UpdateCronSchedule_
           ;;
-      mn) if [ -n "$node_list" ]; 
-          then _NodesMenu_
+      mn) if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
+           _NodesMenu_
           else _InvalidMenuSelection_
           fi
           ;;
