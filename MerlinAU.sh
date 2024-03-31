@@ -3041,7 +3041,7 @@ _CheckNodeFWUpdateNotification_()
        fi
    fi
 
-   nodefwNewUpdateNotificationDate="$(_GetAllNodeSettings_ "$node_label_mac" FW_New_Update_Notification_Date)"
+   nodefwNewUpdateNotificationDate="$(_GetAllNodeSettings_ "$node_label_mac" "New_Update_Notification_Date")"
    if [ -z "$nodefwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
    then
        nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
