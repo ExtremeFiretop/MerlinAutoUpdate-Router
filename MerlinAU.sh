@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-29
+# Last Modified: 2024-Mar-31
 ###################################################################
 set -u
 
@@ -781,6 +781,31 @@ Get_Custom_Setting()
     fi
 }
 
+Update_Node_Settings() {
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
+
+    local setting_key="$1"
+    local setting_value="$2"
+
+    # Ensure the settings directory and file exist
+    [ ! -d "$SETTINGS_DIR" ] && mkdir -p "$SETTINGS_DIR"
+    touch "$SETTINGSFILE" # This will create the file if it doesn't exist, but won't modify it if it already exists
+
+    # Check if the setting already exists in the file
+    if grep -q "^${setting_key}=" "$SETTINGSFILE"; then
+        # Setting exists, update it
+        # Use a temporary file to handle the case where sed -i is not supported (e.g., macOS)
+        local tmp_file=$(mktemp)
+        # Escape potential slashes in setting_value to avoid breaking the sed replacement pattern
+        local escaped_value=$(echo "$setting_value" | sed 's/[\/&]/\\&/g')
+        sed "s/^${setting_key}=.*/${setting_key}=\"${escaped_value}\"/g" "$SETTINGSFILE" > "$tmp_file" && mv "$tmp_file" "$SETTINGSFILE"
+    else
+        # Setting does not exist, add it
+        echo "${setting_key}=\"${setting_value}\"" >> "$SETTINGSFILE"
+    fi
+}
+
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Mar-20] ##
 ##------------------------------------------##
@@ -1191,6 +1216,13 @@ _CreateEMailContent_()
              echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
              printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       NEW_FW_UPDATE_NODE_STATUS)
+           emailBodyTitle="New Firmware Update"
+           {
+             echo "A new F/W Update version <b>${nodefwNewUpdateVersion}</b> is available for the <b>${node_lan_hostname}</b> router."
+             printf "\nThe F/W version that is currently installed:\n<b>${Node_combinedVer}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        START_FW_UPDATE_STATUS)
@@ -2184,6 +2216,24 @@ _NodeActiveStatus_() {
 }
 
 ##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-31] ##
+##---------------------------------------##
+_Populate_Node_Settings_() {
+    local mac_address="$1"
+    local model_id="$2"
+    local update_date="$3"
+    local update_vers="$4"
+    local node_suffix="$5"
+    local node_prefix="FW_Node"
+    
+    # Update or add each piece of information
+    Update_Node_Settings "${node_prefix}${node_suffix}_MAC_Address" "$mac_address"
+    Update_Node_Settings "${node_prefix}${node_suffix}_Model_NameID" "\"$model_id\""
+    Update_Node_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Date" "$update_date"
+    Update_Node_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Vers" "$update_vers"
+}
+
+##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Mar-26] ##
 ##---------------------------------------##
 _GetNodeURL_()
@@ -2932,6 +2982,50 @@ _CheckNewUpdateFirmwareNotification_()
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
        _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+   fi
+   return 0
+}
+
+_CheckNodeFWUpdateNotification_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+   local nodenumVersionFields  nodefwNewUpdateVersNum
+
+   nodenumVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
+   nodecurrentVersionNum="$(_FWVersionStrToNum_ "$1" "$nodenumVersionFields")"
+   nodereleaseVersionNum="$(_FWVersionStrToNum_ "$2" "$nodenumVersionFields")"
+
+   if [ "$nodecurrentVersionNum" -ge "$nodereleaseVersionNum" ]
+   then
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "TBD" "$uid"
+       return 1
+   fi
+
+   nodefwNewUpdateNotificationVers="$(Get_Custom_Setting FW_New_Update_Notification_Vers TBD)"
+   if [ -z "$nodefwNewUpdateNotificationVers" ] || [ "$nodefwNewUpdateNotificationVers" = "TBD" ]
+   then
+       nodefwNewUpdateNotificationVers="$2"
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "$nodefwNewUpdateNotificationVers" "$uid"
+   else
+       nodenumVersionFields="$(echo "$nodefwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
+       nodefwNewUpdateVersNum="$(_FWVersionStrToNum_ "$nodefwNewUpdateNotificationVers" "$nodenumVersionFields")"
+       if [ "$nodereleaseVersionNum" -gt "$nodefwNewUpdateVersNum" ]
+       then
+           nodefwNewUpdateNotificationVers="$2"
+           nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+           _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
+           _SendEMailNotification_ NEW_FW_UPDATE_NODE_STATUS
+       fi
+   fi
+
+   nodefwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   if [ -z "$fwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
+   then
+       nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$TBD" "$uid"
+       _SendEMailNotification_ NEW_FW_UPDATE_NODE_STATUS
    fi
    return 0
 }
@@ -4499,7 +4593,6 @@ _ShowNodesMenu_()
    printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}"
     
    # Iterate over the list of nodes and print information for each node
-   node_info_string=""
    local uid=1
    if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
             for node_info in $node_list; do
@@ -4508,7 +4601,7 @@ _ShowNodesMenu_()
                 then Node_FW_NewUpdateVersion="NONE FOUND"
                 else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
                 fi
-                node_info_string="${node_info_string}${node_info}\n"
+				_CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
                 _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
                 uid=$((uid + 1))
             done
