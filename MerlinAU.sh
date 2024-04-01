@@ -65,6 +65,7 @@ readonly amtmMailDirPath="/jffs/addons/amtm/mail"
 readonly amtmMailConfFile="${amtmMailDirPath}/email.conf"
 readonly amtmMailPswdFile="${amtmMailDirPath}/emailpw.enc"
 readonly tempEMailContent="/tmp/var/tmp/tempEMailContent.$$.TXT"
+readonly tempNodeEMailList="/tmp/var/tmp/tempNodeEMailList.$$.TXT"
 readonly tempEMailBodyMsg="/tmp/var/tmp/tempEMailBodyMsg.$$.TXT"
 readonly saveEMailInfoMsg="${SETTINGS_DIR}/savedEMailInfoMsg.SAVE.TXT"
 readonly theEMailDateTimeFormat="%Y-%b-%d %a %I:%M:%S %p %Z"
@@ -1238,11 +1239,12 @@ _CreateEMailContent_()
              printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
-       NEW_FW_UPDATE_NODE_STATUS)
-           emailBodyTitle="New Firmware Update for AiMesh Node"
+       AGGREGATED_UPDATE_NOTIFICATION)
+           emailBodyTitle="New Firmware Update(s) for AiMesh Node(s)"
+           NODE_UPDATE_CONTENT=$(cat "$tempNodeEMailList")
            {
-             echo "A new F/W Update version <b>${nodefwNewUpdateVersion}</b> is available for the <b>${node_lan_hostname}</b> AiMesh Node."
-             printf "\nThe F/W version that is currently installed:\n<b>${Node_combinedVer}</b>\n"
+             echo "The following AiMesh Node(s) have a new F/W Update version available:"
+             echo "$NODE_UPDATE_CONTENT"
            } > "$tempEMailBodyMsg"
            ;;
        START_FW_UPDATE_STATUS)
@@ -1403,6 +1405,7 @@ EOF
    fi
 
    rm -f "$tempEMailBodyMsg"
+   rm -f "$tempNodeEMailList"
    return 0
 }
 
@@ -3028,7 +3031,9 @@ _CheckNodeFWUpdateNotification_()
            nodefwNewUpdateNotificationVers="$2"
            nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
-           _SendEMailNotification_ NEW_FW_UPDATE_NODE_STATUS
+           nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "NameID")"
+           echo "" > "$tempNodeEMailList"
+           echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
        fi
    fi
 
@@ -3037,7 +3042,9 @@ _CheckNodeFWUpdateNotification_()
    then
        nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
-       _SendEMailNotification_ NEW_FW_UPDATE_NODE_STATUS
+       nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "NameID")"
+       echo "" > "$tempNodeEMailList"
+       echo "Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
    fi
    return 0
 }
@@ -4621,6 +4628,10 @@ _ProcessMeshNodes_() {
                 uid=$((uid + 1))
             fi
         done
+        if [ -s "$tempNodeEMailList" ]; then
+            _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
+        fi
+
     else
         if [ "$includeExtraLogic" -eq 1 ]; then
             printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
