@@ -2266,13 +2266,6 @@ _GetNodeURL_()
         urlProto="http"
     fi
 
-    urlDomain="$(nvram get lan_domain)"
-    if [ -z "$urlDomain" ]; then
-        urlDomain="$NodeIP_Address"
-    else
-        urlDomain="$(nvram get lan_hostname).$urlDomain"
-    fi
-
     urlPort="$(nvram get "${urlProto}_lanport")"
     if [ "$urlPort" -eq 80 ] || [ "$urlPort" -eq 443 ]; then
         urlPort=""
@@ -4749,7 +4742,7 @@ do
    # Check if the directory exists again before attempting to navigate to it
    [ -d "$FW_BIN_DIR" ] && cd "$FW_BIN_DIR"
 
-    node_list=$(_PermNodeList_)
+   node_list=$(_PermNodeList_)
    _ShowMainMenu_
    printf "Enter selection:  " ; read -r userChoice
    echo
