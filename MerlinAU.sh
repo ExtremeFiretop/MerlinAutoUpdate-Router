@@ -2247,7 +2247,7 @@ _Populate_Node_Settings_() {
     local node_prefix="FW_Node"
     
     # Update or add each piece of information
-    Update_Custom_Settings "${node_prefix}${node_suffix}_Model_NameID" "\"$model_id\""
+    Update_Custom_Settings "${node_prefix}${node_suffix}_Model_NameID" "$model_id"
     Update_Custom_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Date" "$update_date"
     Update_Custom_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Vers" "$update_vers"
 }
