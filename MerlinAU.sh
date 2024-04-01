@@ -3292,6 +3292,8 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
     Say "Running the update task now... Checking for F/W updates..."
 
+    _ProcessMeshNodes_ 0
+
     #---------------------------------------------------------------#
     # Check if an expected USB-attached drive is still mounted.
     # Make a special case when USB drive has Entware installed.
@@ -4229,6 +4231,8 @@ then
    case $1 in
        run_now) _RunFirmwareUpdateNow_
            ;;
+       ProcessNodes) _ProcessMeshNodes_ 0
+           ;;
        addCronJob) _AddCronJobEntry_
            ;;
        postRebootRun) _PostRebootRunNow_
@@ -4596,6 +4600,39 @@ _ShowAdvancedOptionsMenu_()
    printf "${SEPstr}"
 }
 
+_ProcessMeshNodes_() {
+    includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+    uid=1
+    node_list=$(_PermNodeList_)
+
+    if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
+    # Iterate over the list of nodes and print information for each node
+        for node_info in $node_list; do
+            _GetNodeInfo_ "$node_info"
+            if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+            then Node_FW_NewUpdateVersion="NONE FOUND"
+            else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
+            fi
+            _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
+
+            # Apply extra logic if flag is '1'
+            if [ "$includeExtraLogic" -eq 1 ]; then
+                _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
+                uid=$((uid + 1))
+            fi
+        done
+    else
+        if [ "$includeExtraLogic" -eq 1 ]; then
+            printf "\n%s%s%s%sNo AiMesh Node(s)%s" "$padStr" "$padStr" "$padStr" "$REDct" "$NOct"
+        else
+            Say "No AiMesh Node(s)"
+        fi
+    fi
+}
+
 _ShowNodesMenu_()
 {
    clear
@@ -4611,22 +4648,8 @@ _ShowNodesMenu_()
    # Print the result
    printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): $num_ips ${NOct}"
     
-   # Iterate over the list of nodes and print information for each node
-   local uid=1
-   if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
-            for node_info in $node_list; do
-                _GetNodeInfo_ "$node_info"
-                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
-                then Node_FW_NewUpdateVersion="NONE FOUND"
-                else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
-                fi
-                _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
-                _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
-                uid=$((uid + 1))
-            done
-   else
-      printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
-   fi
+   _ProcessMeshNodes_ 1
+
    echo ""
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
@@ -4697,7 +4720,7 @@ _advanced_options_menu_()
     done
 }
 
-_NodesMenu_()
+_ShowNodesMenuOptions_()
 {
     while true
     do
@@ -4726,7 +4749,7 @@ do
    # Check if the directory exists again before attempting to navigate to it
    [ -d "$FW_BIN_DIR" ] && cd "$FW_BIN_DIR"
 
-   node_list=$(_PermNodeList_)
+    node_list=$(_PermNodeList_)
    _ShowMainMenu_
    printf "Enter selection:  " ; read -r userChoice
    echo
@@ -4749,7 +4772,7 @@ do
        5) _Set_FW_UpdateCronSchedule_
           ;;
       mn) if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
-           _NodesMenu_
+           _ShowNodesMenuOptions_
           else _InvalidMenuSelection_
           fi
           ;;
