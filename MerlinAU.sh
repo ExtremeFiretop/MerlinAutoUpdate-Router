@@ -782,24 +782,23 @@ Get_Custom_Setting()
 }
 
 _GetAllNodeSettings_() {
-    if [ $# -lt 3 ]; then
+    if [ $# -lt 2 ]; then
         return 1
     fi
 
     local node_mac_address="$1"
     local setting_part="$2"
-    local default_value="$3"
+    # Set a default value internally if not provided
+    local default_value="TBD"
 
     # Ensure the settings directory exists
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     if [ -f "$SETTINGSFILE" ]; then
         # Construct the setting key pattern to match
-        # This pattern assumes the MAC address is part of the setting name in some way
         local pattern="${node_mac_address}.*${setting_part}"
 
         # Search for the setting in the settings file
-        # The grep pattern is designed to be flexible to match the setting name containing the MAC address
         local matched_lines=$(grep -o "FW_Node.*_${setting_part}=\"[^\"]*\"" "$SETTINGSFILE" | grep -o "${pattern}=\"[^\"]*\"" || echo "")
 
         if [ -n "$matched_lines" ]; then
@@ -2244,11 +2243,10 @@ _Populate_Node_Settings_() {
     local model_id="$2"
     local update_date="$3"
     local update_vers="$4"
-    local node_suffix="$5"
+    local node_suffix="$mac_address"
     local node_prefix="FW_Node"
     
     # Update or add each piece of information
-    Update_Custom_Settings "${node_prefix}${node_suffix}_MAC_Address" "$mac_address"
     Update_Custom_Settings "${node_prefix}${node_suffix}_Model_NameID" "\"$model_id\""
     Update_Custom_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Date" "$update_date"
     Update_Custom_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Vers" "$update_vers"
@@ -3024,7 +3022,7 @@ _CheckNodeFWUpdateNotification_()
        return 1
    fi
 
-   nodefwNewUpdateNotificationVers="$(_GetAllNodeSettings_ "$node_label_mac" "New_Update_Notification_Vers" "TBD")"
+   nodefwNewUpdateNotificationVers="$(_GetAllNodeSettings_ "$node_label_mac" "New_Update_Notification_Vers")"
    if [ -z "$nodefwNewUpdateNotificationVers" ] || [ "$nodefwNewUpdateNotificationVers" = "TBD" ]
    then
        nodefwNewUpdateNotificationVers="$2"
