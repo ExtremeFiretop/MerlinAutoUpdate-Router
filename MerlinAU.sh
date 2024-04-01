@@ -4619,7 +4619,7 @@ _ProcessMeshNodes_() {
         done
     else
         if [ "$includeExtraLogic" -eq 1 ]; then
-            printf "\n%s%s%s%sNo AiMesh Node(s)%s" "$padStr" "$padStr" "$padStr" "$REDct" "$NOct"
+            printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
         else
             Say "No AiMesh Node(s)"
         fi
