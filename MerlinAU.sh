@@ -2363,6 +2363,22 @@ _GetNodeInfo_()
 
     # Combine extracted information into one string
     Node_combinedVer="$node_firmver.$node_buildno.$node_extendno"
+
+    # Perform logout request
+    curl -s -k "${NodeURLstr}/Logout.asp" \
+    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Accept-Encoding: gzip, deflate' \
+    -H 'Connection: keep-alive' \
+    -H "Referer: ${NodeURLstr}/Main_Login.asp" \
+    -H 'Upgrade-Insecure-Requests: 0' \
+    --cookie '/tmp/nodecookies.txt' \
+    --max-time 2 2>&1)
+
+    if [ $? -ne 0 ]; then
+        return 2
+    fi
 }
 
 ##----------------------------------------------##
