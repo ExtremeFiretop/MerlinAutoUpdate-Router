@@ -4371,9 +4371,14 @@ _PrintNodeInfo() {
 
         # 
         if [ ! -z "$Node_FW_NewUpdateVersion" ]; then
-            visible_text_length=$(printf "F/W Update Available: %s" "$Node_FW_NewUpdateVersion" | wc -m)
-            padding=$((box_width - visible_text_length))
-            printf "\n   │ F/W Update Available: ${REDct}%s${NOct}%*s │" "$Node_FW_NewUpdateVersion" "$padding" ""
+            if echo "$Node_FW_NewUpdateVersion" | grep -q "NONE FOUND"; then
+                visible_text_length=$(printf "F/W Update Available: %s" "$Node_FW_NewUpdateVersion" | wc -m)
+                padding=$((box_width - visible_text_length))
+                printf "\n   │ F/W Update Available: ${REDct}%s${NOct}%*s │" "$Node_FW_NewUpdateVersion" "$padding" ""
+            else
+                visible_text_length=$(printf "F/W Update Available: %s" "$Node_FW_NewUpdateVersion" | wc -m)
+                padding=$((box_width - visible_text_length))
+                printf "\n   │ F/W Update Available: ${GRNct}%s${NOct}%*s │" "$Node_FW_NewUpdateVersion" "$padding" ""
         fi
 
         printf "\n   └─%s─┘" "$h_line"
