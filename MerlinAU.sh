@@ -2374,7 +2374,7 @@ _GetNodeInfo_()
     -H "Referer: ${NodeURLstr}/Main_Login.asp" \
     -H 'Upgrade-Insecure-Requests: 0' \
     --cookie '/tmp/nodecookies.txt' \
-    --max-time 2 2>&1)
+    --max-time 2 > /tmp/logout_response.txt 2>&1
 
     if [ $? -ne 0 ]; then
         return 2
