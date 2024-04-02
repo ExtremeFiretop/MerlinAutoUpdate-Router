@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Mar-31
+# Last Modified: 2024-April-02
 ###################################################################
 set -u
 
@@ -52,9 +52,9 @@ readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Apr-02] ##
+##------------------------------------------##
 #-------------------------------------------------------#
 # We'll use the built-in AMTM email configuration file
 # to send email notifications *IF* enabled by the user.
@@ -782,6 +782,9 @@ Get_Custom_Setting()
     fi
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-02] ##
+##---------------------------------------##
 _GetAllNodeSettings_() {
     if [ $# -lt 2 ]; then
         return 1
@@ -815,7 +818,7 @@ _GetAllNodeSettings_() {
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-20] ##
+## Modified by ExtremeFiretop [2024-Apr-02] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -1204,7 +1207,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-27] ##
+## Modified by ExtremeFiretop [2024-Apr-02] ##
 ##------------------------------------------##
 _CreateEMailContent_()
 {
@@ -2206,8 +2209,7 @@ _PermNodeList_() {
             return 1
         fi
     else
-        echo "Error: asus_device_list is not populated."
-        return 1
+        Say "asus_device_list is not populated. Zero Nodes Found."
     fi
 }
 
@@ -2233,8 +2235,7 @@ _NodeActiveStatus_() {
             return 1
         fi
     else
-        echo "Error: cfg_device_list is not populated."
-        return 1
+        Say "cfg_device_list is not populated. Zero Nodes Found."
     fi
 }
 
@@ -2247,12 +2248,12 @@ _Populate_Node_Settings_() {
     local update_date="$3"
     local update_vers="$4"
     local node_suffix="$mac_address"
-    local node_prefix="FW_Node"
+    local node_prefix="Node_"
     
     # Update or add each piece of information
     Update_Custom_Settings "${node_prefix}${node_suffix}_Model_NameID" "$model_id"
-    Update_Custom_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Date" "$update_date"
-    Update_Custom_Settings "${node_prefix}${node_suffix}_New_Update_Notification_Vers" "$update_vers"
+    Update_Custom_Settings "${node_prefix}${node_suffix}_New_Notification_Date" "$update_date"
+    Update_Custom_Settings "${node_prefix}${node_suffix}_New_Notification_Vers" "$update_vers"
 }
 
 ##---------------------------------------##
@@ -2326,7 +2327,7 @@ _GetNodeInfo_()
     --max-time 2 > /tmp/login_response.txt 2>&1
 
     if [ $? -ne 0 ]; then
-        return 2
+        return 1
     fi
 
     # Run the curl command to retrieve the HTML content
@@ -2342,7 +2343,7 @@ _GetNodeInfo_()
     --max-time 2 2>&1)
 
     if [ $? -ne 0 ]; then
-        return 2
+        return 1
     fi
 
     # Extract values using regular expressions
@@ -2377,13 +2378,13 @@ _GetNodeInfo_()
     --max-time 2 > /tmp/logout_response.txt 2>&1
 
     if [ $? -ne 0 ]; then
-        return 2
+        return 1
     fi
 }
 
-##----------------------------------------------##
-## Added/Modified by ExtremeFiretop [2024-Mar-27] ##
-##----------------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Mar-27] ##
+##--------------------------------------- --##
 _GetLatestFWUpdateVersionFromNode_()
 {
    local retCode=0  webState  newVersionStr
@@ -3017,6 +3018,9 @@ _CheckNewUpdateFirmwareNotification_()
    return 0
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-02] ##
+##---------------------------------------##
 _CheckNodeFWUpdateNotification_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -3034,7 +3038,7 @@ _CheckNodeFWUpdateNotification_()
        return 1
    fi
 
-   nodefwNewUpdateNotificationVers="$(_GetAllNodeSettings_ "$node_label_mac" "New_Update_Notification_Vers")"
+   nodefwNewUpdateNotificationVers="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Vers")"
    if [ -z "$nodefwNewUpdateNotificationVers" ] || [ "$nodefwNewUpdateNotificationVers" = "TBD" ]
    then
        nodefwNewUpdateNotificationVers="$2"
@@ -3053,7 +3057,7 @@ _CheckNodeFWUpdateNotification_()
        fi
    fi
 
-   nodefwNewUpdateNotificationDate="$(_GetAllNodeSettings_ "$node_label_mac" "New_Update_Notification_Date")"
+   nodefwNewUpdateNotificationDate="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Date")"
    if [ -z "$nodefwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
    then
        nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
@@ -3308,8 +3312,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
     Say "Running the update task now... Checking for F/W updates..."
 
-    _ProcessMeshNodes_ 0
-
     #---------------------------------------------------------------#
     # Check if an expected USB-attached drive is still mounted.
     # Make a special case when USB drive has Entware installed.
@@ -3338,6 +3340,8 @@ Please manually update to version $minimum_supported_version or higher to use th
         FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
         FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
     fi
+
+   _ProcessMeshNodes_ 0
 
     local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
@@ -4620,6 +4624,9 @@ _ShowAdvancedOptionsMenu_()
    printf "${SEPstr}"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-02] ##
+##---------------------------------------##
 _ProcessMeshNodes_() {
     includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
    if [ $# -eq 0 ] || [ -z "$1" ]
@@ -4652,11 +4659,14 @@ _ProcessMeshNodes_() {
         if [ "$includeExtraLogic" -eq 1 ]; then
             printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
         else
-            Say "No AiMesh Node(s)"
+            Say "No AiMesh Node(s). Skipping Node Verification."
         fi
     fi
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-02] ##
+##---------------------------------------##
 _ShowNodesMenu_()
 {
    clear
