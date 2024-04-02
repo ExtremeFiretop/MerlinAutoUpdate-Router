@@ -629,7 +629,7 @@ _ValidateUSBMountPoint_()
 
    ## Report found Mount Points on failure ##
    if [ $# -gt 1 ] && [ "$2" -eq 1 ] && [ -n "$mountPointList" ]
-   then Say "Mount points found:$mountPointList" ; fi
+   then Say "Mount points found:\n$mountPointList" ; fi
    return 1
 }
 
@@ -1689,74 +1689,89 @@ if false ; then echo "388.5.0" ; return 0 ; fi
     echo "$theVersionStr"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Dec-15] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-31] ##
+##----------------------------------------##
 _HasRouterMoreThan256MBtotalRAM_()
 {
    local totalRAM_KB
-   totalRAM_KB="$(cat /proc/meminfo | awk -F ' ' '/^MemTotal: /{print $2}')"
+   totalRAM_KB="$(awk -F ' ' '/^MemTotal:/{print $2}' /proc/meminfo)"
    [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 262144 ] && return 0
    return 1
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Dec-15] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-01] ##
+##----------------------------------------##
 #---------------------------------------------------------------------#
 # The actual amount of RAM that is available for any new process
 # (*without* using the swap file) can be roughly estimated from
-# "MemFree" & "Page Cache" (i.e. Active files + Inactive files),
+# "Free Memory" & "Page Cache" (e.g. Inactive memory pages).
 # This estimate must take into account that the overall system
 # (kernel + native services + tmpfs) needs a minimum amount of RAM
 # to continue to work, and that not all reclaimable Page Cache can
 # be reclaimed because some may actually be in used at the time.
+# NOTE: [Martinski]
+# Since reported "Available RAM" estimates tend to be extremely 
+# conservative in many cases, we decided to take another approach
+# and calculate it based on the reported "Free RAM" plus ~66% of 
+# reported "Memory Cached" and then take the largest of the two
+# values: Reported "Available RAM" vs Calculated "Available RAM"
+# While still somewhat conservative, this would provide a better
+# estimate, especially at the time when the router is about to
+# shut down and terminate all non-critical services/processes
+# before the actual F/W flash is performed.
 #---------------------------------------------------------------------#
 _GetAvailableRAM_KB_()
 {
-   local theMemAvailable_KB  theMemFree_KB
-   local activeFiles_KB  inactiveFiles_KB  thePageCache_KB
+   local theMemAvailable_KB  theMemAvail_KB  theMemCache_KB
+   local theMemFree1_KB  theMemFree2_KB  inactivePgs_KB
 
-   theMemAvailable_KB="$(cat /proc/meminfo | awk -F ' ' '/^MemAvailable: /{print $2}')"
-   [ -n "$theMemAvailable_KB" ] && echo "$theMemAvailable_KB" && return 0
+   _MaxNumber_() { echo "$(($1 < $2 ? $2 : $1))" ; }
 
-   theMemFree_KB="$(cat /proc/meminfo | awk -F ' ' '/^MemFree: /{print $2}')"
-   activeFiles_KB="$(cat /proc/meminfo | awk -F ' ' '/^Active\(file\): /{print $2}')"
-   inactiveFiles_KB="$(cat /proc/meminfo | awk -F ' ' '/^Inactive\(file\): /{print $2}')"
-   thePageCache_KB="$((activeFiles_KB + inactiveFiles_KB))"
+   theMemCache_KB="$(awk -F ' ' '/^Cached:/{print $2}' /proc/meminfo)"
+   theMemFree1_KB="$(awk -F ' ' '/^MemFree:/{print $2}' /proc/meminfo)"
+   theMemAvail_KB="$(awk -F ' ' '/^MemAvailable:/{print $2}' /proc/meminfo)"
+   # Assumes that only ~66% of Page Cache can be reclaimed #
+   theMemFree2_KB="$((theMemFree1_KB + ((theMemCache_KB * 2) / 3)))"
 
-   #----------------------------------------------------------------#
-   # Since not all Page Cache is guaranteed to be reclaimed at any
-   # moment, we simply estimate that only half will be reclaimable.
-   #----------------------------------------------------------------#
-   theMemAvailable_KB="$((theMemFree_KB + (thePageCache_KB / 2)))"
+   if [ -z "$theMemAvail_KB" ]
+   then
+       inactivePgs_KB="$(awk -F ' ' '/^Inactive:/{print $2}' /proc/meminfo)"
+       theMemAvail_KB="$((theMemFree1_KB + inactivePgs_KB))"
+   fi
+   theMemAvailable_KB="$(_MaxNumber_ "$theMemAvail_KB" "$theMemFree2_KB")"
    echo "$theMemAvailable_KB" ; return 0
 }
 
-get_free_ram() {
-    # Using awk to sum up the 'free', 'buffers', and 'cached' columns.
-    free | awk '/^Mem:/{print $4}'  # This will return the available memory in kilobytes.
-    ##FOR DEBUG ONLY##echo 1000
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-31] ##
+##----------------------------------------##
+_GetFreeRAM_KB_()
+{
+   awk -F ' ' '/^MemFree:/{print $2}' /proc/meminfo
+   ##FOR DEBUG ONLY## echo 1000
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2023-Dec-09] ##
-##---------------------------------------##
-get_required_space() {
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-31] ##
+##----------------------------------------##
+_GetRequiredRAM_KB_()
+{
     local url="$1"
-    local zip_file_size_kb extracted_file_size_buffer_kb
-    local overhead_percentage=50  # Overhead percentage (e.g., 50%)
+    local zip_file_size_bytes  zip_file_size_kb  overhead_kb
+    local total_required_kb  overhead_percentage=50
 
     # Size of the ZIP file in bytes
-    local zip_file_size_bytes="$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
+    zip_file_size_bytes="$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
     # Convert bytes to kilobytes
     zip_file_size_kb="$((zip_file_size_bytes / 1024))"
 
     # Calculate overhead based on the percentage
-    local overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
+    overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
 
     # Calculate total required space
-    local total_required_kb="$((zip_file_size_kb + overhead_kb))"
+    total_required_kb="$((zip_file_size_kb + overhead_kb))"
     echo "$total_required_kb"
 }
 
@@ -1852,10 +1867,10 @@ _LogMemoryDebugInfo_()
 ##----------------------------------------##
 check_memory_and_prompt_reboot()
 {
-    local required_space_kb="$1"
+    local requiredRAM_kb="$1"
     local availableRAM_kb="$2"
 
-    if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+    if [ "$availableRAM_kb" -lt "$requiredRAM_kb" ]
     then
         Say "Insufficient RAM available."
 
@@ -1866,10 +1881,10 @@ check_memory_and_prompt_reboot()
 
         # Check available memory again #
         availableRAM_kb="$(_GetAvailableRAM_KB_)"
-        if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+        if [ "$availableRAM_kb" -lt "$requiredRAM_kb" ]
         then
-            freeRAM_kb="$(get_free_ram)"
-            Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+            freeRAM_kb="$(_GetFreeRAM_KB_)"
+            Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
             _LogMemoryDebugInfo_
 
             # Attempt to clear dentries and inodes. #
@@ -1879,10 +1894,10 @@ check_memory_and_prompt_reboot()
 
             # Check available memory again #
             availableRAM_kb="$(_GetAvailableRAM_KB_)"
-            if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+            if [ "$availableRAM_kb" -lt "$requiredRAM_kb" ]
             then
-                freeRAM_kb="$(get_free_ram)"
-                Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+                freeRAM_kb="$(_GetFreeRAM_KB_)"
+                Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                 _LogMemoryDebugInfo_
 
                 # Attempt to clear clears pagecache, dentries, and inodes after shutting down services
@@ -1898,15 +1913,15 @@ check_memory_and_prompt_reboot()
 
                 # Check available memory again #
                 availableRAM_kb="$(_GetAvailableRAM_KB_)"
-                if [ "$availableRAM_kb" -lt "$required_space_kb" ]
+                if [ "$availableRAM_kb" -lt "$requiredRAM_kb" ]
                 then
                     _LogMemoryDebugInfo_
 
                     # In an interactive shell session, ask user to confirm reboot #
                     if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
                     then
-                        freeRAM_kb="$(get_free_ram)"
-                        Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+                        freeRAM_kb="$(_GetFreeRAM_KB_)"
+                        Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         _AddPostRebootRunScriptHook_
                         Say "Rebooting router..."
                         _ReleaseLock_
@@ -1914,8 +1929,8 @@ check_memory_and_prompt_reboot()
                         exit 1  # Although the reboot command should end the script, it's good practice to exit after.
                     else
                         # Exit script if non-interactive or if user answers NO #
-                        freeRAM_kb="$(get_free_ram)"
-                        Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+                        freeRAM_kb="$(_GetFreeRAM_KB_)"
+                        Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         Say "Insufficient memory to continue. Exiting script."
                         # Restart Entware services #
                         _EntwareServicesHandler_ start
@@ -3421,22 +3436,20 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##---------------------------------------##
     ## Added by ExtremeFiretop [2023-Dec-09] ##
     ##---------------------------------------##
-    # Get the required space for the firmware download and extraction
-    required_space_kb="$(get_required_space "$release_link")"
-    if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$required_space_kb" -gt 51200 ]
+    # Get the required memory for the firmware download and extraction
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link")"
+    if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$requiredRAM_kb" -gt 51200 ]
     then
         if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
-            Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
-            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
+	@@ -3106,10 +3121,10 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
-    freeRAM_kb="$(get_free_ram)"
+    freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+    Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
     # Compare versions before deciding to download
     if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
@@ -3541,10 +3554,10 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Feb-18] ##
     ##------------------------------------------##
-    freeRAM_kb="$(get_free_ram)"
+    freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+    Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Mar-19] ##
@@ -3595,10 +3608,10 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    freeRAM_kb="$(get_free_ram)"
+    freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+    Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
@@ -3675,10 +3688,10 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Change-logs check disabled."
     fi
 
-    freeRAM_kb="$(get_free_ram)"
+    freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+    Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
     rog_file=""
     # Detect ROG and pure firmware files
@@ -3756,10 +3769,10 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##----------------------------------------##
     ## Modified by Martinski W. [2024-Mar-16] ##
     ##----------------------------------------##
-    freeRAM_kb="$(get_free_ram)"
+    freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    Say "Required RAM: ${required_space_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
-    check_memory_and_prompt_reboot "$required_space_kb" "$availableRAM_kb"
+    Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
     routerURLstr="$(_GetRouterURL_)"
     Say "Router Web URL is: ${routerURLstr}"
