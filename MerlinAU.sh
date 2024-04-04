@@ -4650,32 +4650,37 @@ _ProcessMeshNodes_() {
     uid=1
     node_list=$(_PermNodeList_)
 
-    if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
-    # Iterate over the list of nodes and print information for each node
-        for node_info in $node_list; do
-            _GetNodeInfo_ "$node_info"
-            if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
-            then Node_FW_NewUpdateVersion="NONE FOUND"
-            else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
-            fi
-            _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
+    if [ "$(nvram get sw_mode)" = "1" ]; then
+        if [ -n "$node_list" ]; then
+        # Iterate over the list of nodes and print information for each node
+            for node_info in $node_list; do
+                _GetNodeInfo_ "$node_info"
+                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+                then Node_FW_NewUpdateVersion="NONE FOUND"
+                else Node_FW_NewUpdateVersion="${Node_FW_NewUpdateVersion}"
+                fi
+                _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
 
-            # Apply extra logic if flag is '1'
-            if [ "$includeExtraLogic" -eq 1 ]; then
-                _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
-                uid=$((uid + 1))
+                # Apply extra logic if flag is '1'
+                if [ "$includeExtraLogic" -eq 1 ]; then
+                    _PrintNodeInfo "$node_info" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
+                    uid=$((uid + 1))
+                fi
+            done
+            if [ -s "$tempNodeEMailList" ]; then
+                _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
             fi
-        done
-        if [ -s "$tempNodeEMailList" ]; then
-            _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
-        fi
 
-    else
-        if [ "$includeExtraLogic" -eq 1 ]; then
-            printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
         else
-            Say "No AiMesh Node(s). Skipping Node Verification."
+            if [ "$includeExtraLogic" -eq 1 ]; then
+                printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
+            else
+                Say "No AiMesh Node(s). Disabling node verification."
+            fi
         fi
+    else
+        # Else statement for when not running on primary router
+        Say "Not running on primary router. Disabling node verification."
     fi
 }
 
