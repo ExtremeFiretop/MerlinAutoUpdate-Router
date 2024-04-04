@@ -4643,7 +4643,7 @@ _ShowAdvancedOptionsMenu_()
 ## Added by ExtremeFiretop [2024-Apr-02] ##
 ##---------------------------------------##
 _ProcessMeshNodes_() {
-    includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
+   includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
    if [ $# -eq 0 ] || [ -z "$1" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
@@ -4670,17 +4670,16 @@ _ProcessMeshNodes_() {
             if [ -s "$tempNodeEMailList" ]; then
                 _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
             fi
-
         else
             if [ "$includeExtraLogic" -eq 1 ]; then
                 printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
             else
-                Say "No AiMesh Node(s). Disabling node verification."
+                Say "No AiMesh Node(s). Disabling AiMesh verification."
             fi
         fi
     else
         # Else statement for when not running on primary router
-        Say "Not running on primary router. Disabling node verification."
+        Say "Not running on Primary Router. Skipping AiMesh verification."
     fi
 }
 
