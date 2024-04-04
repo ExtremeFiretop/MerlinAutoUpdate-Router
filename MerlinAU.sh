@@ -1221,7 +1221,9 @@ _CreateEMailContent_()
    subjectStr="F/W Update Status for $MODEL_ID"
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
    nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+   fi
 
    # Remove "_rog" suffix to avoid version comparison failures #
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
