@@ -1681,7 +1681,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if true ; then echo "388.5.0" ; return 0 ; fi
+if false ; then echo "388.5.0" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
