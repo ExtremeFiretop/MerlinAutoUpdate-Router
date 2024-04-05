@@ -19,8 +19,9 @@ readonly SCRIPT_BRANCH="master"
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
 
 # Firmware URL Info #
-readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
-readonly FW_URL_RELEASE_SUFFIX="Release"
+readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
+readonly FW_SFURL_RELEASE_SUFFIX="Release"
+readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
 
 # For new script version updates from source repository #
 UpdateNotify=0
@@ -29,6 +30,7 @@ DLRepoVersion=""
 # For supported version and model checks #
 MinFirmwareCheckFailed=0
 ModelCheckFailed=0
+GnutonFlag=""
 
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
@@ -466,9 +468,10 @@ readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
-readonly PRODUCT_ID="$(_GetRouterProductID_)"
+#readonly PRODUCT_ID="$(_GetRouterProductID_)"
+readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
-readonly FW_URL_RELEASE="${FW_URL_BASE}/${PRODUCT_ID}/${FW_URL_RELEASE_SUFFIX}/"
+readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-01] ##
@@ -1678,7 +1681,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.5.0" ; return 0 ; fi
+if true ; then echo "388.5.0" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -1976,7 +1979,7 @@ check_version_support() {
 
 check_model_support() {
     # List of unsupported models as a space-separated string
-    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC1900"
+    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC1900 DSL-AC68U"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
@@ -2452,6 +2455,51 @@ _GetLatestFWUpdateVersionFromWebsite_()
     echo "$versionStr"
     echo "$correct_link"
     return 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Feb-23] ##
+##---------------------------------------##
+_GetLatestFWUpdateVersionFromGithub_()
+{
+    local url="$1"
+
+    # Use curl to fetch the latest release data from GitHub
+    local release_data=$(curl -s "$1")
+
+    # Parse the release data to find the download URL of the asset that matches the model number
+    local download_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*\"" | grep -o "https://[^ ]*\.w" | head -1)
+
+	if [ -z "$download_url" ]
+    then 
+        echo "**ERROR** **NO_GITHUB_URL**" ; 
+        return 1
+    else
+        # Extract version from the download URL or release data
+        local version=$(echo "$download_url" | grep -oE "$PRODUCT_ID[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.zip$//;s/.trx$//;s/_/./g")
+        echo "$version"
+        echo "$download_url"
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-05] ##
+##---------------------------------------##
+GetLatestFirmwareMD5Url() {
+    local url="$1"  # GitHub API URL for the latest release
+
+    # Fetch the latest release data from GitHub
+    local release_data=$(curl -s "$url")
+
+    # Parse the release data to find the download URL of the .md5 file that matches the model number
+    local md5_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*\.md5\"" | grep -o "https://[^ ]*\.md5" | head -1)
+
+    if [ -z "$md5_url" ]; then
+        echo "**ERROR** **NO_MD5_FILE_URL_FOUND**"
+        return 1
+    else
+        echo "$md5_url"
+    fi
 }
 
 ##---------------------------------------##
@@ -3404,9 +3452,38 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     # Use set to read the output of the function into variables
-    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
-    release_version="$1"
-    release_link="$2"
+    # Attempt to fetch release information from the website
+    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+    website_release_version="$1"
+    website_release_link="$2"
+
+    # Check if website fetch resulted in an error
+    if [ "$website_release_version" = "**ERROR**" ]; then
+        # Attempt to fetch release information from GitHub due to error from website
+        set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE")
+        github_release_version="$1"
+        github_release_link="$2"
+
+        md5_url=$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE")
+
+        # Use release information from GitHub if available
+        if [ -n "$github_release_link" ]; then
+            release_version="$github_release_version"
+            release_link="$github_release_link"
+            Say "Using release information for Gnuton"
+			GnutonFlag="true"
+            checkChangeLogSetting="DISABLED"
+            Update_Custom_Settings "CheckChangeLog" "DISABLED"
+        else
+            Say "No valid release information found from GitHub."
+            # Implement failure handling logic here
+        fi
+    else
+        # No error from website fetch, use its release information
+        release_version="$website_release_version"
+        release_link="$website_release_link"
+        Say "Using release information for Merlin"
+    fi
 
     if [ "$release_version" = "**ERROR**" ] && [ "$release_link" = "**NO_URL**" ]
     then
@@ -3543,14 +3620,40 @@ Please manually update to version $minimum_supported_version or higher to use th
         wgetHstsFile="/tmp/home/root/.wget-hsts"
         [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
 
-        wget -O "$FW_ZIP_FPATH" "$release_link"
-    fi
+        if [ "$GnutonFlag" = "true" ]; then
+            # Follow redirects and capture the effective URL
+            local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
+            # Use the effective URL to capture the Content-Disposition header
+            local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')   
+		    # Sanitize filename by removing problematic characters
+            local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
+            # Extract the file extension
+            extension="${sanitized_filename##*.}"   
+            # Combine path, custom file name, and extension before download
+            FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
+            FW_MD5_GITHUB="${FW_ZIP_DIR}/${FW_FileName}.md5"
+            wget -O "$FW_DL_FPATH" "$release_link"
+            wget -O "$FW_MD5_GITHUB" "$md5_url"
+        else
+            # Follow redirects and capture the effective URL
+            local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")   
+            # Extract the filename from the URL
+            original_filename="${effective_url##*/}"   
+            # Sanitize filename by removing problematic characters (if necessary)
+            sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
+            # Extract the file extension
+            extension="${sanitized_filename##*.}" 
+            # Combine path, custom file name, and extension before download
+            FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"     
+            wget -O "$FW_DL_FPATH" "$release_link"
 
-    if [ ! -f "$FW_ZIP_FPATH" ]
-    then
-        Say "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
+            if [ ! -f "$FW_ZIP_FPATH" ]
+            then
+                ay "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
+                "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                return 1
+            fi
+	    fi
     fi
 
     ##------------------------------------------##
@@ -3564,25 +3667,57 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Mar-19] ##
     ##------------------------------------------##
+    if [ ! "$GnutonFlag" = "true" ]; then
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file #
     unzip -l "$FW_ZIP_FPATH" 2>&1 | \
     while IFS= read -r uzLINE ; do Say "$uzLINE" ; done
     Say "-----------------------------------------------------------"
 
-    # Extracting the firmware binary image #
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
-    while IFS= read -r line ; do Say "$line" ; done
-    then
-        Say "-----------------------------------------------------------"
-        #---------------------------------------------------------------#
-        # Check if ZIP file was downloaded to a USB-attached drive.
-        # Take into account special case for Entware "/opt/" paths.
-        #---------------------------------------------------------------#
-        if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+        # Extracting the firmware binary image #
+        if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
+        while IFS= read -r line ; do Say "$line" ; done
         then
-            # It's not on a USB drive, so it's safe to delete it #
+            Say "-----------------------------------------------------------"
+            #---------------------------------------------------------------#
+            # Check if ZIP file was downloaded to a USB-attached drive.
+            # Take into account special case for Entware "/opt/" paths.
+            #---------------------------------------------------------------#
+            if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+            then
+                # It's not on a USB drive, so it's safe to delete it #
+                rm -f "$FW_ZIP_FPATH"
+            elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+            then
+                #-------------------------------------------------------------#
+                # This should not happen because we already checked for it
+                # at the very beginning of this function, but just in case
+                # it does (drive going bad suddenly?) we'll report it here.
+                #-------------------------------------------------------------#
+                Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+                Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+                "$inMenuMode" && _WaitForEnterKey_
+                # Consider how to handle this error. For now, we'll not delete the ZIP file.
+            else
+                keepZIPfile=1
+            fi
+        else
+            #------------------------------------------------------------#
+            # Remove ZIP file here because it may have been corrupted.
+            # Better to download it again and start all over, instead
+            # of trying to figure out why uncompressing it failed.
+            #------------------------------------------------------------#
             rm -f "$FW_ZIP_FPATH"
+            _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
+            Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        fi
+    else
+        if echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+        then
+            cp "$FW_MD5_GITHUB" "$FW_BIN_DIR"
+            cp "$FW_DL_FPATH" "$FW_BIN_DIR"
         elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
             #-------------------------------------------------------------#
@@ -3595,19 +3730,8 @@ Please manually update to version $minimum_supported_version or higher to use th
             "$inMenuMode" && _WaitForEnterKey_
             # Consider how to handle this error. For now, we'll not delete the ZIP file.
         else
-            keepZIPfile=1
+			echo 
         fi
-    else
-        #------------------------------------------------------------#
-        # Remove ZIP file here because it may have been corrupted.
-        # Better to download it again and start all over, instead
-        # of trying to figure out why uncompressing it failed.
-        #------------------------------------------------------------#
-        rm -f "$FW_ZIP_FPATH"
-        _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
-        Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
     fi
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
@@ -3741,30 +3865,66 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Feb-03] ##
     ##------------------------------------------##
-    if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
-        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
-        dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
-        if [ "$fw_sig" != "$dl_sig" ]; then
-            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
+    if [ ! "$GnutonFlag" = "true" ]; then
+        if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
+            fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+            dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
+            if [ "$fw_sig" != "$dl_sig" ]; then
+                Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
+                _DoCleanUp_ 1
+                _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+                if [ "$inMenuMode" = true ]; then
+                    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                    return 1
+                else
+                # Assume non-interactive mode; perform exit.
+                _DoExit_ 1
+                fi
+            fi
+        else
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
             _DoCleanUp_ 1
-            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             if [ "$inMenuMode" = true ]; then
                 _WaitForEnterKey_ "$mainMenuReturnPromptStr"
                 return 1
             else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
+                # Assume non-interactive mode; perform exit.
+                _DoExit_ 1
             fi
         fi
     else
-        Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
-        _DoCleanUp_ 1
-        if [ "$inMenuMode" = true ]; then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
+        if [ -f "$FW_MD5_GITHUB" ] && [ -f "$firmware_file" ]; then
+            # Extract the MD5 checksum from the downloaded .md5 file
+            # Assuming the .md5 file contains a single line with the checksum followed by the filename
+            md5_expected=$(cut -d' ' -f1 "$FW_MD5_GITHUB")
+        
+            # Calculate the MD5 checksum of the firmware file
+            md5_actual=$(md5sum "$firmware_file" | cut -d' ' -f1)
+        
+            if [ "$md5_actual" != "$md5_expected" ]; then
+                Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the MD5 checksum!"
+                _DoCleanUp_ 1
+                _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+                if [ "$inMenuMode" = true ]; then
+                    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                    return 1
+                else
+                    # Assume non-interactive mode; perform exit.
+                    _DoExit_ 1
+                fi
+            else
+                Say "Firmware MD5 checksum verified successfully."
+            fi
         else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
+            Say "${REDct}**ERROR**${NOct}: MD5 checksum file not found or firmware file is missing!"
+            _DoCleanUp_ 1
+            if [ "$inMenuMode" = true ]; then
+                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                return 1
+            else
+                # Assume non-interactive mode; perform exit.
+                _DoExit_ 1
+            fi
         fi
     fi
 
