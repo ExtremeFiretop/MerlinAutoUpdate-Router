@@ -468,8 +468,8 @@ readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
-#readonly PRODUCT_ID="$(_GetRouterProductID_)"
-readonly PRODUCT_ID="RT-AX92U"
+readonly PRODUCT_ID="$(_GetRouterProductID_)"
+#DEBUGONLY#readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -3730,7 +3730,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             "$inMenuMode" && _WaitForEnterKey_
             # Consider how to handle this error. For now, we'll not delete the ZIP file.
         else
-			echo 
+            echo 
         fi
     fi
 
