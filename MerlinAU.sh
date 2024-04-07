@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.0
+readonly SCRIPT_VERSION=1.1.1
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
