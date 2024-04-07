@@ -1697,7 +1697,6 @@ if false ; then echo "388.5.0" ; return 0 ; fi
 _HasRouterMoreThan256MBtotalRAM_()
 {
    local totalRAM_KB
-   totalRAM_KB="$(cat /proc/meminfo | awk -F ' ' '/^MemTotal: /{print $2}')"
    totalRAM_KB="$(awk -F ' ' '/^MemTotal:/{print $2}' /proc/meminfo)"
    [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 262144 ] && return 0
    return 1
@@ -1763,23 +1762,18 @@ _GetFreeRAM_KB_()
 _GetRequiredRAM_KB_()
 {
     local url="$1"
-    local zip_file_size_kb extracted_file_size_buffer_kb
-    local overhead_percentage=50  # Overhead percentage (e.g., 50%)
     local zip_file_size_bytes  zip_file_size_kb  overhead_kb
     local total_required_kb  overhead_percentage=50
 
     # Size of the ZIP file in bytes
-    local zip_file_size_bytes="$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
     zip_file_size_bytes="$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
     # Convert bytes to kilobytes
     zip_file_size_kb="$((zip_file_size_bytes / 1024))"
 
     # Calculate overhead based on the percentage
-    local overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
     overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
 
     # Calculate total required space
-    local total_required_kb="$((zip_file_size_kb + overhead_kb))"
     total_required_kb="$((zip_file_size_kb + overhead_kb))"
     echo "$total_required_kb"
 }
