@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-April-02
+# Last Modified: 2024-Apr-02
 ###################################################################
 set -u
 
@@ -1708,7 +1708,6 @@ _HasRouterMoreThan256MBtotalRAM_()
 #---------------------------------------------------------------------#
 # The actual amount of RAM that is available for any new process
 # (*without* using the swap file) can be roughly estimated from
-# "MemFree" & "Page Cache" (i.e. Active files + Inactive files),
 # "Free Memory" & "Page Cache" (e.g. Inactive memory pages).
 # This estimate must take into account that the overall system
 # (kernel + native services + tmpfs) needs a minimum amount of RAM
