@@ -2225,7 +2225,6 @@ _GetNodeIPv4List_()
             # Print each IP address on a separate line
             printf "%s\n" "$ip_addresses"
         else
-            echo "**ERROR**: Unable to extract IP addresses from asus_device_list."
             return 1
         fi
     else
@@ -2256,7 +2255,6 @@ _NodeActiveStatus_()
             # Print each IP address on a separate line
             printf "%s\n" "$ip_addresses"
         else
-            echo "**ERROR**: Unable to extract IP addresses from cfg_device_list."
             return 1
         fi
     else
