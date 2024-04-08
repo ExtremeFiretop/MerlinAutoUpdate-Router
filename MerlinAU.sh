@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-06
+# Last Modified: 2024-Apr-07
 ###################################################################
 set -u
 
@@ -75,11 +75,19 @@ then cronListCmd="cru l"
 else cronListCmd="crontab -l"
 fi
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2024-Jan-06] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-06] ##
+##----------------------------------------##
 inMenuMode=true
 isInteractive=false
+
+mainLAN_IPaddr="$(nvram get lan_ipaddr)"
+
+if [ "$(nvram get sw_mode)" -eq 1 ]
+then inRouterSWmode=true
+else inRouterSWmode=false
+fi
+
 mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
 advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Menu..."
 
@@ -304,7 +312,7 @@ _Reset_LEDs_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-21] ##
+## Modified by Martinski W. [2024-Apr-06] ##
 ##----------------------------------------##
 _GetRouterURL_()
 {
@@ -317,7 +325,7 @@ _GetRouterURL_()
 
     urlDomain="$(nvram get lan_domain)"
     if [ -z "$urlDomain" ]
-    then urlDomain="$(nvram get lan_ipaddr)"
+    then urlDomain="$mainLAN_IPaddr"
     else urlDomain="$(nvram get lan_hostname).$urlDomain"
     fi
 
@@ -1221,7 +1229,7 @@ _CreateEMailContent_()
    subjectStr="F/W Update Status for $MODEL_ID"
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-   if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
+   if "$inRouterSWmode" && [ -n "$node_list" ]; then
       nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
    fi
 
@@ -2212,13 +2220,12 @@ _GetNodeIPv4List_()
     # Get the value of asus_device_list #
     local ip_addresses
     local device_list="$(nvram get asus_device_list)"
-    local urlDomain="$(nvram get lan_ipaddr)"
 
     # Check if asus_device_list is not empty #
     if [ -n "$device_list" ]
     then
-        # Split the device list into records and extract the IP addresses, excluding the lan_ipaddr #
-        ip_addresses="$(echo "$device_list" | tr '<' '\n' | awk -v exclude="$urlDomain" -F'>' '{if (NF>=4 && $3 != exclude) print $3}')"
+        # Split the device list into records and extract the IP addresses, excluding Main Router LAN IP address #
+        ip_addresses="$(echo "$device_list" | tr '<' '\n' | awk -v exclude="$mainLAN_IPaddr" -F'>' '{if (NF>=4 && $3 != exclude) print $3}')"
 
         # Check if IP addresses are not empty #
         if [ -n "$ip_addresses" ]; then
@@ -2242,13 +2249,12 @@ _NodeActiveStatus_()
     # Get the value of cfg_device_list #
     local ip_addresses
     local node_online_status="$(nvram get cfg_device_list)"
-    local urlDomain="$(nvram get lan_ipaddr)"
 
     # Check if cfg_device_list is not empty #
     if [ -n "$node_online_status" ]
     then
-        # Split the device list into records and extract the IP addresses, excluding the lan_ipaddr
-        ip_addresses="$(echo "$node_online_status" | tr '<' '\n' | awk -v exclude="$urlDomain" -F'>' '{if (NF>=3 && $2 != exclude) print $2}')"
+        # Split the device list into records and extract the IP addresses, excluding Main Router LAN IP address #
+        ip_addresses="$(echo "$node_online_status" | tr '<' '\n' | awk -v exclude="$mainLAN_IPaddr" -F'>' '{if (NF>=3 && $2 != exclude) print $2}')"
 
         # Check if IP addresses are not empty #
         if [ -n "$ip_addresses" ]; then
@@ -3374,7 +3380,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
     fi
 
-   _ProcessMeshNodes_ 0
+    _ProcessMeshNodes_ 0
 
     local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
@@ -4504,7 +4510,7 @@ _ShowMainMenu_()
    ## Modified by ExtremeFiretop [2024-Mar-27] ##
    ##------------------------------------------##
    printf "${SEPstr}"
-   if [ "$HIDE_ROUTER_SECTION" = false ]
+   if [ "$HIDE_ROUTER_SECTION" = "false" ]
    then
       if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
       then FW_NewUpdateVersion="${REDct}NONE FOUND${NOct}"
@@ -4543,7 +4549,7 @@ _ShowMainMenu_()
    printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
    # Check for AiMesh Nodes #
-   if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]; then
+   if "$inRouterSWmode" && [ -n "$node_list" ]; then
       printf "\n ${GRNct}mn${NOct}.  AiMesh Node(s) Info\n"
    fi
 
@@ -4695,7 +4701,7 @@ _ProcessMeshNodes_()
     if ! node_list="$(_GetNodeIPv4List_)"
     then node_list="" ; fi
 
-    if [ "$(nvram get sw_mode)" = "1" ]
+    if "$inRouterSWmode"
     then
         if [ -n "$node_list" ]
         then
@@ -4789,34 +4795,34 @@ _advanced_options_menu_()
                ;;
             4) _toggle_beta_updates_
                ;;
-            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
-                then _Toggle_Auto_Backups_
-                else _InvalidMenuSelection_
-                fi
-                ;;
-            em) if "$isEMailConfigEnabledInAMTM"
-                then _Toggle_FW_UpdateEmailNotifications_
-                else _InvalidMenuSelection_
-                fi
-                ;;
-            ef) if "$isEMailConfigEnabledInAMTM" && \
-                   "$sendEMailNotificationsFlag"
-                then _SetEMailFormatType_
-                else _InvalidMenuSelection_
-                fi
+           ab) if [ -f "/jffs/scripts/backupmon.sh" ]
+               then _Toggle_Auto_Backups_
+               else _InvalidMenuSelection_
+               fi
                ;;
-            se) if "$isEMailConfigEnabledInAMTM" && \
-                   "$sendEMailNotificationsFlag"
-                then _SetSecondaryEMailAddress_
-                else _InvalidMenuSelection_
-                fi
+           em) if "$isEMailConfigEnabledInAMTM"
+               then _Toggle_FW_UpdateEmailNotifications_
+               else _InvalidMenuSelection_
+               fi
                ;;
-            bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
-                then change_build_type
-                else _InvalidMenuSelection_
-                fi
-                ;;
-            e|exit) break
+           ef) if "$isEMailConfigEnabledInAMTM" && \
+                  "$sendEMailNotificationsFlag"
+               then _SetEMailFormatType_
+               else _InvalidMenuSelection_
+               fi
+               ;;
+           se) if "$isEMailConfigEnabledInAMTM" && \
+                  "$sendEMailNotificationsFlag"
+               then _SetSecondaryEMailAddress_
+               else _InvalidMenuSelection_
+               fi
+               ;;
+           bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
+               then change_build_type
+               else _InvalidMenuSelection_
+               fi
+               ;;
+       e|exit) break
                ;;
             *) _InvalidMenuSelection_
                ;;
@@ -4860,13 +4866,13 @@ do
    printf "Enter selection:  " ; read -r userChoice
    echo
    case $userChoice in
-        s|S|h|H)
-            if [ "$userChoice" = "s" ] || [ "$userChoice" = "S" ]; then
-                HIDE_ROUTER_SECTION=false
-            elif [ "$userChoice" = "h" ] || [ "$userChoice" = "H" ]; then
-                HIDE_ROUTER_SECTION=true
-            fi
-            ;;
+       s|S|h|H)
+          if [ "$userChoice" = "s" ] || [ "$userChoice" = "S" ]; then
+              HIDE_ROUTER_SECTION=false
+          elif [ "$userChoice" = "h" ] || [ "$userChoice" = "H" ]; then
+              HIDE_ROUTER_SECTION=true
+          fi
+          ;;
        1) _RunFirmwareUpdateNow_
           ;;
        2) _GetLoginCredentials_
@@ -4877,7 +4883,7 @@ do
           ;;
        5) _Set_FW_UpdateCronSchedule_
           ;;
-      mn) if [ "$(nvram get sw_mode)" = "1" ] && [ -n "$node_list" ]
+      mn) if "$inRouterSWmode" && [ -n "$node_list" ]
           then _ShowNodesMenuOptions_
           else _InvalidMenuSelection_
           fi
