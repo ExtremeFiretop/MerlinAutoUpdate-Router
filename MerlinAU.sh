@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.1
+readonly SCRIPT_VERSION=1.1.2
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -3056,7 +3056,7 @@ _Set_FW_UpdateCronSchedule_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
+## Modified by ExtremeFiretop [2024-Apr-13] ##
 ##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
@@ -3091,7 +3091,10 @@ _CheckNewUpdateFirmwareNotification_()
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+           if "$inRouterSWmode" 
+           then
+              _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+           fi
        fi
    fi
 
@@ -3100,7 +3103,10 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-       _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+       if "$inRouterSWmode" 
+       then
+          _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+       fi
    fi
    return 0
 }
