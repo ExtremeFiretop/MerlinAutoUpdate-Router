@@ -3043,7 +3043,10 @@ _CheckNewUpdateFirmwareNotification_()
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+           if "$inRouterSWmode" 
+           then
+              _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+           fi
        fi
    fi
 
@@ -3052,7 +3055,10 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-       _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+       if "$inRouterSWmode" 
+       then
+          _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+       fi
    fi
    return 0
 }
