@@ -8,7 +8,7 @@
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.0
+readonly SCRIPT_VERSION=1.1.1
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -3008,7 +3008,7 @@ _Set_FW_UpdateCronSchedule_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
+## Modified by ExtremeFiretop [2024-Apr-13] ##
 ##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
