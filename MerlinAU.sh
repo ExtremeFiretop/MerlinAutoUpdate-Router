@@ -3502,7 +3502,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     if [ "$#" -ne 2 ] && [ "$SFexit_status" -ne 0 ]; then
         # Handle error: insufficient SFoutput from the function
         Say "Error: Invalid SFOutput from website check, exit status $SFexit_status"
-        _DoExit_ 1
+        return 1
     fi
     website_release_version="$1"
     website_release_link="$2"
@@ -3516,7 +3516,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         if [ "$#" -ne 2 ] && [ "$GITexit_status" -ne 0 ]; then
             # Handle error: insufficient GIToutput from the function
             Say "Error: Invalid GIToutput from website check, exit status $GITexit_status"
-            _DoExit_ 1
+            return 1
         fi
         github_release_version="$1"
         github_release_link="$2"
