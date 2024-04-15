@@ -3498,7 +3498,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Attempt to fetch release information from the website
     SFoutput=$(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
     SFexit_status=$?
-    set -- "$SFoutput"
+    set -- $SFoutput
     if [ "$#" -ne 2 ] && [ "$SFexit_status" -ne 0 ]; then
         # Handle error: insufficient SFoutput from the function
         Say "Error: Invalid SFOutput from website check, exit status $SFexit_status"
@@ -3512,7 +3512,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Attempt to fetch release information from GitHub due to error from website
         GIToutput=$(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE")
         GITexit_status=$?
-        set -- "$GIToutput"
+        set -- $GIToutput
         if [ "$#" -ne 2 ] && [ "$GITexit_status" -ne 0 ]; then
             # Handle error: insufficient GIToutput from the function
             Say "Error: Invalid GIToutput from website check, exit status $GITexit_status"
