@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-07
+# Last Modified: 2024-Apr-15
 ###################################################################
 set -u
 
@@ -2039,7 +2039,7 @@ _TestLoginCredentials_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-03] ##
+## Modified by Martinski W. [2024-Apr-15] ##
 ##----------------------------------------##
 _GetPasswordInput_()
 {
@@ -2047,7 +2047,7 @@ _GetPasswordInput_()
    local PSWDstring  PSWDtmpStr  PSWDprompt
    local retCode  charNum  pswdLength  showPSWD
    # Added for TAB keypress debounce #
-   local lastTabTime=0  currentTime  timeDiff
+   local lastTabTime=0  currentTime
 
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
@@ -2065,7 +2065,15 @@ _GetPasswordInput_()
       stty "$savedSettings"
    }
 
-   _showPSWDPrompt_()
+   _ShowAsterisks_()
+   {
+      if [ $# -eq 0 ] || [ "$1" -eq 0 ]
+      then echo ""
+      else printf "%*s" "$1" ' ' | tr ' ' '*'
+      fi
+   }
+
+   _ShowPSWDPrompt_()
    {
       local pswdTemp  LENct  LENwd
       [ "$showPSWD" = "1" ] && pswdTemp="$PSWDstring" || pswdTemp="$PSWDtmpStr"
@@ -2080,11 +2088,8 @@ _GetPasswordInput_()
    charNum=""
    PSWDstring="$pswdString"
    pswdLength="${#PSWDstring}"
-   if [ -z "$PSWDstring" ]
-   then PSWDtmpStr=""
-   else PSWDtmpStr="$(printf "%*s" "$pswdLength" " " | tr ' ' '*')"
-   fi
-   echo ; _showPSWDPrompt_
+   PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+   echo ; _ShowPSWDPrompt_
 
    while IFS='' theChar="$(_GetKeypress_)"
    do
@@ -2119,12 +2124,11 @@ _GetPasswordInput_()
       if [ "$charNum" -eq 9 ]
       then
           currentTime="$(date +%s)"
-          timeDiff="$((currentTime - lastTabTime))"
-          if [ "$timeDiff" -gt 0 ]
+          if [ "$((currentTime - lastTabTime))" -gt 0 ]
           then
               showPSWD="$((! showPSWD))"
-              lastTabTime="$currentTime"  # Update last TAB press time #
-              _showPSWDPrompt_
+              lastTabTime="$currentTime"  # Update TAB keypress time #
+              _ShowPSWDPrompt_
           fi
           continue
       fi
@@ -2134,10 +2138,10 @@ _GetPasswordInput_()
       then
           if [ "$pswdLength" -gt 0 ]
           then
-              PSWDtmpStr="${PSWDtmpStr%?}"
               PSWDstring="${PSWDstring%?}"
-              pswdLength="$((pswdLength - 1))"
-              _showPSWDPrompt_
+              pswdLength="${#PSWDstring}"
+              PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+              _ShowPSWDPrompt_
               continue
           fi
       fi
@@ -2147,11 +2151,12 @@ _GetPasswordInput_()
       then
           if [ "$pswdLength" -le "$PSWDstrLenMAX" ]
           then
-              PSWDtmpStr="${PSWDtmpStr}*"
-              pswdLength="$((pswdLength + 1))"
               PSWDstring="${PSWDstring}${theChar}"
+              pswdLength="${#PSWDstring}"
+              PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+              _ShowPSWDPrompt_
+              continue
           fi
-          _showPSWDPrompt_
       fi
    done
 
