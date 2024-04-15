@@ -2515,7 +2515,7 @@ _GetLatestFWUpdateVersionFromGithub_()
         local version=$(echo "$download_url" | grep -oE "$PRODUCT_ID[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.zip$//;s/.trx$//;s/_/./g")
         echo "$version"
         echo "$download_url"
-		return 0
+        return 0
     fi
 }
 
@@ -3498,10 +3498,10 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Attempt to fetch release information from the website
     SFoutput=$(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
     SFexit_status=$?
-    set -- $SFoutput
+    set -- "$SFoutput"
     if [ "$#" -ne 2 ] && [ "$SFexit_status" -ne 0 ]; then
         # Handle error: insufficient SFoutput from the function
-        Say "Error: Invalid SFOutput from website check"
+        Say "Error: Invalid SFOutput from website check, exit status $SFexit_status"
         _DoExit_ 1
     fi
     website_release_version="$1"
@@ -3512,10 +3512,10 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Attempt to fetch release information from GitHub due to error from website
         GIToutput=$(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE")
         GITexit_status=$?
-        set -- $GIToutput
+        set -- "$GIToutput"
         if [ "$#" -ne 2 ] && [ "$GITexit_status" -ne 0 ]; then
             # Handle error: insufficient GIToutput from the function
-            Say "Error: Invalid GIToutput from website check"
+            Say "Error: Invalid GIToutput from website check, exit status $GITexit_status"
             _DoExit_ 1
         fi
         github_release_version="$1"
@@ -3528,7 +3528,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             Say "Using release information for Gnuton"
             release_version="$github_release_version"
             release_link="$github_release_link"
-			GnutonFlag="true"
+            GnutonFlag="true"
             checkChangeLogSetting="DISABLED"
             Update_Custom_Settings "CheckChangeLog" "DISABLED"
         else
