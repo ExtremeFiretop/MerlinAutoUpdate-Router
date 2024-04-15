@@ -4740,13 +4740,8 @@ _ProcessMeshNodes_()
         else
             if [ "$includeExtraLogic" -eq 1 ]; then
                 printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
-            else
-                Say "No AiMesh Node(s). Disabling AiMesh verification."
             fi
         fi
-    else
-        # Else statement for when not running on primary router #
-        Say "Not running on Primary Router. Skipping AiMesh verification."
     fi
 }
 
