@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-07
+# Last Modified: 2024-Apr-15
 ###################################################################
 set -u
 
@@ -2042,7 +2042,7 @@ _TestLoginCredentials_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-03] ##
+## Modified by Martinski W. [2024-Apr-15] ##
 ##----------------------------------------##
 _GetPasswordInput_()
 {
@@ -2050,7 +2050,7 @@ _GetPasswordInput_()
    local PSWDstring  PSWDtmpStr  PSWDprompt
    local retCode  charNum  pswdLength  showPSWD
    # Added for TAB keypress debounce #
-   local lastTabTime=0  currentTime  timeDiff
+   local lastTabTime=0  currentTime
 
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
@@ -2068,7 +2068,15 @@ _GetPasswordInput_()
       stty "$savedSettings"
    }
 
-   _showPSWDPrompt_()
+   _ShowAsterisks_()
+   {
+      if [ $# -eq 0 ] || [ "$1" -eq 0 ]
+      then echo ""
+      else printf "%*s" "$1" ' ' | tr ' ' '*'
+      fi
+   }
+
+   _ShowPSWDPrompt_()
    {
       local pswdTemp  LENct  LENwd
       [ "$showPSWD" = "1" ] && pswdTemp="$PSWDstring" || pswdTemp="$PSWDtmpStr"
@@ -2083,11 +2091,8 @@ _GetPasswordInput_()
    charNum=""
    PSWDstring="$pswdString"
    pswdLength="${#PSWDstring}"
-   if [ -z "$PSWDstring" ]
-   then PSWDtmpStr=""
-   else PSWDtmpStr="$(printf "%*s" "$pswdLength" " " | tr ' ' '*')"
-   fi
-   echo ; _showPSWDPrompt_
+   PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+   echo ; _ShowPSWDPrompt_
 
    while IFS='' theChar="$(_GetKeypress_)"
    do
@@ -2122,12 +2127,11 @@ _GetPasswordInput_()
       if [ "$charNum" -eq 9 ]
       then
           currentTime="$(date +%s)"
-          timeDiff="$((currentTime - lastTabTime))"
-          if [ "$timeDiff" -gt 0 ]
+          if [ "$((currentTime - lastTabTime))" -gt 0 ]
           then
               showPSWD="$((! showPSWD))"
-              lastTabTime="$currentTime"  # Update last TAB press time #
-              _showPSWDPrompt_
+              lastTabTime="$currentTime"  # Update TAB keypress time #
+              _ShowPSWDPrompt_
           fi
           continue
       fi
@@ -2137,10 +2141,10 @@ _GetPasswordInput_()
       then
           if [ "$pswdLength" -gt 0 ]
           then
-              PSWDtmpStr="${PSWDtmpStr%?}"
               PSWDstring="${PSWDstring%?}"
-              pswdLength="$((pswdLength - 1))"
-              _showPSWDPrompt_
+              pswdLength="${#PSWDstring}"
+              PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+              _ShowPSWDPrompt_
               continue
           fi
       fi
@@ -2150,11 +2154,12 @@ _GetPasswordInput_()
       then
           if [ "$pswdLength" -le "$PSWDstrLenMAX" ]
           then
-              PSWDtmpStr="${PSWDtmpStr}*"
-              pswdLength="$((pswdLength + 1))"
               PSWDstring="${PSWDstring}${theChar}"
+              pswdLength="${#PSWDstring}"
+              PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+              _ShowPSWDPrompt_
+              continue
           fi
-          _showPSWDPrompt_
       fi
    done
 
@@ -2456,7 +2461,11 @@ _GetLatestFWUpdateVersionFromWebsite_()
         awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
 
     if [ -z "$links_and_versions" ]
-    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+    then 
+        echo "**ERROR**" 
+        echo "**NO_URL**"
+        return 1
+    fi
 
     local latest="$(echo "$links_and_versions" | tail -n 1)"
     local linkStr="$(echo "$latest" | cut -d' ' -f2-)"
@@ -2472,7 +2481,11 @@ _GetLatestFWUpdateVersionFromWebsite_()
     local correct_link="$(echo "$linkStr" | sed 's|^/|https://sourceforge.net/|')"
 
     if [ -z "$versionStr" ] || [ -z "$correct_link" ]
-    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+    then 
+        echo "**ERROR**" 
+        echo "**NO_URL**"
+        return 1
+    fi
 
     echo "$versionStr"
     echo "$correct_link"
@@ -2494,13 +2507,15 @@ _GetLatestFWUpdateVersionFromGithub_()
 
 	if [ -z "$download_url" ]
     then 
-        echo "**ERROR** **NO_GITHUB_URL**" ; 
+        echo "**ERROR**"
+        echo "**NO_URL**"
         return 1
     else
         # Extract version from the download URL or release data
         local version=$(echo "$download_url" | grep -oE "$PRODUCT_ID[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.zip$//;s/.trx$//;s/_/./g")
         echo "$version"
         echo "$download_url"
+		return 0
     fi
 }
 
@@ -3479,16 +3494,30 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    # Use set to read the output of the function into variables
+    # Use set to read the SFoutput of the function into variables
     # Attempt to fetch release information from the website
-    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+    SFoutput=$(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+    SFexit_status=$?
+    set -- $SFoutput
+    if [ "$#" -ne 2 ] && [ "$SFexit_status" -ne 0 ]; then
+        # Handle error: insufficient SFoutput from the function
+        Say "Error: Invalid SFOutput from website check"
+        _DoExit_ 1
+    fi
     website_release_version="$1"
     website_release_link="$2"
 
     # Check if website fetch resulted in an error
     if [ "$website_release_version" = "**ERROR**" ]; then
         # Attempt to fetch release information from GitHub due to error from website
-        set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE")
+        GIToutput=$(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE")
+        GITexit_status=$?
+        set -- $GIToutput
+        if [ "$#" -ne 2 ] && [ "$GITexit_status" -ne 0 ]; then
+            # Handle error: insufficient GIToutput from the function
+            Say "Error: Invalid GIToutput from website check"
+            _DoExit_ 1
+        fi
         github_release_version="$1"
         github_release_link="$2"
 
@@ -3496,9 +3525,9 @@ Please manually update to version $minimum_supported_version or higher to use th
 
         # Use release information from GitHub if available
         if [ -n "$github_release_link" ]; then
+            Say "Using release information for Gnuton"
             release_version="$github_release_version"
             release_link="$github_release_link"
-            Say "Using release information for Gnuton"
 			GnutonFlag="true"
             checkChangeLogSetting="DISABLED"
             Update_Custom_Settings "CheckChangeLog" "DISABLED"
@@ -3507,10 +3536,10 @@ Please manually update to version $minimum_supported_version or higher to use th
             # Implement failure handling logic here
         fi
     else
+        Say "Using release information for Merlin"
         # No error from website fetch, use its release information
         release_version="$website_release_version"
         release_link="$website_release_link"
-        Say "Using release information for Merlin"
     fi
 
     if [ "$release_version" = "**ERROR**" ] && [ "$release_link" = "**NO_URL**" ]
