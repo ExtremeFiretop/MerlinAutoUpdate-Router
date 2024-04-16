@@ -2458,11 +2458,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
         awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
 
     if [ -z "$links_and_versions" ]
-    then 
-        echo "**ERROR**" 
-        echo "**NO_URL**"
-        return 1
-    fi
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
 
     local latest="$(echo "$links_and_versions" | tail -n 1)"
     local linkStr="$(echo "$latest" | cut -d' ' -f2-)"
@@ -2478,11 +2474,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
     local correct_link="$(echo "$linkStr" | sed 's|^/|https://sourceforge.net/|')"
 
     if [ -z "$versionStr" ] || [ -z "$correct_link" ]
-    then 
-        echo "**ERROR**" 
-        echo "**NO_URL**"
-        return 1
-    fi
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
 
     echo "$versionStr"
     echo "$correct_link"
@@ -3446,11 +3438,12 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
-    release_version="$1"
-    release_link="$2"
-
-    if [ "$release_version" = "**ERROR**" ] && [ "$release_link" = "**NO_URL**" ]
+    if [ $? -eq 0 ] && [ $# -eq 2 ] && \
+       [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
     then
+        release_version="$1"
+        release_link="$2"
+    else
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
