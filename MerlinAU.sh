@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-07
+# Last Modified: 2024-Apr-15
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.0
+readonly SCRIPT_VERSION=1.1.1
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -2039,7 +2039,7 @@ _TestLoginCredentials_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-03] ##
+## Modified by Martinski W. [2024-Apr-15] ##
 ##----------------------------------------##
 _GetPasswordInput_()
 {
@@ -2047,7 +2047,7 @@ _GetPasswordInput_()
    local PSWDstring  PSWDtmpStr  PSWDprompt
    local retCode  charNum  pswdLength  showPSWD
    # Added for TAB keypress debounce #
-   local lastTabTime=0  currentTime  timeDiff
+   local lastTabTime=0  currentTime
 
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
@@ -2065,7 +2065,15 @@ _GetPasswordInput_()
       stty "$savedSettings"
    }
 
-   _showPSWDPrompt_()
+   _ShowAsterisks_()
+   {
+      if [ $# -eq 0 ] || [ "$1" -eq 0 ]
+      then echo ""
+      else printf "%*s" "$1" ' ' | tr ' ' '*'
+      fi
+   }
+
+   _ShowPSWDPrompt_()
    {
       local pswdTemp  LENct  LENwd
       [ "$showPSWD" = "1" ] && pswdTemp="$PSWDstring" || pswdTemp="$PSWDtmpStr"
@@ -2080,12 +2088,10 @@ _GetPasswordInput_()
    charNum=""
    PSWDstring="$pswdString"
    pswdLength="${#PSWDstring}"
-   if [ -z "$PSWDstring" ]
-   then PSWDtmpStr=""
-   else PSWDtmpStr="$(printf "%*s" "$pswdLength" " " | tr ' ' '*')"
-   fi
-   echo ; _showPSWDPrompt_
+   PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+   echo ; _ShowPSWDPrompt_
 
+   local savedIFS="$IFS"
    while IFS='' theChar="$(_GetKeypress_)"
    do
       charNum="$(printf "%d" "'$theChar")"
@@ -2119,12 +2125,11 @@ _GetPasswordInput_()
       if [ "$charNum" -eq 9 ]
       then
           currentTime="$(date +%s)"
-          timeDiff="$((currentTime - lastTabTime))"
-          if [ "$timeDiff" -gt 0 ]
+          if [ "$((currentTime - lastTabTime))" -gt 0 ]
           then
               showPSWD="$((! showPSWD))"
-              lastTabTime="$currentTime"  # Update last TAB press time #
-              _showPSWDPrompt_
+              lastTabTime="$currentTime"  # Update TAB keypress time #
+              _ShowPSWDPrompt_
           fi
           continue
       fi
@@ -2134,10 +2139,10 @@ _GetPasswordInput_()
       then
           if [ "$pswdLength" -gt 0 ]
           then
-              PSWDtmpStr="${PSWDtmpStr%?}"
               PSWDstring="${PSWDstring%?}"
-              pswdLength="$((pswdLength - 1))"
-              _showPSWDPrompt_
+              pswdLength="${#PSWDstring}"
+              PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+              _ShowPSWDPrompt_
               continue
           fi
       fi
@@ -2147,13 +2152,15 @@ _GetPasswordInput_()
       then
           if [ "$pswdLength" -le "$PSWDstrLenMAX" ]
           then
-              PSWDtmpStr="${PSWDtmpStr}*"
-              pswdLength="$((pswdLength + 1))"
               PSWDstring="${PSWDstring}${theChar}"
+              pswdLength="${#PSWDstring}"
+              PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+              _ShowPSWDPrompt_
+              continue
           fi
-          _showPSWDPrompt_
       fi
    done
+   IFS="$savedIFS"
 
    pswdString="$PSWDstring"
    return "$retCode"
@@ -3008,7 +3015,7 @@ _Set_FW_UpdateCronSchedule_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
+## Modified by ExtremeFiretop [2024-Apr-13] ##
 ##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
@@ -3043,7 +3050,10 @@ _CheckNewUpdateFirmwareNotification_()
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+           if "$inRouterSWmode" 
+           then
+              _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+           fi
        fi
    fi
 
@@ -3052,7 +3062,10 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-       _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+       if "$inRouterSWmode" 
+       then
+          _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+       fi
    fi
    return 0
 }
@@ -3427,11 +3440,12 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
-    release_version="$1"
-    release_link="$2"
-
-    if [ "$release_version" = "**ERROR**" ] && [ "$release_link" = "**NO_URL**" ]
+    if [ $? -eq 0 ] && [ $# -eq 2 ] && \
+       [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
     then
+        release_version="$1"
+        release_link="$2"
+    else
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
@@ -4729,13 +4743,8 @@ _ProcessMeshNodes_()
         else
             if [ "$includeExtraLogic" -eq 1 ]; then
                 printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
-            else
-                Say "No AiMesh Node(s). Disabling AiMesh verification."
             fi
         fi
-    else
-        # Else statement for when not running on primary router #
-        Say "Not running on Primary Router. Skipping AiMesh verification."
     fi
 }
 
@@ -4853,14 +4862,13 @@ _ShowNodesMenuOptions_()
 # Main Menu loop
 inMenuMode=true
 HIDE_ROUTER_SECTION=false
+if ! node_list="$(_GetNodeIPv4List_)"
+then node_list="" ; fi
 
 while true
 do
    # Check if the directory exists again before attempting to navigate to it
    [ -d "$FW_BIN_DIR" ] && cd "$FW_BIN_DIR"
-
-   if ! node_list="$(_GetNodeIPv4List_)"
-   then node_list="" ; fi
 
    _ShowMainMenu_
    printf "Enter selection:  " ; read -r userChoice
