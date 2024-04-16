@@ -2500,8 +2500,9 @@ _GetLatestFWUpdateVersionFromGithub_()
     local download_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*\"" | grep -o "https://[^ ]*\.w" | head -1)
 
 	if [ -z "$download_url" ]
-    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
-
+    then 
+        echo "**ERROR** **NO_GITHUB_URL**" ; 
+        return 1
     else
         # Extract version from the download URL or release data
         local version=$(echo "$download_url" | grep -oE "$PRODUCT_ID[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.zip$//;s/.trx$//;s/_/./g")
