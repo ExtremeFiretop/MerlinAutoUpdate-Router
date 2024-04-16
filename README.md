@@ -1,9 +1,10 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.0.10
-## 2024-03-29
+## v1.1.1
+## 2024-04-16
 
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/27e926b0-e618-45be-9879-e2b87775cdf5)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/77305ae1-4917-4022-9c02-a72032beed16)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/de7da7bc-ab21-4373-ba17-b075556ada6d)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/d42a7b0d-27f1-4139-9ab2-43b3dd437a9d)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/93605295-68dd-4bcf-9676-e77beed44427)
 
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
@@ -78,6 +79,7 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Automatically stops all Entware services, if installed, before the flash.
 - Automatically stops diversion, if installed, before the flash.
 - Unmounts any physically attached storage via USB as the last step before the flash.
+- AiMesh Node Update Check from Primary Router. (No Flashing from Primary, MerlinAU needs to be on each node for flashing)
 
 ## Installation
 Before using MerlinAU, ensure the following prerequisites are met:

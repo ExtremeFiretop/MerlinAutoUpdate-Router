@@ -3537,6 +3537,9 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     if [ "$release_version" = "**ERROR**" ] && [ "$release_link" = "**NO_URL**" ]
     then
+        release_version="$1"
+        release_link="$2"
+    else
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
