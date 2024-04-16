@@ -2461,11 +2461,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
         awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
 
     if [ -z "$links_and_versions" ]
-    then 
-        echo "**ERROR**" 
-        echo "**NO_URL**"
-        return 1
-    fi
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
 
     local latest="$(echo "$links_and_versions" | tail -n 1)"
     local linkStr="$(echo "$latest" | cut -d' ' -f2-)"
@@ -2481,11 +2477,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
     local correct_link="$(echo "$linkStr" | sed 's|^/|https://sourceforge.net/|')"
 
     if [ -z "$versionStr" ] || [ -z "$correct_link" ]
-    then 
-        echo "**ERROR**" 
-        echo "**NO_URL**"
-        return 1
-    fi
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
 
     echo "$versionStr"
     echo "$correct_link"
@@ -2506,10 +2498,8 @@ _GetLatestFWUpdateVersionFromGithub_()
     local download_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*\"" | grep -o "https://[^ ]*\.w" | head -1)
 
 	if [ -z "$download_url" ]
-    then 
-        echo "**ERROR**"
-        echo "**NO_URL**"
-        return 1
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+
     else
         # Extract version from the download URL or release data
         local version=$(echo "$download_url" | grep -oE "$PRODUCT_ID[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.zip$//;s/.trx$//;s/_/./g")
