@@ -2091,6 +2091,7 @@ _GetPasswordInput_()
    PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
    echo ; _ShowPSWDPrompt_
 
+   local savedIFS="$IFS"
    while IFS='' theChar="$(_GetKeypress_)"
    do
       charNum="$(printf "%d" "'$theChar")"
@@ -2159,6 +2160,7 @@ _GetPasswordInput_()
           fi
       fi
    done
+   IFS="$savedIFS"
 
    pswdString="$PSWDstring"
    return "$retCode"
