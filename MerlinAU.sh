@@ -2091,6 +2091,7 @@ _GetPasswordInput_()
    PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
    echo ; _ShowPSWDPrompt_
 
+   local savedIFS="$IFS"
    while IFS='' theChar="$(_GetKeypress_)"
    do
       charNum="$(printf "%d" "'$theChar")"
@@ -2159,6 +2160,7 @@ _GetPasswordInput_()
           fi
       fi
    done
+   IFS="$savedIFS"
 
    pswdString="$PSWDstring"
    return "$retCode"
@@ -3438,11 +3440,12 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Use set to read the output of the function into variables
     set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
-    release_version="$1"
-    release_link="$2"
-
-    if [ "$release_version" = "**ERROR**" ] && [ "$release_link" = "**NO_URL**" ]
+    if [ $? -eq 0 ] && [ $# -eq 2 ] && \
+       [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
     then
+        release_version="$1"
+        release_link="$2"
+    else
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
