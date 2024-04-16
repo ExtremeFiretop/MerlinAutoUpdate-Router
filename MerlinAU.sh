@@ -4862,14 +4862,13 @@ _ShowNodesMenuOptions_()
 # Main Menu loop
 inMenuMode=true
 HIDE_ROUTER_SECTION=false
+if ! node_list="$(_GetNodeIPv4List_)"
+then node_list="" ; fi
 
 while true
 do
    # Check if the directory exists again before attempting to navigate to it
    [ -d "$FW_BIN_DIR" ] && cd "$FW_BIN_DIR"
-
-   if ! node_list="$(_GetNodeIPv4List_)"
-   then node_list="" ; fi
 
    _ShowMainMenu_
    printf "Enter selection:  " ; read -r userChoice
