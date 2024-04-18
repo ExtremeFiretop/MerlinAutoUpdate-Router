@@ -2579,6 +2579,63 @@ GetLatestChangelogUrl() {
     fi
 }
 
+_UnzipMerlin_() {
+    Say "-----------------------------------------------------------"
+    # List & log the contents of the ZIP file
+    unzip -l "$FW_ZIP_FPATH" 2>&1 | \
+    while IFS= read -r uzLINE ; do Say "$uzLINE" ; done
+    Say "-----------------------------------------------------------"
+
+    # Extracting the firmware binary image
+    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
+    while IFS= read -r line ; do Say "$line" ; done
+    then
+        Say "-----------------------------------------------------------"
+        # Check if ZIP file was downloaded to a USB-attached drive.
+        # Take into account special case for Entware "/opt/" paths.
+        if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+        then
+            # It's not on a USB drive, so it's safe to delete it
+            rm -f "$FW_ZIP_FPATH"
+        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+        then
+            Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+            Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+            "$inMenuMode" && _WaitForEnterKey_
+            # Consider how to handle this error. For now, we'll not delete the ZIP file.
+        else
+            keepZIPfile=1
+        fi
+    else
+        # Remove ZIP file here because it may have been corrupted.
+        # Better to download it again and start all over, instead
+        # of trying to figure out why uncompressing it failed.
+        rm -f "$FW_ZIP_FPATH"
+        _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
+        Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
+    fi
+}
+
+_CopyGnutonFiles_() {
+    # Check if the download path is on a USB-attached drive or specific directories
+    if echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+    then
+        # Copy the firmware and associated files to the binary directory
+        cp "$FW_DL_FPATH" "$FW_BIN_DIR"
+        cp "$FW_MD5_GITHUB" "$FW_BIN_DIR"
+        cp "$FW_Changelog_GITHUB" "$FW_BIN_DIR"
+    elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+    then
+        # Report error if the USB mount point is not valid
+        Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+        Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+        "$inMenuMode" && _WaitForEnterKey_
+        # Additional handling could be added here based on your application's needs
+    fi
+}
+
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-23] ##
 ##---------------------------------------##
@@ -3741,78 +3798,11 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Mar-19] ##
     ##------------------------------------------##
-    if [ ! "$isGNUtonFW" = "true" ]; then
-    Say "-----------------------------------------------------------"
-    # List & log the contents of the ZIP file #
-    unzip -l "$FW_ZIP_FPATH" 2>&1 | \
-    while IFS= read -r uzLINE ; do Say "$uzLINE" ; done
-    Say "-----------------------------------------------------------"
-
-        # Extracting the firmware binary image #
-        if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
-        while IFS= read -r line ; do Say "$line" ; done
-        then
-            Say "-----------------------------------------------------------"
-            #---------------------------------------------------------------#
-            # Check if ZIP file was downloaded to a USB-attached drive.
-            # Take into account special case for Entware "/opt/" paths.
-            #---------------------------------------------------------------#
-            if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
-            then
-                # It's not on a USB drive, so it's safe to delete it #
-                rm -f "$FW_ZIP_FPATH"
-            elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
-            then
-                #-------------------------------------------------------------#
-                # This should not happen because we already checked for it
-                # at the very beginning of this function, but just in case
-                # it does (drive going bad suddenly?) we'll report it here.
-                #-------------------------------------------------------------#
-                Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
-                Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-                "$inMenuMode" && _WaitForEnterKey_
-                # Consider how to handle this error. For now, we'll not delete the ZIP file.
-            else
-                keepZIPfile=1
-            fi
-        else
-            #------------------------------------------------------------#
-            # Remove ZIP file here because it may have been corrupted.
-            # Better to download it again and start all over, instead
-            # of trying to figure out why uncompressing it failed.
-            #------------------------------------------------------------#
-            rm -f "$FW_ZIP_FPATH"
-            _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
-            Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        fi
+    if "$isGNUtonFW"
+    then
+        _CopyGnutonFiles_
     else
-        if echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
-        then
-            if [ "$FW_DL_FPATH" != "$FW_BIN_DIR" ]; then
-                cp "$FW_DL_FPATH" "$FW_BIN_DIR"
-            fi
-            if [ "$FW_MD5_GITHUB" != "$FW_BIN_DIR" ]; then
-                cp "$FW_MD5_GITHUB" "$FW_BIN_DIR"
-            fi
-            if [ "$FW_Changelog_GITHUB" != "$FW_BIN_DIR" ]; then
-                cp "$FW_Changelog_GITHUB" "$FW_BIN_DIR"
-            fi
-        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
-        then
-            #-------------------------------------------------------------#
-            # This should not happen because we already checked for it
-            # at the very beginning of this function, but just in case
-            # it does (drive going bad suddenly?) we'll report it here.
-            #-------------------------------------------------------------#
-            Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
-            Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-            "$inMenuMode" && _WaitForEnterKey_
-            # Consider how to handle this error. For now, we'll not delete the ZIP file.
-        else
-            echo 
-        fi
+        _UnzipMerlin_
     fi
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
