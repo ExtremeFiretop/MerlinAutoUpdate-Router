@@ -30,7 +30,6 @@ DLRepoVersion=""
 # For supported version and model checks #
 MinFirmwareCheckFailed=0
 ModelCheckFailed=0
-GnutonFlag=""
 
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
@@ -477,7 +476,6 @@ readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
-#DEBUGONLY#readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -1217,6 +1215,33 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
+_GetFirmwareVariantFromRouter_()
+{
+   local retCode=0  newVersionStr
+
+   newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
+   fi
+
+   ##FOR TESTING/DEBUG ONLY##
+   if false # Change to true for forcing GNUton flag
+   then 
+      isGNUtonFW=true
+   else
+      # Check if the version string contains "gnuton"
+      if echo "$newVersionStr" | grep -iq "gnuton"; then
+          isGNUtonFW=true
+      else
+          isGNUtonFW=false
+      fi
+   fi
+
+   [ -z "$isGNUtonFW" ] && retCode=1
+   echo "$isGNUtonFW" ; return "$retCode"
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Apr-02] ##
 ##------------------------------------------##
@@ -1690,7 +1715,6 @@ _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
 if true ; then echo "388.5.0" ; return 0 ; fi
-##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
 
@@ -3544,7 +3568,6 @@ Please manually update to version $minimum_supported_version or higher to use th
             Say "Using release information for Gnuton Firmware."
             release_version="$github_release_version"
             release_link="$github_release_link"
-            GnutonFlag="true"
         else
             Say "No valid release information found from GitHub."
             # Implement failure handling logic here
@@ -3693,7 +3716,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         wgetHstsFile="/tmp/home/root/.wget-hsts"
         [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
 
-        if [ "$GnutonFlag" = "true" ]; then
+        if [ "$isGNUtonFW" = "true" ]; then
             # Follow redirects and capture the effective URL
             local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
             # Use the effective URL to capture the Content-Disposition header
@@ -3746,7 +3769,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Mar-19] ##
     ##------------------------------------------##
-    if [ ! "$GnutonFlag" = "true" ]; then
+    if [ ! "$isGNUtonFW" = "true" ]; then
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file #
     unzip -l "$FW_ZIP_FPATH" 2>&1 | \
@@ -3835,8 +3858,8 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
-        # Check if the GnutonFlag is set to true, if so, use the special changelog file
-        if [ "$GnutonFlag" = "true" ]; then
+        # Check if the isGNUtonFW is set to true, if so, use the special changelog file
+        if [ "$isGNUtonFW" = "true" ]; then
             changeLogFile="$FW_Changelog_GITHUB"
         else
             # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
@@ -3872,7 +3895,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
 
             ## Check if the current version is present in the changelog
-            if [ "$GnutonFlag" = "true" ]; then
+            if [ "$isGNUtonFW" = "true" ]; then
                 # For Gnuton, the whole file is relevant as it only contains the current version
                 changelog_contents="$(cat "$changeLogFile")"
             else
@@ -3962,7 +3985,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Feb-03] ##
     ##------------------------------------------##
-    if [ ! "$GnutonFlag" = "true" ]; then
+    if [ ! "$isGNUtonFW" = "true" ]; then
         if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
             fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
             dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
@@ -4738,6 +4761,13 @@ _ShowMainMenu_()
    then notificationStr="${REDct}NOT SET${NOct}"
    else notificationStr="${GRNct}$(_SimpleNotificationDate_ "$notifyDate")${NOct}"
    fi
+   isGNUtonFW=$(_GetFirmwareVariantFromRouter_)  
+   # Use the global variable
+   if [ "$isGNUtonFW" = "true" ]; then
+       FirmwareFlavor="${GRNct}GNUton${NOct}"
+   else
+       FirmwareFlavor="${GRNct}Merlin${NOct}"
+   fi
 
    ##------------------------------------------##
    ## Modified by ExtremeFiretop [2024-Mar-27] ##
@@ -4750,6 +4780,7 @@ _ShowMainMenu_()
       else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
       fi
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(H)ide"
+      printf "\n${padStr}F/W Variant Detected:  $FirmwareFlavor"
       printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
       printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
       printf "\n${padStr}USB Storage Connected: $USBConnected"
