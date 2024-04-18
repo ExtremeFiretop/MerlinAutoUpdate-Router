@@ -4735,7 +4735,8 @@ _ShowMainMenu_()
    fi
    isGNUtonFW=$(_GetFirmwareVariantFromRouter_)  
    # Use the global variable
-   if [ "$isGNUtonFW" = "true" ]; then
+   if "$isGNUtonFW"
+   then
        FirmwareFlavor="${GRNct}GNUton${NOct}"
    else
        FirmwareFlavor="${GRNct}Merlin${NOct}"
