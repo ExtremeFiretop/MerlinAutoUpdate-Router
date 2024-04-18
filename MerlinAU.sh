@@ -476,6 +476,7 @@ readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
+#DEBUGONLY# readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -3533,58 +3534,29 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    # Use set to read the SFoutput of the function into variables
-    # Attempt to fetch release information from the website
-    SFoutput=$(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
-    SFexit_status=$?
-    set -- $SFoutput
-    if [ "$#" -ne 2 ] && [ "$SFexit_status" -ne 0 ]; then
-        # Handle error: insufficient SFoutput from the function
-        Say "Error: Invalid SFOutput from website check, exit status $SFexit_status"
-        return 1
-    fi
-    website_release_version="$1"
-    website_release_link="$2"
+   if "$isGNUtonFW"
+   then
+       Say "Using release information for Gnuton Firmware."
+       md5_url=$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE")
+       Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
+       set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE")
+       rectCode="$?"
+   else
+       Say "Using release information for Merlin Firmware."
+       set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+       rectCode="$?"
+   fi
 
-    # Check if website fetch resulted in an error
-    if [ "$website_release_version" = "**ERROR**" ]; then
-        # Attempt to fetch release information from GitHub due to error from website
-        GIToutput=$(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE")
-        GITexit_status=$?
-        set -- $GIToutput
-        if [ "$#" -ne 2 ] && [ "$GITexit_status" -ne 0 ]; then
-            # Handle error: insufficient GIToutput from the function
-            Say "Error: Invalid GIToutput from website check, exit status $GITexit_status"
-            return 1
-        fi
-        github_release_version="$1"
-        github_release_link="$2"
-
-        md5_url=$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE")
-        Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
-
-        # Use release information from GitHub if available
-        if [ -n "$github_release_link" ]; then
-            Say "Using release information for Gnuton Firmware."
-            release_version="$github_release_version"
-            release_link="$github_release_link"
-        else
-            Say "No valid release information found from GitHub."
-            # Implement failure handling logic here
-        fi
-    else
-        Say "Using release information for Merlin Firmware."
-        # No error from website fetch, use its release information
-        release_version="$website_release_version"
-        release_link="$website_release_link"
-    fi
-
-    if [ "$release_version" = "**ERROR**" ] && [ "$release_link" = "**NO_URL**" ]
-    then
+   if [ "$rectCode" -eq 0 ] && [ "$#" -eq 2 ] && \
+       [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
+   then
+        release_version="$1"
+        release_link="$2"
+   else
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
-    fi
+   fi
 
     # Extracting the first octet to use in the curl
     firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
