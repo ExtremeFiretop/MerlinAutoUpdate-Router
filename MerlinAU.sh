@@ -2533,6 +2533,28 @@ GetLatestFirmwareMD5Url() {
 }
 
 ##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-17] ##
+##---------------------------------------##
+GetLatestChangelogUrl() {
+    local url="$1"  # GitHub API URL for the latest release
+
+    # Fetch the latest release data from GitHub
+    local release_data=$(curl -s "$url")
+
+    # Parse the release data to find the download URL of the CHANGELOG file
+    # Directly find the URL without matching a specific model number
+    local changelog_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*CHANGELOG.*\"" | grep -o "https://[^ ]*\"" | tr -d '"' | head -1)
+
+    # Check if the URL has been found
+    if [ -z "$changelog_url" ]; then
+        echo "**ERROR** **NO_CHANGELOG_FILE_URL_FOUND**"
+        return 1
+    else
+        echo "$changelog_url"
+    fi
+}
+
+##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-23] ##
 ##---------------------------------------##
 _toggle_change_log_check_() {
@@ -3515,21 +3537,20 @@ Please manually update to version $minimum_supported_version or higher to use th
         github_release_link="$2"
 
         md5_url=$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE")
+        Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
 
         # Use release information from GitHub if available
         if [ -n "$github_release_link" ]; then
-            Say "Using release information for Gnuton"
+            Say "Using release information for Gnuton Firmware."
             release_version="$github_release_version"
             release_link="$github_release_link"
             GnutonFlag="true"
-            checkChangeLogSetting="DISABLED"
-            Update_Custom_Settings "CheckChangeLog" "DISABLED"
         else
             Say "No valid release information found from GitHub."
             # Implement failure handling logic here
         fi
     else
-        Say "Using release information for Merlin"
+        Say "Using release information for Merlin Firmware."
         # No error from website fetch, use its release information
         release_version="$website_release_version"
         release_link="$website_release_link"
@@ -3684,8 +3705,14 @@ Please manually update to version $minimum_supported_version or higher to use th
             # Combine path, custom file name, and extension before download
             FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
             FW_MD5_GITHUB="${FW_ZIP_DIR}/${FW_FileName}.md5"
+            FW_Changelog_GITHUB="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
             wget -O "$FW_DL_FPATH" "$release_link"
+            Say "Downloading latest MD5 checksum ${GRNct}${md5_url}${NOct}"
+            echo
             wget -O "$FW_MD5_GITHUB" "$md5_url"
+            Say "Downloading latest Changelog ${GRNct}${Gnuton_changelogurl}${NOct}"
+            echo
+            wget -O "$FW_Changelog_GITHUB" "$Gnuton_changelogurl"
         else
             # Follow redirects and capture the effective URL
             local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")   
@@ -3768,8 +3795,15 @@ Please manually update to version $minimum_supported_version or higher to use th
     else
         if echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
         then
-            cp "$FW_MD5_GITHUB" "$FW_BIN_DIR"
-            cp "$FW_DL_FPATH" "$FW_BIN_DIR"
+            if [ "$FW_DL_FPATH" != "$FW_BIN_DIR" ]; then
+                cp "$FW_DL_FPATH" "$FW_BIN_DIR"
+            fi
+            if [ "$FW_MD5_GITHUB" != "$FW_BIN_DIR" ]; then
+                cp "$FW_MD5_GITHUB" "$FW_BIN_DIR"
+            fi
+            if [ "$FW_Changelog_GITHUB" != "$FW_BIN_DIR" ]; then
+                cp "$FW_Changelog_GITHUB" "$FW_BIN_DIR"
+            fi
         elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
             #-------------------------------------------------------------#
@@ -3801,9 +3835,14 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
-        # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
-        changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
-        changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
+        # Check if the GnutonFlag is set to true, if so, use the special changelog file
+        if [ "$GnutonFlag" = "true" ]; then
+            changeLogFile="$FW_Changelog_GITHUB"
+        else
+            # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
+            changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
+            changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
+        fi
 
         if [ ! -f "$changeLogFile" ]
         then
@@ -3832,34 +3871,40 @@ Please manually update to version $minimum_supported_version or higher to use th
             release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
             current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
 
-            # Check if the current version is present in the changelog
-            if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
-                Say "Current version not found in change-log. Bypassing change-log verification for this run."
+            ## Check if the current version is present in the changelog
+            if [ "$GnutonFlag" = "true" ]; then
+                # For Gnuton, the whole file is relevant as it only contains the current version
+                changelog_contents="$(cat "$changeLogFile")"
             else
-                # Extract log contents between two firmware versions
-                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
-                # Define high-risk terms as a single string separated by '|'
-                high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
+                if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
+                    Say "Current version not found in change-log. Bypassing change-log verification for this run."
+                    return 1
+                else
+                    # Extract log contents between two firmware versions for non-Gnuton changelogs
+                    changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
+                fi
+            fi
 
-                # Search for high-risk terms in the extracted log contents
-                if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
-                    if [ "$inMenuMode" = true ]; then
-                        printf "\n ${REDct}Warning: Found high-risk phrases in the change-log.${NOct}"
-                        printf "\n ${REDct}Would you like to continue anyways?${NOct}"
-                        if ! _WaitForYESorNO_ ; then
-                            Say "Exiting for change-log review."
-                            _DoCleanUp_ 1 ; return 1
-                        fi
-                    else
-                        Say "Warning: Found high-risk phrases in the change-log."
-                        Say "Please run script interactively to approve the upgrade."
-                        _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
-                        _DoCleanUp_ 1
-                        _DoExit_ 1
+            high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
+
+            # Search for high-risk terms in the extracted log contents
+            if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+                if [ "$inMenuMode" = true ]; then
+                    printf "\n ${REDct}Warning: Found high-risk phrases in the change-log.${NOct}"
+                    printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                    if ! _WaitForYESorNO_ ; then
+                        Say "Exiting for change-log review."
+                        _DoCleanUp_ 1 ; return 1
                     fi
                 else
-                    Say "No high-risk phrases found in the change-log."
+                    Say "Warning: Found high-risk phrases in the change-log."
+                    Say "Please run script interactively to approve the upgrade."
+                    _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+                    _DoCleanUp_ 1
+                    _DoExit_ 1
                 fi
+            else
+                Say "No high-risk phrases found in the change-log."
             fi
         fi
     else
