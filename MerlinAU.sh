@@ -2591,14 +2591,21 @@ _UnzipMerlin_() {
     while IFS= read -r line ; do Say "$line" ; done
     then
         Say "-----------------------------------------------------------"
+        #---------------------------------------------------------------#
         # Check if ZIP file was downloaded to a USB-attached drive.
         # Take into account special case for Entware "/opt/" paths.
+        #---------------------------------------------------------------#
         if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
         then
             # It's not on a USB drive, so it's safe to delete it
             rm -f "$FW_ZIP_FPATH"
         elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
+            -------------------------------------------------------------#
+            # This should not happen because we already checked for it
+            # at the very beginning of this function, but just in case
+            # it does (drive going bad suddenly?) we'll report it here.
+            #-------------------------------------------------------------#
             Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
             Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
             "$inMenuMode" && _WaitForEnterKey_
@@ -2607,9 +2614,11 @@ _UnzipMerlin_() {
             keepZIPfile=1
         fi
     else
+        #------------------------------------------------------------#
         # Remove ZIP file here because it may have been corrupted.
         # Better to download it again and start all over, instead
         # of trying to figure out why uncompressing it failed.
+        #------------------------------------------------------------#
         rm -f "$FW_ZIP_FPATH"
         _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
@@ -2628,11 +2637,14 @@ _CopyGnutonFiles_() {
         cp "$FW_Changelog_GITHUB" "$FW_BIN_DIR"
     elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
     then
-        # Report error if the USB mount point is not valid
+        #-------------------------------------------------------------#
+        # This should not happen because we already checked for it
+        # at the very beginning of this function, but just in case
+        # it does (drive going bad suddenly?) we'll report it here.
+        #-------------------------------------------------------------#
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
         "$inMenuMode" && _WaitForEnterKey_
-        # Additional handling could be added here based on your application's needs
     fi
 }
 
