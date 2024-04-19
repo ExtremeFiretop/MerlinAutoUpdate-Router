@@ -1223,7 +1223,7 @@ _GetFirmwareVariantFromRouter_()
 {
    local retCode=0  newVersionStr
 
-   newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
+   buildInfoStr="$(nvram get buildinfo)"
 
    ##FOR TESTING/DEBUG ONLY##
    if false # Change to true for forcing GNUton flag
@@ -1231,7 +1231,7 @@ _GetFirmwareVariantFromRouter_()
       isGNUtonFW=true
    else
       # Check if the version string contains "gnuton"
-      if echo "$newVersionStr" | grep -iq "gnuton"; then
+      if echo "$buildInfoStr" | grep -iq "merlin"; then
           isGNUtonFW=true
       else
           isGNUtonFW=false
