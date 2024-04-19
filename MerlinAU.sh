@@ -2618,7 +2618,7 @@ _DownloadForGnuton_() {
         if [ "$inMenuMode" = true ]; then
             _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         fi
-        return 1
+        _DoExit_ 1
     fi
 
     # Download the latest MD5 checksum
@@ -2629,7 +2629,7 @@ _DownloadForGnuton_() {
         if [ "$inMenuMode" = true ]; then
             _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         fi
-        return 1
+        _DoExit_ 1
     fi
 
     # Download the latest changelog
@@ -2640,7 +2640,7 @@ _DownloadForGnuton_() {
         if [ "$inMenuMode" = true ]; then
             _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         fi
-        return 1
+        _DoExit_ 1
     fi
 }
 
@@ -2670,7 +2670,7 @@ _DownloadForMerlin_() {
         if [ "$inMenuMode" = true ]; then
             _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         fi
-        return 1
+        _DoExit_ 1
     fi
 }
 
@@ -2721,7 +2721,7 @@ _UnzipMerlin_() {
         _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
+        _DoExit_ 1
     fi
 }
 
@@ -2730,30 +2730,30 @@ _UnzipMerlin_() {
 ##---------------------------------------##
 _CopyGnutonFiles_() {
 
-Say "Checking if file copy is required"
+Say "Checking if file management is required"
 
 local copy_success=0
 local copy_attempted=1
 
 # Check and copy the firmware file if different from destination
 if [ "$FW_DL_FPATH" != "${FW_BIN_DIR}/${FW_FileName}.${extension}" ]; then
-    Say "File copy is required"
+    Say "File management is required"
     copy_attempted=0
-    cp "$FW_DL_FPATH" "$FW_BIN_DIR" && Say "Copying firmware..." || copy_success=1
+    cp "$FW_DL_FPATH" "$FW_BIN_DIR" && Say "Copying firmware file..." || copy_success=1
 else
-    Say "File copy is not required"
+    Say "File management is not required"
 fi
 
 # Check and copy the MD5 file if different from destination
 if [ "$FW_MD5_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}.md5" ]; then
     copy_attempted=0
-    cp "$FW_MD5_GITHUB" "$FW_BIN_DIR" && Say "Copying MD5 file..." || copy_success=1
+    mv -f "$FW_MD5_GITHUB" "$FW_BIN_DIR" && Say "Moving MD5 file..." || copy_success=1
 fi
 
 # Check and copy the Changelog file if different from destination
 if [ "$FW_Changelog_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}_Changelog.txt" ]; then
     copy_attempted=0
-    cp "$FW_Changelog_GITHUB" "$FW_BIN_DIR" && Say "Copying changelog..." || copy_success=1
+    mv -f "$FW_Changelog_GITHUB" "$FW_BIN_DIR" && Say "Moving changelog file..." || copy_success=1
 fi
 
 if [ $copy_attempted -eq 0 ] && [ $copy_success -eq 0 ]
@@ -2803,7 +2803,7 @@ _CheckFirmwareSHA256_() {
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             if [ "$inMenuMode" = true ]; then
                 _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                return 1
+                _DoExit_ 1
             else
                 # Non-interactive mode; perform an exit.
                 _DoExit_ 1
@@ -2814,7 +2814,7 @@ _CheckFirmwareSHA256_() {
         _DoCleanUp_ 1
         if [ "$inMenuMode" = true ]; then
             _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
+            _DoExit_ 1
         else
             # Non-interactive mode; perform an exit.
             _DoExit_ 1
@@ -2827,10 +2827,10 @@ _CheckFirmwareSHA256_() {
 ##---------------------------------------##
 _CheckFirmwareMD5_() {
     # Check if both the MD5 checksum file and the firmware file exist
-    if [ -f "$FW_MD5_GITHUB" ] && [ -f "$firmware_file" ]; then
+    if [ -f "${FW_BIN_DIR}/${FW_FileName}.md5" ] && [ -f "$firmware_file" ]; then
         # Extract the MD5 checksum from the downloaded .md5 file
         # Assuming the .md5 file contains a single line with the checksum followed by the filename
-        local md5_expected=$(cut -d' ' -f1 "$FW_MD5_GITHUB")
+        local md5_expected=$(cut -d' ' -f1 "${FW_BIN_DIR}/${FW_FileName}.md5")
     
         # Calculate the MD5 checksum of the firmware file
         local md5_actual=$(md5sum "$firmware_file" | cut -d' ' -f1)
@@ -2842,7 +2842,7 @@ _CheckFirmwareMD5_() {
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             if [ "$inMenuMode" = true ]; then
                 _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                return 1
+                _DoExit_ 1
             else
                 # Non-interactive mode; perform exit.
                 _DoExit_ 1
@@ -2855,7 +2855,7 @@ _CheckFirmwareMD5_() {
         _DoCleanUp_ 1
         if [ "$inMenuMode" = true ]; then
             _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
+            _DoExit_ 1
         else
             # Non-interactive mode; perform exit.
             _DoExit_ 1
@@ -2863,9 +2863,6 @@ _CheckFirmwareMD5_() {
     fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-18] ##
-##---------------------------------------##
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-23] ##
 ##---------------------------------------##
@@ -4874,9 +4871,9 @@ _ShowMainMenu_()
    # Use the global variable
    if "$isGNUtonFW"
    then
-       FirmwareFlavor="${GRNct}GNUton${NOct}"
+       FirmwareFlavor="${MAGENTAct}GNUton${NOct}"
    else
-       FirmwareFlavor="${GRNct}Merlin${NOct}"
+       FirmwareFlavor="${BLUEct}Merlin${NOct}"
    fi
 
    ##------------------------------------------##
