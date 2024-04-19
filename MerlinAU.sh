@@ -4940,13 +4940,13 @@ _ShowAdvancedOptionsMenu_()
    # Additional Email Notification Options #
    if _CheckEMailConfigFileFromAMTM_ 0
    then
+       # F/W Update Email Notifications #
        if "$inRouterSWmode" 
        then
            printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
        else
            printf "\n ${GRNct}em${NOct}.  Toggle F/W Email Notifications"
        fi
-       # F/W Update Email Notifications #
        if "$sendEMailNotificationsFlag"
        then
            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
