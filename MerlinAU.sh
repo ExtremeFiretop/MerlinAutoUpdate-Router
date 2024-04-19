@@ -2694,7 +2694,7 @@ _UnzipMerlin_() {
             #-------------------------------------------------------------#
             Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
             Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-			return 1
+            return 1
             # Consider how to handle this error. For now, we'll not delete the ZIP file.
         else
             keepZIPfile=1
@@ -2765,7 +2765,7 @@ then
         #-------------------------------------------------------------#
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-		return 1
+        return 1
         # Consider how to handle this error. For now, we'll not delete the firmware file.
     else
         keepWfile=1
