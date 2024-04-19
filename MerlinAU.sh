@@ -473,10 +473,9 @@ readonly FW_UpdateMinimumPostponementDays=0
 readonly FW_UpdateDefaultPostponementDays=15
 readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
-
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
-#DEBUGONLY#readonly PRODUCT_ID="RT-AX92U"
+##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -1842,7 +1841,7 @@ _ShutDownNonCriticalServices_()
 ##------------------------------------------##
 _DoCleanUp_()
 {
-   local delBINfiles=false  keepZIPfile=false  moveZIPback=false
+   local delBINfiles=false keepZIPfile=false keepWfile=false
 
    local doTrace=false
    [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=false
@@ -1854,20 +1853,35 @@ _DoCleanUp_()
 
    [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
    [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
+   [ $# -gt 2 ] && [ "$3" -eq 1 ] && keepWfile=true
 
    # Stop the LEDs blinking #
    _Reset_LEDs_ 1
 
+   # Check existence of files and preserve based on flags
+   local moveZIPback=false
+   local moveWback=false
+
    # Move file temporarily to save it from deletion #
-   "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ] && \
-   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
+   if "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ]; then
+       mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
+   fi
+
+   if "$keepWfile" && [ -f "$FW_DL_FPATH" ]; then
+       mv -f "$FW_DL_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveWback=true
+   fi
 
    rm -f "${FW_ZIP_DIR}"/*
    "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
 
-   # Move file back to original location #
-   "$keepZIPfile" && "$moveZIPback" && \
-   mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+   # Move files back to their original location if they were moved
+   if "$moveZIPback"; then
+       mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+   fi
+
+   if "$moveWback"; then
+       mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.w" "$FW_DL_FPATH"
+   fi
 
    if "$doTrace"
    then
@@ -1971,7 +1985,7 @@ check_memory_and_prompt_reboot()
                         # Restart Entware services #
                         _EntwareServicesHandler_ start
 
-                        _DoCleanUp_ 1 "$keepZIPfile"
+                        _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
                         _DoExit_ 1
                     fi
                 else
@@ -2589,7 +2603,7 @@ _DownloadForGnuton_() {
     local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
 
     # Extract the file extension
-    local extension="${sanitized_filename##*.}"   
+    extension="${sanitized_filename##*.}"   
 
     # Combine path, custom file name, and extension before download
     FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
@@ -2641,7 +2655,7 @@ _DownloadForMerlin_() {
     local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
     
     # Extract the file extension
-    local extension="${sanitized_filename##*.}" 
+    extension="${sanitized_filename##*.}" 
     
     # Combine path, custom file name, and extension before download
     local FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"     
@@ -2714,16 +2728,48 @@ _UnzipMerlin_() {
 ## Added by ExtremeFiretop [2024-Apr-18] ##
 ##---------------------------------------##
 _CopyGnutonFiles_() {
-    # Check if the download path is on a USB-attached drive or specific directories
-    if echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+
+Say "Checking if file copy is required"
+
+local copy_success=0
+local copy_attempted=1
+
+# Check and copy the firmware file if different from destination
+if [ "$FW_DL_FPATH" != "${FW_BIN_DIR}/${FW_FileName}.${extension}" ]; then
+    Say "File copy is required"
+    copy_attempted=0
+    cp "$FW_DL_FPATH" "$FW_BIN_DIR" && Say "Copying firmware..." || copy_success=1
+else
+    Say "File copy is not required"
+fi
+
+# Check and copy the MD5 file if different from destination
+if [ "$FW_MD5_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}.md5" ]; then
+    copy_attempted=0
+    cp "$FW_MD5_GITHUB" "$FW_BIN_DIR" && Say "Copying MD5 file..." || copy_success=1
+fi
+
+# Check and copy the Changelog file if different from destination
+if [ "$FW_Changelog_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}_Changelog.txt" ]; then
+    copy_attempted=0
+    cp "$FW_Changelog_GITHUB" "$FW_BIN_DIR" && Say "Copying changelog..." || copy_success=1
+fi
+
+if [ $copy_attempted -eq 0 ] && [ $copy_success -eq 0 ]
+then
+    #---------------------------------------------------------------#
+    # Check if Gntuon file was downloaded to a USB-attached drive.
+    # Take into account special case for Entware "/opt/" paths.
+    #---------------------------------------------------------------#
+    if ! echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
     then
-        # Copy the firmware and associated files to the binary directory
-        cp "$FW_DL_FPATH" "$FW_BIN_DIR"
-        cp "$FW_MD5_GITHUB" "$FW_BIN_DIR"
-        cp "$FW_Changelog_GITHUB" "$FW_BIN_DIR"
+        # It's not on a USB drive, so it's safe to delete it
+        rm -f "$FW_DL_FPATH"
+        rm -f "$FW_Changelog_GITHUB"
+        rm -f "$FW_MD5_GITHUB"
     elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
     then
-        #-------------------------------------------------------------#
+        -------------------------------------------------------------#
         # This should not happen because we already checked for it
         # at the very beginning of this function, but just in case
         # it does (drive going bad suddenly?) we'll report it here.
@@ -2731,7 +2777,11 @@ _CopyGnutonFiles_() {
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
         "$inMenuMode" && _WaitForEnterKey_
+        # Consider how to handle this error. For now, we'll not delete the firmware file.
+    else
+        keepWfile=1
     fi
+fi
 }
 
 ##---------------------------------------##
@@ -3973,7 +4023,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         if "$isGNUtonFW"
         then
-            changeLogFile="$FW_Changelog_GITHUB"
+            changeLogFile="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
         else
             # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
             changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
@@ -4124,7 +4174,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         if ! _WaitForYESorNO_ "Continue?"
         then
             Say "F/W Update was cancelled by user."
-            _DoCleanUp_ 1 "$keepZIPfile"
+            _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
             return 1
         fi
     fi
@@ -4223,7 +4273,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 2. Update credentials by selecting \"Set Router Login Credentials\" from the Main Menu."
 
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
-        _DoCleanUp_ 1 "$keepZIPfile"
+        _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
         _EntwareServicesHandler_ start
     fi
 
@@ -4567,7 +4617,8 @@ _SetSecondaryEMailAddress_()
 }
 
 keepZIPfile=0
-trap '_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
+keepWfile=0
+trap '_DoCleanUp_ 0 "$keepZIPfile" "$keepWfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Feb-28] ##
