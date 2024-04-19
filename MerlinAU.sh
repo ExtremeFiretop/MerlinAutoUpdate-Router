@@ -2614,33 +2614,23 @@ _DownloadForGnuton_() {
     # Download the firmware using the release link
     wget -O "$FW_DL_FPATH" "$release_link"
     if [ ! -f "$FW_DL_FPATH" ]; then
-        Say "${REDct}**ERROR**${NOct}: Firmware file [$FW_DL_FPATH] was not downloaded successfully."
-        if [ "$inMenuMode" = true ]; then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        fi
-        _DoExit_ 1
+        return 1
     fi
 
     # Download the latest MD5 checksum
     Say "Downloading latest MD5 checksum ${GRNct}${md5_url}${NOct}"
     wget -O "$FW_MD5_GITHUB" "$md5_url"
     if [ ! -f "$FW_MD5_GITHUB" ]; then
-        Say "${REDct}**ERROR**${NOct}: MD5 checksum file [$FW_MD5_GITHUB] was not downloaded successfully."
-        if [ "$inMenuMode" = true ]; then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        fi
-        _DoExit_ 1
+        return 1
     fi
 
     # Download the latest changelog
     Say "Downloading latest Changelog ${GRNct}${Gnuton_changelogurl}${NOct}"
     wget -O "$FW_Changelog_GITHUB" "$Gnuton_changelogurl"
     if [ ! -f "$FW_Changelog_GITHUB" ]; then
-        Say "${REDct}**ERROR**${NOct}: Changelog file [$FW_Changelog_GITHUB] was not downloaded successfully."
-        if [ "$inMenuMode" = true ]; then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        fi
-        _DoExit_ 1
+        return 1
+    else
+        return 0
     fi
 }
 
@@ -2666,11 +2656,9 @@ _DownloadForMerlin_() {
 
     # Check if the file was downloaded successfully
     if [ ! -f "$FW_DL_FPATH" ]; then
-        Say "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_DL_FPATH] was not downloaded."
-        if [ "$inMenuMode" = true ]; then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        fi
-        _DoExit_ 1
+        return 1
+    else
+        return 0
     fi
 }
 
@@ -2706,7 +2694,7 @@ _UnzipMerlin_() {
             #-------------------------------------------------------------#
             Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
             Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-            "$inMenuMode" && _WaitForEnterKey_
+			return 1
             # Consider how to handle this error. For now, we'll not delete the ZIP file.
         else
             keepZIPfile=1
@@ -2720,9 +2708,9 @@ _UnzipMerlin_() {
         rm -f "$FW_ZIP_FPATH"
         _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        _DoExit_ 1
+        _return 1
     fi
+    return 0
 }
 
 ##---------------------------------------##
@@ -2777,12 +2765,13 @@ then
         #-------------------------------------------------------------#
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-        "$inMenuMode" && _WaitForEnterKey_
+		return 1
         # Consider how to handle this error. For now, we'll not delete the firmware file.
     else
         keepWfile=1
     fi
 fi
+return 0
 }
 
 ##---------------------------------------##
@@ -2801,24 +2790,12 @@ _CheckFirmwareSHA256_() {
             Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
-            if [ "$inMenuMode" = true ]; then
-                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                _DoExit_ 1
-            else
-                # Non-interactive mode; perform an exit.
-                _DoExit_ 1
-            fi
+            return 1
         fi
     else
         Say "${REDct}**ERROR**${NOct}: SHA256 signature file or firmware file not found!"
         _DoCleanUp_ 1
-        if [ "$inMenuMode" = true ]; then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            _DoExit_ 1
-        else
-            # Non-interactive mode; perform an exit.
-            _DoExit_ 1
-        fi
+        return 1
     fi
 }
 
@@ -2840,26 +2817,14 @@ _CheckFirmwareMD5_() {
             Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the MD5 checksum!"
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
-            if [ "$inMenuMode" = true ]; then
-                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                _DoExit_ 1
-            else
-                # Non-interactive mode; perform exit.
-                _DoExit_ 1
-            fi
+            return 1
         else
             Say "Firmware MD5 checksum verified successfully."
         fi
     else
         Say "${REDct}**ERROR**${NOct}: MD5 checksum file not found or firmware file is missing!"
         _DoCleanUp_ 1
-        if [ "$inMenuMode" = true ]; then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            _DoExit_ 1
-        else
-            # Non-interactive mode; perform exit.
-            _DoExit_ 1
-        fi
+        return 1
     fi
 }
 
@@ -2899,9 +2864,6 @@ _toggle_change_log_check_() {
     _WaitForEnterKey_
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-18] ##
-##---------------------------------------##
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-27] ##
 ##---------------------------------------##
@@ -3827,22 +3789,26 @@ Please manually update to version $minimum_supported_version or higher to use th
        md5_url=$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE")
        Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
        set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE")
-       rectCode="$?"
+       retCode="$?"
    else
        Say "Using release information for Merlin Firmware."
        set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
-       rectCode="$?"
+       retCode="$?"
    fi
 
-   if [ "$rectCode" -eq 0 ] && [ "$#" -eq 2 ] && \
+   if [ "$retCode" -eq 0 ] && [ "$#" -eq 2 ] && \
        [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
    then
         release_version="$1"
         release_link="$2"
    else
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        else 
+            _DoExit_ 1
+        fi
    fi
 
     # Extracting the first octet to use in the curl
@@ -3981,8 +3947,20 @@ Please manually update to version $minimum_supported_version or higher to use th
         if "$isGNUtonFW"
         then
             _DownloadForGnuton_
+            retCode="$?"
         else
             _DownloadForMerlin_
+            retCode="$?"
+        fi
+        if [ "$retCode" -eq 1 ]
+        then
+            Say "${REDct}**ERROR**${NOct}: Firmware files were not downloaded successfully."
+            if [ "$inMenuMode" = true ]; then
+                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                return 1
+            else 
+                _DoExit_ 1
+            fi
         fi
     fi
 
@@ -4000,8 +3978,20 @@ Please manually update to version $minimum_supported_version or higher to use th
     if "$isGNUtonFW"
     then
         _CopyGnutonFiles_
+        retCode="$?"
     else
         _UnzipMerlin_
+        retCode="$?"
+    fi
+    if [ "$retCode" -eq 1 ]
+    then
+        Say "${REDct}**ERROR**${NOct}: Firmware file (unzip, move, copy) management was not completed successfully."
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        else 
+            _DoExit_ 1
+        fi
     fi
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
@@ -4149,8 +4139,20 @@ Please manually update to version $minimum_supported_version or higher to use th
     if "$isGNUtonFW"
     then
         _CheckFirmwareMD5_
+        retCode="$?"
     else
         _CheckFirmwareSHA256_
+        retCode="$?"
+    fi
+    if [ "$retCode" -eq 1 ]
+    then
+        Say "${REDct}**ERROR**${NOct}: Firmware signature verification was not completed successfully."
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        else 
+            _DoExit_ 1
+        fi
     fi
 
     ##----------------------------------------##
