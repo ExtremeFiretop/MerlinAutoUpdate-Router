@@ -1224,10 +1224,6 @@ _GetFirmwareVariantFromRouter_()
    local retCode=0  newVersionStr
 
    newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
-   if [ $# -eq 0 ] || [ -z "$1" ]
-   then
-       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
-   fi
 
    ##FOR TESTING/DEBUG ONLY##
    if false # Change to true for forcing GNUton flag
@@ -1242,7 +1238,6 @@ _GetFirmwareVariantFromRouter_()
       fi
    fi
 
-   [ -z "$isGNUtonFW" ] && retCode=1
    echo "$isGNUtonFW" ; return "$retCode"
 }
 
