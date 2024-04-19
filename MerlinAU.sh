@@ -476,7 +476,7 @@ readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
-#DEBUGONLY# readonly PRODUCT_ID="RT-AX92U"
+#DEBUGONLY#readonly PRODUCT_ID="RT-AX92U"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -2579,6 +2579,67 @@ GetLatestChangelogUrl() {
     fi
 }
 
+_DownloadForGnuton_() {
+
+    # Follow redirects and capture the effective URL
+    local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
+
+    # Use the effective URL to capture the Content-Disposition header
+    local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')   
+
+    # Sanitize filename by removing problematic characters
+    local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
+
+    # Extract the file extension
+    local extension="${sanitized_filename##*.}"   
+
+    # Combine path, custom file name, and extension before download
+    FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
+    FW_MD5_GITHUB="${FW_ZIP_DIR}/${FW_FileName}.md5"
+    FW_Changelog_GITHUB="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
+
+    # Download the firmware using the release link
+    wget -O "$FW_DL_FPATH" "$release_link"
+
+    Say "Downloading latest MD5 checksum ${GRNct}${md5_url}${NOct}"
+    # Download the latest MD5 checksum
+    wget -O "$FW_MD5_GITHUB" "$md5_url"
+
+    Say "Downloading latest Changelog ${GRNct}${Gnuton_changelogurl}${NOct}"
+    # Download the latest changelog
+    wget -O "$FW_Changelog_GITHUB" "$Gnuton_changelogurl"
+}
+
+_DownloadForMerlin_() {
+
+    # Follow redirects and capture the effective URL
+    local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")   
+    
+    # Extract the filename from the URL
+    local original_filename="${effective_url##*/}"   
+    
+    # Sanitize filename by removing problematic characters (if necessary)
+    local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
+    
+    # Extract the file extension
+    local extension="${sanitized_filename##*.}" 
+    
+    # Combine path, custom file name, and extension before download
+    local FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"     
+    
+    # Download the file using the release link
+    wget -O "$FW_DL_FPATH" "$release_link"
+
+    # Check if the file was downloaded successfully
+    if [ ! -f "$FW_DL_FPATH" ]; then
+        Say "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_DL_FPATH] was not downloaded."
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        fi
+        return 1
+    fi
+}
+
 _UnzipMerlin_() {
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file
@@ -2645,6 +2706,78 @@ _CopyGnutonFiles_() {
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
         "$inMenuMode" && _WaitForEnterKey_
+    fi
+}
+
+_CheckFirmwareSHA256_() {
+    # Check if both the SHA256 signature file and the firmware file exist
+    if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
+        # Extract the SHA256 signature from the firmware file
+        local fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+        # Extract the recorded SHA256 signature from the checksum file
+        local dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
+
+        # Compare the extracted signature and the recorded signature
+        if [ "$fw_sig" != "$dl_sig" ]; then
+            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            if [ "$inMenuMode" = true ]; then
+                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                return 1
+            else
+                # Non-interactive mode; perform an exit.
+                _DoExit_ 1
+            fi
+        fi
+    else
+        Say "${REDct}**ERROR**${NOct}: SHA256 signature file or firmware file not found!"
+        _DoCleanUp_ 1
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        else
+            # Non-interactive mode; perform an exit.
+            _DoExit_ 1
+        fi
+    fi
+}
+
+_CheckFirmwareMD5_() {
+    # Check if both the MD5 checksum file and the firmware file exist
+    if [ -f "$FW_MD5_GITHUB" ] && [ -f "$firmware_file" ]; then
+        # Extract the MD5 checksum from the downloaded .md5 file
+        # Assuming the .md5 file contains a single line with the checksum followed by the filename
+        local md5_expected=$(cut -d' ' -f1 "$FW_MD5_GITHUB")
+    
+        # Calculate the MD5 checksum of the firmware file
+        local md5_actual=$(md5sum "$firmware_file" | cut -d' ' -f1)
+    
+        # Compare the calculated MD5 checksum with the expected MD5 checksum
+        if [ "$md5_actual" != "$md5_expected" ]; then
+            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the MD5 checksum!"
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            if [ "$inMenuMode" = true ]; then
+                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                return 1
+            else
+                # Non-interactive mode; perform exit.
+                _DoExit_ 1
+            fi
+        else
+            Say "Firmware MD5 checksum verified successfully."
+        fi
+    else
+        Say "${REDct}**ERROR**${NOct}: MD5 checksum file not found or firmware file is missing!"
+        _DoCleanUp_ 1
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        else
+            # Non-interactive mode; perform exit.
+            _DoExit_ 1
+        fi
     fi
 }
 
@@ -3757,46 +3890,12 @@ Please manually update to version $minimum_supported_version or higher to use th
         wgetHstsFile="/tmp/home/root/.wget-hsts"
         [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
 
-        if [ "$isGNUtonFW" = "true" ]; then
-            # Follow redirects and capture the effective URL
-            local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
-            # Use the effective URL to capture the Content-Disposition header
-            local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')   
-		    # Sanitize filename by removing problematic characters
-            local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
-            # Extract the file extension
-            extension="${sanitized_filename##*.}"   
-            # Combine path, custom file name, and extension before download
-            FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
-            FW_MD5_GITHUB="${FW_ZIP_DIR}/${FW_FileName}.md5"
-            FW_Changelog_GITHUB="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
-            wget -O "$FW_DL_FPATH" "$release_link"
-            Say "Downloading latest MD5 checksum ${GRNct}${md5_url}${NOct}"
-            echo
-            wget -O "$FW_MD5_GITHUB" "$md5_url"
-            Say "Downloading latest Changelog ${GRNct}${Gnuton_changelogurl}${NOct}"
-            echo
-            wget -O "$FW_Changelog_GITHUB" "$Gnuton_changelogurl"
+        if "$isGNUtonFW"
+        then
+            _DownloadForGnuton_
         else
-            # Follow redirects and capture the effective URL
-            local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")   
-            # Extract the filename from the URL
-            original_filename="${effective_url##*/}"   
-            # Sanitize filename by removing problematic characters (if necessary)
-            sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
-            # Extract the file extension
-            extension="${sanitized_filename##*.}" 
-            # Combine path, custom file name, and extension before download
-            FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"     
-            wget -O "$FW_DL_FPATH" "$release_link"
-
-            if [ ! -f "$FW_ZIP_FPATH" ]
-            then
-                ay "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
-                "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                return 1
-            fi
-	    fi
+            _DownloadForMerlin_
+        fi
     fi
 
     ##------------------------------------------##
@@ -3832,8 +3931,8 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
-        # Check if the isGNUtonFW is set to true, if so, use the special changelog file
-        if [ "$isGNUtonFW" = "true" ]; then
+        if "$isGNUtonFW"
+        then
             changeLogFile="$FW_Changelog_GITHUB"
         else
             # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
@@ -3868,8 +3967,8 @@ Please manually update to version $minimum_supported_version or higher to use th
             release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
             current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
 
-            ## Check if the current version is present in the changelog
-            if [ "$isGNUtonFW" = "true" ]; then
+            if "$isGNUtonFW"
+            then
                 # For Gnuton, the whole file is relevant as it only contains the current version
                 changelog_contents="$(cat "$changeLogFile")"
             else
@@ -3959,67 +4058,11 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Feb-03] ##
     ##------------------------------------------##
-    if [ ! "$isGNUtonFW" = "true" ]; then
-        if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
-            fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
-            dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
-            if [ "$fw_sig" != "$dl_sig" ]; then
-                Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
-                _DoCleanUp_ 1
-                _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
-                if [ "$inMenuMode" = true ]; then
-                    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                    return 1
-                else
-                # Assume non-interactive mode; perform exit.
-                _DoExit_ 1
-                fi
-            fi
-        else
-            Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
-            _DoCleanUp_ 1
-            if [ "$inMenuMode" = true ]; then
-                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                return 1
-            else
-                # Assume non-interactive mode; perform exit.
-                _DoExit_ 1
-            fi
-        fi
+    if "$isGNUtonFW"
+    then
+        _CheckFirmwareMD5_
     else
-        if [ -f "$FW_MD5_GITHUB" ] && [ -f "$firmware_file" ]; then
-            # Extract the MD5 checksum from the downloaded .md5 file
-            # Assuming the .md5 file contains a single line with the checksum followed by the filename
-            md5_expected=$(cut -d' ' -f1 "$FW_MD5_GITHUB")
-        
-            # Calculate the MD5 checksum of the firmware file
-            md5_actual=$(md5sum "$firmware_file" | cut -d' ' -f1)
-        
-            if [ "$md5_actual" != "$md5_expected" ]; then
-                Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the MD5 checksum!"
-                _DoCleanUp_ 1
-                _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
-                if [ "$inMenuMode" = true ]; then
-                    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                    return 1
-                else
-                    # Assume non-interactive mode; perform exit.
-                    _DoExit_ 1
-                fi
-            else
-                Say "Firmware MD5 checksum verified successfully."
-            fi
-        else
-            Say "${REDct}**ERROR**${NOct}: MD5 checksum file not found or firmware file is missing!"
-            _DoCleanUp_ 1
-            if [ "$inMenuMode" = true ]; then
-                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                return 1
-            else
-                # Assume non-interactive mode; perform exit.
-                _DoExit_ 1
-            fi
-        fi
+        _CheckFirmwareSHA256_
     fi
 
     ##----------------------------------------##
