@@ -2581,9 +2581,6 @@ GetLatestChangelogUrl() {
 
 _DownloadForGnuton_() {
 
-    # Follow redirects and capture the effective URL
-    local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
-
     # Use the effective URL to capture the Content-Disposition header
     local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')   
 
@@ -2600,20 +2597,38 @@ _DownloadForGnuton_() {
 
     # Download the firmware using the release link
     wget -O "$FW_DL_FPATH" "$release_link"
+    if [ ! -f "$FW_DL_FPATH" ]; then
+        Say "${REDct}**ERROR**${NOct}: Firmware file [$FW_DL_FPATH] was not downloaded successfully."
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        fi
+        return 1
+    fi
 
-    Say "Downloading latest MD5 checksum ${GRNct}${md5_url}${NOct}"
     # Download the latest MD5 checksum
+    Say "Downloading latest MD5 checksum ${GRNct}${md5_url}${NOct}"
     wget -O "$FW_MD5_GITHUB" "$md5_url"
+    if [ ! -f "$FW_MD5_GITHUB" ]; then
+        Say "${REDct}**ERROR**${NOct}: MD5 checksum file [$FW_MD5_GITHUB] was not downloaded successfully."
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        fi
+        return 1
+    fi
 
-    Say "Downloading latest Changelog ${GRNct}${Gnuton_changelogurl}${NOct}"
     # Download the latest changelog
+    Say "Downloading latest Changelog ${GRNct}${Gnuton_changelogurl}${NOct}"
     wget -O "$FW_Changelog_GITHUB" "$Gnuton_changelogurl"
+    if [ ! -f "$FW_Changelog_GITHUB" ]; then
+        Say "${REDct}**ERROR**${NOct}: Changelog file [$FW_Changelog_GITHUB] was not downloaded successfully."
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        fi
+        return 1
+    fi
 }
 
 _DownloadForMerlin_() {
-
-    # Follow redirects and capture the effective URL
-    local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")   
     
     # Extract the filename from the URL
     local original_filename="${effective_url##*/}"   
@@ -3889,6 +3904,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Avoid error message about HSTS database #
         wgetHstsFile="/tmp/home/root/.wget-hsts"
         [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
+
+        # Follow redirects and capture the effective URL
+        local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
 
         if "$isGNUtonFW"
         then
