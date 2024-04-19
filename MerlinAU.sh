@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-15
+# Last Modified: 2024-Apr-18
 ###################################################################
 set -u
 
@@ -1216,6 +1216,9 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
 _GetFirmwareVariantFromRouter_()
 {
    local retCode=0  newVersionStr
@@ -1989,7 +1992,7 @@ check_memory_and_prompt_reboot()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-06] ##
+## Modified by ExtremeFiretop [2024-Apr-18] ##
 ##------------------------------------------##
 # Function to check if the current router model is supported
 check_version_support() {
@@ -2579,6 +2582,9 @@ GetLatestChangelogUrl() {
     fi
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
 _DownloadForGnuton_() {
 
     # Use the effective URL to capture the Content-Disposition header
@@ -2628,6 +2634,9 @@ _DownloadForGnuton_() {
     fi
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
 _DownloadForMerlin_() {
     
     # Extract the filename from the URL
@@ -2655,6 +2664,9 @@ _DownloadForMerlin_() {
     fi
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
 _UnzipMerlin_() {
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file
@@ -2703,6 +2715,9 @@ _UnzipMerlin_() {
     fi
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
 _CopyGnutonFiles_() {
     # Check if the download path is on a USB-attached drive or specific directories
     if echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
@@ -2724,6 +2739,9 @@ _CopyGnutonFiles_() {
     fi
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
 _CheckFirmwareSHA256_() {
     # Check if both the SHA256 signature file and the firmware file exist
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
@@ -2758,6 +2776,9 @@ _CheckFirmwareSHA256_() {
     fi
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
 _CheckFirmwareMD5_() {
     # Check if both the MD5 checksum file and the firmware file exist
     if [ -f "$FW_MD5_GITHUB" ] && [ -f "$firmware_file" ]; then
@@ -2797,6 +2818,9 @@ _CheckFirmwareMD5_() {
 }
 
 ##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
+##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-23] ##
 ##---------------------------------------##
 _toggle_change_log_check_() {
@@ -2832,6 +2856,9 @@ _toggle_change_log_check_() {
     _WaitForEnterKey_
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-27] ##
 ##---------------------------------------##
@@ -4753,7 +4780,7 @@ _PrintNodeInfo()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-19] ##
+## Modified by ExtremeFiretop [2024-Apr-18] ##
 ##------------------------------------------##
 _ShowMainMenu_()
 {
@@ -4806,7 +4833,7 @@ _ShowMainMenu_()
    fi
 
    ##------------------------------------------##
-   ## Modified by ExtremeFiretop [2024-Mar-27] ##
+   ## Modified by ExtremeFiretop [2024-Apr-18] ##
    ##------------------------------------------##
    printf "${SEPstr}"
    if [ "$HIDE_ROUTER_SECTION" = "false" ]
