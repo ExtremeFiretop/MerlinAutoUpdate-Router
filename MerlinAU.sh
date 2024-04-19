@@ -3923,7 +3923,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
-        echo
+        echo ""
 
         ##----------------------------------------##
         ## Modified by Martinski W. [2024-Feb-28] ##
@@ -3933,7 +3933,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
 
         # Follow redirects and capture the effective URL
-        local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
+        effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
 
         if "$isGNUtonFW"
         then
@@ -4593,6 +4593,7 @@ fi
 # it has the minimum firmware version supported.
 check_model_support
 check_version_support
+isGNUtonFW=$(_GetFirmwareVariantFromRouter_)  
 
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Jan-24] ##
@@ -4823,7 +4824,6 @@ _ShowMainMenu_()
    then notificationStr="${REDct}NOT SET${NOct}"
    else notificationStr="${GRNct}$(_SimpleNotificationDate_ "$notifyDate")${NOct}"
    fi
-   isGNUtonFW=$(_GetFirmwareVariantFromRouter_)  
    # Use the global variable
    if "$isGNUtonFW"
    then
