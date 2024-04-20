@@ -1091,6 +1091,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        echo "The directory path for the F/W ZIP file was updated successfully."
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
+   keepWfile=0
    return 0
 }
 
