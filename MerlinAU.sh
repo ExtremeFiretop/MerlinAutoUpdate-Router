@@ -1089,9 +1089,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
+       keepWfile=0
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
-   keepWfile=0
    return 0
 }
 
