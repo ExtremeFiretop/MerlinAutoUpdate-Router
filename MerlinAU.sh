@@ -475,8 +475,8 @@ readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
-readonly PRODUCT_ID="$(_GetRouterProductID_)"
-##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="RT-AX92U"
+##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="$(_GetRouterProductID_)"
+readonly PRODUCT_ID="TUF-AX3000"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -763,7 +763,8 @@ Get_Custom_Setting()
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+            "ROGBuild" | "TUFBuild" | "credentials_base64" | \
+            "CheckChangeLog" | \
             "FW_Allow_Beta_Production_Up" | \
             "FW_Auto_Backupmon" | \
             "FW_New_Update_Notification_Date" | \
@@ -840,7 +841,8 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+        "ROGBuild" | "TUFBuild" | "credentials_base64" | \
+        "CheckChangeLog" | \
         "FW_Allow_Beta_Production_Up" | \
         "FW_Auto_Backupmon" | \
         "FW_New_Update_Notification_Date" | \
@@ -1227,7 +1229,7 @@ _GetFirmwareVariantFromRouter_()
    buildInfoStr="$(nvram get buildinfo)"
 
    ##FOR TESTING/DEBUG ONLY##
-   if false # Change to true for forcing GNUton flag
+   if true # Change to true for forcing GNUton flag
    then 
       isGNUtonFW=true
    else
@@ -1261,8 +1263,14 @@ _CreateEMailContent_()
       nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
    fi
 
-   # Remove "_rog" suffix to avoid version comparison failures #
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
+   if "$isGNUtonFW"
+   then
+   # To Be Determined
+      echo ""
+   else
+      # Remove "_rog" suffix to avoid version comparison failures #
+      fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
+   fi
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -2556,12 +2564,13 @@ _GetLatestFWUpdateVersionFromGithub_()
 ##---------------------------------------##
 GetLatestFirmwareMD5Url() {
     local url="$1"  # GitHub API URL for the latest release
+    local firmware_choice="$2"  # Choice of Firmware to Download
 
     # Fetch the latest release data from GitHub
     local release_data=$(curl -s "$url")
 
-    # Parse the release data to find the download URL of the .md5 file that matches the model number
-    local md5_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*\.md5\"" | grep -o "https://[^ ]*\.md5" | head -1)
+    # Parse the release data to find the appropriate .md5 file URL based on the firmware choice
+    local md5_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*_${firmware_choice}_.*\.md5\"" | grep -o "https://[^ ]*\.md5" | head -1)
 
     if [ -z "$md5_url" ]; then
         echo "**ERROR** **NO_MD5_FILE_URL_FOUND**"
@@ -2650,7 +2659,7 @@ _DownloadForMerlin_() {
     extension="${sanitized_filename##*.}" 
     
     # Combine path, custom file name, and extension before download
-    local FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"     
+    FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"     
     
     # Download the file using the release link
     wget -O "$FW_DL_FPATH" "$release_link"
@@ -2942,7 +2951,67 @@ _Toggle_Auto_Backups_() {
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-18] ##
 ##------------------------------------------##
-change_build_type()
+_ChangeBuildType_Gnuton_()
+{
+   local doReturnToMenu  buildtypechoice
+   printf "Changing Flash Build Type...\n"
+
+   # Use Get_Custom_Setting to retrieve the previous choice
+   previous_choice="$(Get_Custom_Setting "TUFBuild")"
+
+   # If the previous choice is not set, default to 'n'
+   if [ "$previous_choice" = "TBD" ]; then
+       previous_choice="n"
+   fi
+
+   # Convert previous choice to a descriptive text
+   if [ "$previous_choice" = "y" ]; then
+       display_choice="TUF Build"
+   else
+       display_choice="Pure Build"
+   fi
+
+   printf "\nCurrent Build Type: ${GRNct}$display_choice${NOct}.\n"
+
+   doReturnToMenu=false
+   while true
+   do
+       printf "\n${SEPstr}"
+       printf "\nChoose your preferred option for the build type to flash:\n"
+       printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface${NOct}\n"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-TUF${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
+       printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
+       printf "${SEPstr}\n"
+       printf "[$display_choice] Enter selection:  "
+       read -r choice
+
+       [ -z "$choice" ] && break
+
+       if echo "$choice" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       case $choice in
+           1) buildtypechoice="y" ; break
+              ;;
+           2) buildtypechoice="n" ; break
+              ;;
+           *) echo ; _InvalidMenuSelection_
+              ;;
+       esac
+   done
+
+   "$doReturnToMenu" && return 0
+
+   Update_Custom_Settings "TUFBuild" "$buildtypechoice"
+   printf "\nThe build type to flash was updated successfully.\n"
+
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-18] ##
+##------------------------------------------##
+_ChangeBuildType_Merlin_()
 {
    local doReturnToMenu  buildtypechoice
    printf "Changing Flash Build Type...\n"
@@ -3787,9 +3856,41 @@ Please manually update to version $minimum_supported_version or higher to use th
    if "$isGNUtonFW"
    then
        Say "Using release information for Gnuton Firmware."
-       md5_url=$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE")
+       # Check if PRODUCT_ID is for a TUF model and requires user choice
+       if echo "$PRODUCT_ID" | grep -q "^TUF-"; then
+           # Fetch the previous choice from the settings file
+           local previous_choice="$(Get_Custom_Setting "TUFBuild")"
+
+           if [ "$previous_choice" = "y" ]; then
+               echo "TUF Build selected for flashing"
+               firmware_choice="tuf"
+           elif [ "$previous_choice" = "n" ]; then
+               echo "Pure Build selected for flashing"
+               firmware_choice="pure"
+           elif [ "$inMenuMode" = true ]; then
+               echo "Would you like to use the TUF build? (y/n): "
+               read -r choice
+               if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                   echo "TUF Build selected for flashing"
+                   firmware_choice="tuf"
+                   Update_Custom_Settings "TUFBuild" "y"
+               else
+                   echo "Pure Build selected for flashing"
+                   firmware_choice="pure"
+                   Update_Custom_Settings "TUFBuild" "n"
+               fi
+           else
+               echo "Defaulting to Pure Build due to non-interactive mode."
+               firmware_choice="pure"
+               Update_Custom_Settings "TUFBuild" "n"
+           fi
+       else
+           # If not a TUF model, process as usual
+           firmware_choice="pure"
+       fi
+       md5_url=$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE" "$firmware_choice")
        Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
-       set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE")
+       set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
        retCode="$?"
    else
        Say "Using release information for Merlin Firmware."
@@ -5024,19 +5125,34 @@ _ShowAdvancedOptionsMenu_()
        fi
    fi
 
-   # Retrieve the current build type setting
-   local current_build_type="$(Get_Custom_Setting "ROGBuild")"
+   if "$isGNUtonFW"
+   then
+      # Retrieve the current build type setting
+      local current_build_type="$(Get_Custom_Setting "TUFBuild")"
 
-   # Convert the setting to a descriptive text
-   if [ "$current_build_type" = "y" ]; then
-       current_build_type_menu="ROG Build"
-   elif [ "$current_build_type" = "n" ]; then
-       current_build_type_menu="Pure Build"
+      # Convert the setting to a descriptive text
+      if [ "$current_build_type" = "y" ]; then
+          current_build_type_menu="TUF Build"
+      elif [ "$current_build_type" = "n" ]; then
+          current_build_type_menu="Pure Build"
+      else
+          current_build_type_menu="NOT SET"
+      fi
    else
-       current_build_type_menu="NOT SET"
+      # Retrieve the current build type setting
+      local current_build_type="$(Get_Custom_Setting "ROGBuild")"
+
+      # Convert the setting to a descriptive text
+      if [ "$current_build_type" = "y" ]; then
+          current_build_type_menu="ROG Build"
+      elif [ "$current_build_type" = "n" ]; then
+          current_build_type_menu="Pure Build"
+      else
+          current_build_type_menu="NOT SET"
+      fi
    fi
 
-   if echo "$PRODUCT_ID" | grep -q "^GT-"
+   if echo "$PRODUCT_ID" | grep -q "^GT-" || echo "$PRODUCT_ID" | grep -q "^TUF-"
    then
        printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
        if [ "$current_build_type_menu" = "NOT SET" ]
@@ -5192,7 +5308,9 @@ _advanced_options_menu_()
                fi
                ;;
            bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
-               then change_build_type
+               then _ChangeBuildType_Merlin_
+               elif echo "$PRODUCT_ID" | grep -q "^TUF-"
+               then _ChangeBuildType_Gnuton_
                else _InvalidMenuSelection_
                fi
                ;;
