@@ -475,8 +475,8 @@ readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
-readonly PRODUCT_ID="$(_GetRouterProductID_)"
-##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="TUF-AX3000_V2"
+##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="$(_GetRouterProductID_)"
+readonly PRODUCT_ID="TUF-AX3000_V2"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -1229,7 +1229,7 @@ _GetFirmwareVariantFromRouter_()
    buildInfoStr="$(nvram get buildinfo)"
 
    ##FOR TESTING/DEBUG ONLY##
-   if false # Change to true for forcing GNUton flag
+   if true # Change to true for forcing GNUton flag
    then 
       isGNUtonFW=true
    else
@@ -2543,6 +2543,7 @@ _GetLatestFWUpdateVersionFromGithub_()
 
     # Fetch the latest release data from GitHub
     local release_data=$(curl -s "$url")
+    echo "$release_data" > /tmp/full_release_data.txt  # Save the full data for debugging
 
     # Filter the JSON for the desired firmware using grep and head to fetch the URL
     local download_url=$(echo "$release_data" | 
@@ -2572,6 +2573,7 @@ GetLatestFirmwareMD5Url() {
 
     # Fetch the latest release data from GitHub
     local release_data=$(curl -s "$url")
+    echo "$release_data" > /tmp/full_release_data.txt  # Save the full data for debugging
 
     # Filter the JSON for the desired firmware using grep and sed
     local md5_url=$(echo "$release_data" |
@@ -3876,7 +3878,9 @@ Please manually update to version $minimum_supported_version or higher to use th
                echo "Pure Build selected for flashing"
                firmware_choice="pure"
            elif [ "$inMenuMode" = true ]; then
-               echo "Would you like to use the TUF build? (y/n): "
+               printf "${REDct}Found TUF build for: $PRODUCT_ID.${NOct}\n"
+               printf "${REDct}Would you like to use the TUF build?${NOct}\n"
+               printf "Enter your choice (y/n): "
                read -r choice
                if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
                    echo "TUF Build selected for flashing"
