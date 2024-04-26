@@ -475,8 +475,8 @@ readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
-##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="$(_GetRouterProductID_)"
-readonly PRODUCT_ID="TUF-AX5400"
+readonly PRODUCT_ID="$(_GetRouterProductID_)"
+##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="TUF-AX5400"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -2576,17 +2576,17 @@ GetLatestFirmwareMD5Url() {
     echo "$release_data" > /tmp/full_release_data.txt  # Save the full data for debugging
 
     # Filter the JSON for the desired firmware using grep and sed
-    local firmware_url=$(echo "$release_data" |
+    local $md5_url=$(echo "$release_data" |
         grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*${firmware_type}.*\.md5\"" |
         sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/' |
         head -1)
 
     # Check if a URL was found and output result or error
-    if [ -z "$firmware_url" ]; then
+    if [ -z "$md5_url" ]; then
         echo "**ERROR** **NO_FIRMWARE_FILE_URL_FOUND**"
         return 1
     else
-        echo "$firmware_url"
+        echo "$md5_url"
     fi
 }
 
