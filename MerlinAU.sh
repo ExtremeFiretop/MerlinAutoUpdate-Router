@@ -2635,6 +2635,9 @@ GetLatestChangelogUrl() {
 ##---------------------------------------##
 _DownloadForGnuton_() {
 
+    # Follow redirects and capture the effective URL
+    local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
+
     # Use the effective URL to capture the Content-Disposition header
     local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')   
 
@@ -2677,23 +2680,10 @@ _DownloadForGnuton_() {
 ##---------------------------------------##
 _DownloadForMerlin_() {
     
-    # Extract the filename from the URL
-    local original_filename="${effective_url##*/}"   
-    
-    # Sanitize filename by removing problematic characters (if necessary)
-    local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
-    
-    # Extract the file extension
-    extension="${sanitized_filename##*.}" 
-    
-    # Combine path, custom file name, and extension before download
-    FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"     
-    
-    # Download the file using the release link
-    wget -O "$FW_DL_FPATH" "$release_link"
+    wget -O "$FW_ZIP_FPATH" "$release_link"
 
     # Check if the file was downloaded successfully
-    if [ ! -f "$FW_DL_FPATH" ]; then
+    if [ ! -f "$FW_ZIP_FPATH" ]; then
         return 1
     else
         return 0
@@ -4072,9 +4062,6 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Avoid error message about HSTS database #
         wgetHstsFile="/tmp/home/root/.wget-hsts"
         [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
-
-        # Follow redirects and capture the effective URL
-        effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
 
         if "$isGNUtonFW"
         then
