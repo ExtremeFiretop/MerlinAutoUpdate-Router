@@ -476,7 +476,7 @@ readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 ##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="$(_GetRouterProductID_)"
-readonly PRODUCT_ID="TUF-AX3000"
+readonly PRODUCT_ID="TUF-AX5400"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -2538,21 +2538,26 @@ _GetLatestFWUpdateVersionFromWebsite_()
 ##---------------------------------------##
 _GetLatestFWUpdateVersionFromGithub_()
 {
-    local url="$1"
+    local url="$1"  # GitHub API URL for the latest release
+    local firmware_type="$2"  # Type of firmware, e.g., "tuf" or "pure"
 
-    # Use curl to fetch the latest release data from GitHub
-    local release_data=$(curl -s "$1")
+    # Fetch the latest release data from GitHub
+    local release_data=$(curl -s "$url")
+    echo "$release_data" > /tmp/full_release_data.txt  # Save the full data for debugging
 
-    # Parse the release data to find the download URL of the asset that matches the model number
-    local download_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*\"" | grep -o "https://[^ ]*\.w" | head -1)
+    # Filter the JSON for the desired firmware using grep and head to fetch the URL
+    local download_url=$(echo "$release_data" | 
+        grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*${firmware_type}.*\.w\"" | 
+        grep -o "https://[^ ]*\.w" | 
+        head -1)
 
-	if [ -z "$download_url" ]
-    then 
-        echo "**ERROR** **NO_GITHUB_URL**" ; 
+    # Check if a URL was found
+    if [ -z "$download_url" ]; then
+        echo "**ERROR** **NO_GITHUB_URL**"
         return 1
     else
-        # Extract version from the download URL or release data
-        local version=$(echo "$download_url" | grep -oE "$PRODUCT_ID[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.zip$//;s/.trx$//;s/_/./g")
+        # Extract the version from the download URL or release data
+        local version=$(echo "$download_url" | grep -oE "$PRODUCT_ID[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.w$//;s/_/./g")
         echo "$version"
         echo "$download_url"
         return 0
@@ -2564,19 +2569,24 @@ _GetLatestFWUpdateVersionFromGithub_()
 ##---------------------------------------##
 GetLatestFirmwareMD5Url() {
     local url="$1"  # GitHub API URL for the latest release
-    local firmware_choice="$2"  # Choice of Firmware to Download
+    local firmware_type="$2"  # Type of firmware, e.g., "tuf" or "pure"
 
     # Fetch the latest release data from GitHub
     local release_data=$(curl -s "$url")
+    echo "$release_data" > /tmp/full_release_data.txt  # Save the full data for debugging
 
-    # Parse the release data to find the appropriate .md5 file URL based on the firmware choice
-    local md5_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*_${firmware_choice}_.*\.md5\"" | grep -o "https://[^ ]*\.md5" | head -1)
+    # Filter the JSON for the desired firmware using grep and sed
+    local firmware_url=$(echo "$release_data" |
+        grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*${firmware_type}.*\.md5\"" |
+        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/' |
+        head -1)
 
-    if [ -z "$md5_url" ]; then
-        echo "**ERROR** **NO_MD5_FILE_URL_FOUND**"
+    # Check if a URL was found and output result or error
+    if [ -z "$firmware_url" ]; then
+        echo "**ERROR** **NO_FIRMWARE_FILE_URL_FOUND**"
         return 1
     else
-        echo "$md5_url"
+        echo "$firmware_url"
     fi
 }
 
@@ -4975,7 +4985,7 @@ _ShowMainMenu_()
    # Use the global variable
    if "$isGNUtonFW"
    then
-       FirmwareFlavor="${MAGENTAct}GNUton${NOct}"
+       FirmwareFlavor="${MAGENTAct}GNUton${NOct} (Limited Support)"
    else
        FirmwareFlavor="${BLUEct}Merlin${NOct}"
    fi
