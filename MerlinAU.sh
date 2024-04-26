@@ -476,7 +476,7 @@ readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
-##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="TUF-AX5400"
+##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="TUF-AX3000_V2"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -1229,7 +1229,7 @@ _GetFirmwareVariantFromRouter_()
    buildInfoStr="$(nvram get buildinfo)"
 
    ##FOR TESTING/DEBUG ONLY##
-   if true # Change to true for forcing GNUton flag
+   if false # Change to true for forcing GNUton flag
    then 
       isGNUtonFW=true
    else
@@ -2543,12 +2543,11 @@ _GetLatestFWUpdateVersionFromGithub_()
 
     # Fetch the latest release data from GitHub
     local release_data=$(curl -s "$url")
-    echo "$release_data" > /tmp/full_release_data.txt  # Save the full data for debugging
 
     # Filter the JSON for the desired firmware using grep and head to fetch the URL
     local download_url=$(echo "$release_data" | 
-        grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*${firmware_type}.*\.w\"" | 
-        grep -o "https://[^ ]*\.w" | 
+        grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*${firmware_type}.*\.\(w\|pkgtb\)\"" | 
+        grep -o "https://[^ ]*\.\(w\|pkgtb\)" | 
         head -1)
 
     # Check if a URL was found
@@ -2573,10 +2572,9 @@ GetLatestFirmwareMD5Url() {
 
     # Fetch the latest release data from GitHub
     local release_data=$(curl -s "$url")
-    echo "$release_data" > /tmp/full_release_data.txt  # Save the full data for debugging
 
     # Filter the JSON for the desired firmware using grep and sed
-    local $md5_url=$(echo "$release_data" |
+    local md5_url=$(echo "$release_data" |
         grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*${firmware_type}.*\.md5\"" |
         sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/' |
         head -1)
