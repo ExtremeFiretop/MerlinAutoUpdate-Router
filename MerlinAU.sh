@@ -1265,8 +1265,8 @@ _CreateEMailContent_()
 
    if "$isGNUtonFW"
    then
-      # First remove "-gnuton" followed by any digits at the end, then replace the last hyphen with a period
-      fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/gnuton[0-9]+$//; s/-([0-9]+)$/\.\1/')"
+      # First remove "-gnuton" followed by any digits at the end, then removes a trailing hyphen #
+      fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/gnuton[0-9]+$//; s/-$//')"
    else
       # Remove "_rog" suffix to avoid version comparison failures #
       fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
