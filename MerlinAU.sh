@@ -475,8 +475,8 @@ readonly FW_UpdateMaximumPostponementDays=60
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
-##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="$(_GetRouterProductID_)"
-readonly PRODUCT_ID="TUF-AX3000_V2"
+readonly PRODUCT_ID="$(_GetRouterProductID_)"
+##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="TUF-AX5400"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -1229,7 +1229,7 @@ _GetFirmwareVariantFromRouter_()
    buildInfoStr="$(nvram get buildinfo)"
 
    ##FOR TESTING/DEBUG ONLY##
-   if true # Change to true for forcing GNUton flag
+   if false # Change to true for forcing GNUton flag
    then 
       isGNUtonFW=true
    else
@@ -2541,13 +2541,22 @@ _GetLatestFWUpdateVersionFromGithub_()
     local url="$1"  # GitHub API URL for the latest release
     local firmware_type="$2"  # Type of firmware, e.g., "tuf" or "pure"
 
+    local search_type="$firmware_type"  # Default to the input firmware_type
+
+    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    if [ "$firmware_type" = "pure" ]; then
+        search_type="pure\|squashfs"
+    fi
+
     # Fetch the latest release data from GitHub
     local release_data=$(curl -s "$url")
-    echo "$release_data" > /tmp/full_release_data.txt  # Save the full data for debugging
+
+    # Construct the grep pattern based on search_type
+    local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
 
     # Filter the JSON for the desired firmware using grep and head to fetch the URL
     local download_url=$(echo "$release_data" | 
-        grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*${firmware_type}.*\.\(w\|pkgtb\)\"" | 
+        grep -o "$grep_pattern" | 
         grep -o "https://[^ ]*\.\(w\|pkgtb\)" | 
         head -1)
 
@@ -2571,13 +2580,22 @@ GetLatestFirmwareMD5Url() {
     local url="$1"  # GitHub API URL for the latest release
     local firmware_type="$2"  # Type of firmware, e.g., "tuf" or "pure"
 
+    local search_type="$firmware_type"  # Default to the input firmware_type
+
+    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    if [ "$firmware_type" = "pure" ]; then
+        search_type="pure\|squashfs"
+    fi
+
     # Fetch the latest release data from GitHub
     local release_data=$(curl -s "$url")
-    echo "$release_data" > /tmp/full_release_data.txt  # Save the full data for debugging
+
+    # Construct the grep pattern based on search_type
+    local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.md5\""
 
     # Filter the JSON for the desired firmware using grep and sed
     local md5_url=$(echo "$release_data" |
-        grep -o "\"browser_download_url\": \".*${PRODUCT_ID}.*${firmware_type}.*\.md5\"" |
+        grep -o "$grep_pattern" | 
         sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/' |
         head -1)
 
