@@ -1890,7 +1890,7 @@ _DoCleanUp_()
    fi
 
    if "$moveWback"; then
-       mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.w" "$FW_DL_FPATH"
+       mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.${extension}" "$FW_DL_FPATH"
    fi
 
    if "$doTrace"
