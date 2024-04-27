@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-15
+# Last Modified: 2024-Apr-26
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.1
+readonly SCRIPT_VERSION=1.1.2
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -790,12 +790,12 @@ Get_Custom_Setting()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Apr-26] ##
+##------------------------------------------##
 _GetAllNodeSettings_()
 {
-    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]; then return 1; fi
 
     local node_mac_address="$1"  pattern
     local setting_value  setting_part="$2"  matched_lines
@@ -806,15 +806,18 @@ _GetAllNodeSettings_()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     if [ -f "$SETTINGSFILE" ]; then
-        # Construct the setting key pattern to match
-        pattern="${node_mac_address}.*${setting_part}"
+        # Escape characters that might be interpreted by regex engines, like ':' in MAC addresses
+        local escaped_mac_address=$(echo "$node_mac_address" | sed 's/[\*\.]/\\&/g')
+
+        # Construct the pattern to match the entire line containing the MAC address and the setting part
+        pattern="${escaped_mac_address}.*${setting_part}=\"[^\"]*\""
 
         # Search for the setting in the settings file
-        matched_lines="$(grep -o "FW_Node.*_${setting_part}=\"[^\"]*\"" "$SETTINGSFILE" | grep -o "${pattern}=\"[^\"]*\"" || echo "")"
+        matched_lines=$(grep -o "$pattern" "$SETTINGSFILE" || echo "")
 
         if [ -n "$matched_lines" ]; then
-            # If multiple lines match, this extracts the value from the first matched line
-            setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
+            # Extract the value from the first matched line
+            setting_value=$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')
             echo "$setting_value"
         else
             echo "$default_value"
@@ -1686,7 +1689,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.5.0" ; return 0 ; fi
+if true ; then echo "388.5.0" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -3116,7 +3119,7 @@ _CheckNodeFWUpdateNotification_()
        _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
        nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "NameID")"
        echo "" > "$tempNodeEMailList"
-       echo "Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
+       echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
    fi
    return 0
 }
