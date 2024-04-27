@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-18
+# Last Modified: 2024-Apr-26
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.2
+readonly SCRIPT_VERSION=1.1.3
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -3874,6 +3874,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
+   ##------------------------------------------##
+   ## Modified by ExtremeFiretop [2024-Apr-18] ##
+   ##------------------------------------------##
    if "$isGNUtonFW"
    then
        Say "Using release information for Gnuton Firmware."
@@ -4059,9 +4062,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Downloading ${GRNct}${release_link}${NOct}"
         echo ""
 
-        ##----------------------------------------##
-        ## Modified by Martinski W. [2024-Feb-28] ##
-        ##----------------------------------------##
+        ##------------------------------------------##
+        ## Modified by ExtremeFiretop [2024-Apl-24] ##
+        ##------------------------------------------##
         # Avoid error message about HSTS database #
         wgetHstsFile="/tmp/home/root/.wget-hsts"
         [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
@@ -4095,7 +4098,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Mar-19] ##
+    ## Modified by ExtremeFiretop [2024-Apr-21] ##
     ##------------------------------------------##
     if "$isGNUtonFW"
     then
@@ -4124,9 +4127,9 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Mar-16] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Aprl-24] ##
+    ##------------------------------------------##
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]
@@ -4256,7 +4259,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Feb-03] ##
+    ## Modified by ExtremeFiretop [2024-Apr-25] ##
     ##------------------------------------------##
     if "$isGNUtonFW"
     then
@@ -4949,7 +4952,7 @@ _PrintNodeInfo()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-18] ##
+## Modified by ExtremeFiretop [2024-Apr-24] ##
 ##------------------------------------------##
 _ShowMainMenu_()
 {
@@ -5062,9 +5065,9 @@ _ShowMainMenu_()
    printf "${SEPstr}\n"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##-----------------------------------------##
+## Modified by ExtemeFiretop [2024-Apr-24] ##
+##-----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
    clear
@@ -5285,9 +5288,9 @@ _InvalidMenuSelection_()
    _WaitForEnterKey_
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-24] ##
-##----------------------------------------##
+##-----------------------------------------##
+## Modified by ExtemeFiretop [2024-Apr-24] ##
+##-----------------------------------------##
 _advanced_options_menu_()
 {
     while true
