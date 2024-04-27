@@ -1232,9 +1232,6 @@ _CreateEMailContent_()
    subjectStr="F/W Update Status for $MODEL_ID"
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-   if "$inRouterSWmode" && [ -n "$node_list" ]; then
-      nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
-   fi
 
    # Remove "_rog" suffix to avoid version comparison failures #
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
@@ -1256,6 +1253,9 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        AGGREGATED_UPDATE_NOTIFICATION)
+           if "$inRouterSWmode" && [ -n "$node_list" ]; then
+              nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+           fi
            emailBodyTitle="New Firmware Update(s) for AiMesh Node(s)"
            NODE_UPDATE_CONTENT="$(cat "$tempNodeEMailList")"
            {
