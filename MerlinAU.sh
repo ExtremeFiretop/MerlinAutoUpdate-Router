@@ -1252,6 +1252,11 @@ _CreateEMailContent_()
            if "$inRouterSWmode" && [ -n "$node_list" ]; then
               nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
            fi
+           if [ ! -n "$nodefwNewUpdateVersion" ]
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to send node email notification [No saved info file]."
+               return 1
+           fi
            emailBodyTitle="New Firmware Update(s) for AiMesh Node(s)"
            NODE_UPDATE_CONTENT="$(cat "$tempNodeEMailList")"
            {
