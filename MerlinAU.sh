@@ -807,17 +807,17 @@ _GetAllNodeSettings_()
 
     if [ -f "$SETTINGSFILE" ]; then
         # Escape characters that might be interpreted by regex engines, like ':' in MAC addresses
-        local escaped_mac_address=$(echo "$node_mac_address" | sed 's/[\*\.]/\\&/g')
+        local escaped_mac_address="$(echo "$node_mac_address" | sed 's/[\*\.]/\\&/g')"
 
         # Construct the pattern to match the entire line containing the MAC address and the setting part
         pattern="${escaped_mac_address}.*${setting_part}=\"[^\"]*\""
 
         # Search for the setting in the settings file
-        matched_lines=$(grep -o "$pattern" "$SETTINGSFILE" || echo "")
+        matched_lines="$(grep -o "$pattern" "$SETTINGSFILE" || echo "")"
 
         if [ -n "$matched_lines" ]; then
             # Extract the value from the first matched line
-            setting_value=$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')
+            setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
             echo "$setting_value"
         else
             echo "$default_value"
