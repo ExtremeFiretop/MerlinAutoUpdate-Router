@@ -4087,6 +4087,7 @@ Please manually update to version $minimum_supported_version or higher to use th
                 _WaitForEnterKey_ "$mainMenuReturnPromptStr"
                 return 1
             else 
+                _DoCleanUp_ 1
                 _DoExit_ 1
             fi
         fi
@@ -4118,6 +4119,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         else 
+            _DoCleanUp_ 1
             _DoExit_ 1
         fi
     fi
@@ -4142,7 +4144,11 @@ Please manually update to version $minimum_supported_version or higher to use th
             changeLogFile="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
         else
             # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
-            changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
+            if echo "$release_version" | grep -q "386"; then
+                changeLogTag="386"
+            else
+                changeLogTag="NG"
+            fi
             changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
         fi
 
@@ -4279,6 +4285,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         else 
+            _DoCleanUp_ 1
             _DoExit_ 1
         fi
     fi
