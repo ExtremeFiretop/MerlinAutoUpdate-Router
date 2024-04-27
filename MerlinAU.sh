@@ -1254,7 +1254,7 @@ _CreateEMailContent_()
            fi
            if [ ! -n "$nodefwNewUpdateVersion" ]
            then
-               Say "${REDct}**ERROR**${NOct}: Unable to send node email notification [No saved info file]."
+               Say "${REDct}**ERROR**${NOct}: Unable to send node email notification [No saved info]."
                return 1
            fi
            emailBodyTitle="New Firmware Update(s) for AiMesh Node(s)"
