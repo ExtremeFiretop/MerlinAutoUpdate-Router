@@ -3682,6 +3682,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         else
+            # Use awk to format the version based on the number of initial digits
             formatted_current_version=$(echo "$current_version" | awk -F. '{
                 if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
                     if (NF == 4 && $4 == "0") {
