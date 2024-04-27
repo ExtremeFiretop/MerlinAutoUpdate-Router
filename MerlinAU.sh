@@ -3668,7 +3668,11 @@ Please manually update to version $minimum_supported_version or higher to use th
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
         # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
-        changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
+        if echo "$release_version" | grep -q "386"; then
+            changeLogTag="386"
+        else
+            changeLogTag="NG"
+        fi
         changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
 
         if [ ! -f "$changeLogFile" ]
