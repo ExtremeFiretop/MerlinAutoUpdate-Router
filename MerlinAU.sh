@@ -476,7 +476,9 @@ readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
-##FOR TESTING/DEBUG ONLY## readonly PRODUCT_ID="TUF-AX3000_V2"
+##FOR TESTING/DEBUG ONLY##
+#readonly PRODUCT_ID="TUF-AX3000_V2"
+##FOR TESTING/DEBUG ONLY##
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
@@ -1262,9 +1264,6 @@ _CreateEMailContent_()
    subjectStr="F/W Update Status for $MODEL_ID"
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-   if "$inRouterSWmode" && [ -n "$node_list" ]; then
-      nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
-   fi
 
    if "$isGNUtonFW"
    then
@@ -1292,6 +1291,9 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        AGGREGATED_UPDATE_NOTIFICATION)
+           if "$inRouterSWmode" && [ -n "$node_list" ]; then
+              nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+           fi
            emailBodyTitle="New Firmware Update(s) for AiMesh Node(s)"
            NODE_UPDATE_CONTENT="$(cat "$tempNodeEMailList")"
            {
@@ -1725,7 +1727,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if true ; then echo "388.5.0" ; return 0 ; fi
+if false ; then echo "388.5.0" ; return 0 ; fi
 
     local theVersionStr  extVersNum
 
