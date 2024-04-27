@@ -4161,19 +4161,36 @@ Please manually update to version $minimum_supported_version or higher to use th
         else
             # Use awk to format the version based on the number of initial digits
             formatted_current_version=$(echo "$current_version" | awk -F. '{
-                if (length($1) == 4 && NF >= 3) {
-                    # For version starting with four digits like 3004.388.5.0
-                    # Format as the next two fields (388.5)
-                    printf "%s.%s", $2, $3
-                } else if (NF >= 2) {
-                    # For version with three initial digits like 388.5.0
-                    # Format as the first two fields (388.5)
-                    printf "%s.%s", $1, $2
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4 && $4 == "0") {
+                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                    } else if (NF == 4) {
+                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                    }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
                 }
             }')
 
-            # Format release_version by removing the prefix '3004.' and the last '.0'
-            formatted_release_version="$(echo "$release_version" | awk -F. '{print $2"."$3}')"
+            formatted_release_version=$(echo "$release_version" | awk -F. '{
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4 && $4 == "0") {
+                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                    } else if (NF == 4) {
+                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                    }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
+                }
+            }')
 
             # Define regex patterns for both versions
             release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
