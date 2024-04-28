@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-15
+# Last Modified: 2024-Apr-26
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.1
+readonly SCRIPT_VERSION=1.1.2
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -790,30 +790,29 @@ Get_Custom_Setting()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Apr-26] ##
+##------------------------------------------##
 _GetAllNodeSettings_()
 {
-    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]; then return 1; fi
 
     local node_mac_address="$1"  pattern
     local setting_value  setting_part="$2"  matched_lines
-    # Set a default value internally if not provided
     local default_value="TBD"
 
     # Ensure the settings directory exists
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     if [ -f "$SETTINGSFILE" ]; then
-        # Construct the setting key pattern to match
-        pattern="${node_mac_address}.*${setting_part}"
+        # Construct the pattern to match the entire line containing the MAC address and the setting part
+        pattern="${node_mac_address}.*${setting_part}=\"[^\"]*\""
 
         # Search for the setting in the settings file
-        matched_lines="$(grep -o "FW_Node.*_${setting_part}=\"[^\"]*\"" "$SETTINGSFILE" | grep -o "${pattern}=\"[^\"]*\"" || echo "")"
+        matched_lines="$(grep -o "$pattern" "$SETTINGSFILE" || echo "")"
 
         if [ -n "$matched_lines" ]; then
-            # If multiple lines match, this extracts the value from the first matched line
+            # Extract the value from the first matched line
             setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
             echo "$setting_value"
         else
@@ -1229,9 +1228,6 @@ _CreateEMailContent_()
    subjectStr="F/W Update Status for $MODEL_ID"
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-   if "$inRouterSWmode" && [ -n "$node_list" ]; then
-      nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
-   fi
 
    # Remove "_rog" suffix to avoid version comparison failures #
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
@@ -1253,6 +1249,14 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        AGGREGATED_UPDATE_NOTIFICATION)
+           if "$inRouterSWmode" && [ -n "$node_list" ]; then
+              nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+           fi
+           if [ ! -n "$nodefwNewUpdateVersion" ]
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to send node email notification [No saved info]."
+               return 1
+           fi
            emailBodyTitle="New Firmware Update(s) for AiMesh Node(s)"
            NODE_UPDATE_CONTENT="$(cat "$tempNodeEMailList")"
            {
@@ -1686,7 +1690,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.5.0" ; return 0 ; fi
+if false ; then echo "388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -3116,7 +3120,7 @@ _CheckNodeFWUpdateNotification_()
        _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
        nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "NameID")"
        echo "" > "$tempNodeEMailList"
-       echo "Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
+       echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
    fi
    return 0
 }
@@ -3664,7 +3668,11 @@ Please manually update to version $minimum_supported_version or higher to use th
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
         # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
-        changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
+        if echo "$release_version" | grep -q "386"; then
+            changeLogTag="386"
+        else
+            changeLogTag="NG"
+        fi
         changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
 
         if [ ! -f "$changeLogFile" ]
@@ -3676,19 +3684,36 @@ Please manually update to version $minimum_supported_version or higher to use th
         else
             # Use awk to format the version based on the number of initial digits
             formatted_current_version=$(echo "$current_version" | awk -F. '{
-                if (length($1) == 4 && NF >= 3) {
-                    # For version starting with four digits like 3004.388.5.0
-                    # Format as the next two fields (388.5)
-                    printf "%s.%s", $2, $3
-                } else if (NF >= 2) {
-                    # For version with three initial digits like 388.5.0
-                    # Format as the first two fields (388.5)
-                    printf "%s.%s", $1, $2
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4 && $4 == "0") {
+                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                    } else if (NF == 4) {
+                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                    }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
                 }
             }')
 
-            # Format release_version by removing the prefix '3004.' and the last '.0'
-            formatted_release_version="$(echo "$release_version" | awk -F. '{print $2"."$3}')"
+            formatted_release_version=$(echo "$release_version" | awk -F. '{
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4 && $4 == "0") {
+                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                    } else if (NF == 4) {
+                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                    }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
+                }
+            }')
 
             # Define regex patterns for both versions
             release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
