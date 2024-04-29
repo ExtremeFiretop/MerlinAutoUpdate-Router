@@ -4740,6 +4740,9 @@ _ProcessMeshNodes_()
     if ! node_list="$(_GetNodeIPv4List_)"
     then node_list="" ; fi
 
+    if ! node_online_status="$(_NodeActiveStatus_)"
+    then node_online_status="" ; fi
+
     if "$inRouterSWmode"
     then
         if [ -n "$node_list" ]
@@ -4782,9 +4785,6 @@ _ShowNodesMenu_()
    logo
    printf "============== AiMesh Node(s) Info Menu ==============\n"
    printf "${SEPstr}\n"
-
-   if ! node_online_status="$(_NodeActiveStatus_)"
-   then node_online_status="" ; fi
 
    # Count the number of IP addresses
    local numIPs="$(echo "$node_list" | wc -w)"
