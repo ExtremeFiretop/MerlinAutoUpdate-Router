@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-26
+# Last Modified: 2024-Apr-30
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.3
+readonly SCRIPT_VERSION=1.1.4
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -4768,6 +4768,70 @@ _SetSecondaryEMailAddress_()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
+# RegExp for IPv4 address #
+readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])"
+readonly IPv4addrs_RegEx="((${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx})"
+readonly IPv4privt_RegEx="((^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.))"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-06] ##
+##----------------------------------------##
+_ValidatePrivateIPv4Address_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^${IPv4addrs_RegEx}$" || \
+      ! echo "$1" | grep -qE "^${IPv4privt_RegEx}"
+   then return 1
+   else return 0
+   fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Apr-30] ##
+##------------------------------------------##
+_ProcessMeshNodes_()
+{
+    includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
+    if [ $# -eq 0 ] || [ -z "$1" ]
+    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+    uid=1
+    if ! node_list="$(_GetNodeIPv4List_)"
+    then node_list="" ; fi
+
+    if "$inRouterSWmode"
+    then
+        if [ -n "$node_list" ]
+        then
+            # Iterate over the list of nodes and print information for each node
+            for nodeIPv4addr in $node_list
+            do
+                ! _ValidatePrivateIPv4Address_ "$nodeIPv4addr" && continue
+                _GetNodeInfo_ "$nodeIPv4addr"
+                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+                then
+                    Node_FW_NewUpdateVersion="NONE FOUND"
+                else
+                    _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
+                fi
+
+                # Apply extra logic if flag is '1'
+                if [ "$includeExtraLogic" -eq 1 ]; then
+                    _PrintNodeInfo "$nodeIPv4addr" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
+                    uid="$((uid + 1))"
+                fi
+            done
+            if [ -s "$tempNodeEMailList" ]; then
+                _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
+            fi
+        else
+            if [ "$includeExtraLogic" -eq 1 ]; then
+                printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
+            fi
+        fi
+    fi
+}
+
 keepZIPfile=0
 keepWfile=0
 trap '_DoCleanUp_ 0 "$keepZIPfile" "$keepWfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
@@ -5215,70 +5279,6 @@ _ShowAdvancedOptionsMenu_()
    printf "${SEPstr}"
 }
 
-# RegExp for IPv4 address #
-readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])"
-readonly IPv4addrs_RegEx="((${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx})"
-readonly IPv4privt_RegEx="((^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.))"
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
-_ValidatePrivateIPv4Address_()
-{
-   if [ $# -eq 0 ] || [ -z "$1" ] || \
-      ! echo "$1" | grep -qE "^${IPv4addrs_RegEx}$" || \
-      ! echo "$1" | grep -qE "^${IPv4privt_RegEx}"
-   then return 1
-   else return 0
-   fi
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
-_ProcessMeshNodes_()
-{
-    includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
-    if [ $# -eq 0 ] || [ -z "$1" ]
-    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
-
-    uid=1
-    if ! node_list="$(_GetNodeIPv4List_)"
-    then node_list="" ; fi
-
-    if "$inRouterSWmode"
-    then
-        if [ -n "$node_list" ]
-        then
-            # Iterate over the list of nodes and print information for each node
-            for nodeIPv4addr in $node_list
-            do
-                ! _ValidatePrivateIPv4Address_ "$nodeIPv4addr" && continue
-                _GetNodeInfo_ "$nodeIPv4addr"
-                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
-                then
-                    Node_FW_NewUpdateVersion="NONE FOUND"
-                else
-                    _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
-                fi
-
-                # Apply extra logic if flag is '1'
-                if [ "$includeExtraLogic" -eq 1 ]; then
-                    _PrintNodeInfo "$nodeIPv4addr" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
-                    uid="$((uid + 1))"
-                fi
-            done
-            if [ -s "$tempNodeEMailList" ]; then
-                _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
-            fi
-        else
-            if [ "$includeExtraLogic" -eq 1 ]; then
-                printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
-            fi
-        fi
-    fi
-}
-
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Apr-02] ##
 ##---------------------------------------##
@@ -5288,9 +5288,6 @@ _ShowNodesMenu_()
    logo
    printf "============== AiMesh Node(s) Info Menu ==============\n"
    printf "${SEPstr}\n"
-
-   if ! node_online_status="$(_NodeActiveStatus_)"
-   then node_online_status="" ; fi
 
    # Count the number of IP addresses
    local numIPs="$(echo "$node_list" | wc -w)"
