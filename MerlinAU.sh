@@ -453,7 +453,7 @@ readonly WHITEct="\e[1;37m"
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Feb-22] ##
 ##----------------------------------------##
-readonly FW_Update_CRON_DefaultSchedule="0 0 * * Sun"
+readonly FW_Update_CRON_DefaultSchedule="0 0 * * *"
 
 readonly CRON_MINS_RegEx="([*0-9]|[1-5][0-9])([\/,-]([0-9]|[1-5][0-9]))*"
 readonly CRON_HOUR_RegEx="([*0-9]|1[0-9]|2[0-3])([\/,-]([0-9]|1[0-9]|2[0-3]))*"
