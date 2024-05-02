@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-30
+# Last Modified: 2024-May-02
 ###################################################################
 set -u
 
@@ -35,15 +35,6 @@ readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 readonly ScriptDirNameD="${ScriptFNameTag}.d"
 
-ScriptsDirPath="$(/usr/bin/dirname "$0")"
-if [ "$ScriptsDirPath" != "." ]
-then
-   ScriptFilePath="$0"
-else
-   ScriptsDirPath="$(pwd)"
-   ScriptFilePath="$(pwd)/$ScriptFileName"
-fi
-
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-21] ##
 ##------------------------------------------##
@@ -52,6 +43,18 @@ readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-01] ##
+##----------------------------------------##
+ScriptsDirPath="$SCRIPTS_PATH"
+ScriptFilePath="${SCRIPTS_PATH}/$ScriptFileName"
+
+if [ ! -f "$ScriptFilePath" ]
+then
+    ScriptsDirPath="$(pwd)"
+    ScriptFilePath="$(pwd)/$ScriptFileName"
+fi
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Apr-02] ##
@@ -795,37 +798,31 @@ Get_Custom_Setting()
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-26] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-30] ##
+##----------------------------------------##
 _GetAllNodeSettings_()
 {
-    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]; then return 1; fi
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+    then echo "**ERROR**" ; return 1; fi
 
-    local node_mac_address="$1"  pattern
-    local setting_value  setting_part="$2"  matched_lines
-    local default_value="TBD"
+    ## Node Setting KEY="Node_{MACaddress}_{keySuffix}" ##
+    local fullKeyName="Node_${1}_${2}"
+    local setting_value="TBD"  matched_lines
 
-    # Ensure the settings directory exists
+    # Ensure the settings directory exists #
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
-    if [ -f "$SETTINGSFILE" ]; then
-        # Construct the pattern to match the entire line containing the MAC address and the setting part
-        pattern="${node_mac_address}.*${setting_part}=\"[^\"]*\""
-
-        # Search for the setting in the settings file
-        matched_lines="$(grep -o "$pattern" "$SETTINGSFILE" || echo "")"
-
-        if [ -n "$matched_lines" ]; then
-            # Extract the value from the first matched line
+    if [ -f "$SETTINGSFILE" ]
+    then
+        matched_lines="$(grep -E "^${fullKeyName}=.*" "$SETTINGSFILE")"
+        if [ -n "$matched_lines" ]
+        then
+            # Extract the value from the first matched line #
             setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
-            echo "$setting_value"
-        else
-            echo "$default_value"
         fi
-    else
-        echo "$default_value"
     fi
+    echo "$setting_value"
 }
 
 ##----------------------------------------##
@@ -1313,6 +1310,8 @@ _CreateEMailContent_()
            emailBodyTitle="WARNING"
            {
              echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             echo "Changelog contents include the following changes:"
+             echo "$changelog_contents"
              printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
@@ -2333,21 +2332,21 @@ _NodeActiveStatus_()
     return 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Mar-31] ##
-##---------------------------------------##
-_Populate_Node_Settings_() {
-    local mac_address="$1"
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-30] ##
+##----------------------------------------##
+_Populate_Node_Settings_() 
+{
+    local MAC_address="$1"
     local model_id="$2"
     local update_date="$3"
     local update_vers="$4"
-    local node_suffix="$mac_address"
-    local node_prefix="Node_"
+    local nodeKeyPrefix="Node_${MAC_address}_"
 
     # Update or add each piece of information
-    Update_Custom_Settings "${node_prefix}${node_suffix}_Model_NameID" "$model_id"
-    Update_Custom_Settings "${node_prefix}${node_suffix}_New_Notification_Date" "$update_date"
-    Update_Custom_Settings "${node_prefix}${node_suffix}_New_Notification_Vers" "$update_vers"
+    Update_Custom_Settings "${nodeKeyPrefix}Model_NameID" "$model_id"
+    Update_Custom_Settings "${nodeKeyPrefix}New_Notification_Date" "$update_date"
+    Update_Custom_Settings "${nodeKeyPrefix}New_Notification_Vers" "$update_vers"
 }
 
 ##---------------------------------------##
@@ -3509,9 +3508,9 @@ _CheckNewUpdateFirmwareNotification_()
    return 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-02] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-30] ##
+##----------------------------------------##
 _CheckNodeFWUpdateNotification_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -3542,7 +3541,7 @@ _CheckNodeFWUpdateNotification_()
            nodefwNewUpdateNotificationVers="$2"
            nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
-           nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "NameID")"
+           nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
            echo "" > "$tempNodeEMailList"
            echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
        fi
@@ -3553,7 +3552,7 @@ _CheckNodeFWUpdateNotification_()
    then
        nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
-       nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "NameID")"
+       nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
        echo "" > "$tempNodeEMailList"
        echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
    fi
@@ -4154,7 +4153,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
         if [ ! -f "$changeLogFile" ]
         then
-            Say "Change-log file [$changeLogFile] does NOT exist."
+            Say "Change-log file [${FW_BIN_DIR}/$Changelog-${changeLogTag}.txt] does NOT exist."
             _DoCleanUp_
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
