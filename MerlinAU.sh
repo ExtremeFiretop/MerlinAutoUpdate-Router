@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-30
+# Last Modified: 2024-May-01
 ###################################################################
 set -u
 
@@ -34,15 +34,6 @@ readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 readonly ScriptDirNameD="${ScriptFNameTag}.d"
 
-ScriptsDirPath="$(/usr/bin/dirname "$0")"
-if [ "$ScriptsDirPath" != "." ]
-then
-   ScriptFilePath="$0"
-else
-   ScriptsDirPath="$(pwd)"
-   ScriptFilePath="$(pwd)/$ScriptFileName"
-fi
-
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-21] ##
 ##------------------------------------------##
@@ -51,6 +42,18 @@ readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-01] ##
+##----------------------------------------##
+ScriptsDirPath="$SCRIPTS_PATH"
+ScriptFilePath="${SCRIPTS_PATH}/$ScriptFileName"
+
+if [ ! -f "$ScriptFilePath" ]
+then
+    ScriptsDirPath="$(pwd)"
+    ScriptFilePath="$(pwd)/$ScriptFileName"
+fi
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Apr-02] ##
