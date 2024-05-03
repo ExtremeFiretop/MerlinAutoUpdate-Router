@@ -459,10 +459,15 @@ readonly MAGENTAct="\e[1;35m"
 readonly CYANct="\e[1;36m"
 readonly WHITEct="\e[1;37m"
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-22] ##
-##----------------------------------------##
-readonly FW_Update_CRON_DefaultSchedule="0 0 * * *"
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-03] ##
+##------------------------------------------##
+if "$inRouterSWmode" 
+then
+    readonly FW_Update_CRON_DefaultSchedule="0 0 * * *"
+else
+    readonly FW_Update_CRON_DefaultSchedule="15 0 * * *"
+fi
 
 readonly CRON_MINS_RegEx="([*0-9]|[1-5][0-9])([\/,-]([0-9]|[1-5][0-9]))*"
 readonly CRON_HOUR_RegEx="([*0-9]|1[0-9]|2[0-3])([\/,-]([0-9]|1[0-9]|2[0-3]))*"
