@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-01
+# Last Modified: 2024-May-03
 ###################################################################
 set -u
 
@@ -21,6 +21,13 @@ readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/Merli
 # Firmware URL Info #
 readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly FW_URL_RELEASE_SUFFIX="Release"
+
+##-------------------------------------##
+## Added by ExtremeFiretop [2024-May-03] ##
+##-------------------------------------##
+# Changelog URL Info #
+readonly CL_URL_NG="https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-NG.txt/download"
+readonly CL_URL_386="https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-386.txt/download"
 
 # For new script version updates from source repository #
 UpdateNotify=0
@@ -1211,7 +1218,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-02] ##
+## Modified by ExtremeFiretop [2024-May-03] ##
 ##------------------------------------------##
 _CreateEMailContent_()
 {
@@ -1272,6 +1279,8 @@ _CreateEMailContent_()
            emailBodyTitle="WARNING"
            {
              echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             echo "Changelog contents include the following changes:"
+             echo "$changelog_contents"
              printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
@@ -4562,7 +4571,7 @@ _PrintNodeInfo()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-19] ##
+## Modified by ExtremeFiretop [2024-May-03] ##
 ##------------------------------------------##
 _ShowMainMenu_()
 {
@@ -4653,6 +4662,9 @@ _ShowMainMenu_()
       printf "\n ${GRNct}mn${NOct}.  AiMesh Node(s) Info\n"
    fi
 
+   # Add selection for "Log Options" sub-menu #
+   printf "\n ${GRNct}lo${NOct}.  Log Options Menu\n"
+
    # Add selection for "Advanced Options" sub-menu #
    printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
@@ -4667,9 +4679,9 @@ _ShowMainMenu_()
    printf "${SEPstr}\n"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-03] ##
+##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
    clear
@@ -4680,26 +4692,23 @@ _ShowAdvancedOptionsMenu_()
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
-   printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update Log Files"
-   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
-
    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
    if [ "$checkChangeLogSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Toggle Change-log Check"
+       printf "\n  ${GRNct}2${NOct}.  Toggle Change-log Check"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}3${NOct}.  Toggle Change-log Check"
+       printf "\n  ${GRNct}2${NOct}.  Toggle Change-log Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}4${NOct}.  Toggle Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}4${NOct}.  Toggle Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
@@ -4797,6 +4806,95 @@ _ShowNodesMenu_()
    printf "${SEPstr}"
 }
 
+_ShowNodesMenuOptions_()
+{
+    while true
+    do
+        _ShowNodesMenu_
+        printf "\nEnter selection:  "
+        read -r nodesChoice
+        echo
+        case $nodesChoice in
+            e|exit) break
+               ;;
+            *) _InvalidMenuSelection_
+               ;;
+        esac
+    done
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-May-02] ##
+##---------------------------------------##
+_DownloadChangelogs_()
+{
+    changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
+    if [ "$changeLogTag" = "386" ]
+    then
+        wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "${CL_URL_386}"
+    elif [ "$changeLogTag" = "NG" ]
+    then
+        wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "${CL_URL_NG}"
+    fi
+    changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
+    if [ ! -f "$changeLogFile" ]
+    then
+        Say "Change-log file [$changeLogFile] does NOT exist."
+        _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+    else
+        clear
+        printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
+        printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+        _WaitForEnterKey_
+        less "$changeLogFile"
+    fi
+    "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+    return 1
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-May-02] ##
+##---------------------------------------##
+_ShowLogsMenu_()
+{
+   clear
+   logo
+   printf "===================== Logs Menu =====================\n"
+   printf "${SEPstr}\n"
+
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update Log Files"
+   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+
+   printf "\n ${GRNct}cl${NOct}.  View latest F/W Changelog\n"
+
+   printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
+   printf "${SEPstr}"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-May-02] ##
+##---------------------------------------##
+_AdvancedLogsOptions_()
+{
+    while true
+    do
+        _ShowLogsMenu_
+        printf "\nEnter selection:  "
+        read -r nodesChoice
+        echo
+        case $nodesChoice in
+            1) _Set_FW_UpdateLOG_DirectoryPath_
+               ;;
+            cl) _DownloadChangelogs_
+               ;;
+            e|exit) break
+               ;;
+            *) _InvalidMenuSelection_
+               ;;
+        esac
+    done
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Feb-18] ##
 ##----------------------------------------##
@@ -4806,9 +4904,9 @@ _InvalidMenuSelection_()
    _WaitForEnterKey_
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-03] ##
+##------------------------------------------##
 _advanced_options_menu_()
 {
     while true
@@ -4820,11 +4918,9 @@ _advanced_options_menu_()
         case $advancedChoice in
             1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
-            2) _Set_FW_UpdateLOG_DirectoryPath_
+            2) _toggle_change_log_check_
                ;;
-            3) _toggle_change_log_check_
-               ;;
-            4) _toggle_beta_updates_
+            3) _toggle_beta_updates_
                ;;
            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
                then _Toggle_Auto_Backups_
@@ -4861,25 +4957,8 @@ _advanced_options_menu_()
     done
 }
 
-_ShowNodesMenuOptions_()
-{
-    while true
-    do
-        _ShowNodesMenu_
-        printf "\nEnter selection:  "
-        read -r nodesChoice
-        echo
-        case $nodesChoice in
-            e|exit) break
-               ;;
-            *) _InvalidMenuSelection_
-               ;;
-        esac
-    done
-}
-
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-27] ##
+## Modified by ExtremeFiretop [2024-May-03] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -4917,6 +4996,8 @@ do
           then _ShowNodesMenuOptions_
           else _InvalidMenuSelection_
           fi
+          ;;
+      lo) _AdvancedLogsOptions_
           ;;
       ad) _advanced_options_menu_
           ;;
