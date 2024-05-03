@@ -5334,36 +5334,37 @@ _ShowNodesMenuOptions_()
 ##---------------------------------------##
 _DownloadChangelogs_()
 {
-   if "$isGNUtonFW"
-   then
-       FW_Changelog_GITHUB="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
-       Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
-       wget -O "$FW_Changelog_GITHUB" "$Gnuton_changelogurl"
-       changeLogFile="$FW_Changelog_GITHUB"
-   else
-       changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
-       if [ "$changeLogTag" = "386" ]
-       then
-           wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-386.txt/download"
-       elif [ "$changeLogTag" = "NG" ]
-       then
-           wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-NG.txt/download"
-       fi
-       changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
-   fi
-   if [ ! -f "$changeLogFile" ]
-   then
-       Say "Change-log file [$changeLogFile] does NOT exist."
-       _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
-   else
-       clear
-       printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
-       printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
-       _WaitForEnterKey_
-       less "$changeLogFile"
-   fi
-   "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-   return 1
+    if "$isGNUtonFW"
+    then
+        FW_Changelog_GITHUB="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
+        Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
+        wget -O "$FW_Changelog_GITHUB" "$Gnuton_changelogurl"
+        changeLogFile="$FW_Changelog_GITHUB"
+    else
+        changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
+        if [ "$changeLogTag" = "386" ]
+        then
+            wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-386.txt/download"
+        elif [ "$changeLogTag" = "NG" ]
+        then
+            wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-NG.txt/download"
+        fi
+        changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
+    fi
+    if [ ! -f "$changeLogFile" ]
+    then
+        Say "Change-log file [$changeLogFile] does NOT exist."
+        _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+    else
+        clear
+        printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
+        printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+        _WaitForEnterKey_
+        less "$changeLogFile"
+    fi
+    _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+    "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+    return 1
 }
 
 ##---------------------------------------##
