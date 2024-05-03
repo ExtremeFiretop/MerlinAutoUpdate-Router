@@ -4848,6 +4848,7 @@ _DownloadChangelogs_()
         _WaitForEnterKey_
         less "$changeLogFile"
     fi
+    _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 1
 }
