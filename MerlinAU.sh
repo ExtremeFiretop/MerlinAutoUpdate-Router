@@ -22,9 +22,9 @@ readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/Merli
 readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly FW_URL_RELEASE_SUFFIX="Release"
 
-##-------------------------------------##
+##---------------------------------------##
 ## Added by ExtremeFiretop [2024-May-03] ##
-##-------------------------------------##
+##---------------------------------------##
 # Changelog URL Info #
 readonly CL_URL_NG="https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-NG.txt/download"
 readonly CL_URL_386="https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-386.txt/download"
