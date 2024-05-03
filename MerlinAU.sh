@@ -5344,10 +5344,10 @@ _DownloadChangelogs_()
         changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
         if [ "$changeLogTag" = "386" ]
         then
-            wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-386.txt/download"
+            wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "${CL_URL_386}"
         elif [ "$changeLogTag" = "NG" ]
         then
-            wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-NG.txt/download"
+            wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "${CL_URL_NG}"
         fi
         changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
     fi
