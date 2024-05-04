@@ -3345,60 +3345,6 @@ _CheckTimeToUpdateFirmware_()
    return 1
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-03] ##
-##------------------------------------------##
-_CheckTimeToUpdateFirmware_()
-{
-   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
-   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
-
-   local notifyTimeSecs postponeTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
-   local fwNewUpdateNotificationDate fwNewUpdateNotificationVers fwNewUpdatePostponementDays
-   local nextCronTimeSecs upfwDateTimeStrn
-
-   _CheckNewUpdateFirmwareNotification_ "$1" "$2"
-
-   if [ "$currentVersionNum" -ge "$releaseVersionNum" ]
-   then return 1 ; fi
-
-   fwNewUpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
-   if [ -z "$fwNewUpdatePostponementDays" ] || [ "$fwNewUpdatePostponementDays" = "TBD" ]
-   then
-       fwNewUpdatePostponementDays="$fwNewUpdatePostponementDays"
-       Update_Custom_Settings FW_New_Update_Postponement_Days "$fwNewUpdatePostponementDays"
-   fi
-
-   if [ "$fwNewUpdatePostponementDays" -eq 0 ]
-   then return 0 ; fi
-
-   currentTimeSecs="$(date +%s)"
-   notifyTimeStrn="$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')"
-   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
-
-   # Adjust for DST discrepancies
-   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
-   then dstAdjustSecs=86400  #24-hour day is same as always#
-   else dstAdjustSecs=82800  #23-hour day only when DST happens#
-   fi
-   dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
-   postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
-   upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
-
-   nextCronTimeSecs=$(estimate_next_cron_after_date $upfwDateTimeSecs "$FW_UpdateCronJobSchedule")
-
-   if [ "$nextCronTimeSecs" = "no_date_found" ]; then
-       Say "No suitable date found for the firmware update within the next year."
-       return 1
-   fi
-
-   upfwDateTimeStrn="$(date -d @$nextCronTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
-
-   Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
-   Say "The firmware update is expected to occur on ${GRNct}${upfwDateTimeStrn}${NOct}."
-   return 1
-}
-
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Feb-16] ##
 ##-------------------------------------##
