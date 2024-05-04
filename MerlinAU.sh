@@ -3136,16 +3136,106 @@ _CheckNodeFWUpdateNotification_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-21] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-03] ##
+##------------------------------------------##
+translate_day_or_month_to_number() {
+    local input="$1"
+    case "$input" in
+        Sun) echo 0 ;;
+        Mon) echo 1 ;;
+        Tue) echo 2 ;;
+        Wed) echo 3 ;;
+        Thu) echo 4 ;;
+        Fri) echo 5 ;;
+        Sat) echo 6 ;;
+        Jan) echo 1 ;;
+        Feb) echo 2 ;;
+        Mar) echo 3 ;;
+        Apr) echo 4 ;;
+        May) echo 5 ;;
+        Jun) echo 6 ;;
+        Jul) echo 7 ;;
+        Aug) echo 8 ;;
+        Sep) echo 9 ;;
+        Oct) echo 10 ;;
+        Nov) echo 11 ;;
+        Dec) echo 12 ;;
+        *) echo "$input" ;; # Default case to handle numbers directly
+    esac
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-03] ##
+##------------------------------------------##
+adjust_to_next_cron_run() {
+    local post_update_secs=$1
+    local cron_minute=$2
+    local cron_hour=$3
+    local cron_day_of_month=$4
+    local cron_month=$5
+    local cron_day_of_week=$6
+
+    # Translate month and day of the week from name to number if necessary, handle wildcards
+    local month_num=$(translate_day_or_month_to_number "$cron_month")
+    local day_of_week_num=$(translate_day_or_month_to_number "$cron_day_of_week")
+
+    # Handle wildcard for month and day of month by using the current month/day if '*'
+    local current_date=$(date -d "@$post_update_secs" +'%Y-%m-%d')
+    local current_year=$(date -d "@$post_update_secs" +'%Y')
+    local current_month=$(date -d "@$post_update_secs" +'%m')
+    local current_day=$(date -d "@$post_update_secs" +'%d')
+
+    if [ "$cron_month" = "*" ]; then
+        month_num=$current_month
+    fi
+    if [ "$cron_day_of_month" = "*" ]; then
+        cron_day_of_month=$current_day
+    fi
+
+    local year=$current_year
+    local next_date_candidate
+    local max_year=$((current_year + 2))
+
+    # Check the next valid date within the next two years
+    while [ $year -le $max_year ]; do
+        next_date_candidate=$(date -d "$year-$month_num-$cron_day_of_month $cron_hour:$cron_minute" +%s 2>/dev/null)
+        
+        if [ "$next_date_candidate" -gt "$post_update_secs" ] 2>/dev/null; then
+            break
+        fi
+        year=$((year + 1))
+    done
+
+    if [ -z "$next_date_candidate" ] || [ "$next_date_candidate" -le "$post_update_secs" ]; then
+        echo "Could not find a valid future date based on the cron settings."
+        return 1  # Return error if no valid date found
+    fi
+
+    # If day of the week is specified, adjust this date to the next specified day of the week
+    if [ "$cron_day_of_week" != "*" ]; then
+        local candidate_day_of_week=$(date -d "@$next_date_candidate" +'%u')
+        local days_to_adjust=$(( (7 + day_of_week_num - candidate_day_of_week) % 7 ))
+        if [ "$days_to_adjust" -eq 0 ] && [ "$next_date_candidate" -le "$post_update_secs" ]; then
+            days_to_adjust=7
+        fi
+        next_date_candidate=$(($next_date_candidate + days_to_adjust * 86400))
+    fi
+
+    echo $(date -d "@$next_date_candidate" +'%s')
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-03] ##
+##------------------------------------------##
 _CheckTimeToUpdateFirmware_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local notifyTimeSecs  postponeTimeSecs  currentTimeSecs  dstAdjustSecs  dstAdjustDays
-   local fwNewUpdateNotificationDate  fwNewUpdateNotificationVers  fwNewUpdatePostponementDays
+   local notifyTimeSecs postponeTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
+   local fwNewUpdateNotificationDate fwNewUpdateNotificationVers fwNewUpdatePostponementDays
+   local currCronSchedule cronMinute cronHour cronDayOfMonth cronMonth cronDayOfWeek nextCronRunSecs
 
    _CheckNewUpdateFirmwareNotification_ "$1" "$2"
 
@@ -3164,33 +3254,33 @@ _CheckTimeToUpdateFirmware_()
 
    currentTimeSecs="$(date +%s)"
    notifyTimeStrn="$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')"
-   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+   notifyTimeSecs="$(date -d "$notifyTimeStrn" +%s)"
 
-   #----------------------------------------------------------------------
-   # Adjust calculation of postponed days as elapsed time in seconds to
-   # account for the hour discrepancy when Daylight Saving Time happens.
-   # This way we can avoid a scenario where the F/W Update "date+time"
-   # threshold is set one hour *after* the scheduled cron job is set
-   # to run again and check if it's time to update the router.
-   #----------------------------------------------------------------------
-   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
+   # DST Adjustment Calculation
+   if [ "$(date +'%Z')" = "$(date -d "@$notifyTimeSecs" +'%Z')" ]
    then dstAdjustSecs=86400  #24-hour day is same as always#
    else dstAdjustSecs=82800  #23-hour day only when DST happens#
    fi
+
    dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
-   if [ "$dstAdjustDays" -eq 0 ]
-   then postponeTimeSecs="$dstAdjustSecs"
-   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
-   fi
-
-   if [ "$((currentTimeSecs - notifyTimeSecs))" -ge "$postponeTimeSecs" ]
-   then return 0 ; fi
-
+   postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
    upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
-   upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
+
+   # Retrieve current CRON schedule setting and parse all components
+   currCronSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   cronMinute=$(echo "$currCronSchedule" | cut -d ' ' -f 1)
+   cronHour=$(echo "$currCronSchedule" | cut -d ' ' -f 2)
+   cronDayOfMonth=$(echo "$currCronSchedule" | cut -d ' ' -f 3)
+   cronMonth=$(echo "$currCronSchedule" | cut -d ' ' -f 4)
+   cronDayOfWeek=$(echo "$currCronSchedule" | cut -d ' ' -f 5)
+
+   # Adjust next cron run based on updated firmware date time
+   nextCronRunSecs=$(adjust_to_next_cron_run $upfwDateTimeSecs $cronMinute $cronHour $cronDayOfMonth $cronMonth $cronDayOfWeek)
+
+   upfwDateTimeStrn="$(date -d "@$nextCronRunSecs" +"%A, %Y-%b-%d %I:%M %p")"
 
    Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
-   Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
+   Say "The firmware update is expected to occur on ${GRNct}${upfwDateTimeStrn}${NOct}."
    return 1
 }
 
@@ -4845,7 +4935,6 @@ _DownloadChangelogs_()
     if [ ! -f "$changeLogFile" ]
     then
         Say "Change-log file [$changeLogFile] does NOT exist."
-        _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
     else
         clear
         printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
@@ -4853,7 +4942,7 @@ _DownloadChangelogs_()
         _WaitForEnterKey_
         less "$changeLogFile"
     fi
-    _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+    rm -f "$FW_BIN_DIR/Changelog-${changeLogTag}.txt"
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 1
 }
