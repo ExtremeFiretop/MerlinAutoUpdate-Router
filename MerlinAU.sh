@@ -5364,7 +5364,7 @@ _DownloadChangelogs_()
         printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
         printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
         _WaitForEnterKey_
-        less "$changeLogFile"
+        more "$changeLogFile"
     fi
     rm -f "$FW_BIN_DIR/Changelog-${changeLogTag}.txt"
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
