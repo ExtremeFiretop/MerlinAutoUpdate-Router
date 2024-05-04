@@ -5359,7 +5359,6 @@ _DownloadChangelogs_()
     if [ ! -f "$changeLogFile" ]
     then
         Say "Change-log file [$changeLogFile] does NOT exist."
-        _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
     else
         clear
         printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
@@ -5367,7 +5366,7 @@ _DownloadChangelogs_()
         _WaitForEnterKey_
         less "$changeLogFile"
     fi
-    _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+    rm -f "$FW_BIN_DIR/Changelog-${changeLogTag}.txt"
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 1
 }
