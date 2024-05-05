@@ -3252,10 +3252,16 @@ estimate_next_cron_after_date() {
     month_cron=$(echo "$cron_schedule" | cut -d' ' -f4)
     dow=$(echo "$cron_schedule" | cut -d' ' -f5)
 
-    # Convert month if it is in alphabetic format
+    # Check for alphabetic characters and convert if necessary
     case "$month_cron" in
         *[a-zA-Z]*)
             month_cron=$(convert_month_to_number "$month_cron")
+        ;;
+    esac
+
+    case "$dow" in
+        *[a-zA-Z]*)
+            dow=$(convert_day_to_number "$dow")
         ;;
     esac
 
@@ -3265,33 +3271,15 @@ estimate_next_cron_after_date() {
     day_count=0
     while [ $day_count -lt 365 ]; do
         current_dow=$(calculate_day_of_week $day $month $year)
-
-        # Loop through each day value in dow, checking for match
-        num_dow_entries=$(echo $dow | awk -F, '{print NF}')  # Count number of entries
-        dow_index=1
-        while [ $dow_index -le $num_dow_entries ]; do
-            entry=$(echo $dow | cut -d',' -f$dow_index)  # Get the dow_index-th entry
-
-            # Convert alphabetic day of week to number
-            case "$entry" in
-                *[a-zA-Z]*)
-                    entry=$(convert_day_to_number "$entry")
-                ;;
-            esac
-
-            if { [ "$dom" = "*" ] || [ "$dom" = "$day" ]; } &&
-               { [ "$month_cron" = "*" ] || [ "$month_cron" = "$month" ]; } &&
-               { [ "$entry" = "*" ] || [ "$entry" = "$current_dow" ]; }; then
-                next_cron_run=$(date +%s -d "$year-$month-$day $hour:$minute")
-                if [ $next_cron_run -gt $post_date_secs ]; then
-                    echo $next_cron_run
-                    return
-                fi
+        if { [ "$dom" = "*" ] || [ "$dom" = "$day" ]; } &&
+           { [ "$month_cron" = "*" ] || [ "$month_cron" = "$month" ]; } &&
+           { [ "$dow" = "*" ] || [ "$dow" = "$current_dow" ]; }; then
+            next_cron_run=$(date +%s -d "$year-$month-$day $hour:$minute")
+            if [ $next_cron_run -gt $post_date_secs ]; then
+                echo $next_cron_run
+                return
             fi
-
-            dow_index=$((dow_index + 1))
-        done
-
+        fi
         new_date=$(increment_date $day $month $year)
         set -- $new_date
         day=$1
@@ -3349,8 +3337,7 @@ _CheckTimeToUpdateFirmware_()
    nextCronTimeSecs=$(estimate_next_cron_after_date $upfwDateTimeSecs "$FW_UpdateCronJobSchedule")
 
    if [ "$nextCronTimeSecs" = "no_date_found" ]; then
-       upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
-       Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
+       Say "No suitable date found for the firmware update within the next year."
        return 1
    fi
 
