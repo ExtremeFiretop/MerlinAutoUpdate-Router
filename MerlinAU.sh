@@ -3746,7 +3746,7 @@ _CheckTimeToUpdateFirmware_()
    fwNewUpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
    if [ -z "$fwNewUpdatePostponementDays" ] || [ "$fwNewUpdatePostponementDays" = "TBD" ]
    then
-       fwNewUpdatePostponementDays="$fwNewUpdatePostponementDays"
+       fwNewUpdatePostponementDays="$FW_UpdateDefaultPostponementDays"
        Update_Custom_Settings FW_New_Update_Postponement_Days "$fwNewUpdatePostponementDays"
    fi
 
@@ -3763,7 +3763,10 @@ _CheckTimeToUpdateFirmware_()
    else dstAdjustSecs=82800  #23-hour day only when DST happens#
    fi
    dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
-   postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
+   if [ "$dstAdjustDays" -eq 0 ]
+   then postponeTimeSecs="$dstAdjustSecs"
+   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
+   fi
    upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
 
    nextCronTimeSecs=$(estimate_next_cron_after_date $upfwDateTimeSecs "$FW_UpdateCronJobSchedule")
