@@ -3220,6 +3220,7 @@ increment_date() {
     set -- $days_in_month
     month_days=$(eval echo \${$((month + 0))})
 
+    # Adjust for leap year in February
     if [ $month -eq 2 ]; then
         if [ $((year % 4)) -eq 0 ] && { [ $((year % 100)) -ne 0 ] || [ $((year % 400)) -eq 0 ]; }; then
             month_days=29
@@ -3252,13 +3253,14 @@ estimate_next_cron_after_date() {
     month_cron=$(echo "$cron_schedule" | cut -d' ' -f4)
     dow=$(echo "$cron_schedule" | cut -d' ' -f5)
 
-    # Check for alphabetic characters and convert if necessary
+    # Convert month name to number if necessary
     case "$month_cron" in
         *[a-zA-Z]*)
             month_cron=$(convert_month_to_number "$month_cron")
         ;;
     esac
 
+    # Convert day name to number if necessary
     case "$dow" in
         *[a-zA-Z]*)
             dow=$(convert_day_to_number "$dow")
@@ -3267,19 +3269,24 @@ estimate_next_cron_after_date() {
 
     # Convert post_date_secs to date components
     eval $(date '+day=%d month=%m year=%Y' -d @$post_date_secs)
+    month=$(echo $month | sed 's/^0*//')  # Remove leading zeros for month
 
     day_count=0
     while [ $day_count -lt 365 ]; do
         current_dow=$(calculate_day_of_week $day $month $year)
+
+        # Check conditions
         if { [ "$dom" = "*" ] || [ "$dom" = "$day" ]; } &&
            { [ "$month_cron" = "*" ] || [ "$month_cron" = "$month" ]; } &&
            { [ "$dow" = "*" ] || [ "$dow" = "$current_dow" ]; }; then
-            next_cron_run=$(date +%s -d "$year-$month-$day $hour:$minute")
+            cron_date="$year-$month-$day $hour:$minute"
+            next_cron_run=$(date +%s -d "$cron_date")
             if [ $next_cron_run -gt $post_date_secs ]; then
                 echo $next_cron_run
                 return
             fi
         fi
+        # Increment date
         new_date=$(increment_date $day $month $year)
         set -- $new_date
         day=$1
@@ -3287,7 +3294,6 @@ estimate_next_cron_after_date() {
         year=$3
         day_count=$((day_count + 1))
     done
-
     echo "no_date_found"
 }
 
