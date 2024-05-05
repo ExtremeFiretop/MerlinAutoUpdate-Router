@@ -3337,7 +3337,8 @@ _CheckTimeToUpdateFirmware_()
    nextCronTimeSecs=$(estimate_next_cron_after_date $upfwDateTimeSecs "$FW_UpdateCronJobSchedule")
 
    if [ "$nextCronTimeSecs" = "no_date_found" ]; then
-       Say "No suitable date found for the firmware update within the next year."
+       upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
+       Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
        return 1
    fi
 
