@@ -3253,20 +3253,6 @@ estimate_next_cron_after_date() {
     month_cron=$(echo "$cron_schedule" | cut -d' ' -f4)
     dow=$(echo "$cron_schedule" | cut -d' ' -f5)
 
-    # Convert month name to number if necessary
-    case "$month_cron" in
-        *[a-zA-Z]*)
-            month_cron=$(convert_month_to_number "$month_cron")
-        ;;
-    esac
-
-    # Convert day name to number if necessary
-    case "$dow" in
-        *[a-zA-Z]*)
-            dow=$(convert_day_to_number "$dow")
-        ;;
-    esac
-
     # Convert post_date_secs to date components
     eval $(date '+day=%d month=%m year=%Y' -d @$post_date_secs)
     month=$(echo $month | sed 's/^0*//')  # Remove leading zeros for month
@@ -3275,17 +3261,50 @@ estimate_next_cron_after_date() {
     while [ $day_count -lt 365 ]; do
         current_dow=$(calculate_day_of_week $day $month $year)
 
-        # Check conditions
-        if { [ "$dom" = "*" ] || [ "$dom" = "$day" ]; } &&
-           { [ "$month_cron" = "*" ] || [ "$month_cron" = "$month" ]; } &&
-           { [ "$dow" = "*" ] || [ "$dow" = "$current_dow" ]; }; then
-            cron_date="$year-$month-$day $hour:$minute"
-            next_cron_run=$(date +%s -d "$cron_date")
-            if [ $next_cron_run -gt $post_date_secs ]; then
-                echo $next_cron_run
-                return
-            fi
-        fi
+        num_dow_entries=$(echo $dow | tr ',' '\n' | wc -l)  # Count number of dow entries
+        dow_index=1
+        while [ $dow_index -le $num_dow_entries ]; do
+            dow_entry=$(echo $dow | cut -d',' -f$dow_index)  # Get the dow_index-th entry
+
+            # Convert alphabetic day of the week to number if necessary
+            case "$dow_entry" in
+                *[a-zA-Z]*)
+                    dow_entry=$(convert_day_to_number "$dow_entry")
+                ;;
+            esac
+
+            num_month_entries=$(echo $month_cron | tr ',' '\n' | wc -l)  # Count number of month entries
+            month_index=1
+            while [ $month_index -le $num_month_entries ]; do
+                month_entry=$(echo $month_cron | cut -d',' -f$month_index)  # Get the month_index-th entry
+
+                # Convert month name to number if necessary
+                case "$month_entry" in
+                    *[a-zA-Z]*)
+                        month_entry=$(convert_month_to_number "$month_entry")
+                    ;;
+                    *)
+                        month_entry=$(echo $month_entry | sed 's/^0*//')  # Remove leading zeros
+                    ;;
+                esac
+
+                if { [ "$dom" = "*" ] || [ "$dom" = "$day" ]; } &&
+                   { [ "$month_entry" = "*" ] || [ "$month_entry" = "$month" ]; } &&
+                   { [ "$dow_entry" = "*" ] || [ "$dow_entry" = "$current_dow" ]; }; then
+                    cron_date="$year-$month-$day $hour:$minute"
+                    next_cron_run=$(date +%s -d "$cron_date")
+                    if [ $next_cron_run -gt $post_date_secs ]; then
+                        echo $next_cron_run
+                        return
+                    fi
+                fi
+
+                month_index=$((month_index + 1))
+            done
+
+            dow_index=$((dow_index + 1))
+        done
+
         # Increment date
         new_date=$(increment_date $day $month $year)
         set -- $new_date
