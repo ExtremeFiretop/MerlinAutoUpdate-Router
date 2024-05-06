@@ -694,7 +694,6 @@ _Init_Custom_Settings_Config_()
          echo "CheckChangeLog ENABLED"
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
-         echo "FW_New_Update_Run_Date="$(date +%s)""
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -759,11 +758,6 @@ _Init_Custom_Settings_Config_()
    if ! grep -q "^FW_Auto_Backupmon" "$SETTINGSFILE"
    then
        sed -i "12 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
-       retCode=1
-   fi
-   if ! grep -q "^FW_New_Update_Run_Date" "$SETTINGSFILE"
-   then
-       sed -i "13 i FW_New_Update_Run_Date="$(date +%s)"" "$SETTINGSFILE"
        retCode=1
    fi
    return "$retCode"
