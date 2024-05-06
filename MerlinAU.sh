@@ -1703,7 +1703,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.6.2" ; return 0 ; fi
+if true ; then echo "388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -2785,7 +2785,6 @@ convert_month_to_number() {
         [Nn][Oo][Vv]) echo 11 ;;
         [Dd][Ee][Cc]) echo 12 ;;
         *) 
-            echo "No match found, returning original input: $1"
             echo "$1"
         ;;
     esac
@@ -2804,7 +2803,6 @@ convert_day_to_number() {
         [Ff][Rr][Ii]) echo 5 ;;
         [Ss][Aa][Tt]) echo 6 ;;
         *) 
-            echo "No match found, returning original input: $1"
             echo "$1"
         ;;
     esac
@@ -2815,27 +2813,27 @@ convert_day_to_number() {
 ##------------------------------------------##
 # Sakamoto's algorithm to find the day of the week
 calculate_day_of_week() {
-    day=$1
-    month=$2
-    year=$3
+    day="$1"
+    month="$2"
+    year="$3"
 
-    if [ $month -le 2 ]; then
-        month=$((month + 12))
-        year=$((year - 1))
+    if [ "$month" -le 2 ]; then
+        month="$((month + 12))"
+        year="$((year - 1))"
     fi
 
-    t=$(((13 * (month + 1)) / 5))
-    K=$((year % 100))
-    J=$((year / 100))
-    dow=$(((day + t + K + (K / 4) + (J / 4) - (2 * J)) % 7))
+    t="$(((13 * (month + 1)) / 5))"
+    K="$((year % 100))"
+    J="$((year / 100))"
+    dow="$(((day + t + K + (K / 4) + (J / 4) - (2 * J)) % 7))"
 
-    if [ $dow -eq 0 ]; then
+    if [ "$dow" -eq 0 ]; then
         dow=6  # Saturday
     else
-        dow=$((dow - 1))  # Adjusting the result so Sunday = 0
+        dow="$((dow - 1))"  # Adjusting the result so Sunday = 0
     fi
 
-    echo $dow
+    echo "$dow"
 }
 
 ##------------------------------------------##
@@ -2843,31 +2841,31 @@ calculate_day_of_week() {
 ##------------------------------------------##
 # Manually calculate the next day
 increment_date() {
-    day=$1
-    month=$2
-    year=$3
+    local day="$1"
+    local month="$2"
+    local year="$3"
     days_in_month="31 28 31 30 31 30 31 31 30 31 30 31"
     set -- $days_in_month
     month_days=$(eval echo \${$((month + 0))})
 
     # Adjust for leap year in February
-    if [ $month -eq 2 ]; then
-        if [ $((year % 4)) -eq 0 ] && { [ $((year % 100)) -ne 0 ] || [ $((year % 400)) -eq 0 ]; }; then
+    if [ "$month" -eq 2 ]; then
+        if [ "$((year % 4))" -eq 0 ] && { [ "$((year % 100))" -ne 0 ] || [ "$((year % 400))" -eq 0 ]; }; then
             month_days=29
         fi
     fi
 
-    day=$((day + 1))
-    if [ $day -gt $month_days ]; then
+    day="$((day + 1))"
+    if [ "$day" -gt "$month_days" ]; then
         day=1
-        month=$((month + 1))
+        month="$((month + 1))"
     fi
-    if [ $month -gt 12 ]; then
+    if [ "$month" -gt 12 ]; then
         month=1
-        year=$((year + 1))
+        year="$((year + 1))"
     fi
 
-    echo $day $month $year
+    echo "$day" "$month" "$year"
 }
 
 ##------------------------------------------##
@@ -2875,46 +2873,50 @@ increment_date() {
 ##------------------------------------------##
 # Function to estimate the next run time of a cron job after a specific date
 estimate_next_cron_after_date() {
-    post_date_secs=$1
-    cron_schedule="$2"
-    minute=$(echo "$cron_schedule" | cut -d' ' -f1)
-    hour=$(echo "$cron_schedule" | cut -d' ' -f2)
-    dom=$(echo "$cron_schedule" | cut -d' ' -f3)
-    month_cron=$(echo "$cron_schedule" | cut -d' ' -f4)
-    dow=$(echo "$cron_schedule" | cut -d' ' -f5)
+    local post_date_secs="$1"
+    local cron_schedule="$2"
+    local minute="$(echo "$cron_schedule" | cut -d' ' -f1)"
+    local hour="$(echo "$cron_schedule" | cut -d' ' -f2)"
+    local dom="$(echo "$cron_schedule" | cut -d' ' -f3)"
+    local month_cron="$(echo "$cron_schedule" | cut -d' ' -f4)"
+    local dow="$(echo "$cron_schedule" | cut -d' ' -f5)"
 
     # Convert post_date_secs to date components
     eval $(date '+day=%d month=%m year=%Y' -d @$post_date_secs)
-    month=$(echo $month | sed 's/^0*//')  # Remove leading zeros for month
+    month="$(echo "$month" | sed 's/^0*//')"  # Remove leading zeros for month
+    day="$(echo "$day" | sed 's/^0*//')"  # Remove leading zeros for day
 
     day_count=0
-    while [ $day_count -lt 365 ]; do
-        current_dow=$(calculate_day_of_week $day $month $year)
+    while [ "$day_count" -lt 365 ]; do
+        current_dow="$(calculate_day_of_week "$day" "$month" "$year")"
 
-        num_dow_entries=$(echo $dow | tr ',' '\n' | wc -l)  # Count number of dow entries
+        num_dow_entries="$(echo "$dow" | tr ',' '\n' | wc -l)"  # Count number of dow entries
         dow_index=1
-        while [ $dow_index -le $num_dow_entries ]; do
-            dow_entry=$(echo $dow | cut -d',' -f$dow_index)  # Get the dow_index-th entry
+        while [ "$dow_index" -le "$num_dow_entries" ]; do
+            dow_entry="$(echo "$dow" | cut -d',' -f"$dow_index")"  # Get the dow_index-th entry
 
             # Convert alphabetic day of the week to number if necessary
             case "$dow_entry" in
-                *[a-zA-Z]*)
+                *[[:alpha:]]*)
                     dow_entry=$(convert_day_to_number "$dow_entry")
+                ;;
+                *)
+                    dow_entry="$(echo "$dow_entry" | sed 's/^0*//')"  # Remove leading zeros
                 ;;
             esac
 
-            num_month_entries=$(echo $month_cron | tr ',' '\n' | wc -l)  # Count number of month entries
+            num_month_entries="$(echo "$month_cron" | tr ',' '\n' | wc -l)"  # Count number of month entries
             month_index=1
-            while [ $month_index -le $num_month_entries ]; do
-                month_entry=$(echo $month_cron | cut -d',' -f$month_index)  # Get the month_index-th entry
+            while [ "$month_index" -le "$num_month_entries" ]; do
+                month_entry="$(echo "$month_cron" | cut -d',' -f"$month_index")"  # Get the month_index-th entry
 
                 # Convert month name to number if necessary
-                case "$month_entry" in
-                    *[a-zA-Z]*)
-                        month_entry=$(convert_month_to_number "$month_entry")
+                case "$month_cron" in
+                    *[[:alpha:]]*)
+                        month_entry=$(convert_month_to_number "$month_cron")
                     ;;
                     *)
-                        month_entry=$(echo $month_entry | sed 's/^0*//')  # Remove leading zeros
+                        month_entry="$(echo "$month_cron" | sed 's/^0*//')"  # Remove leading zeros
                     ;;
                 esac
 
@@ -2922,26 +2924,26 @@ estimate_next_cron_after_date() {
                    { [ "$month_entry" = "*" ] || [ "$month_entry" = "$month" ]; } &&
                    { [ "$dow_entry" = "*" ] || [ "$dow_entry" = "$current_dow" ]; }; then
                     cron_date="$year-$month-$day $hour:$minute"
-                    next_cron_run=$(date +%s -d "$cron_date")
-                    if [ $next_cron_run -gt $post_date_secs ]; then
-                        echo $next_cron_run
+                    next_cron_run="$(date +%s -d "$cron_date")"
+                    if [ "$next_cron_run" -gt "$post_date_secs" ]; then
+                        echo "$next_cron_run"
                         return
                     fi
                 fi
 
-                month_index=$((month_index + 1))
+                month_index="$((month_index + 1))"
             done
 
-            dow_index=$((dow_index + 1))
+            dow_index="$((dow_index + 1))"
         done
 
         # Increment date
-        new_date=$(increment_date $day $month $year)
+        new_date="$(increment_date "$day" "$month" "$year")"
         set -- $new_date
-        day=$1
-        month=$2
-        year=$3
-        day_count=$((day_count + 1))
+        local day="$1"
+        local month="$2"
+        local year="$3"
+        local day_count="$((day_count + 1))"
     done
     echo "no_date_found"
 }
