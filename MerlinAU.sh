@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-03
+# Last Modified: 2024-May-05
 ###################################################################
 set -u
 
@@ -26,8 +26,8 @@ readonly FW_URL_RELEASE_SUFFIX="Release"
 ## Added by ExtremeFiretop [2024-May-03] ##
 ##---------------------------------------##
 # Changelog URL Info #
-readonly CL_URL_NG="https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-NG.txt/download"
-readonly CL_URL_386="https://sourceforge.net/projects/asuswrt-merlin/files/Documentation/Changelog-386.txt/download"
+readonly CL_URL_NG="${FW_URL_BASE}/Documentation/Changelog-NG.txt/download"
+readonly CL_URL_386="${FW_URL_BASE}/Documentation/Changelog-386.txt/download"
 
 # For new script version updates from source repository #
 UpdateNotify=0
@@ -3776,7 +3776,8 @@ Please manually update to version $minimum_supported_version or higher to use th
         wgetHstsFile="/tmp/home/root/.wget-hsts"
         [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
 
-        wget -O "$FW_ZIP_FPATH" "$release_link"
+        wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+             -O "$FW_ZIP_FPATH" "$release_link"
     fi
 
     if [ ! -f "$FW_ZIP_FPATH" ]
@@ -4668,6 +4669,197 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##-------------------------------------##
+## Added by Martinski W. [2024-May-03] ##
+##-------------------------------------##
+_list2_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1 ; fi
+   local prevIFS="$IFS"
+   IFS="$(printf '\n\t')"
+   ls $1 $2 ; retcode="$?"
+   IFS="$prevIFS"
+   return "$retcode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-May-03] ##
+##-------------------------------------##
+_GetFileSelectionIndex_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local selectStr  promptStr  numRegEx  indexNum  indexList
+   local multiIndexListOK  theAllStr="${GRNct}all${NOct}"
+
+   if [ "$1" -eq 1 ]
+   then selectStr="${GRNct}1${NOct}"
+   else selectStr="${GRNct}1${NOct}-${GRNct}${1}${NOct}"
+   fi
+
+   if [ $# -lt 2 ] || [ "$2" != "-MULTIOK" ]
+   then
+       multiIndexListOK=false
+       promptStr="Enter selection [${selectStr}] [${theExitStr}]?"
+   else
+       multiIndexListOK=true
+       promptStr="Enter selection [${selectStr} | ${theAllStr}] [${theExitStr}]?"
+   fi
+   fileIndex=0  multiIndex=false
+   numRegEx="([1-9]|[1-9][0-9])"
+
+   while true
+   do
+       printf "${promptStr}  " ; read -r userInput
+
+       if [ -z "$userInput" ] || \
+          echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then fileIndex="NONE" ; break ; fi
+
+       if "$multiIndexListOK" && \
+          echo "$userInput" | grep -qE "^(all|All)$"
+       then fileIndex="ALL" ; break ; fi
+
+       if echo "$userInput" | grep -qE "^${numRegEx}$" && \
+          [ "$userInput" -gt 0 ] && [ "$userInput" -le "$1" ]
+       then fileIndex="$userInput" ; break ; fi
+
+       if "$multiIndexListOK" && \
+          echo "$userInput" | grep -qE "^${numRegEx}\-${numRegEx}[ ]*$"
+       then ## Index Range ##
+           index1st="$(echo "$userInput" | awk -F '-' '{print $1}')"
+           indexMax="$(echo "$userInput" | awk -F '-' '{print $2}')"
+           if [ "$index1st" -lt "$indexMax" ]  && \
+              [ "$index1st" -gt 0 ] && [ "$index1st" -le "$1" ] && \
+              [ "$indexMax" -gt 0 ] && [ "$indexMax" -le "$1" ]
+           then
+               indexNum="$index1st"
+               indexList="$indexNum"
+               while [ "$indexNum" -lt "$indexMax" ]
+               do
+                   indexNum="$((indexNum+1))"
+                   indexList="${indexList},${indexNum}"
+               done
+               userInput="$indexList"
+           fi
+       fi
+
+       if "$multiIndexListOK" && \
+          echo "$userInput" | grep -qE "^${numRegEx}(,[ ]*${numRegEx}[ ]*)+$"
+       then ## Index List ##
+           indecesOK=true
+           indexList="$(echo "$userInput" | sed 's/ //g' | sed 's/,/ /g')"
+           for theIndex in $indexList
+           do
+              if [ "$theIndex" -eq 0 ] || [ "$theIndex" -gt "$1" ]
+              then indecesOK=false ; break ; fi
+           done
+           "$indecesOK" && fileIndex="$indexList" && multiIndex=true && break
+       fi
+
+       printf "${REDct}INVALID selection.${NOct}\n"
+   done
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-May-03] ##
+##-------------------------------------##
+_GetFileSelection_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   if [ $# -lt 2 ] || [ "$2" != "-MULTIOK" ]
+   then indexType="" ; else indexType="$2" ; fi
+
+   theFilePath=""  theFileName=""  fileTemp=""
+   fileCount=0  fileIndex=0  multiIndex=false
+   local sourceDirPath="$FW_LOG_DIR"
+   local maxFileCount=20
+
+   printf "\n${1}\n[Directory: ${GRNct}${sourceDirPath}${NOct}]\n\n"
+
+   while IFS="$(printf '\n\t')" read -r backupFilePath
+   do
+       fileCount=$((fileCount+1))
+       fileVar="file_${fileCount}_Name"
+       eval file_${fileCount}_Name="${backupFilePath##*/}"
+       printf "${GRNct}%3d${NOct}. " "$fileCount"
+       eval echo "\$${fileVar}"
+       [ "$fileCount" -ge "$maxFileCount" ] && break
+   done <<EOT
+$(_list2_ -1t "$theLogFilesMatch" 2>/dev/null)
+EOT
+
+   echo
+   _GetFileSelectionIndex_ "$fileCount" "$indexType"
+
+   if [ "$fileIndex" = "ALL" ] || [ "$fileIndex" = "NONE" ]
+   then theFilePath="$fileIndex" ; return 0 ; fi
+
+   if [ "$indexType" = "-MULTIOK" ] && "$multiIndex"
+   then
+       for index in $fileIndex
+       do
+           fileVar="file_${index}_Name"
+           eval fileTemp="\$${fileVar}"
+           if [ -z "$theFilePath" ]
+           then theFilePath="${sourceDirPath}/$fileTemp"
+           else theFilePath="${theFilePath}|${sourceDirPath}/$fileTemp"
+           fi
+       done
+   else
+       fileVar="file_${fileIndex}_Name"
+       eval theFileName="\$${fileVar}"
+       theFilePath="${sourceDirPath}/$theFileName"
+   fi
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-04] ##
+##----------------------------------------##
+_CheckForUpdateLogFiles_()
+{
+   theLogFilesMatch="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_*.log"
+   theFileCount="$(_list2_ -1 "$theLogFilesMatch" 2>/dev/null | wc -l)"
+   
+   if [ ! -d "$FW_LOG_DIR" ] || [ "$theFileCount" -eq 0 ]
+   then
+       updateLogFileFound=false
+       return 1
+   fi
+   chmod 444 "${FW_LOG_DIR}"/${MODEL_ID}_FW_Update_*.log
+   updateLogFileFound=true
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-05] ##
+##----------------------------------------##
+_ViewUpdateLogFile_()
+{
+   local theFilePath=""  theFileCount  theLogFilesMatch  retCode
+
+   if ! _CheckForUpdateLogFiles_
+   then
+       printf "\n${REDct}**ERROR**${NOct}: Log file(s) [$theLogFilesMatch] NOT FOUND."
+       return 1
+   fi
+   printf "\n---------------------------------------------------"
+   _GetFileSelection_ "Select a log file to view:"
+
+   if [ "$theFilePath" = "NONE" ] || [ ! -f "$theFilePath" ]
+   then return 1 ; fi
+
+   printf "\nLog file to view:\n${GRNct}${theFilePath}${NOct}\n"
+   printf "\n[Press '${REDct}q${NOct}' to quit when finished]\n"
+   _WaitForEnterKey_
+   less "$theFilePath"
+
+   return 0
+}
+
+##-------------------------------------##
 ## Added by Martinski W. [2024-Mar-20] ##
 ##-------------------------------------##
 _SimpleNotificationDate_()
@@ -4753,6 +4945,15 @@ _PrintNodeInfo()
         printf "\n   │%*s ${REDct}Node Offline${NOct}%*s │" "$left_padding" "" "$((total_padding - left_padding))" ""
         printf "\n   └─%s─┘" "$h_line"
     fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-18] ##
+##----------------------------------------##
+_InvalidMenuSelection_()
+{
+   printf "${REDct}INVALID selection.${NOct} Please try again."
+   _WaitForEnterKey_
 }
 
 ##------------------------------------------##
@@ -5008,38 +5209,49 @@ _ShowNodesMenuOptions_()
     done
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-May-02] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-05] ##
+##----------------------------------------##
 _DownloadChangelogs_()
 {
+    local wgetLogFile  changeLogTag  changeLogFile  changeLogURL
+
     changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
     if [ "$changeLogTag" = "386" ]
     then
-        wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "${CL_URL_386}"
+        changeLogURL="${CL_URL_386}"
     elif [ "$changeLogTag" = "NG" ]
     then
-        wget -O "$FW_BIN_DIR/Changelog-${changeLogTag}.txt" "${CL_URL_NG}"
+        changeLogURL="${CL_URL_NG}"
     fi
+
+    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
     changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
+    printf "\nRetrieving ${GRNct}Changelog-${changeLogTag}.txt${NOct} ...\n"
+
+    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+         -O "$changeLogFile" -o "$wgetLogFile" "${changeLogURL}"
+
     if [ ! -f "$changeLogFile" ]
     then
         Say "Change-log file [$changeLogFile] does NOT exist."
+        echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
     else
         clear
         printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
         printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+        dos2unix "$changeLogFile"
         _WaitForEnterKey_
-        more "$changeLogFile"
+        less "$changeLogFile"
     fi
-    rm -f "$FW_BIN_DIR/Changelog-${changeLogTag}.txt"
+    rm -f "$changeLogFile" "$wgetLogFile"
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 1
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-May-02] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-04] ##
+##----------------------------------------##
 _ShowLogsMenu_()
 {
    clear
@@ -5050,15 +5262,20 @@ _ShowLogsMenu_()
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update Log Files"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
 
+   if _CheckForUpdateLogFiles_
+   then
+       printf "\n ${GRNct}lg${NOct}.  View F/W Update Log File\n"
+   fi
+
    printf "\n ${GRNct}cl${NOct}.  View latest F/W Changelog\n"
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
    printf "${SEPstr}"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-May-02] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-04] ##
+##----------------------------------------##
 _AdvancedLogsOptions_()
 {
     while true
@@ -5070,23 +5287,25 @@ _AdvancedLogsOptions_()
         case $nodesChoice in
             1) _Set_FW_UpdateLOG_DirectoryPath_
                ;;
-            cl) _DownloadChangelogs_
+           lg) if _CheckForUpdateLogFiles_
+               then
+                   while true
+                   do
+                       if _ViewUpdateLogFile_
+                       then continue ; else break ; fi
+                   done
+               else
+                   _InvalidMenuSelection_
+               fi
                ;;
-            e|exit) break
+           cl) _DownloadChangelogs_
+               ;;
+       e|exit) break
                ;;
             *) _InvalidMenuSelection_
                ;;
         esac
     done
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
-_InvalidMenuSelection_()
-{
-   printf "${REDct}INVALID selection.${NOct} Please try again."
-   _WaitForEnterKey_
 }
 
 ##------------------------------------------##
