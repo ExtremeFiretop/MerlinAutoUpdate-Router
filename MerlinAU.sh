@@ -2884,7 +2884,6 @@ estimate_next_cron_after_date() {
     # Convert post_date_secs to date components
     eval $(date '+day=%d month=%m year=%Y' -d @$post_date_secs)
     month="$(echo "$month" | sed 's/^0*//')"  # Remove leading zeros for month
-    day="$(echo "$day" | sed 's/^0*//')"  # Remove leading zeros for day
 
     day_count=0
     while [ "$day_count" -lt 365 ]; do
@@ -2899,9 +2898,6 @@ estimate_next_cron_after_date() {
             case "$dow_entry" in
                 *[[:alpha:]]*)
                     dow_entry=$(convert_day_to_number "$dow_entry")
-                ;;
-                *)
-                    dow_entry="$(echo "$dow_entry" | sed 's/^0*//')"  # Remove leading zeros
                 ;;
             esac
 
