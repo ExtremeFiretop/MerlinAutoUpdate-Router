@@ -3383,13 +3383,6 @@ _CheckTimeToUpdateFirmware_() {
    then return 0 ; fi
 
    upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
-
-   if [ "$nextCronTimeSecs" = "no_date_found" ]; then
-       upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
-       Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
-       return 1
-   fi
-
    nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
 
    if [ "$nextCronTimeSecs" = "no_date_found" ]; then
