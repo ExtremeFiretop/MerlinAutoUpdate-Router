@@ -3362,7 +3362,7 @@ _CheckTimeToUpdateFirmware_()
    then return 0 ; fi
 
    upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
-   nextCronTimeSecs=$(estimate_next_cron_after_date $upfwDateTimeSecs "$FW_UpdateCronJobSchedule")
+   nextCronTimeSecs="$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
 
    if [ "$nextCronTimeSecs" = "no_date_found" ]; then
        upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
