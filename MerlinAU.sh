@@ -1709,7 +1709,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if true ; then echo "388.6.2" ; return 0 ; fi
+if false ; then echo "388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -5048,7 +5048,7 @@ _ShowMainMenu_()
       fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
       if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
       then
-         fwNewUpdateNotificationDate="$(date +%s)"
+         fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
       else
          fwNewUpdateNotificationDate="$fwNewUpdateNotificationDate"
       fi
