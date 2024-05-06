@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-05
+# Last Modified: 2024-May-06
 ###################################################################
 set -u
 
@@ -764,7 +764,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-20] ##
+## Modified by ExtremeFiretop [2024-May-06] ##
 ##------------------------------------------##
 Get_Custom_Setting()
 {
@@ -784,6 +784,7 @@ Get_Custom_Setting()
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
                 ;;
             "FW_New_Update_Postponement_Days"  | \
+            "FW_New_Update_Run_Date"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
             "FW_New_Update_LOG_Directory_Path" | \
@@ -832,9 +833,9 @@ _GetAllNodeSettings_()
     echo "$setting_value"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -866,6 +867,7 @@ Update_Custom_Settings()
             fi
             ;;
         "FW_New_Update_Postponement_Days"  | \
+        "FW_New_Update_Run_Date"  | \
         "FW_New_Update_Cron_Job_Schedule"  | \
         "FW_New_Update_ZIP_Directory_Path" | \
         "FW_New_Update_LOG_Directory_Path" | \
@@ -2764,378 +2766,6 @@ translate_schedule()
    echo "$day_of_week_text, $day_of_month_text, in $month_text."
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-19] ##
-##----------------------------------------------##
-_AddCronJobEntry_()
-{
-   local newSchedule  newSetting  retCode=1
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then
-       newSetting=true
-       newSchedule="$1"
-   else
-       newSetting=false
-       newSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
-   fi
-   if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD" ]
-   then
-       newSchedule="$FW_Update_CRON_DefaultSchedule"
-   fi
-
-   cru a "$CRON_JOB_TAG" "$newSchedule $CRON_JOB_RUN"
-   sleep 1
-   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
-   then
-       retCode=0
-       "$newSetting" && \
-       Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$newSchedule"
-   fi
-   return "$retCode"
-}
-
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-19] ##
-##-------------------------------------##
-_DelCronJobEntry_()
-{
-   local retCode
-   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
-   then
-       cru d "$CRON_JOB_TAG" ; sleep 1
-       if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
-       then
-           retCode=1
-           printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
-       else
-           retCode=0
-           printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was removed successfully.\n"
-       fi
-   else
-       retCode=0
-       printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' does not exist.\n"
-   fi
-   return "$retCode"
-}
-
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-12] ##
-##-------------------------------------##
-_CheckPostponementDays_()
-{
-   local retCode  newPostponementDays
-   newPostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
-   if [ -z "$newPostponementDays" ] || [ "$newPostponementDays" = "TBD" ]
-   then retCode=1 ; else retCode=0 ; fi
-   return "$retCode"
-}
-
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-19] ##
-##----------------------------------------------##
-_Set_FW_UpdatePostponementDays_()
-{
-   local validNumRegExp="([0-9]|[1-9][0-9])"
-   local oldPostponementDays  newPostponementDays  postponeDaysStr  userInput
-
-   oldPostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
-   if [ -z "$oldPostponementDays" ] || [ "$oldPostponementDays" = "TBD" ]
-   then
-       newPostponementDays="$FW_UpdateDefaultPostponementDays"
-       postponeDaysStr="Default Value: ${GRNct}${newPostponementDays}${NOct}"
-   else
-       newPostponementDays="$oldPostponementDays"
-       postponeDaysStr="Current Value: ${GRNct}${newPostponementDays}${NOct}"
-   fi
-
-   while true
-   do
-       printf "\nEnter the number of days to postpone the update once a new firmware notification is made.\n"
-       printf "[${theExitStr}] "
-       printf "[Min=${GRNct}${FW_UpdateMinimumPostponementDays}${NOct}, Max=${GRNct}${FW_UpdateMaximumPostponementDays}${NOct}] "
-       printf "[${postponeDaysStr}]:  "
-       read -r userInput
-
-       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
-       then break ; fi
-
-       if echo "$userInput" | grep -qE "^${validNumRegExp}$" && \
-          [ "$userInput" -ge "$FW_UpdateMinimumPostponementDays" ] && \
-          [ "$userInput" -le "$FW_UpdateMaximumPostponementDays" ]
-       then newPostponementDays="$userInput" ; break ; fi
-
-       printf "${REDct}INVALID input.${NOct}\n"
-   done
-
-   if [ "$newPostponementDays" != "$oldPostponementDays" ]
-   then
-       Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
-       echo "The number of days to postpone F/W Update was updated successfully."
-       _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-   fi
-   return 0
-}
-
-##-------------------------------------##
-## Added by Martinski W. [2024-Feb-22] ##
-##-------------------------------------##
-_CapitalizeFirstChar_()
-{
-   if [ $# -eq 0 ] && [ -z "$1" ]
-   then echo "$1" ; return 1; fi
-
-   local upperChar  capWord  origStr="$1"
-   local prevIFS="$IFS"
-
-   IFS="/,-$IFS"
-   for origWord in $1
-   do
-       upperChar="$(echo "${origWord:0:1}" | tr 'a-z' 'A-Z')"
-       if [ -n "$upperChar" ]
-       then
-           capWord="${upperChar}${origWord:1}"
-           origStr="$(echo "$origStr" | sed "s/\b${origWord}\b/$capWord/g")"
-       fi
-   done
-   IFS="$prevIFS"
-   echo "$origStr"
-}
-
-##-------------------------------------##
-## Added by Martinski W. [2024-Feb-22] ##
-##-------------------------------------##
-_ValidateCronJobSchedule_()
-{
-   local cronSchedsStr
-   if [ $# -eq 0 ] || [ -z "$1" ]
-   then
-       printf "${REDct}INVALID cron schedule string: [EMPTY].${NOct}\n"
-       return 1
-   fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print NF}')"
-   if [ "$cronSchedsStr" -ne 5 ]
-   then
-       printf "${REDct}INVALID cron schedule string [$1]. Incorrect number of parameters.${NOct}\n"
-       return 1
-   fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $1}')"
-   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_MINS_RegEx})$"
-   then
-       printf "${REDct}INVALID 'minute' cron value: [$cronSchedsStr].${NOct}\n"
-       return 1
-   fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $2}')"
-   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_HOUR_RegEx})$"
-   then
-       printf "${REDct}INVALID 'hour' cron value: [$cronSchedsStr].${NOct}\n"
-       return 1
-   fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $3}')"
-   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_DAYofMONTH_RegEx})$"
-   then
-       printf "${REDct}INVALID 'day of month' cron value: [$cronSchedsStr].${NOct}\n"
-       return 1
-   fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $4}')"
-   if ! echo "$cronSchedsStr" | grep -qiE "^(${CRON_MONTH_RegEx})$"
-   then
-       printf "${REDct}INVALID 'month' cron value: [$cronSchedsStr].${NOct}\n"
-       return 1
-   fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $5}')"
-   if ! echo "$cronSchedsStr" | grep -qiE "^(${CRON_DAYofWEEK_RegEx})$"
-   then
-       printf "${REDct}INVALID 'day of week' cron value: [$cronSchedsStr].${NOct}\n"
-       return 1
-   fi
-   return 0
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-22] ##
-##----------------------------------------##
-_Set_FW_UpdateCronSchedule_()
-{
-    printf "Changing Firmware Update Schedule...\n"
-
-    local retCode=1  currCronSchedule  nextCronSchedule  userInput
-
-    currCronSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
-    if [ -z "$currCronSchedule" ] || [ "$currCronSchedule" = "TBD" ]
-    then
-        nextCronSchedule=""
-        currCronSchedule="$FW_UpdateCronJobSchedule"
-    else
-        nextCronSchedule="$currCronSchedule"
-        # Translate the current schedule to English (human readable form) #
-        current_schedule_english="$(translate_schedule "$currCronSchedule")"
-        printf "Current Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-    fi
-
-    while true
-    do
-        printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * Sun${NOct}' for every Sunday at midnight)"
-        if [ -z "$currCronSchedule" ]
-        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${nextCronSchedule}${NOct}]:  "
-        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${currCronSchedule}${NOct}]:  "
-        fi
-        read -r userInput
-
-        # If the user enters 'e', break out of the loop and return to the main menu
-        if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
-        then
-            ! _ValidateCronJobSchedule_ "$currCronSchedule" && continue
-
-            # Capitalize 1st char of any abbreviated short names #
-            currCronSchedule="$(_CapitalizeFirstChar_ "$currCronSchedule")"
-            currCronSchedule="$(echo "$currCronSchedule" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
-            break
-        fi
-
-        if _ValidateCronJobSchedule_ "$userInput"
-        then
-            # Capitalize 1st char of any abbreviated short names #
-            nextCronSchedule="$(_CapitalizeFirstChar_ "$userInput")"
-            nextCronSchedule="$(echo "$nextCronSchedule" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
-            break
-        fi
-    done
-
-    [ "$nextCronSchedule" = "$currCronSchedule" ] && return 0
-
-    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
-    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
-    if [ "$FW_UpdateCheckState" -eq 1 ]
-    then
-        # Add/Update cron job ONLY if "F/W Update Check" is enabled #
-        printf "Updating '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
-        if _AddCronJobEntry_ "$nextCronSchedule"
-        then
-            retCode=0
-            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
-            current_schedule_english="$(translate_schedule "$nextCronSchedule")"
-            printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-        else
-            retCode=1
-            printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
-        fi
-    else
-        Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$nextCronSchedule"
-        printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was configured but not added.\n"
-        printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
-    fi
-
-    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
-    return "$retCode"
-}
-
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-13] ##
-##------------------------------------------##
-_CheckNewUpdateFirmwareNotification_()
-{
-   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
-   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
-
-   local numVersionFields  fwNewUpdateVersNum
-
-   numVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
-   currentVersionNum="$(_FWVersionStrToNum_ "$1" "$numVersionFields")"
-   releaseVersionNum="$(_FWVersionStrToNum_ "$2" "$numVersionFields")"
-
-   if [ "$currentVersionNum" -ge "$releaseVersionNum" ]
-   then
-       Say "Current firmware version '$1' is up to date."
-       Update_Custom_Settings FW_New_Update_Notification_Date TBD
-       Update_Custom_Settings FW_New_Update_Notification_Vers TBD
-       return 1
-   fi
-
-   fwNewUpdateNotificationVers="$(Get_Custom_Setting FW_New_Update_Notification_Vers TBD)"
-   if [ -z "$fwNewUpdateNotificationVers" ] || [ "$fwNewUpdateNotificationVers" = "TBD" ]
-   then
-       fwNewUpdateNotificationVers="$2"
-       Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
-   else
-       numVersionFields="$(echo "$fwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
-       fwNewUpdateVersNum="$(_FWVersionStrToNum_ "$fwNewUpdateNotificationVers" "$numVersionFields")"
-       if [ "$releaseVersionNum" -gt "$fwNewUpdateVersNum" ]
-       then
-           fwNewUpdateNotificationVers="$2"
-           fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
-           Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
-           Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-           if "$inRouterSWmode" 
-           then
-              _SendEMailNotification_ NEW_FW_UPDATE_STATUS
-           fi
-       fi
-   fi
-
-   fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
-   if [ -z "$fwNewUpdateNotificationDate" ] || [ "$fwNewUpdateNotificationDate" = "TBD" ]
-   then
-       fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
-       Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-       if "$inRouterSWmode" 
-       then
-          _SendEMailNotification_ NEW_FW_UPDATE_STATUS
-       fi
-   fi
-   return 0
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-30] ##
-##----------------------------------------##
-_CheckNodeFWUpdateNotification_()
-{
-   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
-   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
-
-   local nodenumVersionFields  nodefwNewUpdateVersNum
-
-   nodenumVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
-   nodecurrentVersionNum="$(_FWVersionStrToNum_ "$1" "$nodenumVersionFields")"
-   nodereleaseVersionNum="$(_FWVersionStrToNum_ "$2" "$nodenumVersionFields")"
-
-   if [ "$nodecurrentVersionNum" -ge "$nodereleaseVersionNum" ]
-   then
-       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "TBD" "$uid"
-       return 1
-   fi
-
-   nodefwNewUpdateNotificationVers="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Vers")"
-   if [ -z "$nodefwNewUpdateNotificationVers" ] || [ "$nodefwNewUpdateNotificationVers" = "TBD" ]
-   then
-       nodefwNewUpdateNotificationVers="$2"
-       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "$nodefwNewUpdateNotificationVers" "$uid"
-   else
-       nodenumVersionFields="$(echo "$nodefwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
-       nodefwNewUpdateVersNum="$(_FWVersionStrToNum_ "$nodefwNewUpdateNotificationVers" "$nodenumVersionFields")"
-       if [ "$nodereleaseVersionNum" -gt "$nodefwNewUpdateVersNum" ]
-       then
-           nodefwNewUpdateNotificationVers="$2"
-           nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
-           _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
-           nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
-           echo "" > "$tempNodeEMailList"
-           echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
-       fi
-   fi
-
-   nodefwNewUpdateNotificationDate="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Date")"
-   if [ -z "$nodefwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
-   then
-       nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
-       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
-       nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
-       echo "" > "$tempNodeEMailList"
-       echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
-   fi
-   return 0
-}
-
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-May-04] ##
 ##------------------------------------------##
@@ -3316,17 +2946,426 @@ estimate_next_cron_after_date() {
     echo "no_date_found"
 }
 
+calculate_DST() {
+   local notifyTimeStrn notifyTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
+   local postponeTimeSecs
+   
+   fwNewUpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
+   notifyTimeStrn="$1"
+   
+   currentTimeSecs="$(date +%s)"
+   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+
+   # Adjust for DST discrepancies
+   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
+   then dstAdjustSecs=86400  # 24-hour day is same as always
+   else dstAdjustSecs=82800  # 23-hour day only when DST happens
+   fi
+
+   dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
+   if [ "$dstAdjustDays" -eq 0 ]
+   then postponeTimeSecs="$dstAdjustSecs"
+   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
+   fi
+
+   echo "$((notifyTimeSecs + postponeTimeSecs))"
+}
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-19] ##
+##----------------------------------------------##
+_AddCronJobEntry_()
+{
+   local newSchedule  newSetting  retCode=1
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then
+       newSetting=true
+       newSchedule="$1"
+   else
+       newSetting=false
+       newSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   fi
+   if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD" ]
+   then
+       newSchedule="$FW_Update_CRON_DefaultSchedule"
+   fi
+
+   cru a "$CRON_JOB_TAG" "$newSchedule $CRON_JOB_RUN"
+   sleep 1
+   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   then
+       retCode=0
+       "$newSetting" && \
+       Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$newSchedule"
+   fi
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Nov-19] ##
+##-------------------------------------##
+_DelCronJobEntry_()
+{
+   local retCode
+   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   then
+       cru d "$CRON_JOB_TAG" ; sleep 1
+       if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+       then
+           retCode=1
+           printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
+       else
+           retCode=0
+           printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was removed successfully.\n"
+       fi
+   else
+       retCode=0
+       printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' does not exist.\n"
+   fi
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-12] ##
+##-------------------------------------##
+_CheckPostponementDays_()
+{
+   local retCode  newPostponementDays
+   newPostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
+   if [ -z "$newPostponementDays" ] || [ "$newPostponementDays" = "TBD" ]
+   then retCode=1 ; else retCode=0 ; fi
+   return "$retCode"
+}
+
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-04] ##
+## Modified by ExtremeFiretop [2024-May-06] ##
 ##------------------------------------------##
-_CheckTimeToUpdateFirmware_()
+_Set_FW_UpdatePostponementDays_()
+{
+   local validNumRegExp="([0-9]|[1-9][0-9])"
+   local oldPostponementDays  newPostponementDays  postponeDaysStr  userInput
+
+   oldPostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
+   if [ -z "$oldPostponementDays" ] || [ "$oldPostponementDays" = "TBD" ]
+   then
+       newPostponementDays="$FW_UpdateDefaultPostponementDays"
+       postponeDaysStr="Default Value: ${GRNct}${newPostponementDays}${NOct}"
+   else
+       newPostponementDays="$oldPostponementDays"
+       postponeDaysStr="Current Value: ${GRNct}${newPostponementDays}${NOct}"
+   fi
+
+   while true
+   do
+       printf "\nEnter the number of days to postpone the update once a new firmware notification is made.\n"
+       printf "[${theExitStr}] "
+       printf "[Min=${GRNct}${FW_UpdateMinimumPostponementDays}${NOct}, Max=${GRNct}${FW_UpdateMaximumPostponementDays}${NOct}] "
+       printf "[${postponeDaysStr}]:  "
+       read -r userInput
+
+       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then break ; fi
+
+       if echo "$userInput" | grep -qE "^${validNumRegExp}$" && \
+          [ "$userInput" -ge "$FW_UpdateMinimumPostponementDays" ] && \
+          [ "$userInput" -le "$FW_UpdateMaximumPostponementDays" ]
+       then newPostponementDays="$userInput" ; break ; fi
+
+       printf "${REDct}INVALID input.${NOct}\n"
+   done
+
+   if [ "$newPostponementDays" != "$oldPostponementDays" ]
+   then
+       Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
+       echo "The number of days to postpone F/W Update was updated successfully."
+       fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+       upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+       nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+       Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
+       _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+   fi
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-22] ##
+##-------------------------------------##
+_CapitalizeFirstChar_()
+{
+   if [ $# -eq 0 ] && [ -z "$1" ]
+   then echo "$1" ; return 1; fi
+
+   local upperChar  capWord  origStr="$1"
+   local prevIFS="$IFS"
+
+   IFS="/,-$IFS"
+   for origWord in $1
+   do
+       upperChar="$(echo "${origWord:0:1}" | tr 'a-z' 'A-Z')"
+       if [ -n "$upperChar" ]
+       then
+           capWord="${upperChar}${origWord:1}"
+           origStr="$(echo "$origStr" | sed "s/\b${origWord}\b/$capWord/g")"
+       fi
+   done
+   IFS="$prevIFS"
+   echo "$origStr"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-22] ##
+##-------------------------------------##
+_ValidateCronJobSchedule_()
+{
+   local cronSchedsStr
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       printf "${REDct}INVALID cron schedule string: [EMPTY].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print NF}')"
+   if [ "$cronSchedsStr" -ne 5 ]
+   then
+       printf "${REDct}INVALID cron schedule string [$1]. Incorrect number of parameters.${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $1}')"
+   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_MINS_RegEx})$"
+   then
+       printf "${REDct}INVALID 'minute' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $2}')"
+   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_HOUR_RegEx})$"
+   then
+       printf "${REDct}INVALID 'hour' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $3}')"
+   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_DAYofMONTH_RegEx})$"
+   then
+       printf "${REDct}INVALID 'day of month' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $4}')"
+   if ! echo "$cronSchedsStr" | grep -qiE "^(${CRON_MONTH_RegEx})$"
+   then
+       printf "${REDct}INVALID 'month' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $5}')"
+   if ! echo "$cronSchedsStr" | grep -qiE "^(${CRON_DAYofWEEK_RegEx})$"
+   then
+       printf "${REDct}INVALID 'day of week' cron value: [$cronSchedsStr].${NOct}\n"
+       return 1
+   fi
+   return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
+_Set_FW_UpdateCronSchedule_()
+{
+    printf "Changing Firmware Update Schedule...\n"
+
+    local retCode=1  currCronSchedule  nextCronSchedule  userInput
+
+    currCronSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+    if [ -z "$currCronSchedule" ] || [ "$currCronSchedule" = "TBD" ]
+    then
+        nextCronSchedule=""
+        currCronSchedule="$FW_UpdateCronJobSchedule"
+    else
+        nextCronSchedule="$currCronSchedule"
+        # Translate the current schedule to English (human readable form) #
+        current_schedule_english="$(translate_schedule "$currCronSchedule")"
+        printf "Current Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+    fi
+
+    while true
+    do
+        printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * Sun${NOct}' for every Sunday at midnight)"
+        if [ -z "$currCronSchedule" ]
+        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${nextCronSchedule}${NOct}]:  "
+        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${currCronSchedule}${NOct}]:  "
+        fi
+        read -r userInput
+
+        # If the user enters 'e', break out of the loop and return to the main menu
+        if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+        then
+            ! _ValidateCronJobSchedule_ "$currCronSchedule" && continue
+
+            # Capitalize 1st char of any abbreviated short names #
+            currCronSchedule="$(_CapitalizeFirstChar_ "$currCronSchedule")"
+            currCronSchedule="$(echo "$currCronSchedule" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
+            break
+        fi
+
+        if _ValidateCronJobSchedule_ "$userInput"
+        then
+            # Capitalize 1st char of any abbreviated short names #
+            nextCronSchedule="$(_CapitalizeFirstChar_ "$userInput")"
+            nextCronSchedule="$(echo "$nextCronSchedule" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
+            break
+        fi
+    done
+
+    [ "$nextCronSchedule" = "$currCronSchedule" ] && return 0
+
+    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
+    if [ "$FW_UpdateCheckState" -eq 1 ]
+    then
+        # Add/Update cron job ONLY if "F/W Update Check" is enabled #
+        printf "Updating '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+        if _AddCronJobEntry_ "$nextCronSchedule"
+        then
+            retCode=0
+            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
+            current_schedule_english="$(translate_schedule "$nextCronSchedule")"
+            printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+            upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+            nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+            Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
+        else
+            retCode=1
+            printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
+        fi
+    else
+        Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$nextCronSchedule"
+        printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was configured but not added.\n"
+        printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
+    fi
+
+    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+    return "$retCode"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
+_CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local notifyTimeSecs postponeTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
-   local fwNewUpdateNotificationDate fwNewUpdateNotificationVers fwNewUpdatePostponementDays
-   local nextCronTimeSecs upfwDateTimeStrn
+   local numVersionFields  fwNewUpdateVersNum
+
+   numVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
+   currentVersionNum="$(_FWVersionStrToNum_ "$1" "$numVersionFields")"
+   releaseVersionNum="$(_FWVersionStrToNum_ "$2" "$numVersionFields")"
+
+   if [ "$currentVersionNum" -ge "$releaseVersionNum" ]
+   then
+       Say "Current firmware version '$1' is up to date."
+       Update_Custom_Settings FW_New_Update_Notification_Date TBD
+       Update_Custom_Settings FW_New_Update_Notification_Vers TBD
+       return 1
+   fi
+
+   fwNewUpdateNotificationVers="$(Get_Custom_Setting FW_New_Update_Notification_Vers TBD)"
+   if [ -z "$fwNewUpdateNotificationVers" ] || [ "$fwNewUpdateNotificationVers" = "TBD" ]
+   then
+       fwNewUpdateNotificationVers="$2"
+       Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
+   else
+       numVersionFields="$(echo "$fwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
+       fwNewUpdateVersNum="$(_FWVersionStrToNum_ "$fwNewUpdateNotificationVers" "$numVersionFields")"
+       if [ "$releaseVersionNum" -gt "$fwNewUpdateVersNum" ]
+       then
+           fwNewUpdateNotificationVers="$2"
+           fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+           Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
+           Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
+           upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+           nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+           Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
+           if "$inRouterSWmode" 
+           then
+              _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+           fi
+       fi
+   fi
+
+   fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   if [ -z "$fwNewUpdateNotificationDate" ] || [ "$fwNewUpdateNotificationDate" = "TBD" ]
+   then
+       fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+       Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
+           upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+           nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+           Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
+       if "$inRouterSWmode" 
+       then
+          _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+       fi
+   fi
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-30] ##
+##----------------------------------------##
+_CheckNodeFWUpdateNotification_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+   local nodenumVersionFields  nodefwNewUpdateVersNum
+
+   nodenumVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
+   nodecurrentVersionNum="$(_FWVersionStrToNum_ "$1" "$nodenumVersionFields")"
+   nodereleaseVersionNum="$(_FWVersionStrToNum_ "$2" "$nodenumVersionFields")"
+
+   if [ "$nodecurrentVersionNum" -ge "$nodereleaseVersionNum" ]
+   then
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "TBD" "$uid"
+       return 1
+   fi
+
+   nodefwNewUpdateNotificationVers="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Vers")"
+   if [ -z "$nodefwNewUpdateNotificationVers" ] || [ "$nodefwNewUpdateNotificationVers" = "TBD" ]
+   then
+       nodefwNewUpdateNotificationVers="$2"
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "$nodefwNewUpdateNotificationVers" "$uid"
+   else
+       nodenumVersionFields="$(echo "$nodefwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
+       nodefwNewUpdateVersNum="$(_FWVersionStrToNum_ "$nodefwNewUpdateNotificationVers" "$nodenumVersionFields")"
+       if [ "$nodereleaseVersionNum" -gt "$nodefwNewUpdateVersNum" ]
+       then
+           nodefwNewUpdateNotificationVers="$2"
+           nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+           _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
+           nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
+           echo "" > "$tempNodeEMailList"
+           echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
+       fi
+   fi
+
+   nodefwNewUpdateNotificationDate="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Date")"
+   if [ -z "$nodefwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
+   then
+       nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
+       nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
+       echo "" > "$tempNodeEMailList"
+       echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
+   fi
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-21] ##
+##----------------------------------------##
+_CheckTimeToUpdateFirmware_() {
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+   local upfwDateTimeSecs nextCronTimeSecs upfwDateTimeStrn
+   local fwNewUpdatePostponementDays fwNewUpdateNotificationDate fwNewUpdateNotificationVers
 
    _CheckNewUpdateFirmwareNotification_ "$1" "$2"
 
@@ -3343,26 +3382,8 @@ _CheckTimeToUpdateFirmware_()
    if [ "$fwNewUpdatePostponementDays" -eq 0 ]
    then return 0 ; fi
 
-   currentTimeSecs="$(date +%s)"
-   notifyTimeStrn="$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')"
-   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
-
-   # Adjust for DST discrepancies
-   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
-   then dstAdjustSecs=86400  #24-hour day is same as always#
-   else dstAdjustSecs=82800  #23-hour day only when DST happens#
-   fi
-   dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
-   if [ "$dstAdjustDays" -eq 0 ]
-   then postponeTimeSecs="$dstAdjustSecs"
-   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
-   fi
-
-   if [ "$((currentTimeSecs - notifyTimeSecs))" -ge "$postponeTimeSecs" ]
-   then return 0 ; fi
-
-   upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
-   nextCronTimeSecs="$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+   upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+   nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
 
    if [ "$nextCronTimeSecs" = "no_date_found" ]; then
        upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
@@ -4998,6 +5019,14 @@ _ShowMainMenu_()
 
    arrowStr=" ${REDct}<<---${NOct}"
 
+   ExpectedFWUpdateRuntime="$(Get_Custom_Setting FW_New_Update_Run_Date)"
+   if [ "$ExpectedFWUpdateRuntime" = "TBD" ]
+   then 
+      RuntimeStr="${REDct}NOT SET${NOct}"
+   else 
+      RuntimeStr="$(date -d @$ExpectedFWUpdateRuntime +"%Y-%b-%d %I:%M %p")"
+      RuntimeStr="${GRNct}$RuntimeStr${NOct}"
+   fi
    notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    if [ "$notifyDate" = "TBD" ]
    then notificationStr="${REDct}NOT SET${NOct}"
@@ -5016,6 +5045,7 @@ _ShowMainMenu_()
       fi
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(H)ide"
       printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
+      printf "\n${padStr}F/W Expected Runtime:  $RuntimeStr"
       printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
       printf "\n${padStr}USB Storage Connected: $USBConnected"
    else
