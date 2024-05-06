@@ -2907,12 +2907,12 @@ estimate_next_cron_after_date() {
                 month_entry="$(echo "$month_cron" | cut -d',' -f"$month_index")"  # Get the month_index-th entry
 
                 # Convert month name to number if necessary
-                case "$month_cron" in
+                case "$month_entry" in
                     *[[:alpha:]]*)
-                        month_entry=$(convert_month_to_number "$month_cron")
+                        month_entry=$(convert_month_to_number "$month_entry")
                     ;;
                     *)
-                        month_entry="$(echo "$month_cron" | sed 's/^0*//')"  # Remove leading zeros
+                        month_entry="$(echo "$month_entry" | sed 's/^0*//')"  # Remove leading zeros
                     ;;
                 esac
 
