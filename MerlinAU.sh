@@ -3383,6 +3383,11 @@ _CheckTimeToUpdateFirmware_() {
    then return 0 ; fi
 
    upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+
+   local currentTimeSecs="$(date +%s)"
+   if [ "$((currentTimeSecs - upfwDateTimeSecs))" -ge 0 ]
+   then return 0 ; fi
+
    nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
 
    if [ "$nextCronTimeSecs" = "no_date_found" ]; then
