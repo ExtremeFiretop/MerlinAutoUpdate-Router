@@ -3080,7 +3080,7 @@ _Set_FW_UpdatePostponementDays_()
    then
        Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
        echo "The number of days to postpone F/W Update was updated successfully."
-       local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+       local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date TBD)"
        upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
        nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
        Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
@@ -3228,7 +3228,7 @@ _Set_FW_UpdateCronSchedule_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-            local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+            local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date TBD)"
             upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
             nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
             Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
@@ -3298,7 +3298,6 @@ _CheckNewUpdateFirmwareNotification_()
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
    fi
-   local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
    nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
    Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
