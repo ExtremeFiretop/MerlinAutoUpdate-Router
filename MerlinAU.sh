@@ -2950,9 +2950,8 @@ estimate_next_cron_after_date() {
 
 calculate_DST() {
    local notifyTimeStrn notifyTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
-   local postponeTimeSecs
+   local postponeTimeSecs fwNewUpdatePostponementDays
    
-   fwNewUpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
    notifyTimeStrn="$1"
    
    currentTimeSecs="$(date +%s)"
@@ -2964,6 +2963,7 @@ calculate_DST() {
    else dstAdjustSecs=82800  # 23-hour day only when DST happens
    fi
 
+   fwNewUpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
    dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
    if [ "$dstAdjustDays" -eq 0 ]
    then postponeTimeSecs="$dstAdjustSecs"
@@ -3080,7 +3080,7 @@ _Set_FW_UpdatePostponementDays_()
    then
        Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
        echo "The number of days to postpone F/W Update was updated successfully."
-       fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+       local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
        upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
        nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
        Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
@@ -3228,7 +3228,7 @@ _Set_FW_UpdateCronSchedule_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+            local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
             upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
             nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
             Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
@@ -3279,12 +3279,8 @@ _CheckNewUpdateFirmwareNotification_()
        if [ "$releaseVersionNum" -gt "$fwNewUpdateVersNum" ]
        then
            fwNewUpdateNotificationVers="$2"
-           fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-           upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
-           nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
-           Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
            if "$inRouterSWmode" 
            then
               _SendEMailNotification_ NEW_FW_UPDATE_STATUS
@@ -3297,14 +3293,15 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-           upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
-           nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
-           Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
        if "$inRouterSWmode" 
        then
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
    fi
+   local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+   nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+   Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
    return 0
 }
 
@@ -3367,7 +3364,7 @@ _CheckTimeToUpdateFirmware_() {
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
    local upfwDateTimeSecs nextCronTimeSecs upfwDateTimeStrn
-   local fwNewUpdatePostponementDays fwNewUpdateNotificationDate fwNewUpdateNotificationVers
+   local fwNewUpdatePostponementDays fwNewUpdateNotificationDate
 
    _CheckNewUpdateFirmwareNotification_ "$1" "$2"
 
