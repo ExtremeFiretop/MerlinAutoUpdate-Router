@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-04
+# Last Modified: 2024-May-05
 ###################################################################
 set -u
 
@@ -4654,7 +4654,7 @@ _CheckForUpdateLogFiles_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-04] ##
+## Modified by Martinski W. [2024-May-05] ##
 ##----------------------------------------##
 _ViewUpdateLogFile_()
 {
@@ -4666,16 +4666,16 @@ _ViewUpdateLogFile_()
        return 1
    fi
    printf "\n---------------------------------------------------"
-   _GetFileSelection_ "Select a log file to open:"
+   _GetFileSelection_ "Select a log file to view:"
 
    if [ "$theFilePath" = "NONE" ] || [ ! -f "$theFilePath" ]
    then return 1 ; fi
 
    printf "\nLog file to view:\n${GRNct}${theFilePath}${NOct}\n"
-   printf "\n[Press ${REDct}<Esc>:q!${NOct} to quit viewer]\n"
+   printf "\n[Press '${REDct}q${NOct}' to quit when finished]\n"
    _WaitForEnterKey_
+   less "$theFilePath"
 
-   vi "$theFilePath"
    return 0
 }
 
@@ -5030,7 +5030,7 @@ _ShowNodesMenuOptions_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-04] ##
+## Modified by Martinski W. [2024-May-05] ##
 ##----------------------------------------##
 _DownloadChangelogs_()
 {
@@ -5060,8 +5060,9 @@ _DownloadChangelogs_()
         clear
         printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
         printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+        dos2unix "$changeLogFile"
         _WaitForEnterKey_
-        more "$changeLogFile"
+        less "$changeLogFile"
     fi
     rm -f "$changeLogFile" "$wgetLogFile"
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
