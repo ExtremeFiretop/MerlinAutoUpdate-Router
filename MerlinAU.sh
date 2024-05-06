@@ -3359,6 +3359,9 @@ _CheckTimeToUpdateFirmware_()
    fi
    upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
 
+   if [ "$((currentTimeSecs - notifyTimeSecs))" -ge "$postponeTimeSecs" ]
+   then return 0 ; fi
+
    nextCronTimeSecs=$(estimate_next_cron_after_date $upfwDateTimeSecs "$FW_UpdateCronJobSchedule")
 
    if [ "$nextCronTimeSecs" = "no_date_found" ]; then
