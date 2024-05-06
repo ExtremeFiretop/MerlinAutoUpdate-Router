@@ -3254,7 +3254,7 @@ _CheckNewUpdateFirmwareNotification_()
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local numVersionFields  fwNewUpdateVersNum
+   local numVersionFields  fwNewUpdateVersNum  fwNewUpdateNotificationDate
 
    numVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
    currentVersionNum="$(_FWVersionStrToNum_ "$1" "$numVersionFields")"
@@ -3279,6 +3279,7 @@ _CheckNewUpdateFirmwareNotification_()
        if [ "$releaseVersionNum" -gt "$fwNewUpdateVersNum" ]
        then
            fwNewUpdateNotificationVers="$2"
+           fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
            if "$inRouterSWmode" 
@@ -3298,7 +3299,7 @@ _CheckNewUpdateFirmwareNotification_()
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
    fi
-   local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
    nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
    Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
