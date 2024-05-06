@@ -764,7 +764,7 @@ _Init_Custom_Settings_Config_()
    fi
    if ! grep -q "^FW_New_Update_Run_Date" "$SETTINGSFILE"
    then
-       sed -i "13 i FW_Auto_Backupmon=TBD" "$SETTINGSFILE"
+       sed -i "13 i FW_New_Update_Run_Date=TBD" "$SETTINGSFILE"
        retCode=1
    fi
    return "$retCode"
