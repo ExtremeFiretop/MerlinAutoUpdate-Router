@@ -682,6 +682,7 @@ _Init_Custom_Settings_Config_()
       {
          echo "FW_New_Update_Notification_Date TBD"
          echo "FW_New_Update_Notification_Vers TBD"
+         echo "FW_New_Update_Notification_Date TBD"
          echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays"
          echo "FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault"
          echo "FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\""
@@ -694,6 +695,7 @@ _Init_Custom_Settings_Config_()
          echo "CheckChangeLog ENABLED"
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
+         echo "FW_New_Update_Run_Date=TBD"
       } > "$SETTINGSFILE"
       return 1
    fi
@@ -758,6 +760,11 @@ _Init_Custom_Settings_Config_()
    if ! grep -q "^FW_Auto_Backupmon" "$SETTINGSFILE"
    then
        sed -i "12 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_Run_Date" "$SETTINGSFILE"
+   then
+       sed -i "13 i FW_Auto_Backupmon=TBD" "$SETTINGSFILE"
        retCode=1
    fi
    return "$retCode"
@@ -3076,7 +3083,7 @@ _Set_FW_UpdatePostponementDays_()
    then
        Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
        echo "The number of days to postpone F/W Update was updated successfully."
-       local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date TBD)"
+       local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
        upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
        nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
        Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
@@ -3224,7 +3231,7 @@ _Set_FW_UpdateCronSchedule_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-            local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date TBD)"
+            local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
             upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
             nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
             Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
@@ -5021,9 +5028,14 @@ _ShowMainMenu_()
    arrowStr=" ${REDct}<<---${NOct}"
 
    ExpectedFWUpdateRuntime="$(Get_Custom_Setting FW_New_Update_Run_Date)"
-   if [ "$ExpectedFWUpdateRuntime" = "TBD" ]
-   then 
-      RuntimeStr="${REDct}NOT SET${NOct}"
+   if [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
+   then
+      fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+      upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+      nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+      Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
+      RuntimeStr="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
+      RuntimeStr="${GRNct}$RuntimeStr${NOct}"
    else 
       RuntimeStr="$(date -d @$ExpectedFWUpdateRuntime +"%Y-%b-%d %I:%M %p")"
       RuntimeStr="${GRNct}$RuntimeStr${NOct}"
@@ -5048,7 +5060,7 @@ _ShowMainMenu_()
       printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID"
       printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
-      printf "\n${padStr}F/W Upgrade Exp. ETA:  $RuntimeStr"
+      printf "\n${padStr}F/W Upd Expected ETA:  $RuntimeStr"
 
    else
       printf "\n${padStr}USB Storage Connected: $USBConnected ${padStr}${padStr}(S)how"
