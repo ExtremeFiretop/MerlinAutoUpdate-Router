@@ -5048,9 +5048,9 @@ _ShowMainMenu_()
       else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
       fi
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(H)ide"
-      printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
-      printf "\n${padStr}F/W Expected Runtime:  $RuntimeStr"
       printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
+      printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
+      printf "\n${padStr}F/W Update Exp. ETA: ETA:$RuntimeStr"
       printf "\n${padStr}USB Storage Connected: $USBConnected"
    else
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(S)how"
