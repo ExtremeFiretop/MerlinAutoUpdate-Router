@@ -3357,11 +3357,11 @@ _CheckTimeToUpdateFirmware_()
    then postponeTimeSecs="$dstAdjustSecs"
    else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
    fi
-   upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
 
    if [ "$((currentTimeSecs - notifyTimeSecs))" -ge "$postponeTimeSecs" ]
    then return 0 ; fi
 
+   upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
    nextCronTimeSecs=$(estimate_next_cron_after_date $upfwDateTimeSecs "$FW_UpdateCronJobSchedule")
 
    if [ "$nextCronTimeSecs" = "no_date_found" ]; then
