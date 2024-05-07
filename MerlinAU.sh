@@ -2844,6 +2844,13 @@ increment_date() {
     local day="$1"
     local month="$2"
     local year="$3"
+
+    # Validate input
+    if [ -z "$day" ] || [ -z "$month" ] || [ -z "$year" ]; then
+        echo "Error: Missing day, month, or year parameter."
+        return 1  # Return error
+    fi
+
     days_in_month="31 28 31 30 31 30 31 31 30 31 30 31"
     set -- $days_in_month
     month_days=$(eval echo \${$((month + 0))})
@@ -2883,7 +2890,8 @@ estimate_next_cron_after_date() {
 
     # Convert post_date_secs to date components
     eval $(date '+day=%d month=%m year=%Y' -d @$post_date_secs)
-    month="$(echo "$month" | sed 's/^0*//')"  # Remove leading zeros for month
+    day=$(echo $day | sed 's/^0*//')  # Remove leading zeros
+    month=$(echo $month | sed 's/^0*//')  # Remove leading zeros
 
     day_count=0
     while [ "$day_count" -lt 365 ]; do
