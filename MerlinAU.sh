@@ -1703,7 +1703,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.6.2" ; return 0 ; fi
+if true ; then echo "388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -2977,6 +2977,22 @@ calculate_DST() {
    echo "$((notifyTimeSecs + postponeTimeSecs))"
 }
 
+
+_calculate_NextRunTime_() {
+    local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+    if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
+    then
+        fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
+    else
+        fwNewUpdateNotificationDate="$fwNewUpdateNotificationDate"
+    fi
+    upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+    nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+    Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
+    RuntimeStr="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
+    RuntimeStr="${GRNct}$RuntimeStr${NOct}"
+}
+
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Nov-19] ##
 ##----------------------------------------------##
@@ -3084,19 +3100,8 @@ _Set_FW_UpdatePostponementDays_()
    then
       Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
       echo "The number of days to postpone F/W Update was updated successfully."
-      local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
-      if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
-      then
-         fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
-      else
-         fwNewUpdateNotificationDate="$fwNewUpdateNotificationDate"
-      fi
-         upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
-         nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
-         Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
-         RuntimeStr="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
-         RuntimeStr="${GRNct}$RuntimeStr${NOct}"
-         _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+      _calculate_NextRunTime_
+      _WaitForEnterKey_ "$mainMenuReturnPromptStr"
    fi
    return 0
 }
@@ -3240,18 +3245,7 @@ _Set_FW_UpdateCronSchedule_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-            local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
-            if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
-            then
-               fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
-            else
-               fwNewUpdateNotificationDate="$fwNewUpdateNotificationDate"
-            fi
-               upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
-               nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
-               Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
-               RuntimeStr="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
-               RuntimeStr="${GRNct}$RuntimeStr${NOct}"
+            _calculate_NextRunTime_
         else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -5047,18 +5041,7 @@ _ShowMainMenu_()
    ExpectedFWUpdateRuntime="$(Get_Custom_Setting FW_New_Update_Run_Date)"
    if [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
    then
-      fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
-      if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
-      then
-         fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
-      else
-         fwNewUpdateNotificationDate="$fwNewUpdateNotificationDate"
-      fi
-         upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
-         nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
-         Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
-         RuntimeStr="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
-         RuntimeStr="${GRNct}$RuntimeStr${NOct}"
+      _calculate_NextRunTime_
    else 
       RuntimeStr="$(date -d @$ExpectedFWUpdateRuntime +"%Y-%b-%d %I:%M %p")"
       RuntimeStr="${GRNct}$RuntimeStr${NOct}"
