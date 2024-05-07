@@ -2890,8 +2890,7 @@ estimate_next_cron_after_date() {
 
     # Convert post_date_secs to date components
     eval $(date '+day=%d month=%m year=%Y' -d @$post_date_secs)
-    day=$(echo $day | sed 's/^0*//')  # Remove leading zeros
-    month=$(echo $month | sed 's/^0*//')  # Remove leading zeros
+    month="$(echo "$month" | sed 's/^0*//')"  # Remove leading zeros
 
     day_count=0
     while [ "$day_count" -lt 365 ]; do
@@ -2979,7 +2978,7 @@ calculate_DST() {
 
 
 _calculate_NextRunTime_() {
-    local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
     if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
     then
         fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
@@ -3268,7 +3267,7 @@ _CheckNewUpdateFirmwareNotification_()
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local numVersionFields  fwNewUpdateVersNum  fwNewUpdateNotificationDate
+   local numVersionFields  fwNewUpdateVersNum
 
    numVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
    currentVersionNum="$(_FWVersionStrToNum_ "$1" "$numVersionFields")"
