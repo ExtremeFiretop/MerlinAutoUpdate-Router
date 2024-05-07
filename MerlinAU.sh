@@ -1703,7 +1703,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.6.2" ; return 0 ; fi
+if true ; then echo "388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -2890,6 +2890,7 @@ estimate_next_cron_after_date() {
 
     # Convert post_date_secs to date components
     eval $(date '+day=%d month=%m year=%Y' -d @$post_date_secs)
+    day="$(echo "$day" | sed 's/^0*//')" # Remove leading zeros
     month="$(echo "$month" | sed 's/^0*//')"  # Remove leading zeros
 
     day_count=0
