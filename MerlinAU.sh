@@ -2984,12 +2984,14 @@ _calculate_NextRunTime_() {
         fwNewUpdateVersion="NONE FOUND"
     fi
 
+    ExpectedFWUpdateRuntime="$(Get_Custom_Setting FW_New_Update_Run_Date)"
+
     # Determine appropriate messaging based on the firmware update availability and check state
     if [ "$FW_UpdateCheckState" -eq 0 ]; then
         ExpectedFWUpdateRuntime="${REDct}NO CRON JOB${NOct}"
     elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]; then
         ExpectedFWUpdateRuntime="${REDct}NONE FOUND${NOct}"
-    else
+    elif [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]; then
         # If conditions are met (cron job enabled and update available), calculate the next runtime
         local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
         if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]; then
@@ -2999,6 +3001,9 @@ _calculate_NextRunTime_() {
         local nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
         Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
         ExpectedFWUpdateRuntime="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
+        ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
+    else
+        ExpectedFWUpdateRuntime="$(date -d @$ExpectedFWUpdateRuntime +"%Y-%b-%d %I:%M %p")"
         ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
     fi
 }
