@@ -2977,20 +2977,30 @@ calculate_DST() {
    echo "$((notifyTimeSecs + postponeTimeSecs))"
 }
 
-
 _calculate_NextRunTime_() {
-    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
-    if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
-    then
-        fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
-    else
-        fwNewUpdateNotificationDate="$fwNewUpdateNotificationDate"
+    # Check for available firmware update
+    local fwNewUpdateVersion
+    if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"; then
+        fwNewUpdateVersion="NONE FOUND"
     fi
-    upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
-    nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
-    Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
-    RuntimeStr="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
-    RuntimeStr="${GRNct}$RuntimeStr${NOct}"
+
+    # Determine appropriate messaging based on the firmware update availability and check state
+    if [ "$FW_UpdateCheckState" -eq 0 ]; then
+        ExpectedFWUpdateRuntime="${REDct}NO CRON JOB${NOct}"
+    elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]; then
+        ExpectedFWUpdateRuntime="${REDct}NONE FOUND${NOct}"
+    else
+        # If conditions are met (cron job enabled and update available), calculate the next runtime
+        local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+        if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]; then
+            fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
+        fi
+        local upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+        local nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+        Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
+        ExpectedFWUpdateRuntime="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
+        ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
+    fi
 }
 
 ##----------------------------------------------##
@@ -5038,14 +5048,8 @@ _ShowMainMenu_()
 
    arrowStr=" ${REDct}<<---${NOct}"
 
-   ExpectedFWUpdateRuntime="$(Get_Custom_Setting FW_New_Update_Run_Date)"
-   if [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
-   then
-      _calculate_NextRunTime_
-   else 
-      RuntimeStr="$(date -d @$ExpectedFWUpdateRuntime +"%Y-%b-%d %I:%M %p")"
-      RuntimeStr="${GRNct}$RuntimeStr${NOct}"
-   fi
+   _calculate_NextRunTime_
+   # Show or hide F/W Update ETA based on whether a meaningful ETA exists
    notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    if [ "$notifyDate" = "TBD" ]
    then notificationStr="${REDct}NOT SET${NOct}"
@@ -5066,7 +5070,7 @@ _ShowMainMenu_()
       printf "\n${padStr}USB Storage Connected: $USBConnected"
       printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
       printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
-      printf "\n${padStr}F/W Upd Expected ETA:  $RuntimeStr"
+      printf "\n${padStr}F/W Upd Expected ETA:  $ExpectedFWUpdateRuntime"
 
    else
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(S)how"
