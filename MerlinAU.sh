@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-05
+# Last Modified: 2024-May-06
 ###################################################################
 set -u
 
@@ -764,7 +764,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-20] ##
+## Modified by ExtremeFiretop [2024-May-06] ##
 ##------------------------------------------##
 Get_Custom_Setting()
 {
@@ -784,6 +784,7 @@ Get_Custom_Setting()
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
                 ;;
             "FW_New_Update_Postponement_Days"  | \
+            "FW_New_Update_Run_Date"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
             "FW_New_Update_LOG_Directory_Path" | \
@@ -832,9 +833,9 @@ _GetAllNodeSettings_()
     echo "$setting_value"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -866,6 +867,7 @@ Update_Custom_Settings()
             fi
             ;;
         "FW_New_Update_Postponement_Days"  | \
+        "FW_New_Update_Run_Date"  | \
         "FW_New_Update_Cron_Job_Schedule"  | \
         "FW_New_Update_ZIP_Directory_Path" | \
         "FW_New_Update_LOG_Directory_Path" | \
@@ -2764,6 +2766,248 @@ translate_schedule()
    echo "$day_of_week_text, $day_of_month_text, in $month_text."
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-04] ##
+##------------------------------------------##
+# Conversion functions for month and day names to numbers
+convert_month_to_number() {
+    case "$1" in
+        [Jj][Aa][Nn]) echo 1 ;;
+        [Ff][Ee][Bb]) echo 2 ;;
+        [Mm][Aa][Rr]) echo 3 ;;
+        [Aa][Pp][Rr]) echo 4 ;;
+        [Mm][Aa][Yy]) echo 5 ;;
+        [Jj][Uu][Nn]) echo 6 ;;
+        [Jj][Uu][Ll]) echo 7 ;;
+        [Aa][Uu][Gg]) echo 8 ;;
+        [Ss][Ee][Pp]) echo 9 ;;
+        [Oo][Cc][Tt]) echo 10 ;;
+        [Nn][Oo][Vv]) echo 11 ;;
+        [Dd][Ee][Cc]) echo 12 ;;
+        *) 
+            echo "$1"
+        ;;
+    esac
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-04] ##
+##------------------------------------------##
+convert_day_to_number() {
+    case "$1" in
+        [Ss][Uu][Nn]) echo 0 ;;
+        [Mm][Oo][Nn]) echo 1 ;;
+        [Tt][Uu][Ee]) echo 2 ;;
+        [Ww][Ee][Dd]) echo 3 ;;
+        [Tt][Hh][Uu]) echo 4 ;;
+        [Ff][Rr][Ii]) echo 5 ;;
+        [Ss][Aa][Tt]) echo 6 ;;
+        *) 
+            echo "$1"
+        ;;
+    esac
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-04] ##
+##------------------------------------------##
+# Sakamoto's algorithm to find the day of the week
+calculate_day_of_week() {
+    day="$1"
+    month="$2"
+    year="$3"
+
+    if [ "$month" -le 2 ]; then
+        month="$((month + 12))"
+        year="$((year - 1))"
+    fi
+
+    t="$(((13 * (month + 1)) / 5))"
+    K="$((year % 100))"
+    J="$((year / 100))"
+    dow="$(((day + t + K + (K / 4) + (J / 4) - (2 * J)) % 7))"
+
+    if [ "$dow" -eq 0 ]; then
+        dow=6  # Saturday
+    else
+        dow="$((dow - 1))"  # Adjusting the result so Sunday = 0
+    fi
+
+    echo "$dow"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-04] ##
+##------------------------------------------##
+# Manually calculate the next day
+increment_date() {
+    local day="$1"
+    local month="$2"
+    local year="$3"
+
+    # Validate input
+    if [ -z "$day" ] || [ -z "$month" ] || [ -z "$year" ]; then
+        echo "Error: Missing day, month, or year parameter."
+        return 1  # Return error
+    fi
+
+    days_in_month="31 28 31 30 31 30 31 31 30 31 30 31"
+    set -- $days_in_month
+    month_days=$(eval echo \${$((month + 0))})
+
+    # Adjust for leap year in February
+    if [ "$month" -eq 2 ]; then
+        if [ "$((year % 4))" -eq 0 ] && { [ "$((year % 100))" -ne 0 ] || [ "$((year % 400))" -eq 0 ]; }; then
+            month_days=29
+        fi
+    fi
+
+    day="$((day + 1))"
+    if [ "$day" -gt "$month_days" ]; then
+        day=1
+        month="$((month + 1))"
+    fi
+    if [ "$month" -gt 12 ]; then
+        month=1
+        year="$((year + 1))"
+    fi
+
+    echo "$day" "$month" "$year"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-04] ##
+##------------------------------------------##
+# Function to estimate the next run time of a cron job after a specific date
+estimate_next_cron_after_date() {
+    local post_date_secs="$1"
+    local cron_schedule="$2"
+    local minute="$(echo "$cron_schedule" | cut -d' ' -f1)"
+    local hour="$(echo "$cron_schedule" | cut -d' ' -f2)"
+    local dom="$(echo "$cron_schedule" | cut -d' ' -f3)"
+    local month_cron="$(echo "$cron_schedule" | cut -d' ' -f4)"
+    local dow="$(echo "$cron_schedule" | cut -d' ' -f5)"
+
+    # Convert post_date_secs to date components
+    eval $(date '+day=%d month=%m year=%Y' -d @$post_date_secs)
+    day="$(echo "$day" | sed 's/^0*//')" # Remove leading zeros
+    month="$(echo "$month" | sed 's/^0*//')"  # Remove leading zeros
+
+    day_count=0
+    while [ "$day_count" -lt 365 ]; do
+        current_dow="$(calculate_day_of_week "$day" "$month" "$year")"
+
+        num_dow_entries="$(echo "$dow" | tr ',' '\n' | wc -l)"  # Count number of dow entries
+        dow_index=1
+        while [ "$dow_index" -le "$num_dow_entries" ]; do
+            dow_entry="$(echo "$dow" | cut -d',' -f"$dow_index")"  # Get the dow_index-th entry
+
+            # Convert alphabetic day of the week to number if necessary
+            case "$dow_entry" in
+                *[[:alpha:]]*)
+                    dow_entry=$(convert_day_to_number "$dow_entry")
+                ;;
+            esac
+
+            num_month_entries="$(echo "$month_cron" | tr ',' '\n' | wc -l)"  # Count number of month entries
+            month_index=1
+            while [ "$month_index" -le "$num_month_entries" ]; do
+                month_entry="$(echo "$month_cron" | cut -d',' -f"$month_index")"  # Get the month_index-th entry
+
+                # Convert month name to number if necessary
+                case "$month_entry" in
+                    *[[:alpha:]]*)
+                        month_entry=$(convert_month_to_number "$month_entry")
+                    ;;
+                    *)
+                        month_entry="$(echo "$month_entry" | sed 's/^0*//')"  # Remove leading zeros
+                    ;;
+                esac
+
+                if { [ "$dom" = "*" ] || [ "$dom" = "$day" ]; } &&
+                   { [ "$month_entry" = "*" ] || [ "$month_entry" = "$month" ]; } &&
+                   { [ "$dow_entry" = "*" ] || [ "$dow_entry" = "$current_dow" ]; }; then
+                    cron_date="$year-$month-$day $hour:$minute"
+                    next_cron_run="$(date +%s -d "$cron_date")"
+                    if [ "$next_cron_run" -gt "$post_date_secs" ]; then
+                        echo "$next_cron_run"
+                        return
+                    fi
+                fi
+
+                month_index="$((month_index + 1))"
+            done
+
+            dow_index="$((dow_index + 1))"
+        done
+
+        # Increment date
+        new_date="$(increment_date "$day" "$month" "$year")"
+        set -- $new_date
+        local day="$1"
+        local month="$2"
+        local year="$3"
+        local day_count="$((day_count + 1))"
+    done
+    echo "no_date_found"
+}
+
+calculate_DST() {
+   local notifyTimeStrn notifyTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
+   local postponeTimeSecs fwNewUpdatePostponementDays
+   
+   notifyTimeStrn="$1"
+   
+   currentTimeSecs="$(date +%s)"
+   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+
+   # Adjust for DST discrepancies
+   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
+   then dstAdjustSecs=86400  # 24-hour day is same as always
+   else dstAdjustSecs=82800  # 23-hour day only when DST happens
+   fi
+
+   fwNewUpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+   dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
+   if [ "$dstAdjustDays" -eq 0 ]
+   then postponeTimeSecs="$dstAdjustSecs"
+   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
+   fi
+
+   echo "$((notifyTimeSecs + postponeTimeSecs))"
+}
+
+_calculate_NextRunTime_() {
+    # Check for available firmware update
+    local fwNewUpdateVersion
+    if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"; then
+        fwNewUpdateVersion="NONE FOUND"
+    fi
+
+    ExpectedFWUpdateRuntime="$(Get_Custom_Setting FW_New_Update_Run_Date)"
+
+    # Determine appropriate messaging based on the firmware update availability and check state
+    if [ "$FW_UpdateCheckState" -eq 0 ]; then
+        ExpectedFWUpdateRuntime="${REDct}NO CRON JOB${NOct}"
+    elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]; then
+        ExpectedFWUpdateRuntime="${REDct}NONE FOUND${NOct}"
+    elif [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]; then
+        # If conditions are met (cron job enabled and update available), calculate the next runtime
+        local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+        if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]; then
+            fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
+        fi
+        local upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+        local nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+        Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
+        ExpectedFWUpdateRuntime="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
+        ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
+    else
+        ExpectedFWUpdateRuntime="$(date -d @$ExpectedFWUpdateRuntime +"%Y-%b-%d %I:%M %p")"
+        ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
+    fi
+}
+
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Nov-19] ##
 ##----------------------------------------------##
@@ -2830,9 +3074,9 @@ _CheckPostponementDays_()
    return "$retCode"
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-19] ##
-##----------------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
 _Set_FW_UpdatePostponementDays_()
 {
    local validNumRegExp="([0-9]|[1-9][0-9])"
@@ -2869,9 +3113,10 @@ _Set_FW_UpdatePostponementDays_()
 
    if [ "$newPostponementDays" != "$oldPostponementDays" ]
    then
-       Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
-       echo "The number of days to postpone F/W Update was updated successfully."
-       _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+      Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
+      echo "The number of days to postpone F/W Update was updated successfully."
+      _calculate_NextRunTime_
+      _WaitForEnterKey_ "$mainMenuReturnPromptStr"
    fi
    return 0
 }
@@ -2951,9 +3196,9 @@ _ValidateCronJobSchedule_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-22] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
 _Set_FW_UpdateCronSchedule_()
 {
     printf "Changing Firmware Update Schedule...\n"
@@ -3015,6 +3260,7 @@ _Set_FW_UpdateCronSchedule_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+            _calculate_NextRunTime_
         else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -3030,7 +3276,7 @@ _Set_FW_UpdateCronSchedule_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-13] ##
+## Modified by ExtremeFiretop [2024-May-06] ##
 ##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
@@ -3082,6 +3328,10 @@ _CheckNewUpdateFirmwareNotification_()
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
    fi
+   fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+   nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+   Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
    return 0
 }
 
@@ -3139,13 +3389,12 @@ _CheckNodeFWUpdateNotification_()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Mar-21] ##
 ##----------------------------------------##
-_CheckTimeToUpdateFirmware_()
-{
+_CheckTimeToUpdateFirmware_() {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local notifyTimeSecs  postponeTimeSecs  currentTimeSecs  dstAdjustSecs  dstAdjustDays
-   local fwNewUpdateNotificationDate  fwNewUpdateNotificationVers  fwNewUpdatePostponementDays
+   local upfwDateTimeSecs nextCronTimeSecs upfwDateTimeStrn
+   local fwNewUpdatePostponementDays fwNewUpdateNotificationDate
 
    _CheckNewUpdateFirmwareNotification_ "$1" "$2"
 
@@ -3162,35 +3411,24 @@ _CheckTimeToUpdateFirmware_()
    if [ "$fwNewUpdatePostponementDays" -eq 0 ]
    then return 0 ; fi
 
-   currentTimeSecs="$(date +%s)"
-   notifyTimeStrn="$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')"
-   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+   upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
 
-   #----------------------------------------------------------------------
-   # Adjust calculation of postponed days as elapsed time in seconds to
-   # account for the hour discrepancy when Daylight Saving Time happens.
-   # This way we can avoid a scenario where the F/W Update "date+time"
-   # threshold is set one hour *after* the scheduled cron job is set
-   # to run again and check if it's time to update the router.
-   #----------------------------------------------------------------------
-   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
-   then dstAdjustSecs=86400  #24-hour day is same as always#
-   else dstAdjustSecs=82800  #23-hour day only when DST happens#
-   fi
-   dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
-   if [ "$dstAdjustDays" -eq 0 ]
-   then postponeTimeSecs="$dstAdjustSecs"
-   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
-   fi
-
-   if [ "$((currentTimeSecs - notifyTimeSecs))" -ge "$postponeTimeSecs" ]
+   local currentTimeSecs="$(date +%s)"
+   if [ "$((currentTimeSecs - upfwDateTimeSecs))" -ge 0 ]
    then return 0 ; fi
 
-   upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
-   upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
+   nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+
+   if [ "$nextCronTimeSecs" = "no_date_found" ]; then
+       upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
+       Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
+       return 1
+   fi
+
+   upfwDateTimeStrn="$(date -d @$nextCronTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
 
    Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
-   Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
+   Say "The firmware update is expected to occur on ${GRNct}${upfwDateTimeStrn}${NOct}."
    return 1
 }
 
@@ -4815,6 +5053,8 @@ _ShowMainMenu_()
 
    arrowStr=" ${REDct}<<---${NOct}"
 
+   _calculate_NextRunTime_
+   # Show or hide F/W Update ETA based on whether a meaningful ETA exists
    notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    if [ "$notifyDate" = "TBD" ]
    then notificationStr="${REDct}NOT SET${NOct}"
@@ -4832,9 +5072,11 @@ _ShowMainMenu_()
       else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
       fi
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(H)ide"
-      printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
-      printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
       printf "\n${padStr}USB Storage Connected: $USBConnected"
+      printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
+      printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
+      printf "\n${padStr}F/W Upd Expected ETA:  $ExpectedFWUpdateRuntime"
+
    else
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(S)how"
    fi
