@@ -27,8 +27,8 @@ readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.n
 ## Added by ExtremeFiretop [2024-May-03] ##
 ##---------------------------------------##
 # Changelog URL Info #
-readonly CL_URL_NG="${FW_URL_BASE}/Documentation/Changelog-NG.txt/download"
-readonly CL_URL_386="${FW_URL_BASE}/Documentation/Changelog-386.txt/download"
+readonly CL_URL_NG="${FW_SFURL_BASE}/Documentation/Changelog-NG.txt/download"
+readonly CL_URL_386="${FW_SFURL_BASE}/Documentation/Changelog-386.txt/download"
 
 # For new script version updates from source repository #
 UpdateNotify=0
@@ -5767,6 +5767,9 @@ _ShowNodesMenuOptions_()
 _DownloadChangelogs_()
 {
     local wgetLogFile  changeLogTag  changeLogFile  changeLogURL
+
+    # In case ZIP directory is different from BIN directory #
+    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
     if [ "$changeLogTag" = "386" ]
