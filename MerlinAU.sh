@@ -5799,7 +5799,6 @@ _DownloadChangelogs_()
     rm -f "$changeLogFile" "$wgetLogFile"
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 1
-
 }
 
 ##----------------------------------------##
