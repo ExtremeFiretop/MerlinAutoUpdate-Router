@@ -3700,12 +3700,8 @@ Please manually update to version $minimum_supported_version or higher to use th
         release_link="$2"
     else
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-        if [ "$inMenuMode" = true ]; then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        else 
-            _DoExit_ 1
-        fi
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
     fi
 
     # Extracting the first octet to use in the curl
