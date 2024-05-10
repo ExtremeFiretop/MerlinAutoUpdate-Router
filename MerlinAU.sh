@@ -5768,7 +5768,7 @@ _DownloadChangelogs_()
 {
     local wgetLogFile  changeLogTag  changeLogFile  changeLogURL
 
-    # In case ZIP directory is different from BIN directory #
+    # Create directory to download changelog if missing
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
