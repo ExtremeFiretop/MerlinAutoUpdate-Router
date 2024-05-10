@@ -30,13 +30,6 @@ readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.n
 readonly CL_URL_NG="${FW_URL_BASE}/Documentation/Changelog-NG.txt/download"
 readonly CL_URL_386="${FW_URL_BASE}/Documentation/Changelog-386.txt/download"
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-May-03] ##
-##---------------------------------------##
-# Changelog URL Info #
-readonly CL_URL_NG="${FW_URL_BASE}/Documentation/Changelog-NG.txt/download"
-readonly CL_URL_386="${FW_URL_BASE}/Documentation/Changelog-386.txt/download"
-
 # For new script version updates from source repository #
 UpdateNotify=0
 DLRepoVersion=""
