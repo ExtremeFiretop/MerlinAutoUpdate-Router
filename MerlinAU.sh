@@ -30,6 +30,13 @@ readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.n
 readonly CL_URL_NG="${FW_URL_BASE}/Documentation/Changelog-NG.txt/download"
 readonly CL_URL_386="${FW_URL_BASE}/Documentation/Changelog-386.txt/download"
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-May-03] ##
+##---------------------------------------##
+# Changelog URL Info #
+readonly CL_URL_NG="${FW_URL_BASE}/Documentation/Changelog-NG.txt/download"
+readonly CL_URL_386="${FW_URL_BASE}/Documentation/Changelog-386.txt/download"
+
 # For new script version updates from source repository #
 UpdateNotify=0
 DLRepoVersion=""
@@ -768,7 +775,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-20] ##
+## Modified by ExtremeFiretop [2024-May-06] ##
 ##------------------------------------------##
 Get_Custom_Setting()
 {
@@ -838,9 +845,9 @@ _GetAllNodeSettings_()
     echo "$setting_value"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -5799,6 +5806,31 @@ _DownloadChangelogs_()
     rm -f "$changeLogFile" "$wgetLogFile"
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 1
+
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-04] ##
+##----------------------------------------##
+_ShowLogsMenu_()
+{
+   clear
+   logo
+   printf "===================== Logs Menu =====================\n"
+   printf "${SEPstr}\n"
+
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update Log Files"
+   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+
+   if _CheckForUpdateLogFiles_
+   then
+       printf "\n ${GRNct}lg${NOct}.  View F/W Update Log File\n"
+   fi
+
+   printf "\n ${GRNct}cl${NOct}.  View latest F/W Changelog\n"
+
+   printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
+   printf "${SEPstr}"
 }
 
 ##----------------------------------------##
