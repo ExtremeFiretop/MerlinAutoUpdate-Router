@@ -3386,9 +3386,9 @@ _CheckNodeFWUpdateNotification_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-21] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
 _CheckTimeToUpdateFirmware_() {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
@@ -3700,8 +3700,12 @@ Please manually update to version $minimum_supported_version or higher to use th
         release_link="$2"
     else
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
+        if [ "$inMenuMode" = true ]; then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        else 
+            _DoExit_ 1
+        fi
     fi
 
     # Extracting the first octet to use in the curl
@@ -5076,7 +5080,6 @@ _ShowMainMenu_()
       printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
       printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
       printf "\n${padStr}F/W Upd Expected ETA:  $ExpectedFWUpdateRuntime"
-
    else
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(S)how"
    fi
@@ -5176,7 +5179,12 @@ _ShowAdvancedOptionsMenu_()
    if _CheckEMailConfigFileFromAMTM_ 0
    then
        # F/W Update Email Notifications #
-       printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
+       if "$inRouterSWmode" 
+       then
+           printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
+       else
+           printf "\n ${GRNct}em${NOct}.  Toggle F/W Email Notifications"
+       fi
        if "$sendEMailNotificationsFlag"
        then
            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
