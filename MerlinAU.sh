@@ -5836,30 +5836,6 @@ _ShowLogsMenu_()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-04] ##
 ##----------------------------------------##
-_ShowLogsMenu_()
-{
-   clear
-   logo
-   printf "===================== Logs Menu =====================\n"
-   printf "${SEPstr}\n"
-
-   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update Log Files"
-   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
-
-   if _CheckForUpdateLogFiles_
-   then
-       printf "\n ${GRNct}lg${NOct}.  View F/W Update Log File\n"
-   fi
-
-   printf "\n ${GRNct}cl${NOct}.  View latest F/W Changelog\n"
-
-   printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-   printf "${SEPstr}"
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-04] ##
-##----------------------------------------##
 _AdvancedLogsOptions_()
 {
     while true
