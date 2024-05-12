@@ -1703,7 +1703,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.6.2" ; return 0 ; fi
+if true ; then echo "388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -2931,12 +2931,18 @@ estimate_next_cron_after_date() {
     local dow_field="$(echo "$cron_schedule" | awk '{print $5}')"
 
     eval $(date '+day=%d month=%m year=%Y hour=%H minute=%M dow=%u' -d "@$post_date_secs")
-    local current_day=$(echo $day | sed 's/^0*//')
-    local current_month=$(echo $month | sed 's/^0*//')
+    local current_day=$(echo $day | sed 's/^0*\([0-9]\)/\1/')
+    local current_month=$(echo $month | sed 's/^0*\([0-9]\)/\1/')
     local current_year=$year
-    local current_hour=$(echo $hour | sed 's/^0*//')
-    local current_minute=$(echo $minute | sed 's/^0*//')
+    local current_hour=$(echo $hour | sed 's/^0*\([0-9]\)/\1/')
+    local current_minute=$(echo $minute | sed 's/^0*\([0-9]\)/\1/')
     local current_dow=$((dow % 7))  # Adjusting so Sunday is 0
+
+    # Apply default values if variables are empty
+    current_day=${current_day:-0}
+    current_month=${current_month:-0}
+    current_hour=${current_hour:-0}
+    current_minute=${current_minute:-0}
 
     local found=false
 
