@@ -4597,7 +4597,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     #------------------------------------------------------------#
     "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
     /sbin/service restart_httpd >/dev/null 2>&1 &
-	_DoExit_ 1
     sleep 5
 
     # Send last email notification before F/W flash #
