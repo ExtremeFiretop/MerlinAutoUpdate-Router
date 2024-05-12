@@ -3454,6 +3454,16 @@ _CheckTimeToUpdateFirmware_() {
 
    Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
    Say "The firmware update is expected to occur on ${GRNct}${upfwDateTimeStrn}${NOct}."
+   echo ""
+
+   # Check if running in a menu environment
+   if "$isInteractive" && _WaitForYESorNO_ "Would you like to proceed with the update now?"
+   then
+        return 0
+   else
+        return 1
+   fi
+
    return 1
 }
 
