@@ -6,7 +6,7 @@
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
 # Last Modified: 2024-May-06
 ###################################################################
-set -u
+set -x
 
 readonly SCRIPT_VERSION=1.1.3
 readonly SCRIPT_NAME="MerlinAU"
@@ -2769,187 +2769,198 @@ translate_schedule()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-May-04] ##
 ##------------------------------------------##
-# Conversion functions for month and day names to numbers
-convert_month_to_number() {
-    case "$1" in
-        [Jj][Aa][Nn]) echo 1 ;;
-        [Ff][Ee][Bb]) echo 2 ;;
-        [Mm][Aa][Rr]) echo 3 ;;
-        [Aa][Pp][Rr]) echo 4 ;;
-        [Mm][Aa][Yy]) echo 5 ;;
-        [Jj][Uu][Nn]) echo 6 ;;
-        [Jj][Uu][Ll]) echo 7 ;;
-        [Aa][Uu][Gg]) echo 8 ;;
-        [Ss][Ee][Pp]) echo 9 ;;
-        [Oo][Cc][Tt]) echo 10 ;;
-        [Nn][Oo][Vv]) echo 11 ;;
-        [Dd][Ee][Cc]) echo 12 ;;
-        *) 
-            echo "$1"
-        ;;
-    esac
-}
-
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-04] ##
-##------------------------------------------##
-convert_day_to_number() {
-    case "$1" in
-        [Ss][Uu][Nn]) echo 0 ;;
-        [Mm][Oo][Nn]) echo 1 ;;
-        [Tt][Uu][Ee]) echo 2 ;;
-        [Ww][Ee][Dd]) echo 3 ;;
-        [Tt][Hh][Uu]) echo 4 ;;
-        [Ff][Rr][Ii]) echo 5 ;;
-        [Ss][Aa][Tt]) echo 6 ;;
-        *) 
-            echo "$1"
-        ;;
-    esac
-}
-
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-04] ##
-##------------------------------------------##
-# Sakamoto's algorithm to find the day of the week
-calculate_day_of_week() {
-    day="$1"
-    month="$2"
-    year="$3"
-
-    if [ "$month" -le 2 ]; then
-        month="$((month + 12))"
-        year="$((year - 1))"
-    fi
-
-    t="$(((13 * (month + 1)) / 5))"
-    K="$((year % 100))"
-    J="$((year / 100))"
-    dow="$(((day + t + K + (K / 4) + (J / 4) - (2 * J)) % 7))"
-
-    if [ "$dow" -eq 0 ]; then
-        dow=6  # Saturday
-    else
-        dow="$((dow - 1))"  # Adjusting the result so Sunday = 0
-    fi
-
-    echo "$dow"
-}
-
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-04] ##
-##------------------------------------------##
 # Manually calculate the next day
-increment_date() {
+increment_day() {
     local day="$1"
     local month="$2"
     local year="$3"
 
-    # Validate input
-    if [ -z "$day" ] || [ -z "$month" ] || [ -z "$year" ]; then
-        echo "Error: Missing day, month, or year parameter."
-        return 1  # Return error
-    fi
-
-    days_in_month="31 28 31 30 31 30 31 31 30 31 30 31"
-    set -- $days_in_month
-    month_days=$(eval echo \${$((month + 0))})
-
-    # Adjust for leap year in February
-    if [ "$month" -eq 2 ]; then
-        if [ "$((year % 4))" -eq 0 ] && { [ "$((year % 100))" -ne 0 ] || [ "$((year % 400))" -eq 0 ]; }; then
-            month_days=29
+    # Define number of days in each month considering leap year
+    local leap_year=0
+    if [ $((year % 4)) -eq 0 ]; then
+        if [ $((year % 100)) -ne 0 ] || [ $((year % 400)) -eq 0 ]; then
+            leap_year=1
         fi
     fi
 
-    day="$((day + 1))"
-    if [ "$day" -gt "$month_days" ]; then
+    local days_in_feb=$((28 + leap_year))
+    local days_in_month=31
+
+    case $month in
+        4|6|9|11) days_in_month=30;;
+        2) days_in_month=$days_in_feb;;
+    esac
+
+    day=$((day + 1))
+    if [ $day -gt $days_in_month ]; then
         day=1
-        month="$((month + 1))"
+        month=$((month + 1))
     fi
-    if [ "$month" -gt 12 ]; then
+    if [ $month -gt 12 ]; then
         month=1
-        year="$((year + 1))"
+        year=$((year + 1))
     fi
 
-    echo "$day" "$month" "$year"
+    echo "$day $month $year"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-04] ##
-##------------------------------------------##
-# Function to estimate the next run time of a cron job after a specific date
+matches_day_of_month() {
+    local day="$1"
+    local dom_expr="$2"
+    if [[ "$dom_expr" == "*" ]]; then
+        return 0  # Match any day
+    elif echo "$dom_expr" | grep -q '-'; then
+        local start=$(echo "$dom_expr" | cut -d'-' -f1)
+        local end=$(echo "$dom_expr" | cut -d'-' -f2)
+        if [[ "$day" -ge "$start" && "$day" -le "$end" ]]; then
+            return 0  # Day is within the range
+        fi
+    else
+        for d in $(echo "$dom_expr" | tr ',' ' '); do
+            if [[ "$d" == "$day" ]]; then
+                return 0  # Day matches one of the list items
+            fi
+        done
+    fi
+    return 1  # No match
+}
+
+matches_month() {
+    local month="$1"
+    local month_expr="$2"
+    if [ "$month_expr" = "*" ]; then
+        return 0  # Match any month
+    else
+        for m in $(echo "$month_expr" | tr ',' ' '); do
+            case "$m" in
+                [Jj][Aa][Nn]) m=1 ;;
+                [Ff][Ee][Bb]) m=2 ;;
+                [Mm][Aa][Rr]) m=3 ;;
+                [Aa][Pp][Rr]) m=4 ;;
+                [Mm][Aa][Yy]) m=5 ;;
+                [Jj][Uu][Nn]) m=6 ;;
+                [Jj][Uu][Ll]) m=7 ;;
+                [Aa][Uu][Gg]) m=8 ;;
+                [Ss][Ee][Pp]) m=9 ;;
+                [Oo][Cc][Tt]) m=10 ;;
+                [Nn][Oo][Vv]) m=11 ;;
+                [Dd][Ee][Cc]) m=12 ;;
+                *) ;;
+            esac
+            if [ "$m" -eq "$month" ]; then
+                return 0  # Month matches one of the list items
+            fi
+        done
+    fi
+    return 1  # No match
+}
+
+matches_day_of_week() {
+    local dow="$1"
+    local dow_expr="$2"
+    if [ "$dow_expr" = "*" ]; then
+        return 0  # Match any day of the week
+    else
+        for d in $(echo "$dow_expr" | tr ',' ' '); do
+            case "$d" in
+                [Ss][Uu][Nn]) d=0 ;;
+                [Mm][Oo][Nn]) d=1 ;;
+                [Tt][Uu][Ee]) d=2 ;;
+                [Ww][Ee][Dd]) d=3 ;;
+                [Tt][Hh][Uu]) d=4 ;;
+                [Ff][Rr][Ii]) d=5 ;;
+                [Ss][Aa][Tt]) d=6 ;;
+                *) ;;
+            esac
+            if [ "$d" -eq "$dow" ]; then
+                return 0  # Day of week matches one of the list items
+            fi
+        done
+    fi
+    return 1  # No match
+}
+
+expand_cron_field() {
+    local field="$1"
+    local min="$2"
+    local max="$3"
+
+    if echo "$field" | grep -q '/'; then
+        local range_part="${field%/*}"
+        local step="${field##*/}"
+        local start="$min"
+        local end="$max"
+
+        if echo "$range_part" | grep -q '-'; then
+            start="${range_part%-*}"
+            end="${range_part#*-}"
+        fi
+
+        local i="$start"
+        while [ "$i" -le "$end" ]; do
+            echo "$i"
+            i=$((i + step))
+        done
+    elif echo "$field" | grep -q '-'; then
+        local start="${field%-*}"
+        local end="${field#*-}"
+        local i="$start"
+        while [ "$i" -le "$end" ]; do
+            echo "$i"
+            i=$((i + 1))
+        done
+    elif [ "$field" = "*" ]; then
+        local i="$min"
+        while [ "$i" -le "$max" ]; do
+            echo "$i"
+            i=$((i + 1))
+        done
+    else
+        echo "$field"
+    fi
+}
+
+# Function to process minute intervals, e.g., */15
 estimate_next_cron_after_date() {
     local post_date_secs="$1"
     local cron_schedule="$2"
-    local minute="$(echo "$cron_schedule" | cut -d' ' -f1)"
-    local hour="$(echo "$cron_schedule" | cut -d' ' -f2)"
-    local dom="$(echo "$cron_schedule" | cut -d' ' -f3)"
-    local month_cron="$(echo "$cron_schedule" | cut -d' ' -f4)"
-    local dow="$(echo "$cron_schedule" | cut -d' ' -f5)"
+    local minute_field="$(echo "$cron_schedule" | awk '{print $1}')"
+    local hour_field="$(echo "$cron_schedule" | awk '{print $2}')"
+    local dom_field="$(echo "$cron_schedule" | awk '{print $3}')"
+    local month_field="$(echo "$cron_schedule" | awk '{print $4}')"
+    local dow_field="$(echo "$cron_schedule" | awk '{print $5}')"
 
-    # Convert post_date_secs to date components
-    eval $(date '+day=%d month=%m year=%Y' -d @$post_date_secs)
-    day="$(echo "$day" | sed 's/^0*//')" # Remove leading zeros
-    month="$(echo "$month" | sed 's/^0*//')"  # Remove leading zeros
+    eval $(date '+day=%d month=%m year=%Y hour=%H minute=%M dow=%u' -d "@$post_date_secs")
+    local current_day=$(echo $day | sed 's/^0*//')
+    local current_month=$(echo $month | sed 's/^0*//')
+    local current_year=$year
+    local current_hour=$(echo $hour | sed 's/^0*//')
+    local current_minute=$(echo $minute | sed 's/^0*//')
+    local current_dow=$((dow % 7))  # Adjusting so Sunday is 0
 
-    day_count=0
-    while [ "$day_count" -lt 365 ]; do
-        current_dow="$(calculate_day_of_week "$day" "$month" "$year")"
+    local found=false
 
-        num_dow_entries="$(echo "$dow" | tr ',' '\n' | wc -l)"  # Count number of dow entries
-        dow_index=1
-        while [ "$dow_index" -le "$num_dow_entries" ]; do
-            dow_entry="$(echo "$dow" | cut -d',' -f"$dow_index")"  # Get the dow_index-th entry
-
-            # Convert alphabetic day of the week to number if necessary
-            case "$dow_entry" in
-                *[[:alpha:]]*)
-                    dow_entry=$(convert_day_to_number "$dow_entry")
-                ;;
-            esac
-
-            num_month_entries="$(echo "$month_cron" | tr ',' '\n' | wc -l)"  # Count number of month entries
-            month_index=1
-            while [ "$month_index" -le "$num_month_entries" ]; do
-                month_entry="$(echo "$month_cron" | cut -d',' -f"$month_index")"  # Get the month_index-th entry
-
-                # Convert month name to number if necessary
-                case "$month_entry" in
-                    *[[:alpha:]]*)
-                        month_entry=$(convert_month_to_number "$month_entry")
-                    ;;
-                    *)
-                        month_entry="$(echo "$month_entry" | sed 's/^0*//')"  # Remove leading zeros
-                    ;;
-                esac
-
-                if { [ "$dom" = "*" ] || [ "$dom" = "$day" ]; } &&
-                   { [ "$month_entry" = "*" ] || [ "$month_entry" = "$month" ]; } &&
-                   { [ "$dow_entry" = "*" ] || [ "$dow_entry" = "$current_dow" ]; }; then
-                    cron_date="$year-$month-$day $hour:$minute"
-                    next_cron_run="$(date +%s -d "$cron_date")"
-                    if [ "$next_cron_run" -gt "$post_date_secs" ]; then
-                        echo "$next_cron_run"
+    while [ "$found" = "false" ]; do
+        if matches_month "$current_month" "$month_field" && matches_day_of_month "$current_day" "$dom_field" && matches_day_of_week "$current_dow" "$dow_field"; then
+            for h in $(expand_cron_field "$hour_field" 0 23); do
+                if [ "$h" -gt "$current_hour" ]; then
+                    for m in $(expand_cron_field "$minute_field" 0 59); do
+                        echo "$(date '+%s' -d "$current_year-$current_month-$current_day $h:$m")"
+                        found=true
                         return
-                    fi
+                    done
                 fi
-
-                month_index="$((month_index + 1))"
             done
-
-            dow_index="$((dow_index + 1))"
-        done
-
-        # Increment date
-        new_date="$(increment_date "$day" "$month" "$year")"
-        set -- $new_date
-        local day="$1"
-        local month="$2"
-        local year="$3"
-        local day_count="$((day_count + 1))"
+        fi
+        # Increment the day and check again
+        set -- $(increment_day $current_day $current_month $current_year)
+        current_day=$1
+        current_month=$2
+        current_year=$3
+        current_dow=$(date '+%u' -d "$current_year-$current_month-$current_day" | awk '{print $1%7}')  # Recalculate day of the week
+        current_hour=0  # Reset hours and minutes for the new day
+        current_minute=0
     done
-    echo "no_date_found"
 }
 
 calculate_DST() {
