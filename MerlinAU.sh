@@ -6,7 +6,7 @@
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
 # Last Modified: 2024-May-06
 ###################################################################
-set -x
+set -u
 
 readonly SCRIPT_VERSION=1.1.3
 readonly SCRIPT_NAME="MerlinAU"
@@ -2948,6 +2948,14 @@ estimate_next_cron_after_date() {
                         echo "$(date '+%s' -d "$current_year-$current_month-$current_day $h:$m")"
                         found=true
                         return
+                    done
+                elif [ "$h" -eq "$current_hour" ]; then
+                    for m in $(expand_cron_field "$minute_field" 0 59); do
+                        if [ "$m" -gt "$current_minute" ]; then
+                            echo "$(date '+%s' -d "$current_year-$current_month-$current_day $h:$m")"
+                            found=true
+                            return
+                        fi
                     done
                 fi
             done
