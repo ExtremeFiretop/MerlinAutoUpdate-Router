@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-06
+# Last Modified: 2024-May-18
 ###################################################################
 set -u
 
@@ -479,6 +479,8 @@ readonly CRON_DAYofWEEK_RegEx="$CRON_DAYofWEEK_NAMES([\/,-]$CRON_DAYofWEEK_NAMES
 readonly CRON_MONTH_NAMES="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
 readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1[0-2])([\/,-]([1-9]|1[0-2]))*"
 
+readonly CRON_UNKNOWN_DATE="**ERROR**: UNKNOWN Date Found"
+
 ##------------------------------------------##
 ## Modified by Martinski W. [2024-Jan-22]   ##
 ##------------------------------------------##
@@ -784,7 +786,7 @@ Get_Custom_Setting()
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
                 ;;
             "FW_New_Update_Postponement_Days"  | \
-            "FW_New_Update_Run_Date"  | \
+            "FW_New_Update_Expected_Run_Date"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
             "FW_New_Update_LOG_Directory_Path" | \
@@ -867,7 +869,7 @@ Update_Custom_Settings()
             fi
             ;;
         "FW_New_Update_Postponement_Days"  | \
-        "FW_New_Update_Run_Date"  | \
+        "FW_New_Update_Expected_Run_Date"  | \
         "FW_New_Update_Cron_Job_Schedule"  | \
         "FW_New_Update_ZIP_Directory_Path" | \
         "FW_New_Update_LOG_Directory_Path" | \
@@ -1263,7 +1265,7 @@ _CreateEMailContent_()
            if "$inRouterSWmode" && [ -n "$node_list" ]; then
               nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
            fi
-           if [ ! -n "$nodefwNewUpdateVersion" ]
+           if [ -z "$nodefwNewUpdateVersion" ]
            then
                Say "${REDct}**ERROR**${NOct}: Unable to send node email notification [No saved info]."
                return 1
@@ -1557,17 +1559,14 @@ _CreateDirectory_()
     return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _DelPostUpdateEmailNotifyScriptHook_()
 {
    local hookScriptFile
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
 
    if grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
@@ -1582,18 +1581,14 @@ _DelPostUpdateEmailNotifyScriptHook_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _AddPostUpdateEmailNotifyScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
-
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ]
    then
       jobHookAdded=true
@@ -1617,17 +1612,14 @@ _AddPostUpdateEmailNotifyScriptHook_()
    fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-28] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _DelPostRebootRunScriptHook_()
 {
    local hookScriptFile
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
 
    if grep -qE "$POST_REBOOT_SCRIPT_JOB" "$hookScriptFile"
@@ -1642,18 +1634,14 @@ _DelPostRebootRunScriptHook_()
    fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-17] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _AddPostRebootRunScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
-
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ]
    then
       jobHookAdded=true
@@ -2769,159 +2757,268 @@ translate_schedule()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-May-04] ##
 ##------------------------------------------##
-# Manually calculate the next day
-increment_day() {
+_IncrementDay_()
+{
     local day="$1"
     local month="$2"
     local year="$3"
 
     # Define number of days in each month considering leap year
     local leap_year=0
-    if [ $((year % 4)) -eq 0 ]; then
-        if [ $((year % 100)) -ne 0 ] || [ $((year % 400)) -eq 0 ]; then
+    if [ "$((year % 4))" -eq 0 ]
+    then
+        if [ "$((year % 100))" -ne 0 ] || [ "$((year % 400))" -eq 0 ]; then
             leap_year=1
         fi
     fi
 
-    local days_in_feb=$((28 + leap_year))
+    local days_in_feb="$((28 + leap_year))"
     local days_in_month=31
 
     case $month in
-        4|6|9|11) days_in_month=30;;
-        2) days_in_month=$days_in_feb;;
+        4|6|9|11) days_in_month=30 ;;
+        2) days_in_month="$days_in_feb" ;;
     esac
 
-    day=$((day + 1))
-    if [ $day -gt $days_in_month ]; then
+    day="$((day + 1))"
+    if [ "$day" -gt "$days_in_month" ]
+    then
         day=1
-        month=$((month + 1))
+        month="$((month + 1))"
     fi
-    if [ $month -gt 12 ]; then
+    if [ "$month" -gt 12 ]
+    then
         month=1
-        year=$((year + 1))
+        year="$((year + 1))"
     fi
 
     echo "$day $month $year"
 }
 
-matches_day_of_month() {
-    local day="$1"
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+matches_day_of_month()
+{
+    local curr_dom="$1"
     local dom_expr="$2"
-    if [[ "$dom_expr" == "*" ]]; then
-        return 0  # Match any day
-    elif echo "$dom_expr" | grep -q '-'; then
-        local start=$(echo "$dom_expr" | cut -d'-' -f1)
-        local end=$(echo "$dom_expr" | cut -d'-' -f2)
-        if [[ "$day" -ge "$start" && "$day" -le "$end" ]]; then
-            return 0  # Day is within the range
+    local domStart  domEnd
+
+    if [ "$dom_expr" = "*" ]
+    then  # Matches any day of the month #
+        return 0
+    elif echo "$dom_expr" | grep -q '-'
+    then
+        domStart="$(echo "$dom_expr" | cut -d'-' -f1)"
+        domEnd="$(echo "$dom_expr" | cut -d'-' -f2)"
+
+        if [ "$domStart" -le "$domEnd" ] && \
+           [ "$curr_dom" -ge "$domStart" ] && \
+           [ "$curr_dom" -le "$domEnd" ]
+        then  # Current day is within the range #
+            return 0
         fi
     else
-        for d in $(echo "$dom_expr" | tr ',' ' '); do
-            if [[ "$d" == "$day" ]]; then
-                return 0  # Day matches one of the list items
+        for day in $(echo "$dom_expr" | tr ',' ' ')
+        do
+            if [ "$day" -eq "$curr_dom" ]
+            then  # Current day matches one in the list #
+                return 0
             fi
         done
     fi
-    return 1  # No match
+    return 1  # No match #
 }
 
-matches_month() {
-    local month="$1"
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+matches_month()
+{
+    local curr_month="$1"
     local month_expr="$2"
-    if [ "$month_expr" = "*" ]; then
-        return 0  # Match any month
+    local monthStart  monthEnd  monthStartNum  monthEndNum
+
+    _MonthNameToNumber_()
+    {
+        if echo "$1" | grep -qE "^([1-9]|1[0-2])$"
+        then echo "$1" ; return 0 ; fi
+
+        local monthNum="$1"
+        case "$1" in
+            [Jj][Aa][Nn]) monthNum=1 ;;
+            [Ff][Ee][Bb]) monthNum=2 ;;
+            [Mm][Aa][Rr]) monthNum=3 ;;
+            [Aa][Pp][Rr]) monthNum=4 ;;
+            [Mm][Aa][Yy]) monthNum=5 ;;
+            [Jj][Uu][Nn]) monthNum=6 ;;
+            [Jj][Uu][Ll]) monthNum=7 ;;
+            [Aa][Uu][Gg]) monthNum=8 ;;
+            [Ss][Ee][Pp]) monthNum=9 ;;
+            [Oo][Cc][Tt]) monthNum=10 ;;
+            [Nn][Oo][Vv]) monthNum=11 ;;
+            [Dd][Ee][Cc]) monthNum=12 ;;
+            *) ;;
+        esac
+        echo "$monthNum" ; return 0
+    }
+
+    if [ "$month_expr" = "*" ]
+    then  # Matches any month #
+        return 0
+    elif echo "$month_expr" | grep -q '-'
+    then
+        monthStart="$(echo "$month_expr" | cut -d'-' -f1)"
+        monthEnd="$(echo "$month_expr" | cut -d'-' -f2)"
+        monthStartNum="$(_MonthNameToNumber_ "$monthStart")"
+        monthEndNum="$(_MonthNameToNumber_ "$monthEnd")"
+
+        if [ "$monthStartNum" -le "$monthEndNum" ] && \
+           [ "$curr_month" -ge "$monthStartNum" ] && \
+           [ "$curr_month" -le "$monthEndNum" ]
+        then  # Current month is within the range #
+            return 0
+        fi
     else
-        for m in $(echo "$month_expr" | tr ',' ' '); do
-            case "$m" in
-                [Jj][Aa][Nn]) m=1 ;;
-                [Ff][Ee][Bb]) m=2 ;;
-                [Mm][Aa][Rr]) m=3 ;;
-                [Aa][Pp][Rr]) m=4 ;;
-                [Mm][Aa][Yy]) m=5 ;;
-                [Jj][Uu][Nn]) m=6 ;;
-                [Jj][Uu][Ll]) m=7 ;;
-                [Aa][Uu][Gg]) m=8 ;;
-                [Ss][Ee][Pp]) m=9 ;;
-                [Oo][Cc][Tt]) m=10 ;;
-                [Nn][Oo][Vv]) m=11 ;;
-                [Dd][Ee][Cc]) m=12 ;;
-                *) ;;
-            esac
-            if [ "$m" -eq "$month" ]; then
-                return 0  # Month matches one of the list items
+        for month in $(echo "$month_expr" | tr ',' ' ')
+        do
+            if [ "$(_MonthNameToNumber_ "$month")" -eq "$curr_month" ]
+            then  # Current month matches one in the list #
+                return 0
             fi
         done
     fi
-    return 1  # No match
+    return 1  # No match #
 }
 
-matches_day_of_week() {
-    local dow="$1"
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+matches_day_of_week()
+{
+    local curr_dow="$1"
     local dow_expr="$2"
-    if [ "$dow_expr" = "*" ]; then
-        return 0  # Match any day of the week
+    local dowStart  dowEnd  dowStartNum  dowEndNum
+
+    _DayOfWeekNameToNumber_()
+    {
+        if echo "$1" | grep -qE "^[0-6]$"
+        then echo "$1" ; return 0 ; fi
+
+        local dowNum="$1"
+        case "$1" in
+            [Ss][Uu][Nn]) dowNum=0 ;;
+            [Mm][Oo][Nn]) dowNum=1 ;;
+            [Tt][Uu][Ee]) dowNum=2 ;;
+            [Ww][Ee][Dd]) dowNum=3 ;;
+            [Tt][Hh][Uu]) dowNum=4 ;;
+            [Ff][Rr][Ii]) dowNum=5 ;;
+            [Ss][Aa][Tt]) dowNum=6 ;;
+            *) ;;
+        esac
+        echo "$dowNum" ; return 0
+    }
+
+    if [ "$dow_expr" = "*" ]
+    then  # Matches any day of the week #
+        return 0
+    elif echo "$dow_expr" | grep -q '-'
+    then
+        dowStart="$(echo "$dow_expr" | cut -d'-' -f1)"
+        dowEnd="$(echo "$dow_expr" | cut -d'-' -f2)"
+        dowStartNum="$(_DayOfWeekNameToNumber_ "$dowStart")"
+        dowEndNum="$(_DayOfWeekNameToNumber_ "$dowEnd")"
+        if [ "$dowStartNum" -gt "$dowEndNum" ]
+        then
+            dow_expr="$dowStartNum"
+            while true
+            do
+                dowStartNum="$((++dowStartNum))"
+                if [ "$dowStartNum" -lt 7 ]
+                then
+                    dow_expr="${dow_expr},$dowStartNum"
+                else
+                    dowStartNum=0
+                    dow_expr="${dow_expr},$dowStartNum"
+                fi
+                [ "$dowStartNum" -eq "$dowEndNum" ] && break
+            done
+            if matches_day_of_week "$curr_dow" "$dow_expr"
+            then return 0
+            else return 1
+            fi
+        elif [ "$dowStartNum" -le "$dowEndNum" ] && \
+             [ "$curr_dow" -ge "$dowStartNum" ] && \
+             [ "$curr_dow" -le "$dowEndNum" ]
+        then  # Current day of the week is within the range #
+            return 0
+        fi
     else
-        for d in $(echo "$dow_expr" | tr ',' ' '); do
-            case "$d" in
-                [Ss][Uu][Nn]) d=0 ;;
-                [Mm][Oo][Nn]) d=1 ;;
-                [Tt][Uu][Ee]) d=2 ;;
-                [Ww][Ee][Dd]) d=3 ;;
-                [Tt][Hh][Uu]) d=4 ;;
-                [Ff][Rr][Ii]) d=5 ;;
-                [Ss][Aa][Tt]) d=6 ;;
-                *) ;;
-            esac
-            if [ "$d" -eq "$dow" ]; then
-                return 0  # Day of week matches one of the list items
+        for day in $(echo "$dow_expr" | tr ',' ' ')
+        do
+            if [ "$(_DayOfWeekNameToNumber_ "$day")" -eq "$curr_dow" ]
+            then  # Current day of the week matches one in the list #
+                return 0
             fi
         done
     fi
-    return 1  # No match
+    return 1  # No match #
 }
 
-expand_cron_field() {
+expand_cron_field()
+{
     local field="$1"
     local min="$2"
     local max="$3"
+    local range_part  step  start  end  num
 
-    if echo "$field" | grep -q '/'; then
-        local range_part="${field%/*}"
-        local step="${field##*/}"
-        local start="$min"
-        local end="$max"
+    if echo "$field" | grep -q '/'
+    then
+        range_part="${field%/*}"
+        step="${field##*/}"
+        start="$min"
+        end="$max"
 
-        if echo "$range_part" | grep -q '-'; then
+        if echo "$range_part" | grep -q '-'
+        then
             start="${range_part%-*}"
             end="${range_part#*-}"
         fi
 
-        local i="$start"
-        while [ "$i" -le "$end" ]; do
-            echo "$i"
-            i=$((i + step))
+        num="$start"
+        while [ "$num" -le "$end" ]
+        do
+            echo "$num"
+            num="$((num + step))"
         done
-    elif echo "$field" | grep -q '-'; then
-        local start="${field%-*}"
-        local end="${field#*-}"
-        local i="$start"
-        while [ "$i" -le "$end" ]; do
-            echo "$i"
-            i=$((i + 1))
+    elif echo "$field" | grep -q '-'
+    then
+        start="${field%-*}"
+        end="${field#*-}"
+        num="$start"
+        while [ "$num" -le "$end" ]
+        do
+            echo "$num"
+            num="$((num + 1))"
         done
-    elif [ "$field" = "*" ]; then
-        local i="$min"
-        while [ "$i" -le "$max" ]; do
-            echo "$i"
-            i=$((i + 1))
+    elif [ "$field" = "*" ]
+    then
+        num="$min"
+        while [ "$num" -le "$max" ]
+        do
+            echo "$num"
+            num="$((num + 1))"
         done
     else
         echo "$field"
     fi
 }
 
-# Function to process minute intervals, e.g., */15
-estimate_next_cron_after_date() {
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+_EstimateNextCronTimeAfterDate_()
+{
     local post_date_secs="$1"
     local cron_schedule="$2"
     local minute_field="$(echo "$cron_schedule" | awk '{print $1}')"
@@ -2929,55 +3026,73 @@ estimate_next_cron_after_date() {
     local dom_field="$(echo "$cron_schedule" | awk '{print $3}')"
     local month_field="$(echo "$cron_schedule" | awk '{print $4}')"
     local dow_field="$(echo "$cron_schedule" | awk '{print $5}')"
+    local day  month  year  hour  minute  dow
 
     eval $(date '+day=%d month=%m year=%Y hour=%H minute=%M dow=%u' -d "@$post_date_secs")
-    local current_day=$(echo $day | sed 's/^0*\([0-9]\)/\1/')
-    local current_month=$(echo $month | sed 's/^0*\([0-9]\)/\1/')
-    local current_year=$year
-    local current_hour=$(echo $hour | sed 's/^0*\([0-9]\)/\1/')
-    local current_minute=$(echo $minute | sed 's/^0*\([0-9]\)/\1/')
-    local current_dow=$((dow % 7))  # Adjusting so Sunday is 0
+    local current_day="$(echo "$day" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_month="$(echo "$month" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_year="$year"
+    local current_hour="$(echo "$hour" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_minute="$(echo "$minute" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_dow="$((dow % 7))"  # Adjusting so Sunday is 0
 
     # Apply default values if variables are empty
-    current_day=${current_day:-0}
-    current_month=${current_month:-0}
-    current_hour=${current_hour:-0}
-    current_minute=${current_minute:-0}
+    current_day="${current_day:-0}"
+    current_month="${current_month:-0}"
+    current_hour="${current_hour:-0}"
+    current_minute="${current_minute:-0}"
 
-    local found=false
+    local found=false  loopCount=0  maxLoopCount=120
 
-    while [ "$found" = "false" ]; do
-        if matches_month "$current_month" "$month_field" && matches_day_of_month "$current_day" "$dom_field" && matches_day_of_week "$current_dow" "$dow_field"; then
-            for h in $(expand_cron_field "$hour_field" 0 23); do
-                if [ "$h" -gt "$current_hour" ]; then
-                    for m in $(expand_cron_field "$minute_field" 0 59); do
-                        echo "$(date '+%s' -d "$current_year-$current_month-$current_day $h:$m")"
+    while [ "$found" = "false" ]
+    do
+        loopCount="$((loopCount + 1))"
+        if matches_month "$current_month" "$month_field" && \
+           matches_day_of_month "$current_day" "$dom_field" && \
+           matches_day_of_week "$current_dow" "$dow_field"
+        then
+            for this_hour in $(expand_cron_field "$hour_field" 0 23)
+            do
+                if [ "$this_hour" -gt "$current_hour" ]
+                then
+                    for this_min in $(expand_cron_field "$minute_field" 0 59)
+                    do
+                        echo "$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")"
                         found=true
-                        return
+                        return 0
                     done
-                elif [ "$h" -eq "$current_hour" ]; then
-                    for m in $(expand_cron_field "$minute_field" 0 59); do
-                        if [ "$m" -gt "$current_minute" ]; then
-                            echo "$(date '+%s' -d "$current_year-$current_month-$current_day $h:$m")"
+                elif [ "$this_hour" -eq "$current_hour" ]
+                then
+                    for this_min in $(expand_cron_field "$minute_field" 0 59)
+                    do
+                        if [ "$this_min" -gt "$current_minute" ]
+                        then
+                            echo "$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")"
                             found=true
-                            return
+                            return 0
                         fi
                     done
                 fi
             done
         fi
-        # Increment the day and check again
-        set -- $(increment_day $current_day $current_month $current_year)
-        current_day=$1
-        current_month=$2
-        current_year=$3
-        current_dow=$(date '+%u' -d "$current_year-$current_month-$current_day" | awk '{print $1%7}')  # Recalculate day of the week
+        if [ "$loopCount" -gt "$maxLoopCount" ]
+        then  # Avoid possible endless loop at this point #
+            echo "$CRON_UNKNOWN_DATE"
+            return 1
+        fi
+        # Increment the day and check again #
+        set -- $(_IncrementDay_ "$current_day" "$current_month" "$current_year")
+        current_day="$1"
+        current_month="$2"
+        current_year="$3"
+        current_dow="$(date '+%u' -d "$current_year-$current_month-$current_day" | awk '{print $1%7}')"  # Recalculate day of the week
         current_hour=0  # Reset hours and minutes for the new day
         current_minute=0
     done
 }
 
-calculate_DST() {
+_Calculate_DST_()
+{
    local notifyTimeStrn notifyTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
    local postponeTimeSecs fwNewUpdatePostponementDays
    
@@ -3002,31 +3117,47 @@ calculate_DST() {
    echo "$((notifyTimeSecs + postponeTimeSecs))"
 }
 
-_calculate_NextRunTime_() {
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+_Calculate_NextRunTime_()
+{
+    local fwNewUpdateVersion  fwNewUpdateNotificationDate
+    local upfwDateTimeSecs  nextCronTimeSecs
+
     # Check for available firmware update
-    local fwNewUpdateVersion
     if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"; then
         fwNewUpdateVersion="NONE FOUND"
     fi
 
-    ExpectedFWUpdateRuntime="$(Get_Custom_Setting FW_New_Update_Run_Date)"
+    ExpectedFWUpdateRuntime="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
 
     # Determine appropriate messaging based on the firmware update availability and check state
-    if [ "$FW_UpdateCheckState" -eq 0 ]; then
+    if [ "$FW_UpdateCheckState" -eq 0 ]
+    then
         ExpectedFWUpdateRuntime="${REDct}NO CRON JOB${NOct}"
-    elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]; then
+    elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]
+    then
         ExpectedFWUpdateRuntime="${REDct}NONE FOUND${NOct}"
-    elif [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]; then
+    elif [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
+    then
         # If conditions are met (cron job enabled and update available), calculate the next runtime
-        local fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
-        if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]; then
+        fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+        if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
+        then
             fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
         fi
-        local upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
-        local nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
-        Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
-        ExpectedFWUpdateRuntime="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
-        ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
+        upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
+        nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+        if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
+        then
+            Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
+            ExpectedFWUpdateRuntime="${REDct}UNKNOWN${NOct}"
+        else
+            Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
+            ExpectedFWUpdateRuntime="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
+            ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
+        fi
     else
         ExpectedFWUpdateRuntime="$(date -d @$ExpectedFWUpdateRuntime +"%Y-%b-%d %I:%M %p")"
         ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
@@ -3138,10 +3269,10 @@ _Set_FW_UpdatePostponementDays_()
 
    if [ "$newPostponementDays" != "$oldPostponementDays" ]
    then
-      Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
-      echo "The number of days to postpone F/W Update was updated successfully."
-      _calculate_NextRunTime_
-      _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+       Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
+       echo "The number of days to postpone F/W Update was updated successfully."
+       _Calculate_NextRunTime_
+       _WaitForEnterKey_ "$mainMenuReturnPromptStr"
    fi
    return 0
 }
@@ -3285,7 +3416,7 @@ _Set_FW_UpdateCronSchedule_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-            _calculate_NextRunTime_
+            _Calculate_NextRunTime_
         else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -3300,9 +3431,9 @@ _Set_FW_UpdateCronSchedule_()
     return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -3353,10 +3484,16 @@ _CheckNewUpdateFirmwareNotification_()
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
    fi
+
    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
-   upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
-   nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
-   Update_Custom_Settings FW_New_Update_Run_Date "$nextCronTimeSecs"
+   upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
+   nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+   if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
+   then
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
+   else
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
+   fi
    return 0
 }
 
@@ -3411,15 +3548,16 @@ _CheckNodeFWUpdateNotification_()
    return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
-##------------------------------------------##
-_CheckTimeToUpdateFirmware_() {
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+_CheckTimeToUpdateFirmware_()
+{
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
    local upfwDateTimeSecs nextCronTimeSecs upfwDateTimeStrn
-   local fwNewUpdatePostponementDays fwNewUpdateNotificationDate
+   local fwNewUpdatePostponementDays  fwNewUpdateNotificationDate  fwNewUpdateNotificationVers
 
    _CheckNewUpdateFirmwareNotification_ "$1" "$2"
 
@@ -3436,23 +3574,23 @@ _CheckTimeToUpdateFirmware_() {
    if [ "$fwNewUpdatePostponementDays" -eq 0 ]
    then return 0 ; fi
 
-   upfwDateTimeSecs=$(calculate_DST "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")
+   upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
 
    local currentTimeSecs="$(date +%s)"
    if [ "$((currentTimeSecs - upfwDateTimeSecs))" -ge 0 ]
    then return 0 ; fi
 
-   nextCronTimeSecs=$(estimate_next_cron_after_date "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")
+   Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
 
-   if [ "$nextCronTimeSecs" = "no_date_found" ]; then
+   nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+   if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
+   then
        upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
        Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
        return 1
    fi
 
    upfwDateTimeStrn="$(date -d @$nextCronTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
-
-   Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
    Say "The firmware update is expected to occur on ${GRNct}${upfwDateTimeStrn}${NOct}."
    echo ""
 
@@ -3463,8 +3601,6 @@ _CheckTimeToUpdateFirmware_() {
    else
         return 1
    fi
-
-   return 1
 }
 
 ##-------------------------------------##
@@ -3962,7 +4098,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
         if [ ! -f "$changeLogFile" ]
         then
-            Say "Change-log file [${FW_BIN_DIR}/$Changelog-${changeLogTag}.txt] does NOT exist."
+            Say "Change-log file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
             _DoCleanUp_
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
@@ -4301,17 +4437,14 @@ _PostRebootRunNow_()
    _RunFirmwareUpdateNow_
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-19] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-May-17] ##
+##----------------------------------------##
 _DelCronJobRunScriptHook_()
 {
    local hookScriptFile
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
 
    if grep -qE "$CRON_SCRIPT_JOB" "$hookScriptFile"
@@ -4326,18 +4459,14 @@ _DelCronJobRunScriptHook_()
    fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-17] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _AddCronJobRunScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
-
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ]
    then
       jobHookAdded=true
@@ -5088,8 +5217,8 @@ _ShowMainMenu_()
 
    arrowStr=" ${REDct}<<---${NOct}"
 
-   _calculate_NextRunTime_
-   # Show or hide F/W Update ETA based on whether a meaningful ETA exists
+   _Calculate_NextRunTime_
+
    notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    if [ "$notifyDate" = "TBD" ]
    then notificationStr="${REDct}NOT SET${NOct}"
