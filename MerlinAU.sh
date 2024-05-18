@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-09
+# Last Modified: 2024-May-18
 ###################################################################
 set -u
 
@@ -481,6 +481,7 @@ readonly CRON_MONTH_NAMES="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
 readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1[0-2])([\/,-]([1-9]|1[0-2]))*"
 
 readonly CRON_UNKNOWN_DATE="**ERROR**: UNKNOWN Date Found"
+
 ##------------------------------------------##
 ## Modified by Martinski W. [2024-Jan-22]   ##
 ##------------------------------------------##
