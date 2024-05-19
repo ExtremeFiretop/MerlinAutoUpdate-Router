@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Apr-26
+# Last Modified: 2024-May-18
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.2
+readonly SCRIPT_VERSION=1.1.3
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -22,6 +22,13 @@ readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/Merli
 readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly FW_URL_RELEASE_SUFFIX="Release"
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-May-03] ##
+##---------------------------------------##
+# Changelog URL Info #
+readonly CL_URL_NG="${FW_URL_BASE}/Documentation/Changelog-NG.txt/download"
+readonly CL_URL_386="${FW_URL_BASE}/Documentation/Changelog-386.txt/download"
+
 # For new script version updates from source repository #
 UpdateNotify=0
 DLRepoVersion=""
@@ -34,15 +41,6 @@ readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 readonly ScriptDirNameD="${ScriptFNameTag}.d"
 
-ScriptsDirPath="$(/usr/bin/dirname "$0")"
-if [ "$ScriptsDirPath" != "." ]
-then
-   ScriptFilePath="$0"
-else
-   ScriptsDirPath="$(pwd)"
-   ScriptFilePath="$(pwd)/$ScriptFileName"
-fi
-
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-21] ##
 ##------------------------------------------##
@@ -51,6 +49,18 @@ readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-01] ##
+##----------------------------------------##
+ScriptsDirPath="$SCRIPTS_PATH"
+ScriptFilePath="${SCRIPTS_PATH}/$ScriptFileName"
+
+if [ ! -f "$ScriptFilePath" ]
+then
+    ScriptsDirPath="$(pwd)"
+    ScriptFilePath="$(pwd)/$ScriptFileName"
+fi
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Apr-02] ##
@@ -449,10 +459,15 @@ readonly MAGENTAct="\e[1;35m"
 readonly CYANct="\e[1;36m"
 readonly WHITEct="\e[1;37m"
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-22] ##
-##----------------------------------------##
-readonly FW_Update_CRON_DefaultSchedule="0 0 * * Sun"
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-03] ##
+##------------------------------------------##
+if "$inRouterSWmode" 
+then
+    readonly FW_Update_CRON_DefaultSchedule="0 0 * * *"
+else
+    readonly FW_Update_CRON_DefaultSchedule="15 0 * * *"
+fi
 
 readonly CRON_MINS_RegEx="([*0-9]|[1-5][0-9])([\/,-]([0-9]|[1-5][0-9]))*"
 readonly CRON_HOUR_RegEx="([*0-9]|1[0-9]|2[0-3])([\/,-]([0-9]|1[0-9]|2[0-3]))*"
@@ -463,6 +478,8 @@ readonly CRON_DAYofWEEK_RegEx="$CRON_DAYofWEEK_NAMES([\/,-]$CRON_DAYofWEEK_NAMES
 
 readonly CRON_MONTH_NAMES="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
 readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1[0-2])([\/,-]([1-9]|1[0-2]))*"
+
+readonly CRON_UNKNOWN_DATE="**ERROR**: UNKNOWN Date Found"
 
 ##------------------------------------------##
 ## Modified by Martinski W. [2024-Jan-22]   ##
@@ -749,7 +766,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-20] ##
+## Modified by ExtremeFiretop [2024-May-06] ##
 ##------------------------------------------##
 Get_Custom_Setting()
 {
@@ -769,6 +786,7 @@ Get_Custom_Setting()
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
                 ;;
             "FW_New_Update_Postponement_Days"  | \
+            "FW_New_Update_Expected_Run_Date"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
             "FW_New_Update_LOG_Directory_Path" | \
@@ -790,42 +808,36 @@ Get_Custom_Setting()
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-26] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-30] ##
+##----------------------------------------##
 _GetAllNodeSettings_()
 {
-    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]; then return 1; fi
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+    then echo "**ERROR**" ; return 1; fi
 
-    local node_mac_address="$1"  pattern
-    local setting_value  setting_part="$2"  matched_lines
-    local default_value="TBD"
+    ## Node Setting KEY="Node_{MACaddress}_{keySuffix}" ##
+    local fullKeyName="Node_${1}_${2}"
+    local setting_value="TBD"  matched_lines
 
-    # Ensure the settings directory exists
+    # Ensure the settings directory exists #
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
-    if [ -f "$SETTINGSFILE" ]; then
-        # Construct the pattern to match the entire line containing the MAC address and the setting part
-        pattern="${node_mac_address}.*${setting_part}=\"[^\"]*\""
-
-        # Search for the setting in the settings file
-        matched_lines="$(grep -o "$pattern" "$SETTINGSFILE" || echo "")"
-
-        if [ -n "$matched_lines" ]; then
-            # Extract the value from the first matched line
+    if [ -f "$SETTINGSFILE" ]
+    then
+        matched_lines="$(grep -E "^${fullKeyName}=.*" "$SETTINGSFILE")"
+        if [ -n "$matched_lines" ]
+        then
+            # Extract the value from the first matched line #
             setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
-            echo "$setting_value"
-        else
-            echo "$default_value"
         fi
-    else
-        echo "$default_value"
     fi
+    echo "$setting_value"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -857,6 +869,7 @@ Update_Custom_Settings()
             fi
             ;;
         "FW_New_Update_Postponement_Days"  | \
+        "FW_New_Update_Expected_Run_Date"  | \
         "FW_New_Update_Cron_Job_Schedule"  | \
         "FW_New_Update_ZIP_Directory_Path" | \
         "FW_New_Update_LOG_Directory_Path" | \
@@ -1214,7 +1227,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-02] ##
+## Modified by ExtremeFiretop [2024-May-03] ##
 ##------------------------------------------##
 _CreateEMailContent_()
 {
@@ -1252,7 +1265,7 @@ _CreateEMailContent_()
            if "$inRouterSWmode" && [ -n "$node_list" ]; then
               nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
            fi
-           if [ ! -n "$nodefwNewUpdateVersion" ]
+           if [ -z "$nodefwNewUpdateVersion" ]
            then
                Say "${REDct}**ERROR**${NOct}: Unable to send node email notification [No saved info]."
                return 1
@@ -1275,6 +1288,8 @@ _CreateEMailContent_()
            emailBodyTitle="WARNING"
            {
              echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             echo "Changelog contents include the following changes:"
+             echo "$changelog_contents"
              printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
@@ -1544,17 +1559,14 @@ _CreateDirectory_()
     return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _DelPostUpdateEmailNotifyScriptHook_()
 {
    local hookScriptFile
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
 
    if grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
@@ -1569,18 +1581,14 @@ _DelPostUpdateEmailNotifyScriptHook_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _AddPostUpdateEmailNotifyScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
-
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ]
    then
       jobHookAdded=true
@@ -1604,17 +1612,14 @@ _AddPostUpdateEmailNotifyScriptHook_()
    fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-28] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _DelPostRebootRunScriptHook_()
 {
    local hookScriptFile
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
 
    if grep -qE "$POST_REBOOT_SCRIPT_JOB" "$hookScriptFile"
@@ -1629,18 +1634,14 @@ _DelPostRebootRunScriptHook_()
    fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-17] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _AddPostRebootRunScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
-
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ]
    then
       jobHookAdded=true
@@ -2281,21 +2282,21 @@ _NodeActiveStatus_()
     return 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Mar-31] ##
-##---------------------------------------##
-_Populate_Node_Settings_() {
-    local mac_address="$1"
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-30] ##
+##----------------------------------------##
+_Populate_Node_Settings_()
+{
+    local MAC_address="$1"
     local model_id="$2"
     local update_date="$3"
     local update_vers="$4"
-    local node_suffix="$mac_address"
-    local node_prefix="Node_"
+    local nodeKeyPrefix="Node_${MAC_address}_"
 
     # Update or add each piece of information
-    Update_Custom_Settings "${node_prefix}${node_suffix}_Model_NameID" "$model_id"
-    Update_Custom_Settings "${node_prefix}${node_suffix}_New_Notification_Date" "$update_date"
-    Update_Custom_Settings "${node_prefix}${node_suffix}_New_Notification_Vers" "$update_vers"
+    Update_Custom_Settings "${nodeKeyPrefix}Model_NameID" "$model_id"
+    Update_Custom_Settings "${nodeKeyPrefix}New_Notification_Date" "$update_date"
+    Update_Custom_Settings "${nodeKeyPrefix}New_Notification_Vers" "$update_vers"
 }
 
 ##---------------------------------------##
@@ -2753,6 +2754,411 @@ translate_schedule()
    echo "$day_of_week_text, $day_of_month_text, in $month_text."
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-04] ##
+##------------------------------------------##
+_IncrementDay_()
+{
+    local day="$1"
+    local month="$2"
+    local year="$3"
+
+    # Define number of days in each month considering leap year
+    local leap_year=0
+    if [ "$((year % 4))" -eq 0 ]
+    then
+        if [ "$((year % 100))" -ne 0 ] || [ "$((year % 400))" -eq 0 ]; then
+            leap_year=1
+        fi
+    fi
+
+    local days_in_feb="$((28 + leap_year))"
+    local days_in_month=31
+
+    case $month in
+        4|6|9|11) days_in_month=30 ;;
+        2) days_in_month="$days_in_feb" ;;
+    esac
+
+    day="$((day + 1))"
+    if [ "$day" -gt "$days_in_month" ]
+    then
+        day=1
+        month="$((month + 1))"
+    fi
+    if [ "$month" -gt 12 ]
+    then
+        month=1
+        year="$((year + 1))"
+    fi
+
+    echo "$day $month $year"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+matches_day_of_month()
+{
+    local curr_dom="$1"
+    local dom_expr="$2"
+    local domStart  domEnd
+
+    if [ "$dom_expr" = "*" ]
+    then  # Matches any day of the month #
+        return 0
+    elif echo "$dom_expr" | grep -q '-'
+    then
+        domStart="$(echo "$dom_expr" | cut -d'-' -f1)"
+        domEnd="$(echo "$dom_expr" | cut -d'-' -f2)"
+
+        if [ "$domStart" -le "$domEnd" ] && \
+           [ "$curr_dom" -ge "$domStart" ] && \
+           [ "$curr_dom" -le "$domEnd" ]
+        then  # Current day is within the range #
+            return 0
+        fi
+    else
+        for day in $(echo "$dom_expr" | tr ',' ' ')
+        do
+            if [ "$day" -eq "$curr_dom" ]
+            then  # Current day matches one in the list #
+                return 0
+            fi
+        done
+    fi
+    return 1  # No match #
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+matches_month()
+{
+    local curr_month="$1"
+    local month_expr="$2"
+    local monthStart  monthEnd  monthStartNum  monthEndNum
+
+    _MonthNameToNumber_()
+    {
+        if echo "$1" | grep -qE "^([1-9]|1[0-2])$"
+        then echo "$1" ; return 0 ; fi
+
+        local monthNum="$1"
+        case "$1" in
+            [Jj][Aa][Nn]) monthNum=1 ;;
+            [Ff][Ee][Bb]) monthNum=2 ;;
+            [Mm][Aa][Rr]) monthNum=3 ;;
+            [Aa][Pp][Rr]) monthNum=4 ;;
+            [Mm][Aa][Yy]) monthNum=5 ;;
+            [Jj][Uu][Nn]) monthNum=6 ;;
+            [Jj][Uu][Ll]) monthNum=7 ;;
+            [Aa][Uu][Gg]) monthNum=8 ;;
+            [Ss][Ee][Pp]) monthNum=9 ;;
+            [Oo][Cc][Tt]) monthNum=10 ;;
+            [Nn][Oo][Vv]) monthNum=11 ;;
+            [Dd][Ee][Cc]) monthNum=12 ;;
+            *) ;;
+        esac
+        echo "$monthNum" ; return 0
+    }
+
+    if [ "$month_expr" = "*" ]
+    then  # Matches any month #
+        return 0
+    elif echo "$month_expr" | grep -q '-'
+    then
+        monthStart="$(echo "$month_expr" | cut -d'-' -f1)"
+        monthEnd="$(echo "$month_expr" | cut -d'-' -f2)"
+        monthStartNum="$(_MonthNameToNumber_ "$monthStart")"
+        monthEndNum="$(_MonthNameToNumber_ "$monthEnd")"
+
+        if [ "$monthStartNum" -le "$monthEndNum" ] && \
+           [ "$curr_month" -ge "$monthStartNum" ] && \
+           [ "$curr_month" -le "$monthEndNum" ]
+        then  # Current month is within the range #
+            return 0
+        fi
+    else
+        for month in $(echo "$month_expr" | tr ',' ' ')
+        do
+            if [ "$(_MonthNameToNumber_ "$month")" -eq "$curr_month" ]
+            then  # Current month matches one in the list #
+                return 0
+            fi
+        done
+    fi
+    return 1  # No match #
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+matches_day_of_week()
+{
+    local curr_dow="$1"
+    local dow_expr="$2"
+    local dowStart  dowEnd  dowStartNum  dowEndNum
+
+    _DayOfWeekNameToNumber_()
+    {
+        if echo "$1" | grep -qE "^[0-6]$"
+        then echo "$1" ; return 0 ; fi
+
+        local dowNum="$1"
+        case "$1" in
+            [Ss][Uu][Nn]) dowNum=0 ;;
+            [Mm][Oo][Nn]) dowNum=1 ;;
+            [Tt][Uu][Ee]) dowNum=2 ;;
+            [Ww][Ee][Dd]) dowNum=3 ;;
+            [Tt][Hh][Uu]) dowNum=4 ;;
+            [Ff][Rr][Ii]) dowNum=5 ;;
+            [Ss][Aa][Tt]) dowNum=6 ;;
+            *) ;;
+        esac
+        echo "$dowNum" ; return 0
+    }
+
+    if [ "$dow_expr" = "*" ]
+    then  # Matches any day of the week #
+        return 0
+    elif echo "$dow_expr" | grep -q '-'
+    then
+        dowStart="$(echo "$dow_expr" | cut -d'-' -f1)"
+        dowEnd="$(echo "$dow_expr" | cut -d'-' -f2)"
+        dowStartNum="$(_DayOfWeekNameToNumber_ "$dowStart")"
+        dowEndNum="$(_DayOfWeekNameToNumber_ "$dowEnd")"
+        if [ "$dowStartNum" -gt "$dowEndNum" ]
+        then
+            dow_expr="$dowStartNum"
+            while true
+            do
+                dowStartNum="$((dowStartNum + 1))"
+                [ "$dowStartNum" -ge 7 ] && dowStartNum=0
+                dow_expr="${dow_expr},$dowStartNum"
+                [ "$dowStartNum" -eq "$dowEndNum" ] && break
+            done
+            if matches_day_of_week "$curr_dow" "$dow_expr"
+            then return 0
+            else return 1
+            fi
+        elif [ "$dowStartNum" -le "$dowEndNum" ] && \
+             [ "$curr_dow" -ge "$dowStartNum" ] && \
+             [ "$curr_dow" -le "$dowEndNum" ]
+        then  # Current day of the week is within the range #
+            return 0
+        fi
+    else
+        for day in $(echo "$dow_expr" | tr ',' ' ')
+        do
+            if [ "$(_DayOfWeekNameToNumber_ "$day")" -eq "$curr_dow" ]
+            then  # Current day of the week matches one in the list #
+                return 0
+            fi
+        done
+    fi
+    return 1  # No match #
+}
+
+expand_cron_field()
+{
+    local field="$1"
+    local min="$2"
+    local max="$3"
+    local range_part  step  start  end  num
+
+    if echo "$field" | grep -q '/'
+    then
+        range_part="${field%/*}"
+        step="${field##*/}"
+        start="$min"
+        end="$max"
+
+        if echo "$range_part" | grep -q '-'
+        then
+            start="${range_part%-*}"
+            end="${range_part#*-}"
+        fi
+
+        num="$start"
+        while [ "$num" -le "$end" ]
+        do
+            echo "$num"
+            num="$((num + step))"
+        done
+    elif echo "$field" | grep -q '-'
+    then
+        start="${field%-*}"
+        end="${field#*-}"
+        num="$start"
+        while [ "$num" -le "$end" ]
+        do
+            echo "$num"
+            num="$((num + 1))"
+        done
+    elif [ "$field" = "*" ]
+    then
+        num="$min"
+        while [ "$num" -le "$max" ]
+        do
+            echo "$num"
+            num="$((num + 1))"
+        done
+    else
+        echo "$field"
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+_EstimateNextCronTimeAfterDate_()
+{
+    local post_date_secs="$1"
+    local cron_schedule="$2"
+    local minute_field="$(echo "$cron_schedule" | awk '{print $1}')"
+    local hour_field="$(echo "$cron_schedule" | awk '{print $2}')"
+    local dom_field="$(echo "$cron_schedule" | awk '{print $3}')"
+    local month_field="$(echo "$cron_schedule" | awk '{print $4}')"
+    local dow_field="$(echo "$cron_schedule" | awk '{print $5}')"
+    local day  month  year  hour  minute  dow
+
+    eval $(date '+day=%d month=%m year=%Y hour=%H minute=%M dow=%u' -d "@$post_date_secs")
+    local current_day="$(echo "$day" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_month="$(echo "$month" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_year="$year"
+    local current_hour="$(echo "$hour" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_minute="$(echo "$minute" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_dow="$((dow % 7))"  # Adjusting so Sunday is 0
+
+    # Apply default values if variables are empty
+    current_day="${current_day:-0}"
+    current_month="${current_month:-0}"
+    current_hour="${current_hour:-0}"
+    current_minute="${current_minute:-0}"
+
+    local found=false  loopCount=0  maxLoopCount=120
+
+    while [ "$found" = "false" ]
+    do
+        loopCount="$((loopCount + 1))"
+        if matches_month "$current_month" "$month_field" && \
+           matches_day_of_month "$current_day" "$dom_field" && \
+           matches_day_of_week "$current_dow" "$dow_field"
+        then
+            for this_hour in $(expand_cron_field "$hour_field" 0 23)
+            do
+                if [ "$this_hour" -gt "$current_hour" ]
+                then
+                    for this_min in $(expand_cron_field "$minute_field" 0 59)
+                    do
+                        echo "$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")"
+                        found=true
+                        return 0
+                    done
+                elif [ "$this_hour" -eq "$current_hour" ]
+                then
+                    for this_min in $(expand_cron_field "$minute_field" 0 59)
+                    do
+                        if [ "$this_min" -gt "$current_minute" ]
+                        then
+                            echo "$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")"
+                            found=true
+                            return 0
+                        fi
+                    done
+                fi
+            done
+        fi
+        if [ "$loopCount" -gt "$maxLoopCount" ]
+        then  # Avoid possible endless loop at this point #
+            echo "$CRON_UNKNOWN_DATE"
+            return 1
+        fi
+        # Increment the day and check again #
+        set -- $(_IncrementDay_ "$current_day" "$current_month" "$current_year")
+        current_day="$1"
+        current_month="$2"
+        current_year="$3"
+        current_dow="$(date '+%u' -d "$current_year-$current_month-$current_day" | awk '{print $1%7}')"  # Recalculate day of the week
+        current_hour=0  # Reset hours and minutes for the new day
+        current_minute=0
+    done
+}
+
+_Calculate_DST_()
+{
+   local notifyTimeStrn notifyTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
+   local postponeTimeSecs fwNewUpdatePostponementDays
+   
+   notifyTimeStrn="$1"
+   
+   currentTimeSecs="$(date +%s)"
+   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+
+   # Adjust for DST discrepancies
+   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
+   then dstAdjustSecs=86400  # 24-hour day is same as always
+   else dstAdjustSecs=82800  # 23-hour day only when DST happens
+   fi
+
+   fwNewUpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+   dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
+   if [ "$dstAdjustDays" -eq 0 ]
+   then postponeTimeSecs="$dstAdjustSecs"
+   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
+   fi
+
+   echo "$((notifyTimeSecs + postponeTimeSecs))"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+_Calculate_NextRunTime_()
+{
+    local fwNewUpdateVersion  fwNewUpdateNotificationDate
+    local upfwDateTimeSecs  nextCronTimeSecs
+
+    # Check for available firmware update
+    if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"; then
+        fwNewUpdateVersion="NONE FOUND"
+    fi
+
+    ExpectedFWUpdateRuntime="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
+
+    # Determine appropriate messaging based on the firmware update availability and check state
+    if [ "$FW_UpdateCheckState" -eq 0 ]
+    then
+        ExpectedFWUpdateRuntime="${REDct}NO CRON JOB${NOct}"
+    elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]
+    then
+        ExpectedFWUpdateRuntime="${REDct}NONE FOUND${NOct}"
+    elif [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
+    then
+        # If conditions are met (cron job enabled and update available), calculate the next runtime
+        fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+        if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
+        then
+            fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
+        fi
+        upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
+        nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+        if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
+        then
+            Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
+            ExpectedFWUpdateRuntime="${REDct}UNKNOWN${NOct}"
+        else
+            Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
+            ExpectedFWUpdateRuntime="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
+            ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
+        fi
+    else
+        ExpectedFWUpdateRuntime="$(date -d @$ExpectedFWUpdateRuntime +"%Y-%b-%d %I:%M %p")"
+        ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
+    fi
+}
+
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Nov-19] ##
 ##----------------------------------------------##
@@ -2819,9 +3225,9 @@ _CheckPostponementDays_()
    return "$retCode"
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-19] ##
-##----------------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
 _Set_FW_UpdatePostponementDays_()
 {
    local validNumRegExp="([0-9]|[1-9][0-9])"
@@ -2860,6 +3266,7 @@ _Set_FW_UpdatePostponementDays_()
    then
        Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
        echo "The number of days to postpone F/W Update was updated successfully."
+       _Calculate_NextRunTime_
        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
    fi
    return 0
@@ -2940,9 +3347,9 @@ _ValidateCronJobSchedule_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-22] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
 _Set_FW_UpdateCronSchedule_()
 {
     printf "Changing Firmware Update Schedule...\n"
@@ -3004,6 +3411,7 @@ _Set_FW_UpdateCronSchedule_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+            _Calculate_NextRunTime_
         else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -3018,9 +3426,9 @@ _Set_FW_UpdateCronSchedule_()
     return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-13] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -3071,12 +3479,22 @@ _CheckNewUpdateFirmwareNotification_()
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
    fi
+
+   fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
+   nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+   if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
+   then
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
+   else
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
+   fi
    return 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-02] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-30] ##
+##----------------------------------------##
 _CheckNodeFWUpdateNotification_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -3107,7 +3525,7 @@ _CheckNodeFWUpdateNotification_()
            nodefwNewUpdateNotificationVers="$2"
            nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
-           nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "NameID")"
+           nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
            echo "" > "$tempNodeEMailList"
            echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
        fi
@@ -3118,7 +3536,7 @@ _CheckNodeFWUpdateNotification_()
    then
        nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
-       nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "NameID")"
+       nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
        echo "" > "$tempNodeEMailList"
        echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
    fi
@@ -3126,15 +3544,15 @@ _CheckNodeFWUpdateNotification_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-21] ##
+## Modified by Martinski W. [2024-May-18] ##
 ##----------------------------------------##
 _CheckTimeToUpdateFirmware_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local notifyTimeSecs  postponeTimeSecs  currentTimeSecs  dstAdjustSecs  dstAdjustDays
-   local fwNewUpdateNotificationDate  fwNewUpdateNotificationVers  fwNewUpdatePostponementDays
+   local upfwDateTimeSecs nextCronTimeSecs upfwDateTimeStrn
+   local fwNewUpdatePostponementDays  fwNewUpdateNotificationDate  fwNewUpdateNotificationVers
 
    _CheckNewUpdateFirmwareNotification_ "$1" "$2"
 
@@ -3151,36 +3569,33 @@ _CheckTimeToUpdateFirmware_()
    if [ "$fwNewUpdatePostponementDays" -eq 0 ]
    then return 0 ; fi
 
-   currentTimeSecs="$(date +%s)"
-   notifyTimeStrn="$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')"
-   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+   upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
 
-   #----------------------------------------------------------------------
-   # Adjust calculation of postponed days as elapsed time in seconds to
-   # account for the hour discrepancy when Daylight Saving Time happens.
-   # This way we can avoid a scenario where the F/W Update "date+time"
-   # threshold is set one hour *after* the scheduled cron job is set
-   # to run again and check if it's time to update the router.
-   #----------------------------------------------------------------------
-   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
-   then dstAdjustSecs=86400  #24-hour day is same as always#
-   else dstAdjustSecs=82800  #23-hour day only when DST happens#
-   fi
-   dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
-   if [ "$dstAdjustDays" -eq 0 ]
-   then postponeTimeSecs="$dstAdjustSecs"
-   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
-   fi
-
-   if [ "$((currentTimeSecs - notifyTimeSecs))" -ge "$postponeTimeSecs" ]
+   local currentTimeSecs="$(date +%s)"
+   if [ "$((currentTimeSecs - upfwDateTimeSecs))" -ge 0 ]
    then return 0 ; fi
 
-   upfwDateTimeSecs="$((notifyTimeSecs + postponeTimeSecs))"
-   upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
-
    Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
-   Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
-   return 1
+
+   nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+   if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
+   then
+       upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
+       Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
+       return 1
+   fi
+
+   upfwDateTimeStrn="$(date -d @$nextCronTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
+   Say "The firmware update is expected to occur on ${GRNct}${upfwDateTimeStrn}${NOct}."
+   echo ""
+
+   # Check if running in a menu environment
+   if "$isInteractive" && _WaitForYESorNO_ "Would you like to proceed with the update now?"
+   then
+        return 0
+   else
+        return 1
+   fi
 }
 
 ##-------------------------------------##
@@ -3585,7 +4000,8 @@ Please manually update to version $minimum_supported_version or higher to use th
         wgetHstsFile="/tmp/home/root/.wget-hsts"
         [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
 
-        wget -O "$FW_ZIP_FPATH" "$release_link"
+        wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+             -O "$FW_ZIP_FPATH" "$release_link"
     fi
 
     if [ ! -f "$FW_ZIP_FPATH" ]
@@ -3677,7 +4093,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
         if [ ! -f "$changeLogFile" ]
         then
-            Say "Change-log file [$changeLogFile] does NOT exist."
+            Say "Change-log file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
             _DoCleanUp_
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
@@ -4016,17 +4432,14 @@ _PostRebootRunNow_()
    _RunFirmwareUpdateNow_
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-19] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _DelCronJobRunScriptHook_()
 {
    local hookScriptFile
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
 
    if grep -qE "$CRON_SCRIPT_JOB" "$hookScriptFile"
@@ -4041,18 +4454,14 @@ _DelCronJobRunScriptHook_()
    fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Oct-17] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _AddCronJobRunScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
 
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then hookScriptFile="$1"
-   else hookScriptFile="$hookScriptFPath"
-   fi
-
+   hookScriptFile="$hookScriptFPath"
    if [ ! -f "$hookScriptFile" ]
    then
       jobHookAdded=true
@@ -4292,6 +4701,70 @@ _SetSecondaryEMailAddress_()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
+# RegExp for IPv4 address #
+readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])"
+readonly IPv4addrs_RegEx="((${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx})"
+readonly IPv4privt_RegEx="((^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.))"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-06] ##
+##----------------------------------------##
+_ValidatePrivateIPv4Address_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^${IPv4addrs_RegEx}$" || \
+      ! echo "$1" | grep -qE "^${IPv4privt_RegEx}"
+   then return 1
+   else return 0
+   fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Apr-30] ##
+##------------------------------------------##
+_ProcessMeshNodes_()
+{
+    includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
+    if [ $# -eq 0 ] || [ -z "$1" ]
+    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+    uid=1
+    if ! node_list="$(_GetNodeIPv4List_)"
+    then node_list="" ; fi
+
+    if "$inRouterSWmode"
+    then
+        if [ -n "$node_list" ]
+        then
+            # Iterate over the list of nodes and print information for each node
+            for nodeIPv4addr in $node_list
+            do
+                ! _ValidatePrivateIPv4Address_ "$nodeIPv4addr" && continue
+                _GetNodeInfo_ "$nodeIPv4addr"
+                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+                then
+                    Node_FW_NewUpdateVersion="NONE FOUND"
+                else
+                    _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
+                fi
+
+                # Apply extra logic if flag is '1'
+                if [ "$includeExtraLogic" -eq 1 ]; then
+                    _PrintNodeInfo "$nodeIPv4addr" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
+                    uid="$((uid + 1))"
+                fi
+            done
+            if [ -s "$tempNodeEMailList" ]; then
+                _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
+            fi
+        else
+            if [ "$includeExtraLogic" -eq 1 ]; then
+                printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
+            fi
+        fi
+    fi
+}
+
 keepZIPfile=0
 trap '_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
 
@@ -4413,6 +4886,197 @@ FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
 
 ##-------------------------------------##
+## Added by Martinski W. [2024-May-03] ##
+##-------------------------------------##
+_list2_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1 ; fi
+   local prevIFS="$IFS"
+   IFS="$(printf '\n\t')"
+   ls $1 $2 ; retcode="$?"
+   IFS="$prevIFS"
+   return "$retcode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-May-03] ##
+##-------------------------------------##
+_GetFileSelectionIndex_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local selectStr  promptStr  numRegEx  indexNum  indexList
+   local multiIndexListOK  theAllStr="${GRNct}all${NOct}"
+
+   if [ "$1" -eq 1 ]
+   then selectStr="${GRNct}1${NOct}"
+   else selectStr="${GRNct}1${NOct}-${GRNct}${1}${NOct}"
+   fi
+
+   if [ $# -lt 2 ] || [ "$2" != "-MULTIOK" ]
+   then
+       multiIndexListOK=false
+       promptStr="Enter selection [${selectStr}] [${theExitStr}]?"
+   else
+       multiIndexListOK=true
+       promptStr="Enter selection [${selectStr} | ${theAllStr}] [${theExitStr}]?"
+   fi
+   fileIndex=0  multiIndex=false
+   numRegEx="([1-9]|[1-9][0-9])"
+
+   while true
+   do
+       printf "${promptStr}  " ; read -r userInput
+
+       if [ -z "$userInput" ] || \
+          echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then fileIndex="NONE" ; break ; fi
+
+       if "$multiIndexListOK" && \
+          echo "$userInput" | grep -qE "^(all|All)$"
+       then fileIndex="ALL" ; break ; fi
+
+       if echo "$userInput" | grep -qE "^${numRegEx}$" && \
+          [ "$userInput" -gt 0 ] && [ "$userInput" -le "$1" ]
+       then fileIndex="$userInput" ; break ; fi
+
+       if "$multiIndexListOK" && \
+          echo "$userInput" | grep -qE "^${numRegEx}\-${numRegEx}[ ]*$"
+       then ## Index Range ##
+           index1st="$(echo "$userInput" | awk -F '-' '{print $1}')"
+           indexMax="$(echo "$userInput" | awk -F '-' '{print $2}')"
+           if [ "$index1st" -lt "$indexMax" ]  && \
+              [ "$index1st" -gt 0 ] && [ "$index1st" -le "$1" ] && \
+              [ "$indexMax" -gt 0 ] && [ "$indexMax" -le "$1" ]
+           then
+               indexNum="$index1st"
+               indexList="$indexNum"
+               while [ "$indexNum" -lt "$indexMax" ]
+               do
+                   indexNum="$((indexNum+1))"
+                   indexList="${indexList},${indexNum}"
+               done
+               userInput="$indexList"
+           fi
+       fi
+
+       if "$multiIndexListOK" && \
+          echo "$userInput" | grep -qE "^${numRegEx}(,[ ]*${numRegEx}[ ]*)+$"
+       then ## Index List ##
+           indecesOK=true
+           indexList="$(echo "$userInput" | sed 's/ //g' | sed 's/,/ /g')"
+           for theIndex in $indexList
+           do
+              if [ "$theIndex" -eq 0 ] || [ "$theIndex" -gt "$1" ]
+              then indecesOK=false ; break ; fi
+           done
+           "$indecesOK" && fileIndex="$indexList" && multiIndex=true && break
+       fi
+
+       printf "${REDct}INVALID selection.${NOct}\n"
+   done
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-May-03] ##
+##-------------------------------------##
+_GetFileSelection_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   if [ $# -lt 2 ] || [ "$2" != "-MULTIOK" ]
+   then indexType="" ; else indexType="$2" ; fi
+
+   theFilePath=""  theFileName=""  fileTemp=""
+   fileCount=0  fileIndex=0  multiIndex=false
+   local sourceDirPath="$FW_LOG_DIR"
+   local maxFileCount=20
+
+   printf "\n${1}\n[Directory: ${GRNct}${sourceDirPath}${NOct}]\n\n"
+
+   while IFS="$(printf '\n\t')" read -r backupFilePath
+   do
+       fileCount=$((fileCount+1))
+       fileVar="file_${fileCount}_Name"
+       eval file_${fileCount}_Name="${backupFilePath##*/}"
+       printf "${GRNct}%3d${NOct}. " "$fileCount"
+       eval echo "\$${fileVar}"
+       [ "$fileCount" -ge "$maxFileCount" ] && break
+   done <<EOT
+$(_list2_ -1t "$theLogFilesMatch" 2>/dev/null)
+EOT
+
+   echo
+   _GetFileSelectionIndex_ "$fileCount" "$indexType"
+
+   if [ "$fileIndex" = "ALL" ] || [ "$fileIndex" = "NONE" ]
+   then theFilePath="$fileIndex" ; return 0 ; fi
+
+   if [ "$indexType" = "-MULTIOK" ] && "$multiIndex"
+   then
+       for index in $fileIndex
+       do
+           fileVar="file_${index}_Name"
+           eval fileTemp="\$${fileVar}"
+           if [ -z "$theFilePath" ]
+           then theFilePath="${sourceDirPath}/$fileTemp"
+           else theFilePath="${theFilePath}|${sourceDirPath}/$fileTemp"
+           fi
+       done
+   else
+       fileVar="file_${fileIndex}_Name"
+       eval theFileName="\$${fileVar}"
+       theFilePath="${sourceDirPath}/$theFileName"
+   fi
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-04] ##
+##----------------------------------------##
+_CheckForUpdateLogFiles_()
+{
+   theLogFilesMatch="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_*.log"
+   theFileCount="$(_list2_ -1 "$theLogFilesMatch" 2>/dev/null | wc -l)"
+   
+   if [ ! -d "$FW_LOG_DIR" ] || [ "$theFileCount" -eq 0 ]
+   then
+       updateLogFileFound=false
+       return 1
+   fi
+   chmod 444 "${FW_LOG_DIR}"/${MODEL_ID}_FW_Update_*.log
+   updateLogFileFound=true
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-05] ##
+##----------------------------------------##
+_ViewUpdateLogFile_()
+{
+   local theFilePath=""  theFileCount  theLogFilesMatch  retCode
+
+   if ! _CheckForUpdateLogFiles_
+   then
+       printf "\n${REDct}**ERROR**${NOct}: Log file(s) [$theLogFilesMatch] NOT FOUND."
+       return 1
+   fi
+   printf "\n---------------------------------------------------"
+   _GetFileSelection_ "Select a log file to view:"
+
+   if [ "$theFilePath" = "NONE" ] || [ ! -f "$theFilePath" ]
+   then return 1 ; fi
+
+   printf "\nLog file to view:\n${GRNct}${theFilePath}${NOct}\n"
+   printf "\n[Press '${REDct}q${NOct}' to quit when finished]\n"
+   _WaitForEnterKey_
+   less "$theFilePath"
+
+   return 0
+}
+
+##-------------------------------------##
 ## Added by Martinski W. [2024-Mar-20] ##
 ##-------------------------------------##
 _SimpleNotificationDate_()
@@ -4500,8 +5164,17 @@ _PrintNodeInfo()
     fi
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-18] ##
+##----------------------------------------##
+_InvalidMenuSelection_()
+{
+   printf "${REDct}INVALID selection.${NOct} Please try again."
+   _WaitForEnterKey_
+}
+
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-19] ##
+## Modified by ExtremeFiretop [2024-May-03] ##
 ##------------------------------------------##
 _ShowMainMenu_()
 {
@@ -4539,6 +5212,8 @@ _ShowMainMenu_()
 
    arrowStr=" ${REDct}<<---${NOct}"
 
+   _Calculate_NextRunTime_
+
    notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    if [ "$notifyDate" = "TBD" ]
    then notificationStr="${REDct}NOT SET${NOct}"
@@ -4556,9 +5231,10 @@ _ShowMainMenu_()
       else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
       fi
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(H)ide"
-      printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
-      printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
       printf "\n${padStr}USB Storage Connected: $USBConnected"
+      printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
+      printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
+      printf "\n${padStr}F/W Upd Expected ETA:  $ExpectedFWUpdateRuntime"
    else
       printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(S)how"
    fi
@@ -4592,6 +5268,9 @@ _ShowMainMenu_()
       printf "\n ${GRNct}mn${NOct}.  AiMesh Node(s) Info\n"
    fi
 
+   # Add selection for "Log Options" sub-menu #
+   printf "\n ${GRNct}lo${NOct}.  Log Options Menu\n"
+
    # Add selection for "Advanced Options" sub-menu #
    printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
@@ -4606,9 +5285,9 @@ _ShowMainMenu_()
    printf "${SEPstr}\n"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-03] ##
+##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
    clear
@@ -4619,26 +5298,23 @@ _ShowAdvancedOptionsMenu_()
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
-   printf "\n  ${GRNct}2${NOct}.  Set Directory for F/W Update Log Files"
-   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
-
    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
    if [ "$checkChangeLogSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Toggle Change-log Check"
+       printf "\n  ${GRNct}2${NOct}.  Toggle Change-log Check"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}3${NOct}.  Toggle Change-log Check"
+       printf "\n  ${GRNct}2${NOct}.  Toggle Change-log Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}4${NOct}.  Toggle Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}4${NOct}.  Toggle Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release Upgrades"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
@@ -4658,7 +5334,12 @@ _ShowAdvancedOptionsMenu_()
    if _CheckEMailConfigFileFromAMTM_ 0
    then
        # F/W Update Email Notifications #
-       printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
+       if "$inRouterSWmode" 
+       then
+           printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
+       else
+           printf "\n ${GRNct}em${NOct}.  Toggle F/W Email Notifications"
+       fi
        if "$sendEMailNotificationsFlag"
        then
            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
@@ -4709,70 +5390,6 @@ _ShowAdvancedOptionsMenu_()
    printf "${SEPstr}"
 }
 
-# RegExp for IPv4 address #
-readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])"
-readonly IPv4addrs_RegEx="((${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx})"
-readonly IPv4privt_RegEx="((^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.))"
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
-_ValidatePrivateIPv4Address_()
-{
-   if [ $# -eq 0 ] || [ -z "$1" ] || \
-      ! echo "$1" | grep -qE "^${IPv4addrs_RegEx}$" || \
-      ! echo "$1" | grep -qE "^${IPv4privt_RegEx}"
-   then return 1
-   else return 0
-   fi
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
-_ProcessMeshNodes_()
-{
-    includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
-    if [ $# -eq 0 ] || [ -z "$1" ]
-    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
-
-    uid=1
-    if ! node_list="$(_GetNodeIPv4List_)"
-    then node_list="" ; fi
-
-    if "$inRouterSWmode"
-    then
-        if [ -n "$node_list" ]
-        then
-            # Iterate over the list of nodes and print information for each node
-            for nodeIPv4addr in $node_list
-            do
-                ! _ValidatePrivateIPv4Address_ "$nodeIPv4addr" && continue
-                _GetNodeInfo_ "$nodeIPv4addr"
-                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
-                then
-                    Node_FW_NewUpdateVersion="NONE FOUND"
-                else
-                    _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
-                fi
-
-                # Apply extra logic if flag is '1'
-                if [ "$includeExtraLogic" -eq 1 ]; then
-                    _PrintNodeInfo "$nodeIPv4addr" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
-                    uid="$((uid + 1))"
-                fi
-            done
-            if [ -s "$tempNodeEMailList" ]; then
-                _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
-            fi
-        else
-            if [ "$includeExtraLogic" -eq 1 ]; then
-                printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
-            fi
-        fi
-    fi
-}
-
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Apr-02] ##
 ##---------------------------------------##
@@ -4800,18 +5417,128 @@ _ShowNodesMenu_()
    printf "${SEPstr}"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
-_InvalidMenuSelection_()
+_ShowNodesMenuOptions_()
 {
-   printf "${REDct}INVALID selection.${NOct} Please try again."
-   _WaitForEnterKey_
+    while true
+    do
+        _ShowNodesMenu_
+        printf "\nEnter selection:  "
+        read -r nodesChoice
+        echo
+        case $nodesChoice in
+            e|exit) break
+               ;;
+            *) _InvalidMenuSelection_
+               ;;
+        esac
+    done
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-24] ##
+## Modified by Martinski W. [2024-May-05] ##
 ##----------------------------------------##
+_DownloadChangelogs_()
+{
+    local wgetLogFile  changeLogTag  changeLogFile  changeLogURL
+
+    # Create directory to download changelog if missing
+    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
+
+    changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
+    if [ "$changeLogTag" = "386" ]
+    then
+        changeLogURL="${CL_URL_386}"
+    elif [ "$changeLogTag" = "NG" ]
+    then
+        changeLogURL="${CL_URL_NG}"
+    fi
+
+    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
+    changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
+    printf "\nRetrieving ${GRNct}Changelog-${changeLogTag}.txt${NOct} ...\n"
+
+    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+         -O "$changeLogFile" -o "$wgetLogFile" "${changeLogURL}"
+
+    if [ ! -f "$changeLogFile" ]
+    then
+        Say "Change-log file [$changeLogFile] does NOT exist."
+        echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
+    else
+        clear
+        printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
+        printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+        dos2unix "$changeLogFile"
+        _WaitForEnterKey_
+        less "$changeLogFile"
+    fi
+    rm -f "$changeLogFile" "$wgetLogFile"
+    "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+    return 1
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-04] ##
+##----------------------------------------##
+_ShowLogsMenu_()
+{
+   clear
+   logo
+   printf "===================== Logs Menu =====================\n"
+   printf "${SEPstr}\n"
+
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update Log Files"
+   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+
+   if _CheckForUpdateLogFiles_
+   then
+       printf "\n ${GRNct}lg${NOct}.  View F/W Update Log File\n"
+   fi
+
+   printf "\n ${GRNct}cl${NOct}.  View latest F/W Changelog\n"
+
+   printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
+   printf "${SEPstr}"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-04] ##
+##----------------------------------------##
+_AdvancedLogsOptions_()
+{
+    while true
+    do
+        _ShowLogsMenu_
+        printf "\nEnter selection:  "
+        read -r nodesChoice
+        echo
+        case $nodesChoice in
+            1) _Set_FW_UpdateLOG_DirectoryPath_
+               ;;
+           lg) if _CheckForUpdateLogFiles_
+               then
+                   while true
+                   do
+                       if _ViewUpdateLogFile_
+                       then continue ; else break ; fi
+                   done
+               else
+                   _InvalidMenuSelection_
+               fi
+               ;;
+           cl) _DownloadChangelogs_
+               ;;
+       e|exit) break
+               ;;
+            *) _InvalidMenuSelection_
+               ;;
+        esac
+    done
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-03] ##
+##------------------------------------------##
 _advanced_options_menu_()
 {
     while true
@@ -4823,11 +5550,9 @@ _advanced_options_menu_()
         case $advancedChoice in
             1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
-            2) _Set_FW_UpdateLOG_DirectoryPath_
+            2) _toggle_change_log_check_
                ;;
-            3) _toggle_change_log_check_
-               ;;
-            4) _toggle_beta_updates_
+            3) _toggle_beta_updates_
                ;;
            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
                then _Toggle_Auto_Backups_
@@ -4864,25 +5589,8 @@ _advanced_options_menu_()
     done
 }
 
-_ShowNodesMenuOptions_()
-{
-    while true
-    do
-        _ShowNodesMenu_
-        printf "\nEnter selection:  "
-        read -r nodesChoice
-        echo
-        case $nodesChoice in
-            e|exit) break
-               ;;
-            *) _InvalidMenuSelection_
-               ;;
-        esac
-    done
-}
-
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-27] ##
+## Modified by ExtremeFiretop [2024-May-03] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -4920,6 +5628,8 @@ do
           then _ShowNodesMenuOptions_
           else _InvalidMenuSelection_
           fi
+          ;;
+      lo) _AdvancedLogsOptions_
           ;;
       ad) _advanced_options_menu_
           ;;
