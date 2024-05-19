@@ -2933,14 +2933,9 @@ matches_day_of_week()
             dow_expr="$dowStartNum"
             while true
             do
-                dowStartNum="$((++dowStartNum))"
-                if [ "$dowStartNum" -lt 7 ]
-                then
-                    dow_expr="${dow_expr},$dowStartNum"
-                else
-                    dowStartNum=0
-                    dow_expr="${dow_expr},$dowStartNum"
-                fi
+                dowStartNum="$((dowStartNum + 1))"
+                [ "$dowStartNum" -ge 7 ] && dowStartNum=0
+                dow_expr="${dow_expr},$dowStartNum"
                 [ "$dowStartNum" -eq "$dowEndNum" ] && break
             done
             if matches_day_of_week "$curr_dow" "$dow_expr"
