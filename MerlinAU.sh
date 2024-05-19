@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-18
+# Last Modified: 2024-May-09
 ###################################################################
 set -u
 
@@ -481,7 +481,6 @@ readonly CRON_MONTH_NAMES="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
 readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1[0-2])([\/,-]([1-9]|1[0-2]))*"
 
 readonly CRON_UNKNOWN_DATE="**ERROR**: UNKNOWN Date Found"
-
 ##------------------------------------------##
 ## Modified by Martinski W. [2024-Jan-22]   ##
 ##------------------------------------------##
@@ -3373,14 +3372,9 @@ matches_day_of_week()
             dow_expr="$dowStartNum"
             while true
             do
-                dowStartNum="$((++dowStartNum))"
-                if [ "$dowStartNum" -lt 7 ]
-                then
-                    dow_expr="${dow_expr},$dowStartNum"
-                else
-                    dowStartNum=0
-                    dow_expr="${dow_expr},$dowStartNum"
-                fi
+                dowStartNum="$((dowStartNum + 1))"
+                [ "$dowStartNum" -ge 7 ] && dowStartNum=0
+                dow_expr="${dow_expr},$dowStartNum"
                 [ "$dowStartNum" -eq "$dowEndNum" ] && break
             done
             if matches_day_of_week "$curr_dow" "$dow_expr"
