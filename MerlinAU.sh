@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-18
+# Last Modified: 2024-May-19
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.3
+readonly SCRIPT_VERSION=1.1.4
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -4874,6 +4874,7 @@ theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
 theADExitStr="${GRNct}e${NOct}=Exit to Advanced Menu"
 padStr="      "
 SEPstr="-----------------------------------------------------"
+SEPtop="----------------------------------------------------------"
 
 FW_RouterProductID="${GRNct}${PRODUCT_ID}${NOct}"
 if [ "$PRODUCT_ID" = "$MODEL_ID" ]
@@ -5188,7 +5189,7 @@ _ShowMainMenu_()
 
    clear
    logo
-   printf "${YLWct}========= By ExtremeFiretop & Martinski W. ==========${NOct}\n\n"
+   printf "${YLWct}============ By ExtremeFiretop & Martinski W. ============${NOct}\n\n"
 
    # New Script Update Notification #
    if [ "$UpdateNotify" != "0" ]; then
@@ -5220,26 +5221,25 @@ _ShowMainMenu_()
    else notificationStr="${GRNct}$(_SimpleNotificationDate_ "$notifyDate")${NOct}"
    fi
 
-   ##------------------------------------------##
-   ## Modified by ExtremeFiretop [2024-Mar-27] ##
-   ##------------------------------------------##
-   printf "${SEPstr}"
+   ##----------------------------------------##
+   ## Modified by Martinski W. [2024-May-19] ##
+   ##----------------------------------------##
+   printf "${SEPtop}"
    if [ "$HIDE_ROUTER_SECTION" = "false" ]
    then
       if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
       then FW_NewUpdateVersion="${REDct}NONE FOUND${NOct}"
       else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
       fi
-      printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(H)ide"
-      printf "\n${padStr}USB Storage Connected: $USBConnected"
-      printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
-      printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
-      printf "\n${padStr}F/W Upd Expected ETA:  $ExpectedFWUpdateRuntime"
+      printf "\n  Router's Product Name/Model ID:  $FW_RouterModelID ${padStr}(H)ide"
+      printf "\n  USB-Attached Storage Connected:  $USBConnected"
+      printf "\n  F/W Version Currently Installed: $FW_InstalledVersion"
+      printf "\n  F/W Update Currently Available:  $FW_NewUpdateVersion"
+      printf "\n  F/W Update Run Estimated Date:   $ExpectedFWUpdateRuntime"
    else
-      printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(S)how"
+      printf "\n  Router's Product Name/Model ID:  $FW_RouterModelID ${padStr}(S)how"
    fi
-
-   printf "\n${SEPstr}"
+   printf "\n${SEPtop}"
 
    printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
    printf "\n  ${GRNct}2${NOct}.  Set Router Login Credentials\n"
@@ -5282,7 +5282,7 @@ _ShowMainMenu_()
 
    printf "\n ${GRNct}un${NOct}.  Uninstall\n"
    printf "\n  ${GRNct}e${NOct}.  Exit\n"
-   printf "${SEPstr}\n"
+   printf "${SEPtop}\n"
 }
 
 ##------------------------------------------##
