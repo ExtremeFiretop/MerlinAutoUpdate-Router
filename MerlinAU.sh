@@ -4253,7 +4253,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "${REDct}**ERROR**${NOct}: Firmware file not found!"
         _DoCleanUp_ 1
         if [ "$inMenuMode" = true ]; then
-        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         else
             # Assume non-interactive mode; perform exit.
