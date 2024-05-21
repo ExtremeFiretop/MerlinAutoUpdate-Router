@@ -4227,28 +4227,33 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Feb-03] ##
+    ## Modified by ExtremeFiretop [2024-May-21] ##
     ##------------------------------------------##
-    if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
+
+    # Fetch the latest checksums from ASUSWRT-Merlin website
+    checksums=$(curl -s https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')
+
+    if [ -f "$firmware_file" ]; then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
-        dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
+        # Extract the corresponding checksum for the firmware file from the fetched data
+        dl_sig="$(echo "$checksums" | grep "$(basename $firmware_file)" | cut -d' ' -f1)"
         if [ "$fw_sig" != "$dl_sig" ]; then
-            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
+            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature from the website!"
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             if [ "$inMenuMode" = true ]; then
                 _WaitForEnterKey_ "$mainMenuReturnPromptStr"
                 return 1
             else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
+                # Assume non-interactive mode; perform exit.
+                _DoExit_ 1
             fi
         fi
     else
-        Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
+        Say "${REDct}**ERROR**${NOct}: Firmware file not found!"
         _DoCleanUp_ 1
         if [ "$inMenuMode" = true ]; then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         else
             # Assume non-interactive mode; perform exit.
