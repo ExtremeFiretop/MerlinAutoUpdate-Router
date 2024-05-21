@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-19
+# Last Modified: 2024-May-21
 ###################################################################
 set -u
 
@@ -499,7 +499,7 @@ readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-01] ##
+## Modified by ExtremeFiretop [2024-May-21] ##
 ##------------------------------------------##
 logo() {
   echo -e "${YLWct}"
@@ -1324,11 +1324,19 @@ _CreateEMailContent_()
            ;;
        STOP_FW_UPDATE_APPROVAL)
            emailBodyTitle="WARNING"
+           high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
+           if $isEMailFormatHTML; then
+               # Highlight high-risk terms using HTML with a yellow background
+               highlighted_changelog_contents=$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/<span style='background-color:yellow;'>\1<\/span>/gi")
+           else
+               # Highlight high-risk terms in plain text using asterisks
+               highlighted_changelog_contents=$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/*\1*/gi")
+           fi
            {
-             echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
-             echo "Changelog contents include the following changes:"
-             echo "$changelog_contents"
-             printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
+               echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+               echo "Changelog contents include the following changes:"
+               echo "$highlighted_changelog_contents"
+               printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        NEW_BM_BACKUP_FAILED)
@@ -4424,11 +4432,11 @@ Please manually update to version $minimum_supported_version or higher to use th
                 fi
 
                 # Convert version strings to comparable numbers
-                current_version="$(_ScriptVersionStrToNum_ "$BM_VERSION")"
-                required_version="$(_ScriptVersionStrToNum_ "1.5.3")"
+                local currentBM_version="$(_ScriptVersionStrToNum_ "$BM_VERSION")"
+                local requiredBM_version="$(_ScriptVersionStrToNum_ "1.5.3")"
 
                 # Check if BACKUPMON version is greater than or equal to 1.5.3
-                if [ "$current_version" -ge "$required_version" ]; then
+                if [ "$currentBM_version" -ge "$requiredBM_version" ]; then
                     # Execute the backup script if it exists #
                     echo ""
                     Say "Backup Started (by BACKUPMON)"
