@@ -2823,25 +2823,24 @@ return 0
 }
 
 ##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-18] ##
+## Added by ExtremeFiretop [2024-May-21] ##
 ##---------------------------------------##
 _CheckFirmwareSHA256_() {
-    # Check if both the SHA256 signature file and the firmware file exist
-    if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]; then
-        # Extract the SHA256 signature from the firmware file
-        local fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
-        # Extract the recorded SHA256 signature from the checksum file
-        local dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
+    # Fetch the latest checksums from ASUSWRT-Merlin website
+    checksums=$(curl -s https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')
 
-        # Compare the extracted signature and the recorded signature
+    if [ -f "$firmware_file" ]; then
+        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+        # Extract the corresponding checksum for the firmware file from the fetched data
+        dl_sig="$(echo "$checksums" | grep "$(basename $firmware_file)" | cut -d' ' -f1)"
         if [ "$fw_sig" != "$dl_sig" ]; then
-            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
+            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature from the website!"
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             return 1
         fi
     else
-        Say "${REDct}**ERROR**${NOct}: SHA256 signature file or firmware file not found!"
+        Say "${REDct}**ERROR**${NOct}: Firmware file not found!"
         _DoCleanUp_ 1
         return 1
     fi
