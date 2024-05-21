@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-18
+# Last Modified: 2024-May-19
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.4
+readonly SCRIPT_VERSION=1.1.5
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -503,13 +503,14 @@ readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUF
 ##------------------------------------------##
 logo() {
   echo -e "${YLWct}"
-  echo -e "    __  __           _ _               _    _ "
-  echo -e "   |  \/  |         | (_)         /\  | |  | |"
-  echo -e "   | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
-  echo -e "   | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
-  echo -e "   | |  | |  __| |  | | | | | |/ ____ | |__| |"
-  echo -e "   |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
+  echo -e "      __  __           _ _               _    _ "
+  echo -e "     |  \/  |         | (_)         /\  | |  | |"
+  echo -e "     | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
+  echo -e "     | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
+  echo -e "     | |  | |  __| |  | | | | | |/ ____ | |__| |"
+  echo -e "     |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
   echo -e "                                              ${NOct}"
+  printf "${YLWct}============ By ExtremeFiretop & Martinski W. ============${NOct}\n\n"
 }
 
 ##-----------------------------------------------##
@@ -5336,6 +5337,7 @@ theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
 theADExitStr="${GRNct}e${NOct}=Exit to Advanced Menu"
 padStr="      "
 SEPstr="-----------------------------------------------------"
+SEPtop="----------------------------------------------------------"
 
 FW_RouterProductID="${GRNct}${PRODUCT_ID}${NOct}"
 if [ "$PRODUCT_ID" = "$MODEL_ID" ]
@@ -5650,7 +5652,6 @@ _ShowMainMenu_()
 
    clear
    logo
-   printf "${YLWct}========= By ExtremeFiretop & Martinski W. ==========${NOct}\n\n"
 
    # New Script Update Notification #
    if [ "$UpdateNotify" != "0" ]; then
@@ -5689,27 +5690,26 @@ _ShowMainMenu_()
        FirmwareFlavor="${BLUEct}Merlin${NOct}"
    fi
 
-   ##------------------------------------------##
-   ## Modified by ExtremeFiretop [2024-Apr-18] ##
-   ##------------------------------------------##
-   printf "${SEPstr}"
+   ##----------------------------------------##
+   ## Modified by Martinski W. [2024-May-19] ##
+   ##----------------------------------------##
+   printf "${SEPtop}"
    if [ "$HIDE_ROUTER_SECTION" = "false" ]
    then
       if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
       then FW_NewUpdateVersion="${REDct}NONE FOUND${NOct}"
       else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
       fi
-      printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(H)ide"
-      printf "\n${padStr}F/W Variant Detected:  $FirmwareFlavor"
-      printf "\n${padStr}USB Storage Connected: $USBConnected"
-      printf "\n${padStr}F/W Version Installed: $FW_InstalledVersion"
-      printf "\n${padStr}F/W Update Available:  $FW_NewUpdateVersion"
-      printf "\n${padStr}F/W Upd Expected ETA:  $ExpectedFWUpdateRuntime"
+      printf "\n  Router's Product Name/Model ID:  $FW_RouterModelID${padStr}(H)ide"
+      printf "\n  USB-Attached Storage Connected:  $USBConnected"
+      printf "\n  F/W Version Currently Installed: $FW_InstalledVersion"
+      printf "\n  F/W Variant Configuration Found: $FirmwareFlavor"
+      printf "\n  F/W Update Version Available:    $FW_NewUpdateVersion"
+      printf "\n  F/W Update Estimate Run Date:    $ExpectedFWUpdateRuntime"
    else
-      printf "\n${padStr}F/W Product/Model ID:  $FW_RouterModelID ${padStr}(S)how"
+      printf "\n  Router's Product Name/Model ID:  $FW_RouterModelID${padStr}(S)how"
    fi
-
-   printf "\n${SEPstr}"
+   printf "\n${SEPtop}"
 
    printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
    printf "\n  ${GRNct}2${NOct}.  Set Router Login Credentials\n"
@@ -5752,7 +5752,7 @@ _ShowMainMenu_()
 
    printf "\n ${GRNct}un${NOct}.  Uninstall\n"
    printf "\n  ${GRNct}e${NOct}.  Exit\n"
-   printf "${SEPstr}\n"
+   printf "${SEPtop}\n"
 }
 
 ##------------------------------------------##
@@ -5762,8 +5762,8 @@ _ShowAdvancedOptionsMenu_()
 {
    clear
    logo
-   printf "=============== Advanced Options Menu ===============\n"
-   printf "${SEPstr}\n"
+   printf "================== Advanced Options Menu =================\n"
+   printf "${SEPtop}\n"
 
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
@@ -5872,7 +5872,7 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-   printf "${SEPstr}"
+   printf "${SEPtop}"
 }
 
 ##---------------------------------------##
@@ -5882,8 +5882,8 @@ _ShowNodesMenu_()
 {
    clear
    logo
-   printf "============== AiMesh Node(s) Info Menu ==============\n"
-   printf "${SEPstr}\n"
+   printf "================= AiMesh Node(s) Info Menu ================\n"
+   printf "${SEPtop}\n"
 
    if ! node_online_status="$(_NodeActiveStatus_)"
    then node_online_status="" ; fi
@@ -5899,7 +5899,7 @@ _ShowNodesMenu_()
    echo ""
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-   printf "${SEPstr}"
+   printf "${SEPtop}"
 }
 
 _ShowNodesMenuOptions_()
@@ -5969,8 +5969,8 @@ _ShowLogsMenu_()
 {
    clear
    logo
-   printf "===================== Logs Menu =====================\n"
-   printf "${SEPstr}\n"
+   printf "======================== Logs Menu =======================\n"
+   printf "${SEPtop}\n"
 
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update Log Files"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
@@ -5983,7 +5983,7 @@ _ShowLogsMenu_()
    printf "\n ${GRNct}cl${NOct}.  View latest F/W Changelog\n"
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-   printf "${SEPstr}"
+   printf "${SEPtop}"
 }
 
 ##----------------------------------------##
