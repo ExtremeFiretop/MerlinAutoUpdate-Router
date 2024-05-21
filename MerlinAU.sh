@@ -5189,7 +5189,6 @@ _ShowMainMenu_()
 
    clear
    logo
-   printf "${YLWct}============ By ExtremeFiretop & Martinski W. ============${NOct}\n\n"
 
    # New Script Update Notification #
    if [ "$UpdateNotify" != "0" ]; then
