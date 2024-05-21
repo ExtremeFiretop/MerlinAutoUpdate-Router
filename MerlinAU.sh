@@ -3006,12 +3006,12 @@ _ChangeBuildType_Gnuton_()
    doReturnToMenu=false
    while true
    do
-       printf "\n${SEPstr}"
+       printf "\n${SEPtop}"
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface${NOct}\n"
        printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-TUF${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
-       printf "${SEPstr}\n"
+       printf "${SEPtop}\n"
        printf "[$display_choice] Enter selection:  "
        read -r choice
 
@@ -3066,12 +3066,12 @@ _ChangeBuildType_Merlin_()
    doReturnToMenu=false
    while true
    do
-       printf "\n${SEPstr}"
+       printf "\n${SEPtop}"
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface${NOct}\n"
        printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
-       printf "${SEPstr}\n"
+       printf "${SEPtop}\n"
        printf "[$display_choice] Enter selection:  "
        read -r choice
 
@@ -4993,12 +4993,12 @@ _SetEMailFormatType_()
    doReturnToMenu=false
    while true
    do
-       printf "\n${SEPstr}"
+       printf "\n${SEPtop}"
        printf "\nChoose the format type for email notifications:\n"
        printf "\n  ${GRNct}1${NOct}. HTML\n"
        printf "\n  ${GRNct}2${NOct}. Plain Text\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
-       printf "${SEPstr}\n"
+       printf "${SEPtop}\n"
        printf "[$currFormatStr] Enter selection:  "
        read -r userInput
 
@@ -5336,7 +5336,6 @@ fi
 theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
 theADExitStr="${GRNct}e${NOct}=Exit to Advanced Menu"
 padStr="      "
-SEPstr="-----------------------------------------------------"
 SEPtop="----------------------------------------------------------"
 
 FW_RouterProductID="${GRNct}${PRODUCT_ID}${NOct}"
