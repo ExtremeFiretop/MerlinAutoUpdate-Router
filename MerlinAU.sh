@@ -1700,7 +1700,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.6.2" ; return 0 ; fi
+if true ; then echo "388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -4231,7 +4231,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
 
     # Fetch the latest checksums from ASUSWRT-Merlin website
-    checksums=$(curl -s https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')
+    checksums=$(curl --silent --connect-timeout 10 --retry 4 --max-time 12 https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')
 
     if [ -f "$firmware_file" ]; then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
