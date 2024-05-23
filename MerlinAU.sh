@@ -507,7 +507,6 @@ logo() {
   echo -e "     | |  | |  __| |  | | | | | |/ ____ | |__| |"
   echo -e "     |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
   echo -e "                                              ${NOct}"
-  printf "${YLWct}============ By ExtremeFiretop & Martinski W. ============${NOct}\n\n"
 }
 
 ##-----------------------------------------------##
@@ -5202,6 +5201,7 @@ _ShowMainMenu_()
 
    clear
    logo
+   printf "${YLWct}============ By ExtremeFiretop & Martinski W. ============${NOct}\n\n"
 
    # New Script Update Notification #
    if [ "$UpdateNotify" != "0" ]; then
@@ -5247,7 +5247,7 @@ _ShowMainMenu_()
       printf "\n  USB-Attached Storage Connected:  $USBConnected"
       printf "\n  F/W Version Currently Installed: $FW_InstalledVersion"
       printf "\n  F/W Update Version Available:    $FW_NewUpdateVersion"
-      printf "\n  F/W Update Estimate Run Date:    $ExpectedFWUpdateRuntime"
+      printf "\n  F/W Update Estimated Run Date:   $ExpectedFWUpdateRuntime"
    else
       printf "\n  Router's Product Name/Model ID:  $FW_RouterModelID${padStr}(S)how"
    fi
