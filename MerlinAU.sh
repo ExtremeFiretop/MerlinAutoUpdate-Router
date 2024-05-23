@@ -5928,7 +5928,7 @@ _ShowNodesMenuOptions_()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-05] ##
 ##----------------------------------------##
-_DownloadChangelogs_()
+_DownloadChangelogsMerlin_()
 {
     local wgetLogFile  changeLogTag  changeLogFile  changeLogURL
 
@@ -5964,6 +5964,49 @@ _DownloadChangelogs_()
         less "$changeLogFile"
     fi
     rm -f "$changeLogFile" "$wgetLogFile"
+    "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+    return 1
+}
+
+_DownloadChangelogsGnuton_()
+{
+    local wgetLogFile  changeLogURL  FW_Changelog_GITHUB
+
+    # Create directory to download changelog if missing
+    if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
+
+    Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
+
+    # Follow redirects and capture the effective URL
+    local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$Gnuton_changelogurl")
+
+    # Use the effective URL to capture the Content-Disposition header
+    local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')   
+
+    # Sanitize filename by removing problematic characters
+    local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
+
+    FW_Changelog_GITHUB="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
+
+    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
+    printf "\nRetrieving ${GRNct}${FW_Changelog_GITHUB}${NOct} ...\n"
+
+    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+         -O "$FW_Changelog_GITHUB" -o "$wgetLogFile" "$Gnuton_changelogurl"
+
+    if [ ! -f "$FW_Changelog_GITHUB" ]
+    then
+        Say "Change-log file [$FW_Changelog_GITHUB] does NOT exist."
+        echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
+    else
+        clear
+        printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
+        printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+        dos2unix "$FW_Changelog_GITHUB"
+        _WaitForEnterKey_
+        less "$FW_Changelog_GITHUB"
+    fi
+    rm -f "$FW_Changelog_GITHUB" "$wgetLogFile"
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 1
 }
@@ -6017,7 +6060,12 @@ _AdvancedLogsOptions_()
                    _InvalidMenuSelection_
                fi
                ;;
-           cl) _DownloadChangelogs_
+           cl) if "$isGNUtonFW"
+               then
+                   _DownloadChangelogsGnuton_
+               else
+                   _DownloadChangelogsMerlin_
+               fi
                ;;
        e|exit) break
                ;;
