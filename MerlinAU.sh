@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-21
+# Last Modified: 2024-May-23
 ###################################################################
 set -u
 
@@ -26,9 +26,10 @@ readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.n
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-May-03] ##
 ##---------------------------------------##
-# Changelog URL Info #
+# Changelog Info #
 readonly CL_URL_NG="${FW_SFURL_BASE}/Documentation/Changelog-NG.txt/download"
 readonly CL_URL_386="${FW_SFURL_BASE}/Documentation/Changelog-386.txt/download"
+readonly high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
 # For new script version updates from source repository #
 UpdateNotify=0
@@ -99,8 +100,9 @@ then inRouterSWmode=true
 else inRouterSWmode=false
 fi
 
-mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
-advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Menu..."
+readonly mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
+readonly advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Menu..."
+readonly logsMenuReturnPromptStr="Press <Enter> to return to the Logs Menu..."
 
 [ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
 
@@ -202,10 +204,10 @@ _AcquireLock_()
    then
        Say "Stale lock found (older than $LockFileMaxSecs secs.) Reset lock file."
        oldPID="$(cat "$LockFilePath")"
-       if [ -n "$oldPID" ] && kill -EXIT $oldPID 2>/dev/null && \
-          echo "$(pidof "$ScriptFileName")" | grep -qow "$oldPID"
+       if [ -n "$oldPID" ] && kill -EXIT "$oldPID" 2>/dev/null && \
+          pidof "$ScriptFileName" | grep -qow "$oldPID"
        then
-           kill -TERM $oldPID ; wait $oldPID
+           kill -TERM "$oldPID" ; wait "$oldPID"
        fi
        rm -f "$LockFilePath"
        echo "$$" > "$LockFilePath"
@@ -509,7 +511,7 @@ logo() {
   echo -e "     | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
   echo -e "     | |  | |  __| |  | | | | | |/ ____ | |__| |"
   echo -e "     |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
-  echo -e "                                              ${NOct}"
+  echo -e "${NOct}"
 }
 
 ##-----------------------------------------------##
@@ -1323,12 +1325,12 @@ _CreateEMailContent_()
            ;;
        STOP_FW_UPDATE_APPROVAL)
            emailBodyTitle="WARNING"
-           high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
-           if $isEMailFormatHTML; then
-               # Highlight high-risk terms using HTML with a yellow background
+           if $isEMailFormatHTML
+           then
+               # Highlight high-risk terms using HTML with a yellow background #
                highlighted_changelog_contents=$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/<span style='background-color:yellow;'>\1<\/span>/gi")
            else
-               # Highlight high-risk terms in plain text using asterisks
+               # Highlight high-risk terms in plain text using asterisks #
                highlighted_changelog_contents=$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/*\1*/gi")
            fi
            {
@@ -2104,15 +2106,15 @@ _TestLoginCredentials_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-15] ##
+## Modified by Martinski W. [2024-May-23] ##
 ##----------------------------------------##
 _GetPasswordInput_()
 {
    local PSWDstrLenMIN=1  PSWDstrLenMAX=64
    local PSWDstring  PSWDtmpStr  PSWDprompt
    local retCode  charNum  pswdLength  showPSWD
-   # Added for TAB keypress debounce #
-   local lastTabTime=0  currentTime
+   # For more responsive TAB keypress debounce #
+   local tabKeyDebounceSem="/tmp/var/tmp/${ScriptFNameTag}_TabKeySEM.txt"
 
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
@@ -2128,6 +2130,13 @@ _GetPasswordInput_()
       stty -echo raw
       echo "$(dd count=1 2>/dev/null)"
       stty "$savedSettings"
+   }
+
+   _TabKeyDebounceWait_()
+   {
+      touch "$tabKeyDebounceSem"
+      usleep 300000   #0.3 sec#
+      rm -f "$tabKeyDebounceSem"
    }
 
    _ShowAsterisks_()
@@ -2189,12 +2198,11 @@ _GetPasswordInput_()
       ## TAB keypress as toggle with debounce ##
       if [ "$charNum" -eq 9 ]
       then
-          currentTime="$(date +%s)"
-          if [ "$((currentTime - lastTabTime))" -gt 0 ]
+          if [ ! -f "$tabKeyDebounceSem" ]
           then
               showPSWD="$((! showPSWD))"
-              lastTabTime="$currentTime"  # Update TAB keypress time #
               _ShowPSWDPrompt_
+              _TabKeyDebounceWait_ &
           fi
           continue
       fi
@@ -2828,18 +2836,34 @@ _CheckFirmwareSHA256_() {
     # Fetch the latest checksums from ASUSWRT-Merlin website
     checksums=$(curl --silent --connect-timeout 10 --retry 4 --max-time 12 https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')
 
-    if [ -f "$firmware_file" ]; then
+    if [ -z "$checksums" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: Could not download the firmware SHA256 signatures from the website."
+        _DoCleanUp_ 1
+        if [ "$inMenuMode" = true ]
+        then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        else
+            # Assume non-interactive mode; perform exit.
+            _DoExit_ 1
+        fi
+    fi
+
+    if [ -f "$firmware_file" ]
+    then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
-        # Extract the corresponding checksum for the firmware file from the fetched data
+        # Extract the corresponding signature for the firmware file from the fetched checksums #
         dl_sig="$(echo "$checksums" | grep "$(basename $firmware_file)" | cut -d' ' -f1)"
-        if [ "$fw_sig" != "$dl_sig" ]; then
-            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature from the website!"
+        if [ "$fw_sig" != "$dl_sig" ]
+        then
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             return 1
         fi
     else
-        Say "${REDct}**ERROR**${NOct}: Firmware file not found!"
+        Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
         _DoCleanUp_ 1
         return 1
     fi
@@ -3012,12 +3036,12 @@ _ChangeBuildType_Gnuton_()
    doReturnToMenu=false
    while true
    do
-       printf "\n${SEPtop}"
+       printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface${NOct}\n"
        printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-TUF${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
-       printf "${SEPtop}\n"
+       printf "${SEPstr}\n"
        printf "[$display_choice] Enter selection:  "
        read -r choice
 
@@ -3072,12 +3096,12 @@ _ChangeBuildType_Merlin_()
    doReturnToMenu=false
    while true
    do
-       printf "\n${SEPtop}"
+       printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface${NOct}\n"
        printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
-       printf "${SEPtop}\n"
+       printf "${SEPstr}\n"
        printf "[$display_choice] Enter selection:  "
        read -r choice
 
@@ -4078,7 +4102,7 @@ _Toggle_FW_UpdateEmailNotifications_()
 
    if ! _WaitForYESorNO_ "Do you want to ${emailNotificationNewStateStr} F/W Update email notifications?"
    then
-       _RunEMailNotificationTest_ && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+       _RunEMailNotificationTest_ && _WaitForEnterKey_ "$advnMenuReturnPromptStr"
        return 1
    fi
 
@@ -4095,7 +4119,7 @@ _Toggle_FW_UpdateEmailNotifications_()
    printf "F/W Update email notifications are now ${emailNotificationNewStateStr}.\n"
 
    _RunEMailNotificationTest_
-   _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
 ##------------------------------------------##
@@ -4610,31 +4634,31 @@ Please manually update to version $minimum_supported_version or higher to use th
 
             if "$isGNUtonFW"
             then
-                # For Gnuton, the whole file is relevant as it only contains the current version
+                # For Gnuton, the whole file is relevant as it only contains the current version #
                 changelog_contents="$(cat "$changeLogFile")"
             else
                 if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
                     Say "Current version not found in change-log. Bypassing change-log verification for this run."
                     return 1
                 else
-                    # Extract log contents between two firmware versions for non-Gnuton changelogs
+                    # Extract log contents between two firmware versions for non-Gnuton changelogs #
                     changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
                 fi
             fi
 
-            high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
-
-            # Search for high-risk terms in the extracted log contents
-            if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
-                if [ "$inMenuMode" = true ]; then
-                    printf "\n ${REDct}Warning: Found high-risk phrases in the change-log.${NOct}"
+            # Search for high-risk terms in the extracted log contents #
+            if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+            then
+                if [ "$inMenuMode" = true ]
+                then
+                    printf "\n ${REDct}*WARNING*: Found high-risk phrases in the change-log.${NOct}"
                     printf "\n ${REDct}Would you like to continue anyways?${NOct}"
                     if ! _WaitForYESorNO_ ; then
                         Say "Exiting for change-log review."
                         _DoCleanUp_ 1 ; return 1
                     fi
                 else
-                    Say "Warning: Found high-risk phrases in the change-log."
+                    Say "*WARNING*: Found high-risk phrases in the change-log."
                     Say "Please run script interactively to approve the upgrade."
                     _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
                     _DoCleanUp_ 1
@@ -4999,12 +5023,12 @@ _SetEMailFormatType_()
    doReturnToMenu=false
    while true
    do
-       printf "\n${SEPtop}"
+       printf "\n${SEPstr}"
        printf "\nChoose the format type for email notifications:\n"
        printf "\n  ${GRNct}1${NOct}. HTML\n"
        printf "\n  ${GRNct}2${NOct}. Plain Text\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
-       printf "${SEPtop}\n"
+       printf "${SEPstr}\n"
        printf "[$currFormatStr] Enter selection:  "
        read -r userInput
 
@@ -5341,8 +5365,10 @@ fi
 # menu setup variables #
 theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
 theADExitStr="${GRNct}e${NOct}=Exit to Advanced Menu"
+theLGExitStr="${GRNct}e${NOct}=Exit to Logs Menu"
+
 padStr="      "
-SEPtop="----------------------------------------------------------"
+SEPstr="----------------------------------------------------------"
 
 FW_RouterProductID="${GRNct}${PRODUCT_ID}${NOct}"
 if [ "$PRODUCT_ID" = "$MODEL_ID" ]
@@ -5386,10 +5412,10 @@ _GetFileSelectionIndex_()
    if [ $# -lt 2 ] || [ "$2" != "-MULTIOK" ]
    then
        multiIndexListOK=false
-       promptStr="Enter selection [${selectStr}] [${theExitStr}]?"
+       promptStr="Enter selection [${selectStr}] [${theLGExitStr}]?"
    else
        multiIndexListOK=true
-       promptStr="Enter selection [${selectStr} | ${theAllStr}] [${theExitStr}]?"
+       promptStr="Enter selection [${selectStr} | ${theAllStr}] [${theLGExitStr}]?"
    fi
    fileIndex=0  multiIndex=false
    numRegEx="([1-9]|[1-9][0-9])"
@@ -5699,23 +5725,23 @@ _ShowMainMenu_()
    ##----------------------------------------##
    ## Modified by Martinski W. [2024-May-19] ##
    ##----------------------------------------##
-   printf "${SEPtop}"
+   printf "${SEPstr}"
    if [ "$HIDE_ROUTER_SECTION" = "false" ]
    then
       if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
       then FW_NewUpdateVersion="${REDct}NONE FOUND${NOct}"
       else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
       fi
-      printf "\n  Router's Product Name/Model ID:  $FW_RouterModelID${padStr}(H)ide"
+      printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelID}${padStr}(H)ide"
       printf "\n  USB-Attached Storage Connected:  $USBConnected"
       printf "\n  F/W Version Currently Installed: $FW_InstalledVersion"
       printf "\n  F/W Variant Configuration Found: $FirmwareFlavor"
       printf "\n  F/W Update Version Available:    $FW_NewUpdateVersion"
       printf "\n  F/W Update Estimated Run Date:   $ExpectedFWUpdateRuntime"
    else
-      printf "\n  Router's Product Name/Model ID:  $FW_RouterModelID${padStr}(S)how"
+      printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelID}${padStr}(S)how"
    fi
-   printf "\n${SEPtop}"
+   printf "\n${SEPstr}"
 
    printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
    printf "\n  ${GRNct}2${NOct}.  Set Router Login Credentials\n"
@@ -5758,7 +5784,7 @@ _ShowMainMenu_()
 
    printf "\n ${GRNct}un${NOct}.  Uninstall\n"
    printf "\n  ${GRNct}e${NOct}.  Exit\n"
-   printf "${SEPtop}\n"
+   printf "${SEPstr}\n"
 }
 
 ##------------------------------------------##
@@ -5769,7 +5795,7 @@ _ShowAdvancedOptionsMenu_()
    clear
    logo
    printf "================== Advanced Options Menu =================\n"
-   printf "${SEPtop}\n"
+   printf "${SEPstr}\n"
 
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
@@ -5878,7 +5904,7 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-   printf "${SEPtop}"
+   printf "${SEPstr}"
 }
 
 ##---------------------------------------##
@@ -5889,7 +5915,7 @@ _ShowNodesMenu_()
    clear
    logo
    printf "================= AiMesh Node(s) Info Menu ================\n"
-   printf "${SEPtop}\n"
+   printf "${SEPstr}\n"
 
    if ! node_online_status="$(_NodeActiveStatus_)"
    then node_online_status="" ; fi
@@ -5905,7 +5931,7 @@ _ShowNodesMenu_()
    echo ""
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-   printf "${SEPtop}"
+   printf "${SEPstr}"
 }
 
 _ShowNodesMenuOptions_()
@@ -5964,7 +5990,7 @@ _DownloadChangelogsMerlin_()
         less "$changeLogFile"
     fi
     rm -f "$changeLogFile" "$wgetLogFile"
-    "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+    "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr""
     return 1
 }
 
@@ -6007,7 +6033,7 @@ _DownloadChangelogsGnuton_()
         less "$FW_Changelog_GITHUB"
     fi
     rm -f "$FW_Changelog_GITHUB" "$wgetLogFile"
-    "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+    "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr""
     return 1
 }
 
@@ -6019,7 +6045,7 @@ _ShowLogsMenu_()
    clear
    logo
    printf "======================== Logs Menu =======================\n"
-   printf "${SEPtop}\n"
+   printf "${SEPstr}\n"
 
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update Log Files"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
@@ -6032,7 +6058,7 @@ _ShowLogsMenu_()
    printf "\n ${GRNct}cl${NOct}.  View latest F/W Changelog\n"
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-   printf "${SEPtop}"
+   printf "${SEPstr}"
 }
 
 ##----------------------------------------##
