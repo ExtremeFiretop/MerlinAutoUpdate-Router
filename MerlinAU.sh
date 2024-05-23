@@ -5990,7 +5990,7 @@ _DownloadChangelogsMerlin_()
         less "$changeLogFile"
     fi
     rm -f "$changeLogFile" "$wgetLogFile"
-    "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr""
+    "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr"
     return 1
 }
 
@@ -6033,7 +6033,7 @@ _DownloadChangelogsGnuton_()
         less "$FW_Changelog_GITHUB"
     fi
     rm -f "$FW_Changelog_GITHUB" "$wgetLogFile"
-    "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr""
+    "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr"
     return 1
 }
 
