@@ -1,12 +1,11 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.1.3
-## 2024-05-19
+## v1.1.4
+## 2024-05-24
 
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/c45b637b-e6b7-4442-9872-bec1872fdf41)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/f945d7c2-29b8-4c54-bc06-c8d5ce9e5b96)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/df14f1f1-3b67-46fc-8a19-189886f3748e)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/fcda5abe-5537-4474-96b5-adb0ca130ad6)
-
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/0d34c5d0-f497-4c86-bac6-c80a7463f0cb)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/1cbd3938-ff53-45c8-82e8-ebdb21a4725a)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/3d877fab-3f70-4422-84ad-a4581cf094bc)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/81946a34-644f-4e3e-bc76-308a73c3e37c)
 
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
