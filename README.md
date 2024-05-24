@@ -3,7 +3,7 @@
 ## 2024-05-24
 
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/798a7a6a-7120-419c-b1eb-c6037bc8a4d5)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/5a670e26-d972-4980-bf1d-af4450705cfd)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/bf5b0daa-7932-4b2a-9f81-2445e916f299)
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/efc6e437-3f32-4de8-ad4a-86fd3a47ddc3)
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/8d94554b-f1aa-45c8-9b1f-70fc4e4a277d)
 
