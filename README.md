@@ -2,10 +2,10 @@
 ## v1.1.4
 ## 2024-05-24
 
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/0d34c5d0-f497-4c86-bac6-c80a7463f0cb)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/1cbd3938-ff53-45c8-82e8-ebdb21a4725a)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/3d877fab-3f70-4422-84ad-a4581cf094bc)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/81946a34-644f-4e3e-bc76-308a73c3e37c)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/798a7a6a-7120-419c-b1eb-c6037bc8a4d5)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/5a670e26-d972-4980-bf1d-af4450705cfd)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/efc6e437-3f32-4de8-ad4a-86fd3a47ddc3)
+![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/8d94554b-f1aa-45c8-9b1f-70fc4e4a277d)
 
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
