@@ -20,8 +20,8 @@
  - RT-AX86U (Tested)
  - RT-AX86U_PRO (Tested)
  - RT-AX86S (Tested)
- - RT-AX58U (Tested)
- - RT-AX3000 (Tested)
+ - RT-AX58U V1 (Tested)
+ - RT-AX3000 V1 (Tested)
  - XT12 (Tested)
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
