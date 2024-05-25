@@ -10,6 +10,7 @@
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
  - GT-AX6000 (Tested)
+ - GT-AXE16000 (Tested)
  - GT-AXE11000 (Tested)
  - GT-AX11000_PRO (Tested)
  - GT-AX11000 (Tested)
@@ -20,6 +21,7 @@
  - RT-AX86U_PRO (Tested)
  - RT-AX86S (Tested)
  - RT-AX58U (Tested)
+ - RT-AX3000 (Tested)
  - XT12 (Tested)
 
 ## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
@@ -39,11 +41,9 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
 
 ## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
- - GT-AXE16000 (Untested)
  - GT-AC2900 (Untested)
  - RT-AX68U (Untested)
  - RT-AX56U (Untested)
- - RT-AX3000 (Untested)
 
  ## TESTERS NEEDED!
  - If you see your router listed as untested above, feel free to test and report any issues.
