@@ -3619,9 +3619,11 @@ _ManageChangelog_()
         Say "Change-log file [$changeLogFile] does NOT exist."
         echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
     else
-        if [ "$mode" = "download" ]; then
+        if [ "$mode" = "download" ]
+        then
             _ChangelogVerificationCheck_
-        elif [ "$mode" = "view" ]; then
+        elif [ "$mode" = "view" ]
+        then
             clear
             printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
             printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
