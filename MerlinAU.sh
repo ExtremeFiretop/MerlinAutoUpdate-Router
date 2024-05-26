@@ -675,7 +675,7 @@ else
 fi
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-20] ##
+## Modified by ExtremeFiretop [2024-May-25] ##
 ##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
