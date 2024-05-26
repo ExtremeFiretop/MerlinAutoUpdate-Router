@@ -3554,86 +3554,88 @@ _ChangelogVerificationCheck_() {
     local formatted_release_version
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
-    if [ "$checkChangeLogSetting" = "ENABLED" ]; then
+    if [ "$checkChangeLogSetting" = "ENABLED" ]
+    then
         local current_version="$(_GetCurrentFWInstalledShortVersion_)"
         local release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
 
-        # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number"
+        # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
         if echo "$release_version" | grep -q "386"; then
-        changeLogTag="386"
+            changeLogTag="386"
         else
             changeLogTag="NG"
         fi
         changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
 
-        if [ ! -f "$changeLogFile" ]; then
+        if [ ! -f "$changeLogFile" ]
+        then
             Say "Change-log file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
             _DoCleanUp_
             [ "$mode" = "interactive" ] && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
-        fi
-
-        # Use awk to format the version based on the number of initial digits
-        formatted_current_version=$(echo "$current_version" | awk -F. '{
-            if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                if (NF == 4 && $4 == "0") {
-                    printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                } else if (NF == 4) {
-                    printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                }
-            } else if (NF == 3) {  # For version without a four-digit prefix
-                if ($3 == "0") {
-                    printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                } else {
-                    printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                }
-            }
-        }')
-
-        formatted_release_version=$(echo "$release_version" | awk -F. '{
-            if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                if (NF == 4 && $4 == "0") {
-                    printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                } else if (NF == 4) {
-                    printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                }
-            } else if (NF == 3) {  # For version without a four-digit prefix
-                if ($3 == "0") {
-                    printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                } else {
-                    printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                }
-            }
-        }')
-
-        # Define regex patterns for both versions
-        release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-        current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-
-        # Check if the current version is present in the changelog
-        if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
-            Say "Current version not found in change-log. Bypassing change-log verification for this run."
-            return 0
-        fi
-
-        # Extract log contents between two firmware versions
-        changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
-
-        if [ "$mode" = "interactive" ]; then
-            _high_risk_phrases_interactive_ "$changelog_contents"
-            if [ $? -ne 0 ]; then
-                return 1
-            fi
         else
-            _high_risk_phrases_nointeractive_ "$changelog_contents"
-            if [ $? -ne 0 ]; then
-                return 1
+            # Use awk to format the version based on the number of initial digits
+            formatted_current_version=$(echo "$current_version" | awk -F. '{
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4 && $4 == "0") {
+                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                    } else if (NF == 4) {
+                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                    }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
+                }
+            }')
+
+            formatted_release_version=$(echo "$release_version" | awk -F. '{
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4 && $4 == "0") {
+                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                    } else if (NF == 4) {
+                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                    }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
+                }
+            }')
+
+            # Define regex patterns for both versions
+            release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+            current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+
+            # Check if the current version is present in the changelog
+            if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
+                Say "Current version not found in change-log. Bypassing change-log verification for this run."
+                return 0
+            fi
+
+            # Extract log contents between two firmware versions
+            changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
+
+            if [ "$mode" = "interactive" ]; then
+                _high_risk_phrases_interactive_ "$changelog_contents"
+                if [ $? -ne 0 ]; then
+                    return 1
+                fi
+            else
+                _high_risk_phrases_nointeractive_ "$changelog_contents"
+                if [ $? -ne 0 ]; then
+                    return 1
+                fi
             fi
         fi
     else
         [ "$mode" = "interactive" ] && Say "Change-logs check disabled."
+        return 0
     fi
-    return 0
 }
 
 ##------------------------------------------##
