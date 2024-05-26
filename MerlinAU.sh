@@ -3505,9 +3505,13 @@ _high_risk_phrases_interactive_() {
             then
                 printf "\n ${REDct}*WARNING*: Found high-risk phrases in the change-log.${NOct}"
                 printf "\n ${REDct}Would you like to continue anyways?${NOct}"
-                if ! _WaitForYESorNO_ ; then
+                if ! _WaitForYESorNO_
+                then
                     Say "Exiting for change-log review."
-                    _DoCleanUp_ 1 ; return 1
+                    _DoCleanUp_ 1
+                    return 1
+				else
+                    Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
                 fi
             else
                 Say "*WARNING*: Found high-risk phrases in the change-log."
