@@ -3492,96 +3492,148 @@ _Set_FW_UpdateCronSchedule_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
+## Modified by ExtremeFiretop [2024-May-26] ##
 ##------------------------------------------##
-_ChangelogVerificationCheck_()
-{
+_high_risk_phrases_interactive_() {
+    local changelog_contents="$1"
+
+    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+        ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+        if [ "$ChangelogApproval" = "BLOCKED" ]
+        then
+            if [ "$inMenuMode" = true ]
+            then
+                printf "\n ${REDct}*WARNING*: Found high-risk phrases in the change-log.${NOct}"
+                printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                if ! _WaitForYESorNO_ ; then
+                    Say "Exiting for change-log review."
+                    _DoCleanUp_ 1 ; return 1
+                fi
+            else
+                Say "*WARNING*: Found high-risk phrases in the change-log."
+                Say "Please run script interactively to approve the upgrade."
+                _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+                _DoCleanUp_ 1
+                _DoExit_ 1
+            fi
+        else
+            Say "Changelog pre-approved!"
+        fi
+    else
+        Say "No high-risk phrases found in the change-log."
+    fi
+    return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-26] ##
+##------------------------------------------##
+_high_risk_phrases_nointeractive_() {
+    local changelog_contents="$1"
+
+    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+        printf "\n${REDct}*WARNING*${NOct}: Found high-risk phrases in the change-log."
+        printf "\nPlease approve the update by selecting ${GRNct}'Toggle F/W Update Changelog Approval'${NOct}\n"
+        if [ "$inMenuMode" = false ]; then
+            Say "\nPlease run script interactively to approve the upgrade."
+        fi
+        _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+        Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+        return 1
+    else
+        return 0
+    fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-26] ##
+##------------------------------------------##
+_ChangelogVerificationCheck_() {
+    local mode="$1"  # Mode should be 'auto' or 'interactive'
+    local formatted_current_version
+    local formatted_release_version
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
-    if [ "$checkChangeLogSetting" = "ENABLED" ]
-    then
+    if [ "$checkChangeLogSetting" = "ENABLED" ]; then
         local current_version="$(_GetCurrentFWInstalledShortVersion_)"
         local release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
 
-        # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
+        # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number"
         if echo "$release_version" | grep -q "386"; then
-            changeLogTag="386"
+        changeLogTag="386"
         else
             changeLogTag="NG"
         fi
         changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
 
-        if [ ! -f "$changeLogFile" ]
-        then
+        if [ ! -f "$changeLogFile" ]; then
             Say "Change-log file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
             _DoCleanUp_
-            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            [ "$mode" = "interactive" ] && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
+        fi
+
+        # Use awk to format the version based on the number of initial digits
+        formatted_current_version=$(echo "$current_version" | awk -F. '{
+            if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                if (NF == 4 && $4 == "0") {
+                    printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                } else if (NF == 4) {
+                    printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                }
+            } else if (NF == 3) {  # For version without a four-digit prefix
+                if ($3 == "0") {
+                    printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                } else {
+                    printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                }
+            }
+        }')
+
+        formatted_release_version=$(echo "$release_version" | awk -F. '{
+            if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                if (NF == 4 && $4 == "0") {
+                    printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                } else if (NF == 4) {
+                    printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                }
+            } else if (NF == 3) {  # For version without a four-digit prefix
+                if ($3 == "0") {
+                    printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                } else {
+                    printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                }
+            }
+        }')
+
+        # Define regex patterns for both versions
+        release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+        current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+
+        # Check if the current version is present in the changelog
+        if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
+            Say "Current version not found in change-log. Bypassing change-log verification for this run."
+            return 0
+        fi
+
+        # Extract log contents between two firmware versions
+        changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
+
+        if [ "$mode" = "interactive" ]; then
+            _high_risk_phrases_interactive_ "$changelog_contents"
+            if [ $? -ne 0 ]; then
+                return 1
+            fi
         else
-            # Use awk to format the version based on the number of initial digits
-            formatted_current_version=$(echo "$current_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4 && $4 == "0") {
-                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                    } else if (NF == 4) {
-                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
-            formatted_release_version=$(echo "$release_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4 && $4 == "0") {
-                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                    } else if (NF == 4) {
-                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
-            # Define regex patterns for both versions
-            release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-            current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-
-            # Check if the current version is present in the changelog #
-            if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
-                Say "Current version not found in change-log. Bypassing change-log verification for this run."
-            else
-                # Extract log contents between two firmware versions #
-                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
-
-                # Search for high-risk terms in the extracted log contents #
-                if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
-                then
-                    Say "\n*WARNING*: Found high-risk phrases in the change-log."
-                    Say "Please approve the update using the 'Toggle F/W Update Changelog Approval' option"
-                    if [ "$inMenuMode" = false ]
-                    then
-                        Say "\nPlease run script interactively to approve the upgrade."
-                    fi
-                    _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
-                    Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
-                    return 1
-                else
-                    return 0
-                fi
+            _high_risk_phrases_nointeractive_ "$changelog_contents"
+            if [ $? -ne 0 ]; then
+                return 1
             fi
         fi
     else
-        return 0
+        [ "$mode" = "interactive" ] && Say "Change-logs check disabled."
     fi
+    return 0
 }
 
 ##------------------------------------------##
@@ -3621,7 +3673,7 @@ _ManageChangelog_()
     else
         if [ "$mode" = "download" ]
         then
-            _ChangelogVerificationCheck_
+            _ChangelogVerificationCheck_ "auto"
         elif [ "$mode" = "view" ]
         then
             clear
@@ -4293,100 +4345,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-May-25] ##
     ##------------------------------------------##
-    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+    _ChangelogVerificationCheck_ "interactive"
+    retCode="$?"
 
-    if [ "$checkChangeLogSetting" = "ENABLED" ]
+    if [ "$retCode" -eq 1 ]
     then
-        # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
-        if echo "$release_version" | grep -q "386"; then
-            changeLogTag="386"
-        else
-            changeLogTag="NG"
-        fi
-        changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
-
-        if [ ! -f "$changeLogFile" ]
-        then
-            Say "Change-log file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
-            _DoCleanUp_
-            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        else
-            # Use awk to format the version based on the number of initial digits
-            formatted_current_version=$(echo "$current_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4 && $4 == "0") {
-                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                    } else if (NF == 4) {
-                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
-            formatted_release_version=$(echo "$release_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4 && $4 == "0") {
-                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                    } else if (NF == 4) {
-                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
-            # Define regex patterns for both versions
-            release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-            current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-
-            # Check if the current version is present in the changelog #
-            if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
-                Say "Current version not found in change-log. Bypassing change-log verification for this run."
-            else
-                # Extract log contents between two firmware versions #
-                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
-
-                # Search for high-risk terms in the extracted log contents #
-                if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
-                then
-                    ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-                    if [ "$ChangelogApproval" = "BLOCKED" ]
-                    then
-                        if [ "$inMenuMode" = true ]
-                        then
-                            printf "\n ${REDct}*WARNING*: Found high-risk phrases in the change-log.${NOct}"
-                            printf "\n ${REDct}Would you like to continue anyways?${NOct}"
-                            if ! _WaitForYESorNO_ ; then
-                                Say "Exiting for change-log review."
-                                _DoCleanUp_ 1 ; return 1
-                            fi
-                        else
-                            Say "*WARNING*: Found high-risk phrases in the change-log."
-                            Say "Please run script interactively to approve the upgrade."
-                            _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
-                            _DoCleanUp_ 1
-                            _DoExit_ 1
-                        fi
-					else
-                    	Say "Changelog pre-approved!"
-					fi
-                else
-                    Say "No high-risk phrases found in the change-log."
-                fi
-            fi
-        fi
-    else
-        Say "Change-logs check disabled."
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
     fi
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
