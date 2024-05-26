@@ -3510,7 +3510,7 @@ _high_risk_phrases_interactive_() {
                     Say "Exiting for change-log review."
                     _DoCleanUp_ 1
                     return 1
-				else
+                else
                     Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
                 fi
             else
@@ -3535,10 +3535,12 @@ _high_risk_phrases_interactive_() {
 _high_risk_phrases_nointeractive_() {
     local changelog_contents="$1"
 
-    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    then
         printf "\n${REDct}*WARNING*${NOct}: Found high-risk phrases in the change-log."
         printf "\nPlease approve the update by selecting ${GRNct}'Toggle F/W Update Changelog Approval'${NOct}\n"
-        if [ "$inMenuMode" = false ]; then
+        if [ "$inMenuMode" = false ]
+        then
             Say "\nPlease run script interactively to approve the upgrade."
         fi
         _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
@@ -3564,7 +3566,8 @@ _ChangelogVerificationCheck_() {
         local release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
 
         # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
-        if echo "$release_version" | grep -q "386"; then
+        if echo "$release_version" | grep -q "386"
+        then
             changeLogTag="386"
         else
             changeLogTag="NG"
@@ -3616,7 +3619,8 @@ _ChangelogVerificationCheck_() {
             current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
 
             # Check if the current version is present in the changelog
-            if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
+            if ! grep -Eq "$current_version_regex" "$changeLogFile"
+            then
                 Say "Current version not found in change-log. Bypassing change-log verification for this run."
                 return 0
             fi
@@ -3624,14 +3628,17 @@ _ChangelogVerificationCheck_() {
             # Extract log contents between two firmware versions
             changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
 
-            if [ "$mode" = "interactive" ]; then
+            if [ "$mode" = "interactive" ]
+            then
                 _high_risk_phrases_interactive_ "$changelog_contents"
-                if [ $? -ne 0 ]; then
+                if [ $? -ne 0 ]
+                then
                     return 1
                 fi
             else
                 _high_risk_phrases_nointeractive_ "$changelog_contents"
-                if [ $? -ne 0 ]; then
+                if [ $? -ne 0 ]
+                then
                     return 1
                 fi
             fi
