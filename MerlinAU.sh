@@ -1709,7 +1709,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if true ; then echo "388.6.2" ; return 0 ; fi
+if false ; then echo "388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -5683,49 +5683,6 @@ _ShowNodesMenuOptions_()
                ;;
         esac
     done
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-05] ##
-##----------------------------------------##
-_ViewChangelogsOnDemand_()
-{
-    local wgetLogFile  changeLogTag  changeLogFile  changeLogURL
-
-    # Create directory to download changelog if missing
-    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
-
-    changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
-    if [ "$changeLogTag" = "386" ]
-    then
-        changeLogURL="${CL_URL_386}"
-    elif [ "$changeLogTag" = "NG" ]
-    then
-        changeLogURL="${CL_URL_NG}"
-    fi
-
-    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
-    changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
-    printf "\nRetrieving ${GRNct}Changelog-${changeLogTag}.txt${NOct} ...\n"
-
-    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
-         -O "$changeLogFile" -o "$wgetLogFile" "${changeLogURL}"
-
-    if [ ! -f "$changeLogFile" ]
-    then
-        Say "Change-log file [$changeLogFile] does NOT exist."
-        echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
-    else
-        clear
-        printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
-        printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
-        dos2unix "$changeLogFile"
-        _WaitForEnterKey_
-        less "$changeLogFile"
-    fi
-    rm -f "$changeLogFile" "$wgetLogFile"
-    "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr"
-    return 1
 }
 
 ##----------------------------------------##
