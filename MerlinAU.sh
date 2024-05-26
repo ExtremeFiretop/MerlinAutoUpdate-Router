@@ -5492,11 +5492,11 @@ _ShowMainMenu_()
    ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
    if [ "$ChangelogApproval" = "BLOCKED" ]
    then
-      printf "\n ${GRNct}ap${NOct}.  Pre-approve F/W Update Changelog"
+      printf "\n ${GRNct}ap${NOct}.  Toggle F/W Update Changelog Approval"
       printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
    elif [ "$ChangelogApproval" = "APPROVED" ]
    then
-      printf "\n ${GRNct}ap${NOct}.  Approve Update Changelog"
+      printf "\n ${GRNct}ap${NOct}.  Toggle F/W Update Changelog Approval"
       printf "\n${padStr}[Currently ${GRNct}${ChangelogApproval}${NOct}]\n"
    fi
 
