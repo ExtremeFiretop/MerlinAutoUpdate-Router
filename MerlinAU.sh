@@ -696,6 +696,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_EMail_CC_Name=TBD"
          echo "FW_New_Update_EMail_CC_Address=TBD"
          echo "CheckChangeLog ENABLED"
+         echo "FW_New_Update_Changelog_Approval=TBD"
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
       } > "$SETTINGSFILE"
@@ -762,6 +763,11 @@ _Init_Custom_Settings_Config_()
    if ! grep -q "^FW_Auto_Backupmon" "$SETTINGSFILE"
    then
        sed -i "12 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_Changelog_Approval" "$SETTINGSFILE"
+   then
+       sed -i "13 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
        retCode=1
    fi
    return "$retCode"
@@ -2520,6 +2526,7 @@ _toggle_change_log_check_() {
         case $response in
             [Yy]* )
                 Update_Custom_Settings "CheckChangeLog" "DISABLED"
+                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
                 printf "Change-log verification check is now ${REDct}DISABLED.${NOct}\n"
                 ;;
             *)
@@ -3560,12 +3567,12 @@ _ChangelogVerificationCheck_()
                 then
                     Say "*WARNING*: Found high-risk phrases in the change-log."
                     _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
-					Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
-					if [ "$inMenuMode" = false ]
-					then
+                    Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+                    if [ "$inMenuMode" = false ]
+                    then
                         Say "Please run script interactively to approve the upgrade."
-					fi
-					return 1
+                    fi
+                    return 1
                 else
                     Say "No high-risk phrases found in the change-log."
                     return 0
@@ -3574,7 +3581,7 @@ _ChangelogVerificationCheck_()
         fi
     else
         Say "Change-logs check disabled."
-		return 0
+        return 0
     fi
 }
 
@@ -3609,7 +3616,7 @@ _DownloadChangelogs_()
         echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
     else
         _ChangelogVerificationCheck_
-	fi
+    fi
     rm -f "$changeLogFile" "$wgetLogFile"
     return 1
 }
