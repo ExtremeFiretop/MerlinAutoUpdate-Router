@@ -1709,7 +1709,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.6.2" ; return 0 ; fi
+if true ; then echo "388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -3565,22 +3565,21 @@ _ChangelogVerificationCheck_()
                 # Search for high-risk terms in the extracted log contents #
                 if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
                 then
-                    Say "*WARNING*: Found high-risk phrases in the change-log."
-                    _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
-                    Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+                    Say "\n*WARNING*: Found high-risk phrases in the change-log."
+                    Say "Please approve the update using the 'Toggle F/W Update Changelog Approval' option"
                     if [ "$inMenuMode" = false ]
                     then
-                        Say "Please run script interactively to approve the upgrade."
+                        Say "\nPlease run script interactively to approve the upgrade."
                     fi
+                    _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+                    Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
                     return 1
                 else
-                    Say "No high-risk phrases found in the change-log."
                     return 0
                 fi
             fi
         fi
     else
-        Say "Change-logs check disabled."
         return 0
     fi
 }
@@ -3588,9 +3587,10 @@ _ChangelogVerificationCheck_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-May-25] ##
 ##------------------------------------------##
-_DownloadChangelogs_()
+_ManageChangelog_()
 {
-    local wgetLogFile  changeLogTag  changeLogFile  changeLogURL
+    local mode="$1"  # Mode should be 'download' or 'view'
+    local wgetLogFile changeLogTag changeLogFile changeLogURL
 
     # Create directory to download changelog if missing
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
@@ -3607,6 +3607,10 @@ _DownloadChangelogs_()
     wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
     changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
 
+    if [ "$mode" = "view" ]; then
+        printf "\nRetrieving ${GRNct}Changelog-${changeLogTag}.txt${NOct} ...\n"
+    fi
+
     wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
          -O "$changeLogFile" -o "$wgetLogFile" "${changeLogURL}"
 
@@ -3615,7 +3619,17 @@ _DownloadChangelogs_()
         Say "Change-log file [$changeLogFile] does NOT exist."
         echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
     else
-        _ChangelogVerificationCheck_
+        if [ "$mode" = "download" ]; then
+            _ChangelogVerificationCheck_
+        elif [ "$mode" = "view" ]; then
+            clear
+            printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
+            printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+            dos2unix "$changeLogFile"
+            _WaitForEnterKey_
+            less "$changeLogFile"
+            "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr"
+        fi
     fi
     rm -f "$changeLogFile" "$wgetLogFile"
     return 1
@@ -3663,7 +3677,7 @@ _CheckNewUpdateFirmwareNotification_()
            then
               _SendEMailNotification_ NEW_FW_UPDATE_STATUS
            fi
-           _DownloadChangelogs_
+           _ManageChangelog_ "download"
        fi
    fi
 
@@ -3676,7 +3690,7 @@ _CheckNewUpdateFirmwareNotification_()
        then
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
-       _DownloadChangelogs_
+       _ManageChangelog_ "download"
    fi
 
    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
@@ -5763,7 +5777,7 @@ _AdvancedLogsOptions_()
                    _InvalidMenuSelection_
                fi
                ;;
-           cl) _ViewChangelogsOnDemand_
+           cl) _ManageChangelog_ "view"
                ;;
        e|exit) break
                ;;
