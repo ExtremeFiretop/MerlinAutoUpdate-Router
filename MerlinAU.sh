@@ -3516,7 +3516,7 @@ _high_risk_phrases_interactive_()
                 printf "\n ${REDct}Would you like to continue with the firmware update anyways?${NOct}"
                 if ! _WaitForYESorNO_
                 then
-                    Say "Exiting changelog review."
+                    Say "Exiting for changelog review."
                     _DoCleanUp_ 1
                     return 1
                 else
