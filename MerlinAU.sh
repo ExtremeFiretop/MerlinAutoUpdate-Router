@@ -5746,6 +5746,11 @@ _advanced_options_menu_()
                else _InvalidMenuSelection_
                fi
                ;;
+           bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
+               then change_build_type
+               else _InvalidMenuSelection_
+               fi
+               ;;
            em) if "$isEMailConfigEnabledInAMTM"
                then _Toggle_FW_UpdateEmailNotifications_
                else _InvalidMenuSelection_
@@ -5760,11 +5765,6 @@ _advanced_options_menu_()
            se) if "$isEMailConfigEnabledInAMTM" && \
                   "$sendEMailNotificationsFlag"
                then _SetSecondaryEMailAddress_
-               else _InvalidMenuSelection_
-               fi
-               ;;
-           bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
-               then change_build_type
                else _InvalidMenuSelection_
                fi
                ;;
@@ -5818,16 +5818,16 @@ do
           else _ApproveUpgrade_
           fi
           ;;
+      up) _SCRIPTUPDATE_
+          ;;
+      ad) _advanced_options_menu_
+          ;;
       mn) if "$inRouterSWmode" && [ -n "$node_list" ]
           then _ShowNodesMenuOptions_
           else _InvalidMenuSelection_
           fi
           ;;
       lo) _AdvancedLogsOptions_
-          ;;
-      ad) _advanced_options_menu_
-          ;;
-      up) _SCRIPTUPDATE_
           ;;
   e|exit) _DoExit_ 0
           ;;
