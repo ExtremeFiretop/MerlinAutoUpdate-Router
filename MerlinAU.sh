@@ -5489,10 +5489,10 @@ _ShowMainMenu_()
    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
    if [ "$checkChangeLogSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}5${NOct}.  Toggle Changelog Check"
+       printf "\n  ${GRNct}5${NOct}.  Toggle F/W Changelog Check"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}5${NOct}.  Toggle Changelog Check"
+       printf "\n  ${GRNct}5${NOct}.  Toggle F/W Changelog Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
@@ -5547,10 +5547,10 @@ _ShowAdvancedOptionsMenu_()
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release Updates"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release Updates"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
@@ -5689,7 +5689,7 @@ _ShowLogOptionsMenu_()
        printf "\n ${GRNct}lg${NOct}.  View F/W Update Log File\n"
    fi
 
-   printf "\n ${GRNct}cl${NOct}.  View latest F/W Changelog\n"
+   printf "\n ${GRNct}cl${NOct}.  View Latest F/W Changelog\n"
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
    printf "${SEPstr}"
