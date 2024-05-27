@@ -173,12 +173,12 @@ _WaitForYESorNO_()
    local promptStr
 
    if [ $# -eq 0 ] || [ -z "$1" ]
-   then promptStr=" [yY|nN] N? "
-   else promptStr="$1 [yY|nN] N? "
+   then promptStr=" [yY|nN]?  "
+   else promptStr="$1 [yY|nN]?  "
    fi
 
    printf "$promptStr" ; read -r YESorNO
-   if echo "$YESorNO" | grep -qE "^([Yy](es)?)$"
+   if echo "$YESorNO" | grep -qE "^([Yy](es)?|YES)$"
    then echo "OK" ; return 0
    else echo "NO" ; return 1
    fi
@@ -2906,119 +2906,102 @@ _CheckFirmwareMD5_() {
     fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jan-23] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-27] ##
+##----------------------------------------##
 _toggle_change_log_check_()
 {
     local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
     if [ "$currentSetting" = "ENABLED" ]
     then
-        printf "${REDct}*WARNING*:${NOct} Disabling changelog verification may risk unanticipated changes.\n"
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Disabling the changelog verification check may risk unanticipated firmware changes.\n"
         printf "The advice is to proceed only if you review the latest firmware changelog file manually.\n"
-        printf "\nProceed to disable? [y/N]: "
-        read -r response
-        case $response in
-            [Yy]* )
-                Update_Custom_Settings "CheckChangeLog" "DISABLED"
-                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
-                printf "Changelog verification check is now ${REDct}DISABLED.${NOct}\n"
-                ;;
-            *)
-                printf "Changelog verification check remains ${GRNct}ENABLED.${NOct}\n"
-                ;;
-        esac
+
+        if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "CheckChangeLog" "DISABLED"
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+            printf "Changelog verification check is now ${REDct}DISABLED.${NOct}\n"
+        else
+            printf "Changelog verification check remains ${GRNct}ENABLED.${NOct}\n"
+        fi
     else
-        printf "Are you sure you want to enable the changelog verification check? [y/N]: "
-        read -r response
-        case $response in
-            [Yy]* )
-                Update_Custom_Settings "CheckChangeLog" "ENABLED"
-                printf "Changelog verification check is now ${GRNct}ENABLED.${NOct}\n"
-                ;;
-            *)
-                printf "Changelog verification check remains ${REDct}DISABLED.${NOct}\n"
-                ;;
-        esac
+        printf "Confirm to enable the changelog verification check."
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
+        then
+            Update_Custom_Settings "CheckChangeLog" "ENABLED"
+            printf "Changelog verification check is now ${GRNct}ENABLED.${NOct}\n"
+        else
+            printf "Changelog verification check remains ${REDct}DISABLED.${NOct}\n"
+        fi
     fi
     _WaitForEnterKey_
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jan-27] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-27] ##
+##----------------------------------------##
 _Toggle_FW_UpdatesFromBeta_()
 {
     local currentSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
 
     if [ "$currentSetting" = "ENABLED" ]
     then
-        printf "${REDct}*WARNING*:${NOct}\n"
+        printf "${REDct}*WARNING*${NOct}\n"
         printf "Disabling firmware updates from beta to production releases may limit access to new features and fixes.\n"
         printf "Keep this option ENABLED if you prefer to stay up-to-date with the latest production releases.\n"
-        printf "\nProceed to disable? [y/N]: "
-        read -r response
-        case $response in
-            [Yy]* )
-                Update_Custom_Settings "FW_Allow_Beta_Production_Up" "DISABLED"
-                printf "Firmware updates from beta to production releases are now ${REDct}DISABLED.${NOct}\n"
-                ;;
-            *)
-                printf "Firmware updates from beta to production releases remain ${GRNct}ENABLED.${NOct}\n"
-                ;;
-        esac
+
+        if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "FW_Allow_Beta_Production_Up" "DISABLED"
+            printf "Firmware updates from beta to production releases are now ${REDct}DISABLED.${NOct}\n"
+        else
+            printf "Firmware updates from beta to production releases remain ${GRNct}ENABLED.${NOct}\n"
+        fi
     else
-        printf "Are you sure you want to enable firmware updates from beta to production?"
-        printf "\nProceed to enable? [y/N]: "
-        read -r response
-        case $response in
-            [Yy]* )
-                Update_Custom_Settings "FW_Allow_Beta_Production_Up" "ENABLED"
-                printf "Firmware updates from beta to production releases are now ${GRNct}ENABLED.${NOct}\n"
-                ;;
-            *)
-                printf "Firmware updates from beta to production releases remain ${REDct}DISABLED.${NOct}\n"
-                ;;
-        esac
+        printf "Confirm to enable firmware updates from beta to production."
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
+        then
+            Update_Custom_Settings "FW_Allow_Beta_Production_Up" "ENABLED"
+            printf "Firmware updates from beta to production releases are now ${GRNct}ENABLED.${NOct}\n"
+        else
+            printf "Firmware updates from beta to production releases remain ${REDct}DISABLED.${NOct}\n"
+        fi
     fi
     _WaitForEnterKey_
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Mar-20] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-27] ##
+##----------------------------------------##
 _Toggle_Auto_Backups_()
 {
     local currentSetting="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
     if [ "$currentSetting" = "ENABLED" ]
     then
-        printf "${REDct}*WARNING*:${NOct} Disabling auto backups may risk data loss or inconsistency.\n"
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Disabling automatic backups may risk data loss or inconsistency.\n"
         printf "The advice is to proceed only if you're sure you want to disable auto backups.\n"
-        printf "\nProceed to disable? [y/N]: "
-        read -r response
-        case $response in
-            [Yy]* )
-                Update_Custom_Settings "FW_Auto_Backupmon" "DISABLED"
-                printf "Auto backups are now ${REDct}DISABLED.${NOct}\n"
-                ;;
-            *)
-                printf "Auto backups remain ${GRNct}ENABLED.${NOct}\n"
-                ;;
-        esac
+
+        if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "FW_Auto_Backupmon" "DISABLED"
+            printf "Automatic backups are now ${REDct}DISABLED.${NOct}\n"
+        else
+            printf "Automatic backups remain ${GRNct}ENABLED.${NOct}\n"
+        fi
     else
-        printf "Are you sure you want to enable auto backups? [y/N]: "
-        read -r response
-        case $response in
-            [Yy]* )
-                Update_Custom_Settings "FW_Auto_Backupmon" "ENABLED"
-                printf "Auto backups are now ${GRNct}ENABLED.${NOct}\n"
-                ;;
-            *)
-                printf "Auto backups remain ${REDct}DISABLED.${NOct}\n"
-                ;;
-        esac
+        printf "Confirm to enable automatic backups before firmware flash."
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
+        then
+            Update_Custom_Settings "FW_Auto_Backupmon" "ENABLED"
+            printf "Automatic backups are now ${GRNct}ENABLED.${NOct}\n"
+        else
+            printf "Automatic backups remain ${REDct}DISABLED.${NOct}\n"
+        fi
     fi
     _WaitForEnterKey_
 }
@@ -3143,43 +3126,36 @@ _ChangeBuildType_Merlin_()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-May-25] ##
-##---------------------------------------##
-_ApproveUpgrade_()
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-27] ##
+##----------------------------------------##
+_Approve_FW_Update_()
 {
     local currentSetting="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
 
     if [ "$currentSetting" = "BLOCKED" ]
     then
         printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the changelog file.\n"
-        printf "The advice is to approve if you're read the firmware changelog and you want to proceed with the update.\n"
-        printf "Are you sure you want to approve the latest firmware update? [y/N]: "
-        read -r response
-        case $response in
-            [Yy]* )
-                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
-                printf "The latest firmware update is now ${GRNct}APPROVED.${NOct}\n"
-                ;;
-            *)
-                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
-                printf "The latest firmware update remain ${REDct}BLOCKED.${NOct}\n"
-                ;;
-        esac
+        printf "The advice is to approve if you've read the firmware changelog and you want to proceed with the update.\n"
+
+        if _WaitForYESorNO_ "Do you want to ${GRNct}APPROVE${NOct} the latest firmware update?"
+        then
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+            printf "The latest firmware update is now ${GRNct}APPROVED.${NOct}\n"
+        else
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+            printf "The latest firmware update remain ${REDct}BLOCKED.${NOct}\n"
+        fi
     else
         printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the changelog file.\n"
-        printf "Are you sure you want to block the latest firmware update? [y/N]: "
-        read -r response
-        case $response in
-            [Yy]* )
-                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
-                printf "The latest firmware update is now ${REDct}BLOCKED.${NOct}\n"
-                ;;
-            *)
-                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
-                printf "The latest firmware update remain ${GRNct}APPROVED.${NOct}\n"
-                ;;
-        esac
+        if _WaitForYESorNO_ "Do you want to ${REDct}BLOCK${NOct} the latest firmware update?"
+        then
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+            printf "The latest firmware update is now ${REDct}BLOCKED.${NOct}\n"
+        else
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+            printf "The latest firmware update remain ${GRNct}APPROVED.${NOct}\n"
+        fi
     fi
     _WaitForEnterKey_
 }
@@ -6363,7 +6339,7 @@ do
           ;;
        6) if [ "$ChangelogApproval" = "TBD" ] || [ -z "$ChangelogApproval" ]
           then _InvalidMenuSelection_
-          else _ApproveUpgrade_
+          else _Approve_FW_Update_
           fi
           ;;
       up) _SCRIPTUPDATE_
