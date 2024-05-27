@@ -3578,7 +3578,6 @@ _ChangelogVerificationCheck_() {
         then
             Say "Change-log file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
             _DoCleanUp_
-            [ "$mode" = "interactive" ] && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         else
             # Use awk to format the version based on the number of initial digits
@@ -3699,7 +3698,7 @@ _ManageChangelog_()
         fi
     fi
     rm -f "$changeLogFile" "$wgetLogFile"
-    return 1
+    return 0
 }
 
 ##------------------------------------------##
