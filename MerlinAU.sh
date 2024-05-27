@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-23
+# Last Modified: 2024-May-26
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.4
+readonly SCRIPT_VERSION=1.1.5
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -675,7 +675,7 @@ else
 fi
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Mar-20] ##
+## Modified by ExtremeFiretop [2024-May-25] ##
 ##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
@@ -696,6 +696,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_EMail_CC_Name=TBD"
          echo "FW_New_Update_EMail_CC_Address=TBD"
          echo "CheckChangeLog ENABLED"
+         echo "FW_New_Update_Changelog_Approval=TBD"
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
       } > "$SETTINGSFILE"
@@ -764,6 +765,11 @@ _Init_Custom_Settings_Config_()
        sed -i "12 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^FW_New_Update_Changelog_Approval" "$SETTINGSFILE"
+   then
+       sed -i "13 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
+       retCode=1
+   fi
    return "$retCode"
 }
 
@@ -788,6 +794,7 @@ Get_Custom_Setting()
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
                 ;;
             "FW_New_Update_Postponement_Days"  | \
+            "FW_New_Update_Changelog_Approval" | \
             "FW_New_Update_Expected_Run_Date"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
             "FW_New_Update_ZIP_Directory_Path" | \
@@ -871,6 +878,7 @@ Update_Custom_Settings()
             fi
             ;;
         "FW_New_Update_Postponement_Days"  | \
+        "FW_New_Update_Changelog_Approval" | \
         "FW_New_Update_Expected_Run_Date"  | \
         "FW_New_Update_Cron_Job_Schedule"  | \
         "FW_New_Update_ZIP_Directory_Path" | \
@@ -2518,6 +2526,7 @@ _toggle_change_log_check_() {
         case $response in
             [Yy]* )
                 Update_Custom_Settings "CheckChangeLog" "DISABLED"
+                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
                 printf "Change-log verification check is now ${REDct}DISABLED.${NOct}\n"
                 ;;
             *)
@@ -2672,6 +2681,46 @@ change_build_type()
    printf "\nThe build type to flash was updated successfully.\n"
 
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-May-25] ##
+##---------------------------------------##
+_ApproveUpgrade_() {
+    local currentSetting="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+
+    if [ "$currentSetting" = "BLOCKED" ]
+    then
+        printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the change-log.\n"
+        printf "The advice is to approve if you're read the firmware changelog and you want to proceed with the update.\n"
+        printf "Are you sure you want to approve the latest firmware update? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+                printf "The latest firmware upgrade is now ${GRNct}APPROVED.${NOct}\n"
+                ;;
+            *)
+                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+                printf "The latest firmware upgrade remain ${REDct}BLOCKED.${NOct}\n"
+                ;;
+        esac
+    else
+        printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the change-log.\n"
+        printf "Are you sure you want to block the latest firmware update? [y/N]: "
+        read -r response
+        case $response in
+            [Yy]* )
+                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+                printf "The latest firmware upgrade is now ${REDct}BLOCKED.${NOct}\n"
+                ;;
+            *)
+                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+                printf "The latest firmware upgrade remain ${GRNct}APPROVED.${NOct}\n"
+                ;;
+        esac
+    fi
+    _WaitForEnterKey_
 }
 
 ##----------------------------------------##
@@ -3442,9 +3491,219 @@ _Set_FW_UpdateCronSchedule_()
     return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-26] ##
+##------------------------------------------##
+_high_risk_phrases_interactive_() {
+    local changelog_contents="$1"
+
+    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+        ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+        if [ "$ChangelogApproval" = "BLOCKED" ]
+        then
+            if [ "$inMenuMode" = true ]
+            then
+                printf "\n ${REDct}*WARNING*: Found high-risk phrases in the change-log.${NOct}"
+                printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                if ! _WaitForYESorNO_
+                then
+                    Say "Exiting for change-log review."
+                    _DoCleanUp_ 1
+                    return 1
+                else
+                    Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+                fi
+            else
+                Say "*WARNING*: Found high-risk phrases in the change-log."
+                Say "Please run script interactively to approve the upgrade."
+                _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+                _DoCleanUp_ 1
+                _DoExit_ 1
+            fi
+        else
+            Say "Changelog pre-approved!"
+        fi
+    else
+        Say "No high-risk phrases found in the change-log."
+    fi
+    return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-26] ##
+##------------------------------------------##
+_high_risk_phrases_nointeractive_() {
+    local changelog_contents="$1"
+
+    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    then
+        printf "\n${REDct}*WARNING*${NOct}: Found high-risk phrases in the change-log."
+        printf "\nPlease approve the update by selecting ${GRNct}'Toggle F/W Update Changelog Approval'${NOct}\n"
+        if [ "$inMenuMode" = false ]
+        then
+            Say "\nPlease run script interactively to approve the upgrade."
+        fi
+        _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+        Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+        return 1
+    else
+        return 0
+    fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-26] ##
+##------------------------------------------##
+_ChangelogVerificationCheck_() {
+    local mode="$1"  # Mode should be 'auto' or 'interactive'
+    local formatted_current_version
+    local formatted_release_version
+    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+
+    if [ "$checkChangeLogSetting" = "ENABLED" ]
+    then
+        local current_version="$(_GetCurrentFWInstalledShortVersion_)"
+        local release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+
+        # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
+        if echo "$release_version" | grep -q "386"
+        then
+            changeLogTag="386"
+        else
+            changeLogTag="NG"
+        fi
+        changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
+
+        if [ ! -f "$changeLogFile" ]
+        then
+            Say "Change-log file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
+            _DoCleanUp_
+            return 1
+        else
+            # Use awk to format the version based on the number of initial digits
+            formatted_current_version=$(echo "$current_version" | awk -F. '{
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4 && $4 == "0") {
+                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                    } else if (NF == 4) {
+                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                    }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
+                }
+            }')
+
+            formatted_release_version=$(echo "$release_version" | awk -F. '{
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4 && $4 == "0") {
+                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                    } else if (NF == 4) {
+                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                    }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
+                }
+            }')
+
+            # Define regex patterns for both versions
+            release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+            current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+
+            # Check if the current version is present in the changelog
+            if ! grep -Eq "$current_version_regex" "$changeLogFile"
+            then
+                Say "Current version not found in change-log. Bypassing change-log verification for this run."
+                return 0
+            fi
+
+            # Extract log contents between two firmware versions
+            changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
+
+            if [ "$mode" = "interactive" ]
+            then
+                _high_risk_phrases_interactive_ "$changelog_contents"
+                if [ $? -ne 0 ]
+                then
+                    return 1
+                fi
+            else
+                _high_risk_phrases_nointeractive_ "$changelog_contents"
+                if [ $? -ne 0 ]
+                then
+                    return 1
+                fi
+            fi
+        fi
+    else
+        [ "$mode" = "interactive" ] && Say "Change-logs check disabled."
+        return 0
+    fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-25] ##
+##------------------------------------------##
+_ManageChangelog_()
+{
+    local mode="$1"  # Mode should be 'download' or 'view'
+    local wgetLogFile changeLogTag changeLogFile changeLogURL
+
+    # Create directory to download changelog if missing
+    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
+
+    changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
+    if [ "$changeLogTag" = "386" ]
+    then
+        changeLogURL="${CL_URL_386}"
+    elif [ "$changeLogTag" = "NG" ]
+    then
+        changeLogURL="${CL_URL_NG}"
+    fi
+
+    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
+    changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
+
+    if [ "$mode" = "view" ]; then
+        printf "\nRetrieving ${GRNct}Changelog-${changeLogTag}.txt${NOct} ...\n"
+    fi
+
+    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+         -O "$changeLogFile" -o "$wgetLogFile" "${changeLogURL}"
+
+    if [ ! -f "$changeLogFile" ]
+    then
+        Say "Change-log file [$changeLogFile] does NOT exist."
+        echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
+    else
+        if [ "$mode" = "download" ]
+        then
+            _ChangelogVerificationCheck_ "auto"
+        elif [ "$mode" = "view" ]
+        then
+            clear
+            printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
+            printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+            dos2unix "$changeLogFile"
+            _WaitForEnterKey_
+            less "$changeLogFile"
+            "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr"
+        fi
+    fi
+    rm -f "$changeLogFile" "$wgetLogFile"
+    return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-25] ##
+##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -3461,6 +3720,7 @@ _CheckNewUpdateFirmwareNotification_()
        Say "Current firmware version '$1' is up to date."
        Update_Custom_Settings FW_New_Update_Notification_Date TBD
        Update_Custom_Settings FW_New_Update_Notification_Vers TBD
+       Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
        return 1
    fi
 
@@ -3482,6 +3742,7 @@ _CheckNewUpdateFirmwareNotification_()
            then
               _SendEMailNotification_ NEW_FW_UPDATE_STATUS
            fi
+           _ManageChangelog_ "download"
        fi
    fi
 
@@ -3494,6 +3755,7 @@ _CheckNewUpdateFirmwareNotification_()
        then
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
+       _ManageChangelog_ "download"
    fi
 
    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
@@ -4092,97 +4354,16 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Navigate to the firmware directory
     cd "$FW_BIN_DIR"
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Mar-16] ##
-    ##----------------------------------------##
-    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-May-25] ##
+    ##------------------------------------------##
+    _ChangelogVerificationCheck_ "interactive"
+    retCode="$?"
 
-    if [ "$checkChangeLogSetting" = "ENABLED" ]
+    if [ "$retCode" -eq 1 ]
     then
-        # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
-        if echo "$release_version" | grep -q "386"; then
-            changeLogTag="386"
-        else
-            changeLogTag="NG"
-        fi
-        changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
-
-        if [ ! -f "$changeLogFile" ]
-        then
-            Say "Change-log file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
-            _DoCleanUp_
-            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        else
-            # Use awk to format the version based on the number of initial digits
-            formatted_current_version=$(echo "$current_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4 && $4 == "0") {
-                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                    } else if (NF == 4) {
-                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
-            formatted_release_version=$(echo "$release_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4 && $4 == "0") {
-                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                    } else if (NF == 4) {
-                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
-            # Define regex patterns for both versions
-            release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-            current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-
-            # Check if the current version is present in the changelog #
-            if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
-                Say "Current version not found in change-log. Bypassing change-log verification for this run."
-            else
-                # Extract log contents between two firmware versions #
-                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
-
-                # Search for high-risk terms in the extracted log contents #
-                if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
-                then
-                    if [ "$inMenuMode" = true ]
-                    then
-                        printf "\n ${REDct}*WARNING*: Found high-risk phrases in the change-log.${NOct}"
-                        printf "\n ${REDct}Would you like to continue anyways?${NOct}"
-                        if ! _WaitForYESorNO_ ; then
-                            Say "Exiting for change-log review."
-                            _DoCleanUp_ 1 ; return 1
-                        fi
-                    else
-                        Say "*WARNING*: Found high-risk phrases in the change-log."
-                        Say "Please run script interactively to approve the upgrade."
-                        _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
-                        _DoCleanUp_ 1
-                        _DoExit_ 1
-                    fi
-                else
-                    Say "No high-risk phrases found in the change-log."
-                fi
-            fi
-        fi
-    else
-        Say "Change-logs check disabled."
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
     fi
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
@@ -4416,6 +4597,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
+   Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=360  #6 minutes#
@@ -5214,7 +5396,7 @@ _InvalidMenuSelection_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-03] ##
+## Modified by ExtremeFiretop [2024-May-25] ##
 ##------------------------------------------##
 _ShowMainMenu_()
 {
@@ -5254,15 +5436,12 @@ _ShowMainMenu_()
 
    _Calculate_NextRunTime_
 
-   notifyDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   notifyDate="$(Get_Custom_Setting "FW_New_Update_Notification_Date")"
    if [ "$notifyDate" = "TBD" ]
    then notificationStr="${REDct}NOT SET${NOct}"
    else notificationStr="${GRNct}$(_SimpleNotificationDate_ "$notifyDate")${NOct}"
    fi
 
-   ##----------------------------------------##
-   ## Modified by Martinski W. [2024-May-19] ##
-   ##----------------------------------------##
    printf "${SEPstr}"
    if [ "$HIDE_ROUTER_SECTION" = "false" ]
    then
@@ -5299,8 +5478,35 @@ _ShowMainMenu_()
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
 
-   printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
-   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+   local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+   if [ "$checkChangeLogSetting" = "DISABLED" ]
+   then
+       printf "\n  ${GRNct}5${NOct}.  Toggle Change-log Check"
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+   else
+       printf "\n  ${GRNct}5${NOct}.  Toggle Change-log Check"
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+   fi
+
+   ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+   if [ "$ChangelogApproval" = "BLOCKED" ]
+   then
+      printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
+      printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
+   elif [ "$ChangelogApproval" = "APPROVED" ]
+   then
+      printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
+      printf "\n${padStr}[Currently ${GRNct}${ChangelogApproval}${NOct}]\n"
+   fi
+
+   # Check for new script updates #
+   if [ "$UpdateNotify" != "0" ]; then
+      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
+      printf "\n${padStr}[Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
+   fi
+
+   # Add selection for "Advanced Options" sub-menu #
+   printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
    # Check for AiMesh Nodes #
    if "$inRouterSWmode" && [ -n "$node_list" ]; then
@@ -5310,22 +5516,12 @@ _ShowMainMenu_()
    # Add selection for "Log Options" sub-menu #
    printf "\n ${GRNct}lo${NOct}.  Log Options Menu\n"
 
-   # Add selection for "Advanced Options" sub-menu #
-   printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
-
-   # Check for new script updates #
-   if [ "$UpdateNotify" != "0" ]; then
-      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
-      printf "\n${padStr}[Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
-   fi
-
-   printf "\n ${GRNct}un${NOct}.  Uninstall\n"
    printf "\n  ${GRNct}e${NOct}.  Exit\n"
    printf "${SEPstr}\n"
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-03] ##
+## Modified by ExtremeFiretop [2024-May-25] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -5337,15 +5533,8 @@ _ShowAdvancedOptionsMenu_()
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
-   local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
-   if [ "$checkChangeLogSetting" = "DISABLED" ]
-   then
-       printf "\n  ${GRNct}2${NOct}.  Toggle Change-log Check"
-       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
-   else
-       printf "\n  ${GRNct}2${NOct}.  Toggle Change-log Check"
-       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
-   fi
+   printf "\n  ${GRNct}2${NOct}.  Set F/W Update Check Schedule"
+   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    if [ "$BetaProductionSetting" = "DISABLED" ]
@@ -5366,6 +5555,27 @@ _ShowAdvancedOptionsMenu_()
        if [ "$current_backup_settings" = "DISABLED" ]
        then printf "\n${padStr}[Currently ${REDct}${current_backup_settings}${NOct}]\n"
        else printf "\n${padStr}[Currently ${GRNct}${current_backup_settings}${NOct}]\n"
+       fi
+   fi
+
+   # Retrieve the current build type setting
+   local current_build_type="$(Get_Custom_Setting "ROGBuild")"
+
+   # Convert the setting to a descriptive text
+   if [ "$current_build_type" = "y" ]; then
+       current_build_type_menu="ROG Build"
+   elif [ "$current_build_type" = "n" ]; then
+       current_build_type_menu="Pure Build"
+   else
+       current_build_type_menu="NOT SET"
+   fi
+
+   if echo "$PRODUCT_ID" | grep -q "^GT-"
+   then
+       printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+       if [ "$current_build_type_menu" = "NOT SET" ]
+       then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
        fi
    fi
 
@@ -5404,27 +5614,7 @@ _ShowAdvancedOptionsMenu_()
        fi
    fi
 
-   # Retrieve the current build type setting
-   local current_build_type="$(Get_Custom_Setting "ROGBuild")"
-
-   # Convert the setting to a descriptive text
-   if [ "$current_build_type" = "y" ]; then
-       current_build_type_menu="ROG Build"
-   elif [ "$current_build_type" = "n" ]; then
-       current_build_type_menu="Pure Build"
-   else
-       current_build_type_menu="NOT SET"
-   fi
-
-   if echo "$PRODUCT_ID" | grep -q "^GT-"
-   then
-       printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
-       if [ "$current_build_type_menu" = "NOT SET" ]
-       then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
-       fi
-   fi
-
+   printf "\n ${GRNct}un${NOct}.  Uninstall\n"
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
    printf "${SEPstr}"
 }
@@ -5436,7 +5626,7 @@ _ShowNodesMenu_()
 {
    clear
    logo
-   printf "================= AiMesh Node(s) Info Menu ================\n"
+   printf "================ AiMesh Node(s) Info Menu ================\n"
    printf "${SEPstr}\n"
 
    if ! node_online_status="$(_NodeActiveStatus_)"
@@ -5471,49 +5661,6 @@ _ShowNodesMenuOptions_()
                ;;
         esac
     done
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-05] ##
-##----------------------------------------##
-_DownloadChangelogs_()
-{
-    local wgetLogFile  changeLogTag  changeLogFile  changeLogURL
-
-    # Create directory to download changelog if missing
-    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
-
-    changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
-    if [ "$changeLogTag" = "386" ]
-    then
-        changeLogURL="${CL_URL_386}"
-    elif [ "$changeLogTag" = "NG" ]
-    then
-        changeLogURL="${CL_URL_NG}"
-    fi
-
-    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
-    changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
-    printf "\nRetrieving ${GRNct}Changelog-${changeLogTag}.txt${NOct} ...\n"
-
-    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
-         -O "$changeLogFile" -o "$wgetLogFile" "${changeLogURL}"
-
-    if [ ! -f "$changeLogFile" ]
-    then
-        Say "Change-log file [$changeLogFile] does NOT exist."
-        echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
-    else
-        clear
-        printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
-        printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
-        dos2unix "$changeLogFile"
-        _WaitForEnterKey_
-        less "$changeLogFile"
-    fi
-    rm -f "$changeLogFile" "$wgetLogFile"
-    "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr"
-    return 1
 }
 
 ##----------------------------------------##
@@ -5565,7 +5712,7 @@ _AdvancedLogsOptions_()
                    _InvalidMenuSelection_
                fi
                ;;
-           cl) _DownloadChangelogs_
+           cl) _ManageChangelog_ "view"
                ;;
        e|exit) break
                ;;
@@ -5576,7 +5723,7 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-03] ##
+## Modified by ExtremeFiretop [2024-May-25] ##
 ##------------------------------------------##
 _advanced_options_menu_()
 {
@@ -5587,14 +5734,19 @@ _advanced_options_menu_()
         read -r advancedChoice
         echo
         case $advancedChoice in
-            1) _Set_FW_UpdateZIP_DirectoryPath_
+           1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
-            2) _toggle_change_log_check_
+           2) _Set_FW_UpdateCronSchedule_
                ;;
-            3) _toggle_beta_updates_
+           3) _toggle_beta_updates_
                ;;
            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
                then _Toggle_Auto_Backups_
+               else _InvalidMenuSelection_
+               fi
+               ;;
+           bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
+               then change_build_type
                else _InvalidMenuSelection_
                fi
                ;;
@@ -5615,10 +5767,7 @@ _advanced_options_menu_()
                else _InvalidMenuSelection_
                fi
                ;;
-           bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
-               then change_build_type
-               else _InvalidMenuSelection_
-               fi
+           un) _DoUninstall_ && _WaitForEnterKey_
                ;;
        e|exit) break
                ;;
@@ -5629,7 +5778,7 @@ _advanced_options_menu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-03] ##
+## Modified by ExtremeFiretop [2024-May-25] ##
 ##------------------------------------------##
 # Main Menu loop
 inMenuMode=true
@@ -5661,7 +5810,16 @@ do
           ;;
        4) _Set_FW_UpdatePostponementDays_
           ;;
-       5) _Set_FW_UpdateCronSchedule_
+       5) _toggle_change_log_check_
+          ;;
+       6) if [ "$ChangelogApproval" = "TBD" ] || [ -z "$ChangelogApproval" ]
+          then _InvalidMenuSelection_
+          else _ApproveUpgrade_
+          fi
+          ;;
+      up) _SCRIPTUPDATE_
+          ;;
+      ad) _advanced_options_menu_
           ;;
       mn) if "$inRouterSWmode" && [ -n "$node_list" ]
           then _ShowNodesMenuOptions_
@@ -5669,12 +5827,6 @@ do
           fi
           ;;
       lo) _AdvancedLogsOptions_
-          ;;
-      ad) _advanced_options_menu_
-          ;;
-      up) _SCRIPTUPDATE_
-          ;;
-      un) _DoUninstall_ && _WaitForEnterKey_
           ;;
   e|exit) _DoExit_ 0
           ;;
