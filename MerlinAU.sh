@@ -5479,19 +5479,35 @@ _ShowMainMenu_()
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
 
-   printf "\n  ${GRNct}5${NOct}.  Set F/W Update Check Schedule"
-   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+   local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+   if [ "$checkChangeLogSetting" = "DISABLED" ]
+   then
+       printf "\n  ${GRNct}5${NOct}.  Toggle Change-log Check"
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+   else
+       printf "\n  ${GRNct}5${NOct}.  Toggle Change-log Check"
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+   fi
 
    ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
    if [ "$ChangelogApproval" = "BLOCKED" ]
    then
-      printf "\n ${GRNct}ap${NOct}.  Toggle F/W Update Changelog Approval"
+      printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
       printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
    elif [ "$ChangelogApproval" = "APPROVED" ]
    then
-      printf "\n ${GRNct}ap${NOct}.  Toggle F/W Update Changelog Approval"
+      printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
       printf "\n${padStr}[Currently ${GRNct}${ChangelogApproval}${NOct}]\n"
    fi
+
+   # Check for new script updates #
+   if [ "$UpdateNotify" != "0" ]; then
+      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
+      printf "\n${padStr}[Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
+   fi
+
+   # Add selection for "Advanced Options" sub-menu #
+   printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
    # Check for AiMesh Nodes #
    if "$inRouterSWmode" && [ -n "$node_list" ]; then
@@ -5500,15 +5516,6 @@ _ShowMainMenu_()
 
    # Add selection for "Log Options" sub-menu #
    printf "\n ${GRNct}lo${NOct}.  Log Options Menu\n"
-
-   # Add selection for "Advanced Options" sub-menu #
-   printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
-
-   # Check for new script updates #
-   if [ "$UpdateNotify" != "0" ]; then
-      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
-      printf "\n${padStr}[Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
-   fi
 
    printf "\n  ${GRNct}e${NOct}.  Exit\n"
    printf "${SEPstr}\n"
@@ -5527,15 +5534,8 @@ _ShowAdvancedOptionsMenu_()
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
-   local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
-   if [ "$checkChangeLogSetting" = "DISABLED" ]
-   then
-       printf "\n  ${GRNct}2${NOct}.  Toggle Change-log Check"
-       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
-   else
-       printf "\n  ${GRNct}2${NOct}.  Toggle Change-log Check"
-       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
-   fi
+   printf "\n  ${GRNct}2${NOct}.  Set F/W Update Check Schedule"
+   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    if [ "$BetaProductionSetting" = "DISABLED" ]
@@ -5556,6 +5556,27 @@ _ShowAdvancedOptionsMenu_()
        if [ "$current_backup_settings" = "DISABLED" ]
        then printf "\n${padStr}[Currently ${REDct}${current_backup_settings}${NOct}]\n"
        else printf "\n${padStr}[Currently ${GRNct}${current_backup_settings}${NOct}]\n"
+       fi
+   fi
+
+   # Retrieve the current build type setting
+   local current_build_type="$(Get_Custom_Setting "ROGBuild")"
+
+   # Convert the setting to a descriptive text
+   if [ "$current_build_type" = "y" ]; then
+       current_build_type_menu="ROG Build"
+   elif [ "$current_build_type" = "n" ]; then
+       current_build_type_menu="Pure Build"
+   else
+       current_build_type_menu="NOT SET"
+   fi
+
+   if echo "$PRODUCT_ID" | grep -q "^GT-"
+   then
+       printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+       if [ "$current_build_type_menu" = "NOT SET" ]
+       then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
        fi
    fi
 
@@ -5591,27 +5612,6 @@ _ShowAdvancedOptionsMenu_()
            else
                echo
            fi
-       fi
-   fi
-
-   # Retrieve the current build type setting
-   local current_build_type="$(Get_Custom_Setting "ROGBuild")"
-
-   # Convert the setting to a descriptive text
-   if [ "$current_build_type" = "y" ]; then
-       current_build_type_menu="ROG Build"
-   elif [ "$current_build_type" = "n" ]; then
-       current_build_type_menu="Pure Build"
-   else
-       current_build_type_menu="NOT SET"
-   fi
-
-   if echo "$PRODUCT_ID" | grep -q "^GT-"
-   then
-       printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
-       if [ "$current_build_type_menu" = "NOT SET" ]
-       then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
        fi
    fi
 
@@ -5735,11 +5735,11 @@ _advanced_options_menu_()
         read -r advancedChoice
         echo
         case $advancedChoice in
-            1) _Set_FW_UpdateZIP_DirectoryPath_
+           1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
-            2) _toggle_change_log_check_
+           2) _Set_FW_UpdateCronSchedule_
                ;;
-            3) _toggle_beta_updates_
+           3) _toggle_beta_updates_
                ;;
            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
                then _Toggle_Auto_Backups_
@@ -5811,9 +5811,9 @@ do
           ;;
        4) _Set_FW_UpdatePostponementDays_
           ;;
-       5) _Set_FW_UpdateCronSchedule_
+       5) _toggle_change_log_check_
           ;;
-      ap) if [ "$ChangelogApproval" = "TBD" ] || [ -z "$ChangelogApproval" ]
+       6) if [ "$ChangelogApproval" = "TBD" ] || [ -z "$ChangelogApproval" ]
           then _InvalidMenuSelection_
           else _ApproveUpgrade_
           fi
