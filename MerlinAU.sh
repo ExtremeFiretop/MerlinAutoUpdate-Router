@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-26
+# Last Modified: 2024-May-27
 ###################################################################
 set -u
 
@@ -100,8 +100,8 @@ else inRouterSWmode=false
 fi
 
 readonly mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
-readonly advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Menu..."
-readonly logsMenuReturnPromptStr="Press <Enter> to return to the Logs Menu..."
+readonly advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Options Menu..."
+readonly logsMenuReturnPromptStr="Press <Enter> to return to the Log Options Menu..."
 
 [ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
 
@@ -750,22 +750,22 @@ _Init_Custom_Settings_Config_()
        sed -i "9 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$SETTINGSFILE"
        retCode=1
    fi
-   if ! grep -q "^CheckChangeLog" "$SETTINGSFILE"
+   if ! grep -q "^CheckChangeLog " "$SETTINGSFILE"
    then
        sed -i "10 i CheckChangeLog ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
-   if ! grep -q "^FW_Allow_Beta_Production_Up" "$SETTINGSFILE"
+   if ! grep -q "^FW_Allow_Beta_Production_Up " "$SETTINGSFILE"
    then
        sed -i "11 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
-   if ! grep -q "^FW_Auto_Backupmon" "$SETTINGSFILE"
+   if ! grep -q "^FW_Auto_Backupmon " "$SETTINGSFILE"
    then
        sed -i "12 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
-   if ! grep -q "^FW_New_Update_Changelog_Approval" "$SETTINGSFILE"
+   if ! grep -q "^FW_New_Update_Changelog_Approval=" "$SETTINGSFILE"
    then
        sed -i "13 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
        retCode=1
@@ -1305,7 +1305,7 @@ _CreateEMailContent_()
                highlighted_changelog_contents=$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/*\1*/gi")
            fi
            {
-               echo "Found high-risk phrases in the change-logs while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+               echo "Found high-risk phrases in the changelog file while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
                echo "Changelog contents include the following changes:"
                echo "$highlighted_changelog_contents"
                printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
@@ -2515,34 +2515,36 @@ _GetLatestFWUpdateVersionFromWebsite_()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-23] ##
 ##---------------------------------------##
-_toggle_change_log_check_() {
+_toggle_change_log_check_()
+{
     local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
-    if [ "$currentSetting" = "ENABLED" ]; then
-        printf "${REDct}*WARNING*:${NOct} Disabling change-log verification may risk unanticipated changes.\n"
-        printf "The advice is to proceed only if you review the change-logs manually.\n"
+    if [ "$currentSetting" = "ENABLED" ]
+    then
+        printf "${REDct}*WARNING*:${NOct} Disabling changelog verification may risk unanticipated changes.\n"
+        printf "The advice is to proceed only if you review the latest firmware changelog file manually.\n"
         printf "\nProceed to disable? [y/N]: "
         read -r response
         case $response in
             [Yy]* )
                 Update_Custom_Settings "CheckChangeLog" "DISABLED"
                 Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
-                printf "Change-log verification check is now ${REDct}DISABLED.${NOct}\n"
+                printf "Changelog verification check is now ${REDct}DISABLED.${NOct}\n"
                 ;;
             *)
-                printf "Change-log verification check remains ${GRNct}ENABLED.${NOct}\n"
+                printf "Changelog verification check remains ${GRNct}ENABLED.${NOct}\n"
                 ;;
         esac
     else
-        printf "Are you sure you want to enable the change-log verification check? [y/N]: "
+        printf "Are you sure you want to enable the changelog verification check? [y/N]: "
         read -r response
         case $response in
             [Yy]* )
                 Update_Custom_Settings "CheckChangeLog" "ENABLED"
-                printf "Change-log verification check is now ${GRNct}ENABLED.${NOct}\n"
+                printf "Changelog verification check is now ${GRNct}ENABLED.${NOct}\n"
                 ;;
             *)
-                printf "Change-log verification check remains ${REDct}DISABLED.${NOct}\n"
+                printf "Changelog verification check remains ${REDct}DISABLED.${NOct}\n"
                 ;;
         esac
     fi
@@ -2552,35 +2554,37 @@ _toggle_change_log_check_() {
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Jan-27] ##
 ##---------------------------------------##
-_toggle_beta_updates_() {
+_Toggle_FW_UpdatesFromBeta_()
+{
     local currentSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
 
-    if [ "$currentSetting" = "ENABLED" ]; then
+    if [ "$currentSetting" = "ENABLED" ]
+    then
         printf "${REDct}*WARNING*:${NOct}\n"
-        printf "Disabling updates from beta to release firmware may limit access to new features and fixes.\n"
-        printf "Keep this enabled if you prefer to stay up-to-date with the latest releases.\n"
+        printf "Disabling firmware updates from beta to production releases may limit access to new features and fixes.\n"
+        printf "Keep this option ENABLED if you prefer to stay up-to-date with the latest production releases.\n"
         printf "\nProceed to disable? [y/N]: "
         read -r response
         case $response in
             [Yy]* )
                 Update_Custom_Settings "FW_Allow_Beta_Production_Up" "DISABLED"
-                printf "Updates from beta firmwares to production firmwares are now ${REDct}DISABLED.${NOct}\n"
+                printf "Firmware updates from beta to production releases are now ${REDct}DISABLED.${NOct}\n"
                 ;;
             *)
-                printf "Updates from beta firmwares to production firmwares remain ${GRNct}ENABLED.${NOct}\n"
+                printf "Firmware updates from beta to production releases remain ${GRNct}ENABLED.${NOct}\n"
                 ;;
         esac
     else
-        printf "Are you sure you want to enable updates from beta F/Ws to production F/Ws?"
+        printf "Are you sure you want to enable firmware updates from beta to production?"
         printf "\nProceed to enable? [y/N]: "
         read -r response
         case $response in
             [Yy]* )
                 Update_Custom_Settings "FW_Allow_Beta_Production_Up" "ENABLED"
-                printf "Updates from beta firmwares to production firmwares are now ${GRNct}ENABLED.${NOct}\n"
+                printf "Firmware updates from beta to production releases are now ${GRNct}ENABLED.${NOct}\n"
                 ;;
             *)
-                printf "Updates from beta firmwares to production firmwares remain ${REDct}DISABLED.${NOct}\n"
+                printf "Firmware updates from beta to production releases remain ${REDct}DISABLED.${NOct}\n"
                 ;;
         esac
     fi
@@ -2590,10 +2594,12 @@ _toggle_beta_updates_() {
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Mar-20] ##
 ##---------------------------------------##
-_Toggle_Auto_Backups_() {
+_Toggle_Auto_Backups_()
+{
     local currentSetting="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
-    if [ "$currentSetting" = "ENABLED" ]; then
+    if [ "$currentSetting" = "ENABLED" ]
+    then
         printf "${REDct}*WARNING*:${NOct} Disabling auto backups may risk data loss or inconsistency.\n"
         printf "The advice is to proceed only if you're sure you want to disable auto backups.\n"
         printf "\nProceed to disable? [y/N]: "
@@ -2686,37 +2692,38 @@ change_build_type()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-May-25] ##
 ##---------------------------------------##
-_ApproveUpgrade_() {
+_ApproveUpgrade_()
+{
     local currentSetting="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
 
     if [ "$currentSetting" = "BLOCKED" ]
     then
-        printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the change-log.\n"
+        printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the changelog file.\n"
         printf "The advice is to approve if you're read the firmware changelog and you want to proceed with the update.\n"
         printf "Are you sure you want to approve the latest firmware update? [y/N]: "
         read -r response
         case $response in
             [Yy]* )
                 Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
-                printf "The latest firmware upgrade is now ${GRNct}APPROVED.${NOct}\n"
+                printf "The latest firmware update is now ${GRNct}APPROVED.${NOct}\n"
                 ;;
             *)
                 Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
-                printf "The latest firmware upgrade remain ${REDct}BLOCKED.${NOct}\n"
+                printf "The latest firmware update remain ${REDct}BLOCKED.${NOct}\n"
                 ;;
         esac
     else
-        printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the change-log.\n"
+        printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the changelog file.\n"
         printf "Are you sure you want to block the latest firmware update? [y/N]: "
         read -r response
         case $response in
             [Yy]* )
                 Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
-                printf "The latest firmware upgrade is now ${REDct}BLOCKED.${NOct}\n"
+                printf "The latest firmware update is now ${REDct}BLOCKED.${NOct}\n"
                 ;;
             *)
                 Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
-                printf "The latest firmware upgrade remain ${GRNct}APPROVED.${NOct}\n"
+                printf "The latest firmware update remain ${GRNct}APPROVED.${NOct}\n"
                 ;;
         esac
     fi
@@ -3494,37 +3501,39 @@ _Set_FW_UpdateCronSchedule_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-May-26] ##
 ##------------------------------------------##
-_high_risk_phrases_interactive_() {
+_high_risk_phrases_interactive_()
+{
     local changelog_contents="$1"
 
-    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"; then
+    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    then
         ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
         if [ "$ChangelogApproval" = "BLOCKED" ]
         then
             if [ "$inMenuMode" = true ]
             then
-                printf "\n ${REDct}*WARNING*: Found high-risk phrases in the change-log.${NOct}"
-                printf "\n ${REDct}Would you like to continue anyways?${NOct}"
+                printf "\n ${REDct}*WARNING*: Found high-risk phrases in the changelog file.${NOct}"
+                printf "\n ${REDct}Would you like to continue with the firmware update anyways?${NOct}"
                 if ! _WaitForYESorNO_
                 then
-                    Say "Exiting for change-log review."
+                    Say "Exiting changelog review."
                     _DoCleanUp_ 1
                     return 1
                 else
                     Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
                 fi
             else
-                Say "*WARNING*: Found high-risk phrases in the change-log."
-                Say "Please run script interactively to approve the upgrade."
+                Say "*WARNING*: Found high-risk phrases in the changelog file."
+                Say "Please run script interactively to approve the firmware update."
                 _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
                 _DoCleanUp_ 1
                 _DoExit_ 1
             fi
         else
-            Say "Changelog pre-approved!"
+            Say "Changelog review is pre-approved!"
         fi
     else
-        Say "No high-risk phrases found in the change-log."
+        Say "No high-risk phrases found in the changelog file."
     fi
     return 0
 }
@@ -3537,11 +3546,11 @@ _high_risk_phrases_nointeractive_() {
 
     if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
     then
-        printf "\n${REDct}*WARNING*${NOct}: Found high-risk phrases in the change-log."
+        printf "\n${REDct}*WARNING*${NOct}: Found high-risk phrases in the changelog file."
         printf "\nPlease approve the update by selecting ${GRNct}'Toggle F/W Update Changelog Approval'${NOct}\n"
         if [ "$inMenuMode" = false ]
         then
-            Say "\nPlease run script interactively to approve the upgrade."
+            Say "\nPlease run script interactively to approve the firmware update."
         fi
         _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
         Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
@@ -3554,7 +3563,8 @@ _high_risk_phrases_nointeractive_() {
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-May-26] ##
 ##------------------------------------------##
-_ChangelogVerificationCheck_() {
+_ChangelogVerificationCheck_()
+{
     local mode="$1"  # Mode should be 'auto' or 'interactive'
     local formatted_current_version
     local formatted_release_version
@@ -3576,7 +3586,7 @@ _ChangelogVerificationCheck_() {
 
         if [ ! -f "$changeLogFile" ]
         then
-            Say "Change-log file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
+            Say "Changelog file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
             _DoCleanUp_
             return 1
         else
@@ -3620,7 +3630,7 @@ _ChangelogVerificationCheck_() {
             # Check if the current version is present in the changelog
             if ! grep -Eq "$current_version_regex" "$changeLogFile"
             then
-                Say "Current version not found in change-log. Bypassing change-log verification for this run."
+                Say "Current version NOT found in changelog file. Bypassing changelog verification for this run."
                 return 0
             fi
 
@@ -3629,21 +3639,19 @@ _ChangelogVerificationCheck_() {
 
             if [ "$mode" = "interactive" ]
             then
-                _high_risk_phrases_interactive_ "$changelog_contents"
-                if [ $? -ne 0 ]
-                then
-                    return 1
+                if _high_risk_phrases_interactive_ "$changelog_contents"
+                then return 0
+                else return 1
                 fi
             else
-                _high_risk_phrases_nointeractive_ "$changelog_contents"
-                if [ $? -ne 0 ]
-                then
-                    return 1
+                if _high_risk_phrases_nointeractive_ "$changelog_contents"
+                then return 0
+                else return 1
                 fi
             fi
         fi
     else
-        [ "$mode" = "interactive" ] && Say "Change-logs check disabled."
+        [ "$mode" = "interactive" ] && Say "Changelog check is DISABLED."
         return 0
     fi
 }
@@ -3680,7 +3688,7 @@ _ManageChangelog_()
 
     if [ ! -f "$changeLogFile" ]
     then
-        Say "Change-log file [$changeLogFile] does NOT exist."
+        Say "Changelog file [$changeLogFile] does NOT exist."
         echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
     else
         if [ "$mode" = "download" ]
@@ -3689,7 +3697,7 @@ _ManageChangelog_()
         elif [ "$mode" = "view" ]
         then
             clear
-            printf "\n${GRNct}Changelog is ready to review!${NOct}\n"
+            printf "\n${GRNct}Changelog file is ready to review!${NOct}\n"
             printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
             dos2unix "$changeLogFile"
             _WaitForEnterKey_
@@ -4438,7 +4446,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
         # Extract the corresponding signature for the firmware file from the fetched checksums #
-        dl_sig="$(echo "$checksums" | grep "$(basename $firmware_file)" | cut -d' ' -f1)"
+        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | cut -d' ' -f1)"
         if [ "$fw_sig" != "$dl_sig" ]
         then
             Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
@@ -5091,8 +5099,8 @@ fi
 
 # menu setup variables #
 theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
-theADExitStr="${GRNct}e${NOct}=Exit to Advanced Menu"
-theLGExitStr="${GRNct}e${NOct}=Exit to Logs Menu"
+theADExitStr="${GRNct}e${NOct}=Exit to Advanced Options Menu"
+theLGExitStr="${GRNct}e${NOct}=Exit to Log Options Menu"
 
 padStr="      "
 SEPstr="----------------------------------------------------------"
@@ -5267,7 +5275,7 @@ _CheckForUpdateLogFiles_()
        updateLogFileFound=false
        return 1
    fi
-   chmod 444 "${FW_LOG_DIR}"/${MODEL_ID}_FW_Update_*.log
+   chmod 444 "${FW_LOG_DIR}/${MODEL_ID}"_FW_Update_*.log
    updateLogFileFound=true
    return 0
 }
@@ -5481,10 +5489,10 @@ _ShowMainMenu_()
    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
    if [ "$checkChangeLogSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}5${NOct}.  Toggle Change-log Check"
+       printf "\n  ${GRNct}5${NOct}.  Toggle Changelog Check"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}5${NOct}.  Toggle Change-log Check"
+       printf "\n  ${GRNct}5${NOct}.  Toggle Changelog Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
@@ -5539,10 +5547,10 @@ _ShowAdvancedOptionsMenu_()
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release Updates"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release Upgrades"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release Updates"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
@@ -5666,11 +5674,11 @@ _ShowNodesMenuOptions_()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-04] ##
 ##----------------------------------------##
-_ShowLogsMenu_()
+_ShowLogOptionsMenu_()
 {
    clear
    logo
-   printf "======================== Logs Menu =======================\n"
+   printf "==================== Log Options Menu ====================\n"
    printf "${SEPstr}\n"
 
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update Log Files"
@@ -5694,7 +5702,7 @@ _AdvancedLogsOptions_()
 {
     while true
     do
-        _ShowLogsMenu_
+        _ShowLogOptionsMenu_
         printf "\nEnter selection:  "
         read -r nodesChoice
         echo
@@ -5734,11 +5742,11 @@ _advanced_options_menu_()
         read -r advancedChoice
         echo
         case $advancedChoice in
-           1) _Set_FW_UpdateZIP_DirectoryPath_
+            1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
-           2) _Set_FW_UpdateCronSchedule_
+            2) _Set_FW_UpdateCronSchedule_
                ;;
-           3) _toggle_beta_updates_
+            3) _Toggle_FW_UpdatesFromBeta_
                ;;
            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
                then _Toggle_Auto_Backups_
