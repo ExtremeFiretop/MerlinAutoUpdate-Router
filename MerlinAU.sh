@@ -2936,6 +2936,7 @@ _toggle_change_log_check_()
         else
             printf "Changelog verification check remains ${REDct}DISABLED.${NOct}\n"
         fi
+
     fi
     _WaitForEnterKey_
 }
@@ -3002,6 +3003,7 @@ _Toggle_Auto_Backups_()
         else
             printf "Automatic backups remain ${REDct}DISABLED.${NOct}\n"
         fi
+
     fi
     _WaitForEnterKey_
 }
