@@ -4149,6 +4149,7 @@ _ManageChangelogMerlin_()
 
 _ManageChangelogGnuton_()
 {
+    local mode="$1"  # Mode should be 'download' or 'view'
     local wgetLogFile  Gnuton_changelogurl  FW_Changelog_GITHUB
 
     # Create directory to download changelog if missing
