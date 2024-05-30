@@ -3976,14 +3976,17 @@ _high_risk_phrases_nointeractive_() {
 
     if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
     then
-        printf "\n${REDct}*WARNING*${NOct}: Found high-risk phrases in the changelog file."
-        printf "\nPlease approve the update by selecting ${GRNct}'Toggle F/W Update Changelog Approval'${NOct}\n"
-        if [ "$inMenuMode" = false ]
-        then
-            Say "\nPlease run script interactively to approve the firmware update."
-        fi
         _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
         Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+        if [ "$inMenuMode" = true ]
+		then
+            printf "\n${REDct}*WARNING*${NOct}: Found high-risk phrases in the changelog file."
+            printf "\nPlease approve the update by selecting ${GRNct}'Toggle F/W Update Changelog Approval'${NOct}\n"
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        else
+            Say "Please run script interactively to approve the firmware update."
+            Say "To approve the update, select 'Toggle F/W Update Changelog Approval'"
+        fi
         return 1
     else
         return 0
