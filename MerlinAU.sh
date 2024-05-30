@@ -4239,9 +4239,9 @@ _CheckNewUpdateFirmwareNotification_()
            fi
            if "$isGNUtonFW"
            then
-                _ManageChangelogGnuton_ "view"
+                _ManageChangelogGnuton_ "download"
            else
-                _ManageChangelogMerlin_ "view"
+                _ManageChangelogMerlin_ "download"
            fi
        fi
    fi
@@ -4257,9 +4257,9 @@ _CheckNewUpdateFirmwareNotification_()
        fi
        if "$isGNUtonFW"
        then
-            _ManageChangelogGnuton_ "view"
+            _ManageChangelogGnuton_ "download"
        else
-            _ManageChangelogMerlin_ "view"
+            _ManageChangelogMerlin_ "download"
        fi
    fi
 
