@@ -1746,7 +1746,7 @@ _GetCurrentFWInstalledLongVersion_()
 _GetCurrentFWInstalledShortVersion_()
 {
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.6.2" ; return 0 ; fi
+if false ; then echo "388.6.0" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
     local theVersionStr  extVersNum
@@ -4010,7 +4010,12 @@ _ChangelogVerificationCheck_()
 
         if "$isGNUtonFW"
         then
-            changeLogFile="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
+            if [ "$mode" = "auto" ]
+            then
+                changeLogFile="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
+            else
+                changeLogFile="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
+            fi
         else
             # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
             if echo "$release_version" | grep -q "386"; then
@@ -4171,11 +4176,11 @@ _ManageChangelogGnuton_()
 
     FW_Changelog_GITHUB="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
 
-    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
+    wgetLogFile="${FW_ZIP_DIR}/${ScriptFNameTag}.WGET.LOG"
     printf "\nRetrieving ${GRNct}${FW_Changelog_GITHUB}${NOct} ...\n"
 
     wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
-         -O "$FW_Changelog_GITHUB" -o "$wgetLogFile" "$Gnuton_changelogurl"
+         -O "$FW_Changelog_GITHUB" -o "$wgetLogFile" "${Gnuton_changelogurl}"
 
     if [ ! -f "$FW_Changelog_GITHUB" ]
     then
@@ -4196,7 +4201,6 @@ _ManageChangelogGnuton_()
         fi
     fi
     rm -f "$FW_Changelog_GITHUB" "$wgetLogFile"
-    "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr"
     return 1
 }
 
