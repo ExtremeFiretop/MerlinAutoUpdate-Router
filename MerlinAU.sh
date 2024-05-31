@@ -4010,12 +4010,7 @@ _ChangelogVerificationCheck_()
 
         if "$isGNUtonFW"
         then
-            if [ "$mode" = "auto" ]
-            then
-                changeLogFile="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
-            else
-                changeLogFile="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
-            fi
+            changeLogFile="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
         else
             # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
             if echo "$release_version" | grep -q "386"; then
@@ -4028,7 +4023,12 @@ _ChangelogVerificationCheck_()
 
         if [ ! -f "$changeLogFile" ]
         then
-            Say "Changelog file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
+            if "$isGNUtonFW"
+            then
+                Say "Changelog file [${FW_BIN_DIR}/${FW_FileName}_Changelog.txt] does NOT exist."
+            else
+                Say "Changelog file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
+            fi
             _DoCleanUp_
             return 1
         else
@@ -4161,7 +4161,7 @@ _ManageChangelogGnuton_()
     local wgetLogFile  Gnuton_changelogurl  FW_Changelog_GITHUB
 
     # Create directory to download changelog if missing
-    if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
+    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
 
@@ -4174,9 +4174,9 @@ _ManageChangelogGnuton_()
     # Sanitize filename by removing problematic characters
     local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
 
-    FW_Changelog_GITHUB="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
+    FW_Changelog_GITHUB="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
 
-    wgetLogFile="${FW_ZIP_DIR}/${ScriptFNameTag}.WGET.LOG"
+    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
     printf "\nRetrieving ${GRNct}${FW_Changelog_GITHUB}${NOct} ...\n"
 
     wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
