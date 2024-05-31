@@ -43,7 +43,6 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
 ## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
  - GT-AC2900 (Untested)
- - RT-AX68U (Untested)
  - RT-AX56U (Untested)
 
  ## TESTERS NEEDED!
