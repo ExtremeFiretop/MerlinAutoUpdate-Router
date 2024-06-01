@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-31
+# Last Modified: 2024-Jun-01
 ###################################################################
 set -u
 
@@ -236,7 +236,7 @@ _DoExit_()
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
 ## To support new "3006" F/W Basecode ##
-if [ "$fwInstalledBaseVers" -eq 3006 ]
+if [ "$fwInstalledBaseVers" -ge 3006 ]
 then readonly nvramLEDsVar=AllLED
 else readonly nvramLEDsVar=led_disable
 fi
@@ -1716,26 +1716,6 @@ if false ; then echo "3004.388.6.2" ; return 0 ; fi
    theVersionStr="${fwInstalledBaseVers}.${theVersionStr}"
 
    echo "$theVersionStr"
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
-##----------------------------------------##
-_GetCurrentFWInstalledShortVersion_()
-{
-
-##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.6.2" ; return 0 ; fi
-##FOR TESTING/DEBUG ONLY##
-
-    local theVersionStr  extVersNum
-
-    extVersNum="$(echo "$fwInstalledExtendNum" | awk -F '-' '{print $1}')"
-    echo "$extVersNum" | grep -qiE "^(alpha|beta)" && extVersNum="0_$extVersNum"
-    [ -z "$extVersNum" ] && extVersNum=0
-
-    theVersionStr="${fwInstalledBuildVers}.$extVersNum"
-    echo "$theVersionStr"
 }
 
 ##----------------------------------------##
