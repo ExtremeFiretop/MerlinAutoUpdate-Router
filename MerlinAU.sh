@@ -1733,13 +1733,13 @@ _AddPostRebootRunScriptHook_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
+## Modified by Martinski W. [2024-Feb-28] ##
 ##----------------------------------------##
 _GetCurrentFWInstalledLongVersion_()
 {
 
 ##FOR TESTING/DEBUG ONLY##
-if true ; then echo "3004.388.6.2" ; return 0 ; fi
+if false ; then echo "3004.388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
    local theVersionStr  extVersNum
@@ -2479,8 +2479,8 @@ _GetNodeInfo_()
     node_lan_hostname="$(echo "$htmlContent" | grep -o '"lan_hostname":"[^"]*' | sed 's/"lan_hostname":"//')"
     node_label_mac="$(echo "$htmlContent" | grep -o '"label_mac":"[^"]*' | sed 's/"label_mac":"//')"
 
-    # Combine extracted information into one string #
-    Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
+    # Combine extracted information into one string
+    Node_combinedVer="$node_firmver.$node_buildno.$node_extendno"
 
     # Perform logout request
     curl -s -k "${NodeURLstr}/Logout.asp" \
@@ -3999,9 +3999,9 @@ _high_risk_phrases_nointeractive_()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-26] ##
+##------------------------------------------##
 _ChangelogVerificationCheck_()
 {
     local mode="$1"  # Mode should be 'auto' or 'interactive' #
