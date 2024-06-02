@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-May-27
+# Last Modified: 2024-Jun-01
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.1.6
+readonly SCRIPT_VERSION=1.2.1
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -23,12 +23,14 @@ readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly FW_SFURL_RELEASE_SUFFIX="Release"
 readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-May-03] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
 # Changelog Info #
 readonly CL_URL_NG="${FW_SFURL_BASE}/Documentation/Changelog-NG.txt/download"
 readonly CL_URL_386="${FW_SFURL_BASE}/Documentation/Changelog-386.txt/download"
+readonly CL_URL_3006="${FW_SFURL_BASE}/Documentation/Changelog-3006.txt/download"
+
 readonly high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
 # For new script version updates from source repository #
@@ -88,12 +90,15 @@ else cronListCmd="crontab -l"
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
+## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
 inMenuMode=true
 isInteractive=false
 
-mainLAN_IPaddr="$(nvram get lan_ipaddr)"
+readonly mainLAN_IPaddr="$(nvram get lan_ipaddr)"
+readonly fwInstalledBaseVers="$(nvram get firmver | sed 's/\.//g')"
+readonly fwInstalledBuildVers="$(nvram get buildno)"
+readonly fwInstalledExtendNum="$(nvram get extendno)"
 
 if [ "$(nvram get sw_mode)" -eq 1 ]
 then inRouterSWmode=true
@@ -228,12 +233,18 @@ _DoExit_()
    _ReleaseLock_ ; exit "$exitCode"
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-18] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
+## To support new "3006" F/W Basecode ##
+if [ "$fwInstalledBaseVers" -ge 3006 ]
+then readonly nvramLEDsVar=AllLED
+else readonly nvramLEDsVar=led_disable
+fi
+
 # Save initial LEDs state to put it back later #
-readonly LED_InitState="$(nvram get led_disable)"
-LED_ToggleState="$LED_InitState"
+readonly LEDsInitState="$(nvram get "$nvramLEDsVar")"
+LEDsToggleState="$LEDsInitState"
 Toggle_LEDs_PID=""
 
 # To enable/disable the built-in "F/W Update Check" #
@@ -263,12 +274,12 @@ _GetDefaultUSBMountPoint_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-22] ##
+## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
 # Background function to create a blinking LED effect #
 Toggle_LEDs()
 {
-   if [ -z "$LED_ToggleState" ]
+   if [ -z "$LEDsToggleState" ]
    then
        sleep 1
        Toggle_LEDs_PID=""
@@ -283,8 +294,8 @@ Toggle_LEDs()
 
    while true
    do
-      LED_ToggleState="$((! LED_ToggleState))"
-      nvram set led_disable="$LED_ToggleState"
+      LEDsToggleState="$((! LEDsToggleState))"
+      nvram set ${nvramLEDsVar}="$LEDsToggleState"
       /sbin/service restart_leds > /dev/null 2>&1
       sleep "$blinkRateSecs"
    done
@@ -292,7 +303,7 @@ Toggle_LEDs()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-23] ##
+## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
 _Reset_LEDs_()
 {
@@ -311,7 +322,7 @@ _Reset_LEDs_()
        kill -TERM $Toggle_LEDs_PID
        wait $Toggle_LEDs_PID
        # Set LEDs to their "initial state" #
-       nvram set led_disable="$LED_InitState"
+       nvram set ${nvramLEDsVar}="$LEDsInitState"
        /sbin/service restart_leds >/dev/null 2>&1
        sleep 2
    fi
@@ -396,7 +407,7 @@ _ScriptVersionStrToNum_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-28] ##
+## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
 _FWVersionStrToNum_()
 {
@@ -406,7 +417,7 @@ _FWVersionStrToNum_()
     USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
     local verNum  verStr="$1"  nonProductionVersionWeight=0
-    local fwBranchVers=""  numFields
+    local fwBasecodeVers=""  numOfFields
 
     #--------------------------------------------------------------
     # Handle any 'alpha/beta' in the version string to be sure
@@ -423,19 +434,19 @@ _FWVersionStrToNum_()
         verStr="$(echo "$verStr" | sed 's/[_-]\?[Aa]lpha.*// ; s/[_-]\?[Bb]eta.*//')"
     fi
 
-    numFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
+    numOfFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
 
-    if [ "$numFields" -lt "$2" ]
-    then fwBranchVers="$(nvram get firmver | sed 's/\.//g')" ; fi
+    if [ "$numOfFields" -lt "$2" ]
+    then fwBasecodeVers="$fwInstalledBaseVers" ; fi
 
     #-----------------------------------------------------------
-    # Temporarily remove Branch version to avoid issues with
+    # Temporarily remove Basecode version to avoid issues with
     # integers greater than the maximum 32-bit signed integer
     # when doing arithmetic computations with shell cmds.
     #-----------------------------------------------------------
-    if [ "$numFields" -gt 3 ]
+    if [ "$numOfFields" -gt 3 ]
     then
-        fwBranchVers="$(echo "$verStr" | cut -d'.' -f1)"
+        fwBasecodeVers="$(echo "$verStr" | cut -d'.' -f1)"
         verStr="$(echo "$verStr" | cut -d'.' -f2-)"
     fi
     verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')"
@@ -443,8 +454,8 @@ _FWVersionStrToNum_()
     # Subtract non-production weight from the version number #
     verNum="$((verNum + nonProductionVersionWeight))"
 
-    # Now prepend the F/W Branch version #
-    [ -n "$fwBranchVers" ] && verNum="${fwBranchVers}$verNum"
+    # Now prepend the F/W Basecode version #
+    [ -n "$fwBasecodeVers" ] && verNum="${fwBasecodeVers}$verNum"
 
     echo "$verNum" ; return 0
 }
@@ -1726,37 +1737,22 @@ _AddPostRebootRunScriptHook_()
 ##----------------------------------------##
 _GetCurrentFWInstalledLongVersion_()
 {
-   local theBranchVers  theVersionStr  extVersNum
 
-   theBranchVers="$(nvram get firmver | sed 's/\.//g')"
+##FOR TESTING/DEBUG ONLY##
+if true ; then echo "3004.388.6.2" ; return 0 ; fi
+##FOR TESTING/DEBUG ONLY##
 
-   extVersNum="$(nvram get extendno)"
+   local theVersionStr  extVersNum
+
+   extVersNum="$fwInstalledExtendNum"
    echo "$extVersNum" | grep -qiE "^(alpha|beta)" && extVersNum="0_$extVersNum"
    [ -z "$extVersNum" ] && extVersNum=0
 
-   theVersionStr="$(nvram get buildno).$extVersNum"
-   [ -n "$theBranchVers" ] && theVersionStr="${theBranchVers}.${theVersionStr}"
+   theVersionStr="${fwInstalledBuildVers}.$extVersNum"
+   [ -n "$fwInstalledBaseVers" ] && \
+   theVersionStr="${fwInstalledBaseVers}.${theVersionStr}"
 
    echo "$theVersionStr"
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-28] ##
-##----------------------------------------##
-_GetCurrentFWInstalledShortVersion_()
-{
-##FOR TESTING/DEBUG ONLY##
-if false ; then echo "388.6.0" ; return 0 ; fi
-##FOR TESTING/DEBUG ONLY##
-
-    local theVersionStr  extVersNum
-
-    extVersNum="$(nvram get extendno | awk -F '-' '{print $1}')"
-    echo "$extVersNum" | grep -qiE "^(alpha|beta)" && extVersNum="0_$extVersNum"
-    [ -z "$extVersNum" ] && extVersNum=0
-
-    theVersionStr="$(nvram get buildno).$extVersNum"
-    echo "$theVersionStr"
 }
 
 ##----------------------------------------##
@@ -2035,20 +2031,22 @@ check_memory_and_prompt_reboot()
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
 # Function to check if the current router model is supported
-check_version_support() {
-    # Minimum supported firmware version
-    minimum_supported_version="386.12.0"
+check_version_support()
+{
+    local numOfFields  current_version  numCurrentVers  numMinimumVers
 
-    # Get the current firmware version
-    local current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    # Minimum supported firmware version #
+    minimum_supported_version="3004.386.12.0"
 
-    local numFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
-    local numCurrentVers="$(_FWVersionStrToNum_ "$current_version" "$numFields")"
-    local numMinimumVers="$(_FWVersionStrToNum_ "$minimum_supported_version" "$numFields")"
+    current_version="$(_GetCurrentFWInstalledLongVersion_)"
+
+    numOfFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
+    numCurrentVers="$(_FWVersionStrToNum_ "$current_version" "$numOfFields")"
+    numMinimumVers="$(_FWVersionStrToNum_ "$minimum_supported_version" "$numOfFields")"
 
     # If the current firmware version is lower than the minimum supported firmware version, exit.
     if [ "$numCurrentVers" -lt "$numMinimumVers" ]
@@ -3928,9 +3926,9 @@ _Set_FW_UpdateCronSchedule_()
     return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-26] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
 _high_risk_phrases_interactive_()
 {
     local changelog_contents="$1"
@@ -3938,7 +3936,14 @@ _high_risk_phrases_interactive_()
     if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
     then
         ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-        if [ "$ChangelogApproval" = "BLOCKED" ]
+
+        if [ "$ChangelogApproval" = "APPROVED" ]
+        then
+            Say "Changelog review is pre-approved!"
+        #
+        elif [ -z "$ChangelogApproval" ] || \
+             [ "$ChangelogApproval" = "TBD" ] || \
+             [ "$ChangelogApproval" = "BLOCKED" ]
         then
             if [ "$inMenuMode" = true ]
             then
@@ -3947,6 +3952,7 @@ _high_risk_phrases_interactive_()
                 if ! _WaitForYESorNO_
                 then
                     Say "Exiting for changelog review."
+                    Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
                     _DoCleanUp_ 1
                     return 1
                 else
@@ -3955,12 +3961,11 @@ _high_risk_phrases_interactive_()
             else
                 Say "*WARNING*: Found high-risk phrases in the changelog file."
                 Say "Please run script interactively to approve the firmware update."
+                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
                 _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
                 _DoCleanUp_ 1
                 _DoExit_ 1
             fi
-        else
-            Say "Changelog review is pre-approved!"
         fi
     else
         Say "No high-risk phrases found in the changelog file."
@@ -3971,7 +3976,8 @@ _high_risk_phrases_interactive_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-May-26] ##
 ##------------------------------------------##
-_high_risk_phrases_nointeractive_() {
+_high_risk_phrases_nointeractive_()
+{
     local changelog_contents="$1"
 
     if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
@@ -3979,7 +3985,7 @@ _high_risk_phrases_nointeractive_() {
         _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
         Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
         if [ "$inMenuMode" = true ]
-		then
+        then
             printf "\n${REDct}*WARNING*${NOct}: Found high-risk phrases in the changelog file."
             printf "\nPlease approve the update by selecting ${GRNct}'Toggle F/W Update Changelog Approval'${NOct}\n"
             _WaitForEnterKey_ "$mainMenuReturnPromptStr"
@@ -3998,22 +4004,26 @@ _high_risk_phrases_nointeractive_() {
 ##------------------------------------------##
 _ChangelogVerificationCheck_()
 {
-    local mode="$1"  # Mode should be 'auto' or 'interactive'
-    local formatted_current_version
-    local formatted_release_version
+    local mode="$1"  # Mode should be 'auto' or 'interactive' #
+    local current_version  formatted_current_version
+    local release_version  formatted_release_version
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
-        local current_version="$(_GetCurrentFWInstalledShortVersion_)"
+        local current_version="$(_GetCurrentFWInstalledLongVersion_)"
         local release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
 
         if "$isGNUtonFW"
         then
             changeLogFile="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
         else
-            # Get the correct Changelog filename (Changelog-[386|NG].txt) based on the "build number" #
-            if echo "$release_version" | grep -q "386"; then
+            # Get the correct Changelog filename: "Changelog-[3006|386|NG].txt" #
+            if echo "$release_version" | grep -qE "^3006[.]"
+            then
+                changeLogTag="3006"
+            elif echo "$release_version" | grep -q "386[.]"
+            then
                 changeLogTag="386"
             else
                 changeLogTag="NG"
@@ -4107,19 +4117,45 @@ _ChangelogVerificationCheck_()
 ##------------------------------------------##
 _ManageChangelogMerlin_()
 {
-    local mode="$1"  # Mode should be 'download' or 'view'
-    local wgetLogFile changeLogTag changeLogFile changeLogURL
+    if [ $# -eq 0 ] || [ -z "$1" ]
+    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+    local mode="$1"  # Mode should be 'download' or 'view' #
+    local newUpdateVerStr=""
+    local wgetLogFile  changeLogFile  changeLogTag  changeLogURL
 
     # Create directory to download changelog if missing
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
-    changeLogTag="$(echo "$(nvram get buildno)" | grep -qE "^386[.]" && echo "386" || echo "NG")"
-    if [ "$changeLogTag" = "386" ]
+    if [ "$mode" = "view" ]
     then
-        changeLogURL="${CL_URL_386}"
-    elif [ "$changeLogTag" = "NG" ]
+        if [ "$fwInstalledBaseVers" -eq 3006 ]
+        then
+            changeLogTag="3006"
+            changeLogURL="${CL_URL_3006}"
+        elif echo "$fwInstalledBuildVers" | grep -qE "^386[.]"
+        then
+            changeLogTag="386"
+            changeLogURL="${CL_URL_386}"
+        else
+            changeLogTag="NG"
+            changeLogURL="${CL_URL_NG}"
+        fi
+    elif [ "$mode" = "download" ]
     then
-        changeLogURL="${CL_URL_NG}"
+        [ $# -gt 1 ] && [ -n "$2" ] && newUpdateVerStr="$2"
+        if echo "$newUpdateVerStr" | grep -qE "^3006[.]"
+        then
+            changeLogTag="3006"
+            changeLogURL="${CL_URL_3006}"
+        elif echo "$newUpdateVerStr" | grep -q "386[.]"
+        then
+            changeLogTag="386"
+            changeLogURL="${CL_URL_386}"
+        else
+            changeLogTag="NG"
+            changeLogURL="${CL_URL_NG}"
+        fi 
     fi
 
     wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
@@ -4157,8 +4193,12 @@ _ManageChangelogMerlin_()
 
 _ManageChangelogGnuton_()
 {
-    local mode="$1"  # Mode should be 'download' or 'view'
-    local wgetLogFile  Gnuton_changelogurl  FW_Changelog_GITHUB
+    if [ $# -eq 0 ] || [ -z "$1" ]
+    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+    local mode="$1"  # Mode should be 'download' or 'view' #
+    local newUpdateVerStr=""
+    local wgetLogFile  changeLogFile  changeLogTag  changeLogURL
 
     # Create directory to download changelog if missing
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
@@ -4205,22 +4245,23 @@ _ManageChangelogGnuton_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-18] ##
+## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local numVersionFields  fwNewUpdateVersNum
+   local numOfFields  fwNewUpdateVersNum
+   local currentVersionStr="$1"  releaseVersionStr="$2"
 
-   numVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
-   currentVersionNum="$(_FWVersionStrToNum_ "$1" "$numVersionFields")"
-   releaseVersionNum="$(_FWVersionStrToNum_ "$2" "$numVersionFields")"
+   numOfFields="$(echo "$currentVersionStr" | awk -F '.' '{print NF}')"
+   currentVersionNum="$(_FWVersionStrToNum_ "$currentVersionStr" "$numOfFields")"
+   releaseVersionNum="$(_FWVersionStrToNum_ "$releaseVersionStr" "$numOfFields")"
 
    if [ "$currentVersionNum" -ge "$releaseVersionNum" ]
    then
-       Say "Current firmware version '$1' is up to date."
+       Say "Current firmware version '${currentVersionStr}' is up to date."
        Update_Custom_Settings FW_New_Update_Notification_Date TBD
        Update_Custom_Settings FW_New_Update_Notification_Vers TBD
        Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
@@ -4230,14 +4271,14 @@ _CheckNewUpdateFirmwareNotification_()
    fwNewUpdateNotificationVers="$(Get_Custom_Setting FW_New_Update_Notification_Vers TBD)"
    if [ -z "$fwNewUpdateNotificationVers" ] || [ "$fwNewUpdateNotificationVers" = "TBD" ]
    then
-       fwNewUpdateNotificationVers="$2"
+       fwNewUpdateNotificationVers="$releaseVersionStr"
        Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
    else
-       numVersionFields="$(echo "$fwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
-       fwNewUpdateVersNum="$(_FWVersionStrToNum_ "$fwNewUpdateNotificationVers" "$numVersionFields")"
+       numOfFields="$(echo "$fwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
+       fwNewUpdateVersNum="$(_FWVersionStrToNum_ "$fwNewUpdateNotificationVers" "$numOfFields")"
        if [ "$releaseVersionNum" -gt "$fwNewUpdateVersNum" ]
        then
-           fwNewUpdateNotificationVers="$2"
+           fwNewUpdateNotificationVers="$releaseVersionStr"
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
@@ -4247,9 +4288,9 @@ _CheckNewUpdateFirmwareNotification_()
            fi
            if "$isGNUtonFW"
            then
-                _ManageChangelogGnuton_ "download"
+                _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
            else
-                _ManageChangelogMerlin_ "download"
+                _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
            fi
        fi
    fi
@@ -4265,9 +4306,9 @@ _CheckNewUpdateFirmwareNotification_()
        fi
        if "$isGNUtonFW"
        then
-            _ManageChangelogGnuton_ "download"
+            _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
        else
-            _ManageChangelogMerlin_ "download"
+            _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
        fi
    fi
 
@@ -4284,18 +4325,19 @@ _CheckNewUpdateFirmwareNotification_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-30] ##
+## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
 _CheckNodeFWUpdateNotification_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-   local nodenumVersionFields  nodefwNewUpdateVersNum
+   local nodeNumOfFields  nodefwNewUpdateVersNum
+   local currentVersionStr="$1"  releaseVersionStr="$2"
 
-   nodenumVersionFields="$(echo "$2" | awk -F '.' '{print NF}')"
-   nodecurrentVersionNum="$(_FWVersionStrToNum_ "$1" "$nodenumVersionFields")"
-   nodereleaseVersionNum="$(_FWVersionStrToNum_ "$2" "$nodenumVersionFields")"
+   nodeNumOfFields="$(echo "$currentVersionStr" | awk -F '.' '{print NF}')"
+   nodecurrentVersionNum="$(_FWVersionStrToNum_ "$currentVersionStr" "$nodeNumOfFields")"
+   nodereleaseVersionNum="$(_FWVersionStrToNum_ "$releaseVersionStr" "$nodeNumOfFields")"
 
    if [ "$nodecurrentVersionNum" -ge "$nodereleaseVersionNum" ]
    then
@@ -4306,14 +4348,14 @@ _CheckNodeFWUpdateNotification_()
    nodefwNewUpdateNotificationVers="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Vers")"
    if [ -z "$nodefwNewUpdateNotificationVers" ] || [ "$nodefwNewUpdateNotificationVers" = "TBD" ]
    then
-       nodefwNewUpdateNotificationVers="$2"
+       nodefwNewUpdateNotificationVers="$releaseVersionStr"
        _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "$nodefwNewUpdateNotificationVers" "$uid"
    else
-       nodenumVersionFields="$(echo "$nodefwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
-       nodefwNewUpdateVersNum="$(_FWVersionStrToNum_ "$nodefwNewUpdateNotificationVers" "$nodenumVersionFields")"
+       nodeNumOfFields="$(echo "$nodefwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
+       nodefwNewUpdateVersNum="$(_FWVersionStrToNum_ "$nodefwNewUpdateNotificationVers" "$nodeNumOfFields")"
        if [ "$nodereleaseVersionNum" -gt "$nodefwNewUpdateVersNum" ]
        then
-           nodefwNewUpdateNotificationVers="$2"
+           nodefwNewUpdateNotificationVers="$releaseVersionStr"
            nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
            nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
@@ -4617,7 +4659,7 @@ Please manually update to version $minimum_supported_version or higher to use th
        ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     # Get current firmware version #
-    current_version="$(_GetCurrentFWInstalledShortVersion_)"
+    current_version="$(_GetCurrentFWInstalledLongVersion_)"
 
     #---------------------------------------------------------#
     # If the "F/W Update Check" in the WebGUI is disabled
@@ -5606,9 +5648,8 @@ then FW_RouterModelID="${FW_RouterProductID}"
 else FW_RouterModelID="${FW_RouterProductID}/${GRNct}${MODEL_ID}${NOct}"
 fi
 
-FW_InstalledVers="$(_GetCurrentFWInstalledShortVersion_)"
-FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-FW_InstalledVersion="${GRNct}$(_GetCurrentFWInstalledLongVersion_)${NOct}"
+FW_InstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+FW_InstalledVerStr="${GRNct}${FW_InstalledVersion}${NOct}"
 
 ##-------------------------------------##
 ## Added by Martinski W. [2024-May-03] ##
@@ -5898,18 +5939,20 @@ _InvalidMenuSelection_()
    _WaitForEnterKey_
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
 _ShowMainMenu_()
 {
+   local FW_NewUpdateVerStr  FW_NewUpdateVersion
+
    #-----------------------------------------------------------#
    # Check if router reports a new F/W update is available.
    # If yes, modify the notification settings accordingly.
    #-----------------------------------------------------------#
-   FW_NewUpdateVers="$(_GetLatestFWUpdateVersionFromRouter_)" && \
-   [ -n "$FW_InstalledVers" ] && [ -n "$FW_NewUpdateVers" ] && \
-   _CheckNewUpdateFirmwareNotification_ "$FW_InstalledVers" "$FW_NewUpdateVers"
+   FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)" && \
+   [ -n "$FW_InstalledVersion" ] && [ -n "$FW_NewUpdateVersion" ] && \
+   _CheckNewUpdateFirmwareNotification_ "$FW_InstalledVersion" "$FW_NewUpdateVersion"
 
    clear
    logo
@@ -5955,15 +5998,15 @@ _ShowMainMenu_()
    printf "${SEPstr}"
    if [ "$HIDE_ROUTER_SECTION" = "false" ]
    then
-      if ! FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-      then FW_NewUpdateVersion="${REDct}NONE FOUND${NOct}"
-      else FW_NewUpdateVersion="${GRNct}${FW_NewUpdateVersion}${NOct}$arrowStr"
+      if ! FW_NewUpdateVerStr="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+      then FW_NewUpdateVerStr="${REDct}NONE FOUND${NOct}"
+      else FW_NewUpdateVerStr="${GRNct}${FW_NewUpdateVerStr}${NOct}$arrowStr"
       fi
       printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelID}${padStr}(H)ide"
       printf "\n  USB-Attached Storage Connected:  $USBConnected"
-      printf "\n  F/W Version Currently Installed: $FW_InstalledVersion"
+      printf "\n  F/W Version Currently Installed: $FW_InstalledVerStr"
       printf "\n  F/W Variant Configuration Found: $FirmwareFlavor"
-      printf "\n  F/W Update Version Available:    $FW_NewUpdateVersion"
+      printf "\n  F/W Update Version Available:    $FW_NewUpdateVerStr"
       printf "\n  F/W Update Estimated Run Date:   $ExpectedFWUpdateRuntime"
    else
       printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelID}${padStr}(S)how"
