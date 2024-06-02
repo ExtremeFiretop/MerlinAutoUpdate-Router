@@ -4011,8 +4011,8 @@ _ChangelogVerificationCheck_()
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
-        local current_version="$(_GetCurrentFWInstalledLongVersion_)"
-        local release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+        current_version="$(_GetCurrentFWInstalledLongVersion_)"
+        release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
 
         if "$isGNUtonFW"
         then
