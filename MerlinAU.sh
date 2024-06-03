@@ -1151,7 +1151,8 @@ _Init_Custom_Settings_Config_
 # ROG upgrades to 3006 codebase should have 
 # the ROG option deleted.
 #-----------------------------------------------------------
-if [ "$fwInstalledBaseVers" -ge 3006 ] && grep -q "^ROGBuild" "$SETTINGSFILE"; then
+if [ "$fwInstalledBaseVers" -ge 3006 ] && grep -q "^ROGBuild" "$SETTINGSFILE"
+then
     Delete_Custom_Settings "ROGBuild"
 fi
 
