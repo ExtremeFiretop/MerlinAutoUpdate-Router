@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-01
+# Last Modified: 2024-Jun-03
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.0
+readonly SCRIPT_VERSION=1.2.1
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -970,6 +970,23 @@ Update_Custom_Settings()
     esac
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jun-03] ##
+##---------------------------------------##
+Delete_Custom_Settings()
+{
+    if [ $# -lt 1 ] || [ -z "$1" ] ; then return 1 ; fi
+
+    local setting_type="$1"
+
+    if [ -f "$SETTINGSFILE" ]
+    then
+        sed -i "/^${setting_type}[ =]/d" "$SETTINGSFILE"
+    else
+        return 1
+    fi
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-24] ##
 ##------------------------------------------##
@@ -1126,6 +1143,17 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 }
 
 _Init_Custom_Settings_Config_
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-03] ##
+##------------------------------------------##
+# NOTE:
+# ROG upgrades to 3006 codebase should have 
+# the ROG option deleted.
+#-----------------------------------------------------------
+if [ "$fwInstalledBaseVers" -ge 3006 ] && grep -q "^ROGBuild" "$SETTINGSFILE"; then
+    Delete_Custom_Settings "ROGBuild"
+fi
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-27] ##
@@ -4395,47 +4423,72 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
-    rog_file=""
-    # Detect ROG and pure firmware files
-    rog_file="$(ls | grep -i '_rog_')"
-    pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jun-03] ##
+    ##------------------------------------------##
+    if [ "$fwInstalledBaseVers" -le 3004 ]
+    then
+        # Handle upgrades from 3004 and lower
+        pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
 
-    # Fetch the previous choice from the settings file
-    previous_choice="$(Get_Custom_Setting "ROGBuild")"
+        # Detect ROG and pure firmware files
+        rog_file=""
+        rog_file="$(ls | grep -i '_rog_')"
 
-    # Check if a ROG build is present
-    if [ -n "$rog_file" ]; then
-        # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
-        if [ "$previous_choice" = "y" ]; then
-            Say "ROG Build selected for flashing"
-            firmware_file="$rog_file"
-        elif [ "$previous_choice" = "n" ]; then
-            Say "Pure Build selected for flashing"
-            firmware_file="$pure_file"
-        elif [ "$inMenuMode" = true ]; then
-            printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
-            printf "${REDct}Would you like to use the ROG build?${NOct}\n"
-            printf "Enter your choice (y/n): "
-            read -r choice
-            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+        # Fetch the previous choice from the settings file
+        previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+        # Check if a ROG build is present
+        if [ -n "$rog_file" ]; then
+            # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
+            if [ "$previous_choice" = "y" ]; then
                 Say "ROG Build selected for flashing"
                 firmware_file="$rog_file"
-                Update_Custom_Settings "ROGBuild" "y"
-            else
+            elif [ "$previous_choice" = "n" ]; then
                 Say "Pure Build selected for flashing"
                 firmware_file="$pure_file"
+            elif [ "$inMenuMode" = true ]; then
+                printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
+                printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+                printf "Enter your choice (y/n): "
+                read -r choice
+                if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                    Say "ROG Build selected for flashing"
+                    firmware_file="$rog_file"
+                    Update_Custom_Settings "ROGBuild" "y"
+                else
+                    Say "Pure Build selected for flashing"
+                    firmware_file="$pure_file"
+                    Update_Custom_Settings "ROGBuild" "n"
+                fi
+            else
+                # Default to pure_file in non-interactive mode if no previous choice
+                Say "Pure Build selected for flashing"
                 Update_Custom_Settings "ROGBuild" "n"
+                firmware_file="$pure_file"
             fi
         else
-            # Default to pure_file in non-interactive mode if no previous choice
-            Say "Pure Build selected for flashing"
-            Update_Custom_Settings "ROGBuild" "n"
+            # No ROG build found, use the pure build
+            Say "No ROG Build detected. Skipping."
             firmware_file="$pure_file"
         fi
+    elif [ "$fwInstalledBaseVers" -eq 3004 ] && [ "$firstOctet" -ge 3006 ]
+    then
+        # Handle upgrade from 3004 to 3006
+        # Fetch the previous choice from the settings file
+        previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+        # Handle upgrade from 3004 to 3006 if there is a ROG setting
+        if [ "$previous_choice" = "y" ]; then
+            Say "Upgrading from 3004 to 3006, ROG UI is no longer supported, auto-selecting Pure UI firmware."
+            firmware_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
+            Update_Custom_Settings "ROGBuild" "n"
+        else
+            firmware_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
+        fi
     else
-        # No ROG build found, use the pure build
-        Say "No ROG Build detected. Skipping."
-        firmware_file="$pure_file"
+        # Handle upgrades from 3006 and higher
+        firmware_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
     fi
 
     ##----------------------------------------##
@@ -5546,7 +5599,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
+## Modified by ExtremeFiretop [2024-Jun-03] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -5583,25 +5636,28 @@ _ShowAdvancedOptionsMenu_()
        fi
    fi
 
-   # Retrieve the current build type setting
-   local current_build_type="$(Get_Custom_Setting "ROGBuild")"
-
-   # Convert the setting to a descriptive text
-   if [ "$current_build_type" = "y" ]; then
-       current_build_type_menu="ROG Build"
-   elif [ "$current_build_type" = "n" ]; then
-       current_build_type_menu="Pure Build"
-   else
-       current_build_type_menu="NOT SET"
-   fi
-
-   if echo "$PRODUCT_ID" | grep -q "^GT-"
+   if [ "$fwInstalledBaseVers" -le 3004 ]
    then
-       printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
-       if [ "$current_build_type_menu" = "NOT SET" ]
-       then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
-       fi
+      # Retrieve the current build type setting
+      local current_build_type="$(Get_Custom_Setting "ROGBuild")"
+
+      # Convert the setting to a descriptive text
+      if [ "$current_build_type" = "y" ]; then
+          current_build_type_menu="ROG Build"
+      elif [ "$current_build_type" = "n" ]; then
+          current_build_type_menu="Pure Build"
+      else
+          current_build_type_menu="NOT SET"
+      fi
+
+      if echo "$PRODUCT_ID" | grep -q "^GT-"
+      then
+          printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+          if [ "$current_build_type_menu" = "NOT SET" ]
+          then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+          else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+          fi
+      fi
    fi
 
    # Additional Email Notification Options #
@@ -5748,7 +5804,7 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
+## Modified by ExtremeFiretop [2024-Jun-03] ##
 ##------------------------------------------##
 _advanced_options_menu_()
 {
@@ -5770,11 +5826,15 @@ _advanced_options_menu_()
                else _InvalidMenuSelection_
                fi
                ;;
-           bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
-               then change_build_type
-               else _InvalidMenuSelection_
+           bt) if [ "$fwInstalledBaseVers" -le 3004 ]
+               then
+                   if echo "$PRODUCT_ID" | grep -q "^GT-"
+                   then change_build_type
+                   else _InvalidMenuSelection_
+                   fi
+               else
+                   _InvalidMenuSelection_
                fi
-               ;;
            em) if "$isEMailConfigEnabledInAMTM"
                then _Toggle_FW_UpdateEmailNotifications_
                else _InvalidMenuSelection_
