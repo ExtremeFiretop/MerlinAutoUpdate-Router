@@ -5836,6 +5836,7 @@ _advanced_options_menu_()
                else
                    _InvalidMenuSelection_
                fi
+               ;;
            em) if "$isEMailConfigEnabledInAMTM"
                then _Toggle_FW_UpdateEmailNotifications_
                else _InvalidMenuSelection_
