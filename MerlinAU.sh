@@ -1001,6 +1001,19 @@ Update_Custom_Settings()
     esac
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-04] ##
+##----------------------------------------##
+Delete_Custom_Settings()
+{
+    if [ $# -lt 1 ] || [ -z "$1" ] || [ ! -f "$SETTINGSFILE" ]
+    then return 1 ; fi
+
+    local setting_type="$1"
+    sed -i "/^${setting_type}[ =]/d" "$SETTINGSFILE"
+    return $?
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-24] ##
 ##------------------------------------------##
@@ -4767,10 +4780,10 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
    fi
 
-    # Extracting the first octet to use in the curl
-    firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
+    # Extracting the F/W Update codebase number to use in the curl #
+    fwUpdateBaseNum="$(echo "$release_version" | cut -d'.' -f1)"
     # Inserting dots between each number
-    dottedVersion="$(echo "$firstOctet" | sed 's/./&./g' | sed 's/.$//')"
+    dottedVersion="$(echo "$fwUpdateBaseNum" | sed 's/./&./g' | sed 's/.$//')"
 
     if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
     then
@@ -4964,31 +4977,35 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
-    ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jun-03] ##
-    ##------------------------------------------##
-    if [ "$fwInstalledBaseVers" -le 3004 ]
-    then
-        # Handle upgrades from 3004 and lower
-        pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Jun-04] ##
+    ##----------------------------------------##
+    pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
 
-        # Detect ROG and pure firmware files
-        rog_file=""
+    if [ "$fwInstalledBaseVers" -le 3004 ] && [ "$fwUpdateBaseNum" -le 3004 ]
+    then
+        # Handle upgrades from 3004 and lower #
+
+        # Detect ROG firmware file #
         rog_file="$(ls | grep -i '_rog_')"
 
         # Fetch the previous choice from the settings file
         previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
         # Check if a ROG build is present
-        if [ -n "$rog_file" ]; then
+        if [ -n "$rog_file" ]
+        then
             # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
-            if [ "$previous_choice" = "y" ]; then
+            if [ "$previous_choice" = "y" ]
+            then
                 Say "ROG Build selected for flashing"
                 firmware_file="$rog_file"
-            elif [ "$previous_choice" = "n" ]; then
+            elif [ "$previous_choice" = "n" ]
+            then
                 Say "Pure Build selected for flashing"
                 firmware_file="$pure_file"
-            elif [ "$inMenuMode" = true ]; then
+            elif [ "$inMenuMode" = true ]
+            then
                 printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
                 printf "${REDct}Would you like to use the ROG build?${NOct}\n"
                 printf "Enter your choice (y/n): "
@@ -5013,23 +5030,24 @@ Please manually update to version $minimum_supported_version or higher to use th
             Say "No ROG Build detected. Skipping."
             firmware_file="$pure_file"
         fi
-    elif [ "$fwInstalledBaseVers" -eq 3004 ] && [ "$firstOctet" -ge 3006 ]
+    elif [ "$fwInstalledBaseVers" -eq 3004 ] && [ "$fwUpdateBaseNum" -ge 3006 ]
     then
         # Handle upgrade from 3004 to 3006
         # Fetch the previous choice from the settings file
         previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
         # Handle upgrade from 3004 to 3006 if there is a ROG setting
-        if [ "$previous_choice" = "y" ]; then
+        if [ "$previous_choice" = "y" ]
+        then
             Say "Upgrading from 3004 to 3006, ROG UI is no longer supported, auto-selecting Pure UI firmware."
-            firmware_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
+            firmware_file="$pure_file"
             Update_Custom_Settings "ROGBuild" "n"
         else
-            firmware_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
+            firmware_file="$pure_file"
         fi
     else
-        # Handle upgrades from 3006 and higher
-        firmware_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
+        # Handle upgrades from 3006 and higher #
+        firmware_file="$pure_file"
     fi
 
     ##------------------------------------------##
@@ -6373,7 +6391,8 @@ _advanced_options_menu_()
                ;;
            bt) if echo "$PRODUCT_ID" | grep -q "^TUF-"
                then _ChangeBuildType_Gnuton_
-               elif [ "$fwInstalledBaseVers" -le 3004 ] || echo "$PRODUCT_ID" | grep -q "^GT-"
+               elif [ "$fwInstalledBaseVers" -le 3004 ]  && \
+                  echo "$PRODUCT_ID" | grep -q "^GT-"
                then _ChangeBuildType_Merlin_
                else _InvalidMenuSelection_
                fi
