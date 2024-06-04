@@ -6133,7 +6133,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
+## Modified by ExtremeFiretop [2024-Jun-03] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -6367,7 +6367,7 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
+## Modified by ExtremeFiretop [2024-Jun-03] ##
 ##------------------------------------------##
 _advanced_options_menu_()
 {
