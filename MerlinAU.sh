@@ -534,13 +534,18 @@ _CheckForNewScriptUpdates_()
    rm -f "$SCRIPTVERPATH"
 
    # Download the latest version file from the source repository
-   curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+   wget --quiet --tries=4 --waitretry=5 "${SCRIPT_URL_BASE}/version.txt" -O "$SCRIPTVERPATH"
 
    if [ $? -ne 0 ] || [ ! -s "$SCRIPTVERPATH" ]
    then scriptUpdateNotify=0 ; return 1 ; fi
 
    # Read in its contents for the current version file
    DLRepoVersion="$(cat "$SCRIPTVERPATH")"
+   if [ -z "$DLRepoVersion" ]; then
+       echo "Variable for downloaded version is empty."
+       UpdateNotify=0
+       return 1
+   fi
 
    DLRepoVersionNum="$(_ScriptVersionStrToNum_ "$DLRepoVersion")"
    ScriptVersionNum="$(_ScriptVersionStrToNum_ "$SCRIPT_VERSION")"
@@ -582,8 +587,8 @@ _SCRIPTUPDATE_()
       then
           echo ; echo
           echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+          wget --quiet --tries=4 --waitretry=5 "${SCRIPT_URL_BASE}/version.txt" -O "$SCRIPTVERPATH"
+          wget --quiet --tries=4 --waitretry=5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -O "$ScriptFileDL"
 
           if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
           then
@@ -613,8 +618,8 @@ _SCRIPTUPDATE_()
       then
           echo ; echo
           echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+          wget --quiet --tries=4 --waitretry=5 "${SCRIPT_URL_BASE}/version.txt" -O "$SCRIPTVERPATH"
+          wget --quiet --tries=4 --waitretry=5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -O "$ScriptFileDL"
 
           if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
           then
@@ -1594,7 +1599,7 @@ _SendEMailNotification_()
 
    date +"$LOGdateFormat" > "$userTraceFile"
 
-   /usr/sbin/curl -Lv --retry 4 --retry-delay 5 --url "${PROTOCOL}://${SMTP}:${PORT}" \
+   curl -Lv --retry 4 --retry-delay 5 --url "${PROTOCOL}://${SMTP}:${PORT}" \
    --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" $CC_ADDRESS_ARG \
    --user "${USERNAME}:$(/usr/sbin/openssl aes-256-cbc "$emailPwEnc" -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)" \
    --upload-file "$tempEMailContent" \
