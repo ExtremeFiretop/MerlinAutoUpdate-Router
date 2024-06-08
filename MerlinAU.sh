@@ -1615,7 +1615,7 @@ _CheckEMailConfigFileFromAMTM_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-16] ##
+## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
 _SendEMailNotification_()
 {
@@ -1876,7 +1876,7 @@ _GetFreeRAM_KB_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-31] ##
+## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
 _GetRequiredRAM_KB_()
 {
@@ -2585,7 +2585,7 @@ _GetLatestFWUpdateVersionFromNode_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-25] ##
+## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
 _GetLatestFWUpdateVersionFromWebsite_()
 {
@@ -2891,9 +2891,9 @@ fi
 return 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-May-21] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-05] ##
+##----------------------------------------##
 _CheckFirmwareSHA256_() {
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
     checksums="$(curl -Ls --retry 4 --retry-delay 5 https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')"
