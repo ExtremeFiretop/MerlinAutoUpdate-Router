@@ -4782,6 +4782,36 @@ Please manually update to version $minimum_supported_version or higher to use th
                firmware_choice="pure"
                Update_Custom_Settings "TUFBuild" "n"
            fi
+       elif echo "$PRODUCT_ID" | grep -q "^GT-"
+       then
+           # Fetch the previous choice from the settings file
+           local previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+           if [ "$previous_choice" = "y" ]; then
+               echo "ROG Build selected for flashing"
+               firmware_choice="rog"
+           elif [ "$previous_choice" = "n" ]; then
+               echo "Pure Build selected for flashing"
+               firmware_choice="pure"
+           elif [ "$inMenuMode" = true ]; then
+               printf "${REDct}Found ROG build for: $PRODUCT_ID.${NOct}\n"
+               printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+               printf "Enter your choice (y/n): "
+               read -r choice
+               if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                   echo "ROG Build selected for flashing"
+                   firmware_choice="rog"
+                   Update_Custom_Settings "ROGBuild" "y"
+               else
+                   echo "Pure Build selected for flashing"
+                   firmware_choice="pure"
+                   Update_Custom_Settings "ROGBuild" "n"
+               fi
+           else
+               echo "Defaulting to Pure Build due to non-interactive mode."
+               firmware_choice="pure"
+               Update_Custom_Settings "ROGBuild" "n"
+           fi
        else
            # If not a TUF model, process as usual
            firmware_choice="pure"
@@ -4974,7 +5004,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
     if [ "$retCode" -eq 1 ]
     then
-        Say "${REDct}**ERROR**${NOct}: Firmware file (unzip, move, copy) management was not completed successfully."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
@@ -5090,7 +5119,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
     if [ "$retCode" -eq 1 ]
     then
-        Say "${REDct}**ERROR**${NOct}: Firmware signature verification was not completed successfully."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
