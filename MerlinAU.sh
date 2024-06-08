@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-01
+# Last Modified: 2024-Jun-05
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.0
+readonly SCRIPT_VERSION=1.2.1
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -33,8 +33,8 @@ readonly CL_URL_3006="${FW_URL_BASE}/Documentation/Changelog-3006.txt/download"
 readonly high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
 # For new script version updates from source repository #
-UpdateNotify=0
 DLRepoVersion=""
+scriptUpdateNotify=0
 
 # For supported version and model checks #
 MinFirmwareCheckFailed=0
@@ -54,10 +54,10 @@ readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-01] ##
+## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
 ScriptsDirPath="$SCRIPTS_PATH"
-ScriptFilePath="${SCRIPTS_PATH}/$ScriptFileName"
+ScriptFilePath="${SCRIPTS_PATH}/${SCRIPT_NAME}.sh"
 
 if [ ! -f "$ScriptFilePath" ]
 then
@@ -396,7 +396,7 @@ _GetRouterProductID_()
 ##-------------------------------------##
 _ScriptVersionStrToNum_()
 {
-   if [ $# -eq 0 ] || [ -z "$1" ] ; then echo ; return 1 ; fi
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then echo 0 ; return 1 ; fi
    local verNum  verStr
 
    verStr="$(echo "$1" | awk -F '_' '{print $1}')"
@@ -522,21 +522,30 @@ logo() {
   echo -e "${NOct}"
 }
 
-##-----------------------------------------------##
-## Modified by: ExtremeFiretop [2023-Dec-16]     ##
-##-----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-05] ##
+##----------------------------------------##
 _CheckForNewScriptUpdates_()
 {
    local DLRepoVersionNum  ScriptVersionNum
 
    echo ""
-   # Download the latest version file from the source repository
-   curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+   [ -s "$SCRIPTVERPATH" ] && DLRepoVersion="$(cat "$SCRIPTVERPATH")"
+   rm -f "$SCRIPTVERPATH"
 
-   if [ ! -f "$SCRIPTVERPATH" ] ; then UpdateNotify=0 ; return 1 ; fi
+   # Download the latest version file from the source repository
+   curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+
+   if [ $? -ne 0 ] || [ ! -s "$SCRIPTVERPATH" ]
+   then scriptUpdateNotify=0 ; return 1 ; fi
 
    # Read in its contents for the current version file
    DLRepoVersion="$(cat "$SCRIPTVERPATH")"
+   if [ -z "$DLRepoVersion" ]; then
+       echo "Variable for downloaded version is empty."
+       scriptUpdateNotify=0
+       return 1
+   fi
 
    DLRepoVersionNum="$(_ScriptVersionStrToNum_ "$DLRepoVersion")"
    ScriptVersionNum="$(_ScriptVersionStrToNum_ "$SCRIPT_VERSION")"
@@ -544,21 +553,22 @@ _CheckForNewScriptUpdates_()
    # Version comparison
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
-      UpdateNotify="New script update available.
+      scriptUpdateNotify="New script update available.
 ${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
       Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
    else
-      UpdateNotify=0
+      scriptUpdateNotify=0
    fi
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Dec-17] ##
+## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
 #a function that provides a UI to check for script updates and allows you to install the latest version...
 _SCRIPTUPDATE_()
 {
-   # Check for the latest version from source repository
+   local ScriptFileDL="${ScriptFilePath}.DL"
+
    _CheckForNewScriptUpdates_
    clear
    logo
@@ -568,19 +578,31 @@ _SCRIPTUPDATE_()
    echo -e "${CYANct}Current Version: ${YLWct}${SCRIPT_VERSION}${NOct}"
    echo -e "${CYANct}Updated Version: ${YLWct}${DLRepoVersion}${NOct}"
    echo
+
    if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ]
    then
       echo -e "${CYANct}You are on the latest version! Would you like to download anyways?${NOct}"
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
-      if _WaitForYESorNO_ ; then
+      if _WaitForYESorNO_
+      then
           echo ; echo
           echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-          curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-          curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh" && chmod +x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
-          echo
-          echo -e "${CYANct}Download successful!${NOct}"
-          echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-          echo
+          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+
+          if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
+          then
+              mv -f "$ScriptFileDL" "$ScriptFilePath"
+              chmod 755 "$ScriptFilePath"
+              echo
+              echo -e "${CYANct}Download successful!${NOct}"
+              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+              echo
+          else
+              rm -f "$ScriptFileDL"
+              echo
+              echo -e "${REDct}Download failed.${NOct}"
+          fi
           _WaitForEnterKey_
           return
       else
@@ -589,26 +611,30 @@ _SCRIPTUPDATE_()
           sleep 1
           return
       fi
-   elif [ "$UpdateNotify" != "0" ]
+   elif [ "$scriptUpdateNotify" != "0" ]
    then
       echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
-      if _WaitForYESorNO_ ; then
+      if _WaitForYESorNO_
+      then
           echo ; echo
           echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-          curl --silent --retry 3 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-          curl --silent --retry 3 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
-          if [ $? -eq 0 ]; then
-              chmod a+x "${ScriptsDirPath}/${SCRIPT_NAME}.sh"
+          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+
+          if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
+          then
+              mv -f "$ScriptFileDL" "$ScriptFilePath"
+              chmod 755 "$ScriptFilePath"
               echo
               echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
               echo -e "${CYANct}Update successful! Restarting script...${NOct}"
               _ReleaseLock_
-              exec "${ScriptsDirPath}/${SCRIPT_NAME}.sh"  # Re-execute the updated script
-              exit 0  # This line will not be executed as exec replaces the current process
+              exec "$ScriptFilePath"  # Re-execute the updated script #
+              exit 0  # This line will not be executed due to above exec #
           else
+              rm -f "$ScriptFileDL"
               echo
               echo -e "${REDct}Download failed.${NOct}"
-              # Handle download failure
               _WaitForEnterKey_
               return
           fi
@@ -970,6 +996,19 @@ Update_Custom_Settings()
     esac
 }
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-04] ##
+##----------------------------------------##
+Delete_Custom_Settings()
+{
+    if [ $# -lt 1 ] || [ -z "$1" ] || [ ! -f "$SETTINGSFILE" ]
+    then return 1 ; fi
+
+    local setting_type="$1"
+    sed -i "/^${setting_type}[ =]/d" "$SETTINGSFILE"
+    return $?
+}
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-24] ##
 ##------------------------------------------##
@@ -1126,6 +1165,18 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 }
 
 _Init_Custom_Settings_Config_
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-03] ##
+##------------------------------------------##
+# NOTE:
+# ROG upgrades to 3006 codebase should have 
+# the ROG option deleted.
+#-----------------------------------------------------------
+if [ "$fwInstalledBaseVers" -ge 3006 ] && grep -q "^ROGBuild" "$SETTINGSFILE"
+then
+    Delete_Custom_Settings "ROGBuild"
+fi
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-27] ##
@@ -1522,7 +1573,7 @@ _CheckEMailConfigFileFromAMTM_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-16] ##
+## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
 _SendEMailNotification_()
 {
@@ -1548,7 +1599,7 @@ _SendEMailNotification_()
 
    date +"$LOGdateFormat" > "$userTraceFile"
 
-   /usr/sbin/curl -v --url "${PROTOCOL}://${SMTP}:${PORT}" \
+   curl -Lv --retry 4 --retry-delay 5 --url "${PROTOCOL}://${SMTP}:${PORT}" \
    --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" $CC_ADDRESS_ARG \
    --user "${USERNAME}:$(/usr/sbin/openssl aes-256-cbc "$emailPwEnc" -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)" \
    --upload-file "$tempEMailContent" \
@@ -1783,7 +1834,7 @@ _GetFreeRAM_KB_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-31] ##
+## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
 _GetRequiredRAM_KB_()
 {
@@ -1792,7 +1843,7 @@ _GetRequiredRAM_KB_()
     local total_required_kb  overhead_percentage=50
 
     # Size of the ZIP file in bytes
-    zip_file_size_bytes="$(curl -sIL "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
+    zip_file_size_bytes="$(curl -LsI --retry 4 --retry-delay 5 "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
     # Convert bytes to kilobytes
     zip_file_size_kb="$((zip_file_size_bytes / 1024))"
 
@@ -2477,13 +2528,13 @@ _GetLatestFWUpdateVersionFromNode_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-25] ##
+## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
 _GetLatestFWUpdateVersionFromWebsite_()
 {
     local url="$1"
 
-    local links_and_versions="$(curl -s "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | \
+    local links_and_versions="$(curl -Ls --retry 4 --retry-delay 5 "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | \
         awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
 
     if [ -z "$links_and_versions" ]
@@ -4172,10 +4223,10 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    # Extracting the first octet to use in the curl
-    firstOctet="$(echo "$release_version" | cut -d'.' -f1)"
+    # Extracting the F/W Update codebase number to use in the curl #
+    fwUpdateBaseNum="$(echo "$release_version" | cut -d'.' -f1)"
     # Inserting dots between each number
-    dottedVersion="$(echo "$firstOctet" | sed 's/./&./g' | sed 's/.$//')"
+    dottedVersion="$(echo "$fwUpdateBaseNum" | sed 's/./&./g' | sed 's/.$//')"
 
     if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
     then
@@ -4395,54 +4446,84 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
-    rog_file=""
-    # Detect ROG and pure firmware files
-    rog_file="$(ls | grep -i '_rog_')"
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Jun-04] ##
+    ##----------------------------------------##
     pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
 
-    # Fetch the previous choice from the settings file
-    previous_choice="$(Get_Custom_Setting "ROGBuild")"
+    if [ "$fwInstalledBaseVers" -le 3004 ] && [ "$fwUpdateBaseNum" -le 3004 ]
+    then
+        # Handle upgrades from 3004 and lower #
 
-    # Check if a ROG build is present
-    if [ -n "$rog_file" ]; then
-        # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
-        if [ "$previous_choice" = "y" ]; then
-            Say "ROG Build selected for flashing"
-            firmware_file="$rog_file"
-        elif [ "$previous_choice" = "n" ]; then
-            Say "Pure Build selected for flashing"
-            firmware_file="$pure_file"
-        elif [ "$inMenuMode" = true ]; then
-            printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
-            printf "${REDct}Would you like to use the ROG build?${NOct}\n"
-            printf "Enter your choice (y/n): "
-            read -r choice
-            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+        # Detect ROG firmware file #
+        rog_file="$(ls | grep -i '_rog_')"
+
+        # Fetch the previous choice from the settings file
+        previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+        # Check if a ROG build is present
+        if [ -n "$rog_file" ]
+        then
+            # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
+            if [ "$previous_choice" = "y" ]
+            then
                 Say "ROG Build selected for flashing"
                 firmware_file="$rog_file"
-                Update_Custom_Settings "ROGBuild" "y"
-            else
+            elif [ "$previous_choice" = "n" ]
+            then
                 Say "Pure Build selected for flashing"
                 firmware_file="$pure_file"
+            elif [ "$inMenuMode" = true ]
+            then
+                printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
+                printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+                printf "Enter your choice (y/n): "
+                read -r choice
+                if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                    Say "ROG Build selected for flashing"
+                    firmware_file="$rog_file"
+                    Update_Custom_Settings "ROGBuild" "y"
+                else
+                    Say "Pure Build selected for flashing"
+                    firmware_file="$pure_file"
+                    Update_Custom_Settings "ROGBuild" "n"
+                fi
+            else
+                # Default to pure_file in non-interactive mode if no previous choice
+                Say "Pure Build selected for flashing"
                 Update_Custom_Settings "ROGBuild" "n"
+                firmware_file="$pure_file"
             fi
         else
-            # Default to pure_file in non-interactive mode if no previous choice
-            Say "Pure Build selected for flashing"
+            # No ROG build found, use the pure build
+            Say "No ROG Build detected. Skipping."
+            firmware_file="$pure_file"
+        fi
+    elif [ "$fwInstalledBaseVers" -eq 3004 ] && [ "$fwUpdateBaseNum" -ge 3006 ]
+    then
+        # Handle upgrade from 3004 to 3006
+        # Fetch the previous choice from the settings file
+        previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+        # Handle upgrade from 3004 to 3006 if there is a ROG setting
+        if [ "$previous_choice" = "y" ]
+        then
+            Say "Upgrading from 3004 to 3006, ROG UI is no longer supported, auto-selecting Pure UI firmware."
+            firmware_file="$pure_file"
             Update_Custom_Settings "ROGBuild" "n"
+        else
             firmware_file="$pure_file"
         fi
     else
-        # No ROG build found, use the pure build
-        Say "No ROG Build detected. Skipping."
+        # Handle upgrades from 3006 and higher #
         firmware_file="$pure_file"
     fi
 
     ##----------------------------------------##
-    ## Modified by Martinski W. [2024-May-23] ##
+    ## Modified by Martinski W. [2024-Jun-05] ##
     ##----------------------------------------##
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(curl --silent --connect-timeout 10 --retry 4 --max-time 12 https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')"
+    checksums="$(curl -Ls --retry 4 --retry-delay 5 https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')"
 
     if [ -z "$checksums" ]
     then
@@ -4729,9 +4810,9 @@ _AddCronJobRunScriptHook_()
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-05] ##
+##----------------------------------------##
 _DoUninstall_()
 {
    printf "Are you sure you want to uninstall $ScriptFileName script now"
@@ -4742,10 +4823,10 @@ _DoUninstall_()
    _DelPostRebootRunScriptHook_
    _DelPostUpdateEmailNotifyScriptHook_
 
-   if rm -fr "$SETTINGS_DIR" && \
-      rm -fr "${FW_BIN_BASE_DIR}/$ScriptDirNameD" && \
-      rm -fr "${FW_LOG_BASE_DIR}/$ScriptDirNameD" && \
-      rm -fr "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && \
+   if rm -fr "${SETTINGS_DIR:?}" && \
+      rm -fr "${FW_BIN_BASE_DIR:?}/$ScriptDirNameD" && \
+      rm -fr "${FW_LOG_BASE_DIR:?}/$ScriptDirNameD" && \
+      rm -fr "${FW_ZIP_BASE_DIR:?}/$ScriptDirNameD" && \
       rm -f "$ScriptFilePath"
    then
        Say "${GRNct}Successfully Uninstalled.${NOct}"
@@ -5121,8 +5202,12 @@ theLGExitStr="${GRNct}e${NOct}=Exit to Log Options Menu"
 padStr="      "
 SEPstr="----------------------------------------------------------"
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-05] ##
+##----------------------------------------##
 FW_RouterProductID="${GRNct}${PRODUCT_ID}${NOct}"
-if [ "$PRODUCT_ID" = "$MODEL_ID" ]
+# Some Model IDs have a lower case suffix of the same Product ID #
+if [ "$PRODUCT_ID" = "$(echo "$MODEL_ID" | tr 'a-z' 'A-Z')" ]
 then FW_RouterModelID="${FW_RouterProductID}"
 else FW_RouterModelID="${FW_RouterProductID}/${GRNct}${MODEL_ID}${NOct}"
 fi
@@ -5438,8 +5523,8 @@ _ShowMainMenu_()
    printf "${YLWct}============ By ExtremeFiretop & Martinski W. ============${NOct}\n\n"
 
    # New Script Update Notification #
-   if [ "$UpdateNotify" != "0" ]; then
-      Say "${REDct}WARNING:${NOct} ${UpdateNotify}${NOct}\n"
+   if [ "$scriptUpdateNotify" != "0" ]; then
+      Say "${REDct}WARNING:${NOct} ${scriptUpdateNotify}${NOct}\n"
    fi
 
    # Unsupported Model Checks #
@@ -5525,7 +5610,8 @@ _ShowMainMenu_()
    fi
 
    # Check for new script updates #
-   if [ "$UpdateNotify" != "0" ]; then
+   if [ "$scriptUpdateNotify" != "0" ]
+   then
       printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
       printf "\n${padStr}[Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
    fi
@@ -5546,7 +5632,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
+## Modified by ExtremeFiretop [2024-Jun-03] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -5583,25 +5669,28 @@ _ShowAdvancedOptionsMenu_()
        fi
    fi
 
-   # Retrieve the current build type setting
-   local current_build_type="$(Get_Custom_Setting "ROGBuild")"
-
-   # Convert the setting to a descriptive text
-   if [ "$current_build_type" = "y" ]; then
-       current_build_type_menu="ROG Build"
-   elif [ "$current_build_type" = "n" ]; then
-       current_build_type_menu="Pure Build"
-   else
-       current_build_type_menu="NOT SET"
-   fi
-
-   if echo "$PRODUCT_ID" | grep -q "^GT-"
+   if [ "$fwInstalledBaseVers" -le 3004 ]
    then
-       printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
-       if [ "$current_build_type_menu" = "NOT SET" ]
-       then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-       else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
-       fi
+      # Retrieve the current build type setting
+      local current_build_type="$(Get_Custom_Setting "ROGBuild")"
+
+      # Convert the setting to a descriptive text
+      if [ "$current_build_type" = "y" ]; then
+          current_build_type_menu="ROG Build"
+      elif [ "$current_build_type" = "n" ]; then
+          current_build_type_menu="Pure Build"
+      else
+          current_build_type_menu="NOT SET"
+      fi
+
+      if echo "$PRODUCT_ID" | grep -q "^GT-"
+      then
+          printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+          if [ "$current_build_type_menu" = "NOT SET" ]
+          then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+          else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+          fi
+      fi
    fi
 
    # Additional Email Notification Options #
@@ -5748,7 +5837,7 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
+## Modified by ExtremeFiretop [2024-Jun-03] ##
 ##------------------------------------------##
 _advanced_options_menu_()
 {
@@ -5770,7 +5859,8 @@ _advanced_options_menu_()
                else _InvalidMenuSelection_
                fi
                ;;
-           bt) if echo "$PRODUCT_ID" | grep -q "^GT-"
+           bt) if [ "$fwInstalledBaseVers" -le 3004 ] && \
+                  echo "$PRODUCT_ID" | grep -q "^GT-"
                then change_build_type
                else _InvalidMenuSelection_
                fi
