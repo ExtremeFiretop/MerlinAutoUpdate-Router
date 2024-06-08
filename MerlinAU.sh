@@ -541,6 +541,11 @@ _CheckForNewScriptUpdates_()
 
    # Read in its contents for the current version file
    DLRepoVersion="$(cat "$SCRIPTVERPATH")"
+   if [ -z "$DLRepoVersion" ]; then
+       echo "Variable for downloaded version is empty."
+       scriptUpdateNotify=0
+       return 1
+   fi
 
    DLRepoVersionNum="$(_ScriptVersionStrToNum_ "$DLRepoVersion")"
    ScriptVersionNum="$(_ScriptVersionStrToNum_ "$SCRIPT_VERSION")"
@@ -1594,7 +1599,7 @@ _SendEMailNotification_()
 
    date +"$LOGdateFormat" > "$userTraceFile"
 
-   /usr/sbin/curl -Lv --retry 4 --retry-delay 5 --url "${PROTOCOL}://${SMTP}:${PORT}" \
+   curl -Lv --retry 4 --retry-delay 5 --url "${PROTOCOL}://${SMTP}:${PORT}" \
    --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" $CC_ADDRESS_ARG \
    --user "${USERNAME}:$(/usr/sbin/openssl aes-256-cbc "$emailPwEnc" -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)" \
    --upload-file "$tempEMailContent" \
