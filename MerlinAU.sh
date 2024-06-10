@@ -1350,14 +1350,8 @@ _CreateEMailContent_()
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 
-   if "$isGNUtonFW"
-   then
-      # First remove "-gnuton" followed by any digits at the end, then removes a trailing hyphen #
-      fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/gnuton[0-9]+$//; s/-$//')"
-   else
-      # Remove "_rog" suffix to avoid version comparison failures #
-      fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
-   fi
+   # Remove "_rog" suffix to avoid version comparison failures #
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
