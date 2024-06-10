@@ -3700,18 +3700,16 @@ _Calculate_NextRunTime_()
             fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
         fi
         upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
-        nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
-        if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
+        ExpectedFWUpdateRuntime="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+        if [ "$ExpectedFWUpdateRuntime" = "$CRON_UNKNOWN_DATE" ]
         then
             Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
             ExpectedFWUpdateRuntime="${REDct}UNKNOWN${NOct}"
         else
-            Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
-            ExpectedFWUpdateRuntime="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
+            Update_Custom_Settings FW_New_Update_Expected_Run_Date "$ExpectedFWUpdateRuntime"
             ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
         fi
     else
-        ExpectedFWUpdateRuntime="$(date -d @$ExpectedFWUpdateRuntime +"%Y-%b-%d %I:%M %p")"
         ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
     fi
 }
