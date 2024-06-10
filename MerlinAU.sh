@@ -2624,7 +2624,7 @@ _GetLatestFWUpdateVersionFromWebsite_()
 _GetLatestFWUpdateVersionFromGithub_()
 {
     local url="$1"  # GitHub API URL for the latest release
-    local firmware_type="$2"  # Type of firmware, e.g., "tuf" or "pure"
+    local firmware_type="$2"  # Type of firmware, e.g., "tuf", "rog" or "pure"
 
     local search_type="$firmware_type"  # Default to the input firmware_type
 
@@ -2663,7 +2663,7 @@ _GetLatestFWUpdateVersionFromGithub_()
 ##---------------------------------------##
 GetLatestFirmwareMD5Url() {
     local url="$1"  # GitHub API URL for the latest release
-    local firmware_type="$2"  # Type of firmware, e.g., "tuf" or "pure"
+    local firmware_type="$2"  # Type of firmware, e.g., "tuf", "rog" or "pure"
 
     local search_type="$firmware_type"  # Default to the input firmware_type
 
@@ -3063,7 +3063,7 @@ _Toggle_Auto_Backups_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-18] ##
 ##------------------------------------------##
-_ChangeBuildType_Gnuton_()
+_ChangeBuildTypeTUF_Gnuton_()
 {
    local doReturnToMenu  buildtypechoice
    printf "Changing Flash Build Type...\n"
@@ -6107,7 +6107,7 @@ _ShowMainMenu_()
    # Use the global variable
    if "$isGNUtonFW"
    then
-       FirmwareFlavor="${MAGENTAct}GNUton${NOct} (Limited Support)"
+       FirmwareFlavor="${MAGENTAct}GNUton${NOct}"
    else
        FirmwareFlavor="${BLUEct}Merlin${NOct}"
    fi
@@ -6232,26 +6232,72 @@ _ShowAdvancedOptionsMenu_()
 
    if "$isGNUtonFW"
    then
-      # Retrieve the current build type setting
-      local current_build_type="$(Get_Custom_Setting "TUFBuild")"
-
-      # Convert the setting to a descriptive text
-      if [ "$current_build_type" = "y" ]; then
-          current_build_type_menu="TUF Build"
-      elif [ "$current_build_type" = "n" ]; then
-          current_build_type_menu="Pure Build"
-      else
-          current_build_type_menu="NOT SET"
-      fi
-
-      if echo "$PRODUCT_ID" | grep -q "^TUF-"
+      if [ "$fwInstalledBaseVers" -le 3004 ]
       then
-          printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
-          if [ "$current_build_type_menu" = "NOT SET" ]
-          then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-          else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+         # Retrieve the current build type setting
+         local current_build_type="$(Get_Custom_Setting "TUFBuild")"
+
+         # Convert the setting to a descriptive text
+         if [ "$current_build_type" = "y" ]; then
+             current_build_type_menu="TUF Build"
+         elif [ "$current_build_type" = "n" ]; then
+             current_build_type_menu="Pure Build"
+         else
+             current_build_type_menu="NOT SET"
+         fi
+
+         if echo "$PRODUCT_ID" | grep -q "^TUF-"
+         then
+             printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+             if [ "$current_build_type_menu" = "NOT SET" ]
+             then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+             else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+             fi
+         fi
+      elif [ "$fwInstalledBaseVers" -ge 3006 ]
+      then
+          # Retrieve the current build type setting
+          local current_build_typerog="$(Get_Custom_Setting "ROGBuild")"
+
+          # Convert the setting to a descriptive text
+          if [ "$current_build_typerog" = "y" ]; then
+              current_build_type_menurog="ROG Build"
+          elif [ "$current_build_typerog" = "n" ]; then
+              current_build_type_menurog="Pure Build"
+          else
+              current_build_type_menurog="NOT SET"
           fi
-      fi
+
+          if echo "$PRODUCT_ID" | grep -q "^GT-"
+          then
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              if [ "$current_build_type_menurog" = "NOT SET" ]
+              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menurog}${NOct}]\n"
+              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menurog}${NOct}]\n"
+              fi
+          fi
+
+          # Retrieve the current build type setting
+          local current_build_typetuf="$(Get_Custom_Setting "TUFBuild")"
+
+          # Convert the setting to a descriptive text
+          if [ "$current_build_typetuf" = "y" ]; then
+              current_build_type_menutuf="TUF Build"
+          elif [ "$current_build_typetuf" = "n" ]; then
+              current_build_type_menutuf="Pure Build"
+          else
+              current_build_type_menutuf="NOT SET"
+          fi
+
+          if echo "$PRODUCT_ID" | grep -q "^TUF-"
+          then
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              if [ "$current_build_type_menutuf" = "NOT SET" ]
+              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menutuf}${NOct}]\n"
+              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menutuf}${NOct}]\n"
+              fi
+          fi
+       fi
    else
       if [ "$fwInstalledBaseVers" -le 3004 ]
       then
@@ -6452,6 +6498,9 @@ _advanced_options_menu_()
            bt) if echo "$PRODUCT_ID" | grep -q "^TUF-"
                then _ChangeBuildType_Gnuton_
                elif [ "$fwInstalledBaseVers" -le 3004 ]  && \
+                  echo "$PRODUCT_ID" | grep -q "^GT-"
+               then _ChangeBuildType_Merlin_
+               elif [ "$fwInstalledBaseVers" -ge 3006 ]  && [ "$isGNUtonFW" && \
                   echo "$PRODUCT_ID" | grep -q "^GT-"
                then _ChangeBuildType_Merlin_
                else _InvalidMenuSelection_
