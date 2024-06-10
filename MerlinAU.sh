@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-05
+# Last Modified: 2024-Jun-10
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.1
+readonly SCRIPT_VERSION=1.2.2
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
