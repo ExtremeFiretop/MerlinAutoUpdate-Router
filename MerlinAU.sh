@@ -3063,7 +3063,7 @@ _Toggle_Auto_Backups_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-18] ##
 ##------------------------------------------##
-_ChangeBuildType_Gnuton_()
+_ChangeBuildType_TUF_()
 {
    local doReturnToMenu  buildtypechoice
    printf "Changing Flash Build Type...\n"
@@ -3123,7 +3123,7 @@ _ChangeBuildType_Gnuton_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-18] ##
 ##------------------------------------------##
-_ChangeBuildType_Merlin_()
+_ChangeBuildType_ROG_()
 {
    local doReturnToMenu  buildtypechoice
    printf "Changing Flash Build Type...\n"
@@ -6496,13 +6496,13 @@ _advanced_options_menu_()
                fi
                ;;
            bt) if echo "$PRODUCT_ID" | grep -q "^TUF-"
-               then _ChangeBuildType_Gnuton_
+               then _ChangeBuildType_TUF_
                elif [ "$fwInstalledBaseVers" -le 3004 ]  && \
                   echo "$PRODUCT_ID" | grep -q "^GT-"
-               then _ChangeBuildType_Merlin_
+               then _ChangeBuildType_ROG_
                elif [ "$fwInstalledBaseVers" -ge 3006 ]  && [ "$isGNUtonFW" && \
                   echo "$PRODUCT_ID" | grep -q "^GT-"
-               then _ChangeBuildType_Merlin_
+               then _ChangeBuildType_ROG_
                else _InvalidMenuSelection_
                fi
                ;;
