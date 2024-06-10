@@ -2630,7 +2630,7 @@ _GetLatestFWUpdateVersionFromGithub_()
 
     # If firmware_type is "pure", set search_type to include "squashfs" as well
     if [ "$firmware_type" = "pure" ]; then
-        search_type="pure\|squashfs"
+        search_type="pure\|squashfs\|ubi"
     fi
 
     # Fetch the latest release data from GitHub
@@ -2669,7 +2669,7 @@ GetLatestFirmwareMD5Url() {
 
     # If firmware_type is "pure", set search_type to include "squashfs" as well
     if [ "$firmware_type" = "pure" ]; then
-        search_type="pure\|squashfs"
+        search_type="pure\|squashfs\|ubi"
     fi
 
     # Fetch the latest release data from GitHub
