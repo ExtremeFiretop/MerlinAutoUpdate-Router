@@ -4473,7 +4473,7 @@ _CheckTimeToUpdateFirmware_()
        return 1
    fi
 
-   Say "The firmware update is expected to occur on ${GRNct}${upfwDateTimeStrn}${NOct}."
+   Say "The firmware update is expected to occur on ${GRNct}${nextCronTimeSecs}${NOct}."
    echo ""
 
    # Check if running in a menu environment
