@@ -3937,7 +3937,6 @@ _CheckTimeToUpdateFirmware_()
        return 1
    fi
 
-   upfwDateTimeStrn="$(date -d @$nextCronTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
    Say "The firmware update is expected to occur on ${GRNct}${upfwDateTimeStrn}${NOct}."
    echo ""
 
