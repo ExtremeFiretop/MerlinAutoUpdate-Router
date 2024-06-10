@@ -3565,9 +3565,9 @@ expand_cron_field()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-10] ##
+##------------------------------------------##
 _EstimateNextCronTimeAfterDate_()
 {
     local post_date_secs="$1"
@@ -3598,17 +3598,18 @@ _EstimateNextCronTimeAfterDate_()
     while [ "$found" = "false" ]
     do
         loopCount="$((loopCount + 1))"
+
         if matches_month "$current_month" "$month_field" && \
            matches_day_of_month "$current_day" "$dom_field" && \
            matches_day_of_week "$current_dow" "$dow_field"
         then
             for this_hour in $(expand_cron_field "$hour_field" 0 23)
             do
-                if [ "$this_hour" -gt "$current_hour" ]
+                if [ "$this_hour" -gt "$current_hour" ] || [ "$loopCount" -gt 1 ]
                 then
                     for this_min in $(expand_cron_field "$minute_field" 0 59)
                     do
-                        echo "$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")"
+                        echo "$(date -d "@$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")" '+%Y-%m-%d %H:%M:%S')"
                         found=true
                         return 0
                     done
@@ -3618,7 +3619,7 @@ _EstimateNextCronTimeAfterDate_()
                     do
                         if [ "$this_min" -gt "$current_minute" ]
                         then
-                            echo "$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")"
+                            echo "$(date -d "@$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")" '+%Y-%m-%d %H:%M:%S')"
                             found=true
                             return 0
                         fi
