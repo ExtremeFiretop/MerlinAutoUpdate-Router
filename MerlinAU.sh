@@ -3669,9 +3669,9 @@ _Calculate_DST_()
    echo "$((notifyTimeSecs + postponeTimeSecs))"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-10] ##
+##------------------------------------------##
 _Calculate_NextRunTime_()
 {
     local fwNewUpdateVersion  fwNewUpdateNotificationDate
@@ -4473,7 +4473,6 @@ _CheckTimeToUpdateFirmware_()
        return 1
    fi
 
-   upfwDateTimeStrn="$(date -d @$nextCronTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
    Say "The firmware update is expected to occur on ${GRNct}${upfwDateTimeStrn}${NOct}."
    echo ""
 
