@@ -1350,8 +1350,8 @@ _CreateEMailContent_()
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 
-   # Remove "_rog" suffix to avoid version comparison failures #
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
+   # Remove "_rog" or "_tuf" suffix to avoid version comparison failures
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_\(rog\|tuf\)$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
