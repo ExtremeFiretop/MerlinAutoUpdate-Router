@@ -3063,7 +3063,7 @@ _Toggle_Auto_Backups_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-18] ##
 ##------------------------------------------##
-_ChangeBuildTypeTUF_Gnuton_()
+_ChangeBuildType_Gnuton_()
 {
    local doReturnToMenu  buildtypechoice
    printf "Changing Flash Build Type...\n"
