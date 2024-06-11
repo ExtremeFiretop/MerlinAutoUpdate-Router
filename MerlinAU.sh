@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-05
+# Last Modified: 2024-Jun-10
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.1
+readonly SCRIPT_VERSION=1.2.2
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -3106,9 +3106,9 @@ expand_cron_field()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-10] ##
+##------------------------------------------##
 _EstimateNextCronTimeAfterDate_()
 {
     local post_date_secs="$1"
@@ -3139,6 +3139,7 @@ _EstimateNextCronTimeAfterDate_()
     while [ "$found" = "false" ]
     do
         loopCount="$((loopCount + 1))"
+
         if matches_month "$current_month" "$month_field" && \
            matches_day_of_month "$current_day" "$dom_field" && \
            matches_day_of_week "$current_dow" "$dow_field"
@@ -3149,7 +3150,7 @@ _EstimateNextCronTimeAfterDate_()
                 then
                     for this_min in $(expand_cron_field "$minute_field" 0 59)
                     do
-                        echo "$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")"
+                        echo "$(date -d "@$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")" '+%Y-%m-%d %H:%M:%S')"
                         found=true
                         return 0
                     done
@@ -3157,9 +3158,9 @@ _EstimateNextCronTimeAfterDate_()
                 then
                     for this_min in $(expand_cron_field "$minute_field" 0 59)
                     do
-                        if [ "$this_min" -gt "$current_minute" ]
+                        if [ "$this_min" -ge "$current_minute" ]
                         then
-                            echo "$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")"
+                            echo "$(date -d "@$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")" '+%Y-%m-%d %H:%M:%S')"
                             found=true
                             return 0
                         fi
@@ -3209,9 +3210,9 @@ _Calculate_DST_()
    echo "$((notifyTimeSecs + postponeTimeSecs))"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-10] ##
+##------------------------------------------##
 _Calculate_NextRunTime_()
 {
     local fwNewUpdateVersion  fwNewUpdateNotificationDate
@@ -3240,18 +3241,16 @@ _Calculate_NextRunTime_()
             fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
         fi
         upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
-        nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
-        if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
+        ExpectedFWUpdateRuntime="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+        if [ "$ExpectedFWUpdateRuntime" = "$CRON_UNKNOWN_DATE" ]
         then
             Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
             ExpectedFWUpdateRuntime="${REDct}UNKNOWN${NOct}"
         else
-            Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
-            ExpectedFWUpdateRuntime="$(date -d @$nextCronTimeSecs +"%Y-%b-%d %I:%M %p")"
+            Update_Custom_Settings FW_New_Update_Expected_Run_Date "$ExpectedFWUpdateRuntime"
             ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
         fi
     else
-        ExpectedFWUpdateRuntime="$(date -d @$ExpectedFWUpdateRuntime +"%Y-%b-%d %I:%M %p")"
         ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
     fi
 }
@@ -3938,8 +3937,7 @@ _CheckTimeToUpdateFirmware_()
        return 1
    fi
 
-   upfwDateTimeStrn="$(date -d @$nextCronTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
-   Say "The firmware update is expected to occur on ${GRNct}${upfwDateTimeStrn}${NOct}."
+   Say "The firmware update is expected to occur on ${GRNct}${nextCronTimeSecs}${NOct}."
    echo ""
 
    # Check if running in a menu environment
