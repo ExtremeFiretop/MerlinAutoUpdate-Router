@@ -3146,7 +3146,7 @@ _EstimateNextCronTimeAfterDate_()
         then
             for this_hour in $(expand_cron_field "$hour_field" 0 23)
             do
-                if [ "$this_hour" -gt "$current_hour" ] || [ "$loopCount" -gt 1 ]
+                if [ "$this_hour" -gt "$current_hour" ]
                 then
                     for this_min in $(expand_cron_field "$minute_field" 0 59)
                     do
@@ -3158,7 +3158,7 @@ _EstimateNextCronTimeAfterDate_()
                 then
                     for this_min in $(expand_cron_field "$minute_field" 0 59)
                     do
-                        if [ "$this_min" -gt "$current_minute" ]
+                        if [ "$this_min" -ge "$current_minute" ]
                         then
                             echo "$(date -d "@$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")" '+%Y-%m-%d %H:%M:%S')"
                             found=true
