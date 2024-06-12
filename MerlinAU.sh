@@ -6113,8 +6113,8 @@ _ShowMainMenu_()
       fi
       printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelID}${padStr}(H)ide"
       printf "\n  USB-Attached Storage Connected:  $USBConnected"
-      printf "\n  F/W Version Currently Installed: $FW_InstalledVerStr"
       printf "\n  F/W Variant Configuration Found: $FirmwareFlavor"
+      printf "\n  F/W Version Currently Installed: $FW_InstalledVerStr"
       printf "\n  F/W Update Version Available:    $FW_NewUpdateVerStr"
       printf "\n  F/W Update Estimated Run Date:   $ExpectedFWUpdateRuntime"
    else
