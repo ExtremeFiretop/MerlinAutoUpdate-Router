@@ -411,6 +411,7 @@ _ScriptVersionStrToNum_()
 ##---------------------------------------##
 _GetFirmwareVariantFromRouter_()
 {
+   ##DEFAULTS TO MERLIN##
    local retCode=0  newVersionStr
 
    buildInfoStr="$(nvram get buildinfo)"
@@ -426,7 +427,8 @@ _GetFirmwareVariantFromRouter_()
       then
           isGNUtonFW=true
       # if the version string contain "merlin" 
-      elif echo "$buildInfoStr" | grep -iq "merlin";  then
+      elif echo "$buildInfoStr" | grep -iq "merlin"
+      then
           isGNUtonFW=false
       else
           isGNUtonFW=false
