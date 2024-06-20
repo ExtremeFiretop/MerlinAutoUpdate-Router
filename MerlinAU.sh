@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-16
+# Last Modified: 2024-Jun-19
 ###################################################################
 set -u
 
@@ -407,24 +407,25 @@ _ScriptVersionStrToNum_()
 }
 
 ##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-18] ##
+## Added by ExtremeFiretop [2024-Jun-19] ##
 ##---------------------------------------##
 _GetFirmwareVariantFromRouter_()
 {
    local retCode=0  newVersionStr
 
    buildInfoStr="$(nvram get buildinfo)"
+   innerverStr="$(nvram get innerver)"
 
    ##FOR TESTING/DEBUG ONLY##
    if false # Change to true for forcing GNUton flag
    then 
       isGNUtonFW=true
    else
-      # Check if the version string contains "gnuton"
-      if echo "$buildInfoStr" | grep -iq "merlin"; then
-          isGNUtonFW=false
-      else
+      # Check if the version string contains "merlin" or if innerver contains "gnuton"
+      if echo "$buildInfoStr" | grep -iq "merlin" || echo "$innerverStr" | grep -iq "gnuton"; then
           isGNUtonFW=true
+      else
+          isGNUtonFW=false
       fi
    fi
 
