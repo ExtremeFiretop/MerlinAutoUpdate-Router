@@ -421,8 +421,8 @@ _GetFirmwareVariantFromRouter_()
    then 
       isGNUtonFW=true
    else
-      # Check if the version string contains "merlin" or if innerver contains "gnuton"
-      if echo "$buildInfoStr" | grep -iq "merlin" || echo "$innerverStr" | grep -iq "gnuton"; then
+      # Check if the version string does NOT contain "merlin" or if innerver contains "gnuton"
+      if ! echo "$buildInfoStr" | grep -iq "merlin" || echo "$innerverStr" | grep -iq "gnuton"; then
           isGNUtonFW=true
       else
           isGNUtonFW=false
