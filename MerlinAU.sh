@@ -2805,7 +2805,7 @@ _UnzipMerlin_() {
             rm -f "$FW_ZIP_FPATH"
         elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
-            -------------------------------------------------------------#
+            #-------------------------------------------------------------#
             # This should not happen because we already checked for it
             # at the very beginning of this function, but just in case
             # it does (drive going bad suddenly?) we'll report it here.
@@ -2876,7 +2876,7 @@ then
         rm -f "$FW_MD5_GITHUB"
     elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
     then
-        -------------------------------------------------------------#
+        #-------------------------------------------------------------#
         # This should not happen because we already checked for it
         # at the very beginning of this function, but just in case
         # it does (drive going bad suddenly?) we'll report it here.
