@@ -422,8 +422,9 @@ _GetFirmwareVariantFromRouter_()
    then 
       isGNUtonFW=true
    else
-      # Check if innerver contains "gnuton"
-      if echo "$innerverStr" | grep -iq "gnuton"
+      # Check if innerver and fwInstalledExtendNum contains "gnuton"
+      if echo "$innerverStr" | grep -iq "gnuton" || \
+         echo "$fwInstalledExtendNum" | grep -iq "gnuton"
       then
           isGNUtonFW=true
       # if the version string contain "merlin" 
@@ -1796,7 +1797,7 @@ _GetCurrentFWInstalledLongVersion_()
 {
 
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "3004.388.6.2" ; return 0 ; fi
+if true ; then echo "3004.388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
    local theVersionStr  extVersNum
