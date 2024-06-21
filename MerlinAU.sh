@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-16
+# Last Modified: 2024-Jun-19
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.3
+readonly SCRIPT_VERSION=1.3.0
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -19,16 +19,17 @@ readonly SCRIPT_BRANCH="master"
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
 
 # Firmware URL Info #
-readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
-readonly FW_URL_RELEASE_SUFFIX="Release"
+readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
+readonly FW_SFURL_RELEASE_SUFFIX="Release"
+readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
 # Changelog Info #
-readonly CL_URL_NG="${FW_URL_BASE}/Documentation/Changelog-NG.txt/download"
-readonly CL_URL_386="${FW_URL_BASE}/Documentation/Changelog-386.txt/download"
-readonly CL_URL_3006="${FW_URL_BASE}/Documentation/Changelog-3006.txt/download"
+readonly CL_URL_NG="${FW_SFURL_BASE}/Documentation/Changelog-NG.txt/download"
+readonly CL_URL_386="${FW_SFURL_BASE}/Documentation/Changelog-386.txt/download"
+readonly CL_URL_3006="${FW_SFURL_BASE}/Documentation/Changelog-3006.txt/download"
 
 readonly high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
@@ -405,6 +406,38 @@ _ScriptVersionStrToNum_()
    echo "$verNum" ; return 0
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jun-19] ##
+##---------------------------------------##
+_GetFirmwareVariantFromRouter_()
+{
+   ##DEFAULTS TO MERLIN##
+   local retCode=0  newVersionStr
+
+   buildInfoStr="$(nvram get buildinfo)"
+   innerverStr="$(nvram get innerver)"
+
+   ##FOR TESTING/DEBUG ONLY##
+   if false # Change to true for forcing GNUton flag
+   then 
+      isGNUtonFW=true
+   else
+      # Check if innerver contains "gnuton"
+      if echo "$innerverStr" | grep -iq "gnuton"
+      then
+          isGNUtonFW=true
+      # if the version string contain "merlin" 
+      elif echo "$buildInfoStr" | grep -iq "merlin"
+      then
+          isGNUtonFW=false
+      else
+          isGNUtonFW=false
+      fi
+   fi
+
+   echo "$isGNUtonFW" ; return "$retCode"
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
@@ -493,7 +526,6 @@ readonly CRON_MONTH_NAMES="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
 readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1[0-2])([\/,-]([1-9]|1[0-2]))*"
 
 readonly CRON_UNKNOWN_DATE="**ERROR**: UNKNOWN Date Found"
-
 ##------------------------------------------##
 ## Modified by Martinski W. [2024-Jan-22]   ##
 ##------------------------------------------##
@@ -505,8 +537,12 @@ readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
 readonly PRODUCT_ID="$(_GetRouterProductID_)"
+##FOR TESTING/DEBUG ONLY##
+#readonly PRODUCT_ID="TUF-AX3000_V2"
+##FOR TESTING/DEBUG ONLY##
 readonly FW_FileName="${PRODUCT_ID}_firmware"
-readonly FW_URL_RELEASE="${FW_URL_BASE}/${PRODUCT_ID}/${FW_URL_RELEASE_SUFFIX}/"
+readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
+readonly isGNUtonFW=$(_GetFirmwareVariantFromRouter_)  
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-May-21] ##
@@ -560,6 +596,7 @@ ${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
       scriptUpdateNotify=0
    fi
 }
+
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-05] ##
@@ -823,7 +860,8 @@ Get_Custom_Setting()
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+            "ROGBuild" | "TUFBuild" | "credentials_base64" | \
+            "CheckChangeLog" | \
             "FW_Allow_Beta_Production_Up" | \
             "FW_Auto_Backupmon" | \
             "FW_New_Update_Notification_Date" | \
@@ -895,7 +933,8 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+        "ROGBuild" | "TUFBuild" | "credentials_base64" | \
+        "CheckChangeLog" | \
         "FW_Allow_Beta_Production_Up" | \
         "FW_Auto_Backupmon" | \
         "FW_New_Update_Notification_Date" | \
@@ -1159,6 +1198,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
+       keepWfile=0
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
    return 0
@@ -1173,9 +1213,12 @@ _Init_Custom_Settings_Config_
 # ROG upgrades to 3006 codebase should have 
 # the ROG option deleted.
 #-----------------------------------------------------------
-if [ "$fwInstalledBaseVers" -ge 3006 ] && grep -q "^ROGBuild" "$SETTINGSFILE"
+if ! "$isGNUtonFW"
 then
-    Delete_Custom_Settings "ROGBuild"
+    if [ "$fwInstalledBaseVers" -ge 3006 ] && grep -q "^ROGBuild" "$SETTINGSFILE"
+    then
+        Delete_Custom_Settings "ROGBuild"
+    fi
 fi
 
 ##------------------------------------------##
@@ -1314,8 +1357,8 @@ _CreateEMailContent_()
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 
-   # Remove "_rog" suffix to avoid version comparison failures #
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
+   # Remove "_rog" or "_tuf" suffix to avoid version comparison failures
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_\(rog\|tuf\)$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -1886,7 +1929,7 @@ _ShutDownNonCriticalServices_()
 ##------------------------------------------##
 _DoCleanUp_()
 {
-   local delBINfiles=false  keepZIPfile=false  moveZIPback=false
+   local delBINfiles=false keepZIPfile=false keepWfile=false
 
    local doTrace=false
    [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=false
@@ -1898,20 +1941,35 @@ _DoCleanUp_()
 
    [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
    [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
+   [ $# -gt 2 ] && [ "$3" -eq 1 ] && keepWfile=true
 
    # Stop the LEDs blinking #
    _Reset_LEDs_ 1
 
+   # Check existence of files and preserve based on flags
+   local moveZIPback=false
+   local moveWback=false
+
    # Move file temporarily to save it from deletion #
-   "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ] && \
-   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
+   if "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ]; then
+       mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
+   fi
+
+   if "$keepWfile" && [ -f "$FW_DL_FPATH" ]; then
+       mv -f "$FW_DL_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveWback=true
+   fi
 
    rm -f "${FW_ZIP_DIR}"/*
    "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
 
-   # Move file back to original location #
-   "$keepZIPfile" && "$moveZIPback" && \
-   mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+   # Move files back to their original location if they were moved
+   if "$moveZIPback"; then
+       mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+   fi
+
+   if "$moveWback"; then
+       mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.${extension}" "$FW_DL_FPATH"
+   fi
 
    if "$doTrace"
    then
@@ -2015,7 +2073,7 @@ check_memory_and_prompt_reboot()
                         # Restart Entware services #
                         _EntwareServicesHandler_ start
 
-                        _DoCleanUp_ 1 "$keepZIPfile"
+                        _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
                         _DoExit_ 1
                     fi
                 else
@@ -2056,7 +2114,7 @@ check_version_support()
 
 check_model_support() {
     # List of unsupported models as a space-separated string
-    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC1900"
+    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC1900 DSL-AC68U"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
@@ -2561,6 +2619,348 @@ _GetLatestFWUpdateVersionFromWebsite_()
     return 0
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Feb-23] ##
+##---------------------------------------##
+_GetLatestFWUpdateVersionFromGithub_()
+{
+    local url="$1"  # GitHub API URL for the latest release
+    local firmware_type="$2"  # Type of firmware, e.g., "tuf", "rog" or "pure"
+
+    local search_type="$firmware_type"  # Default to the input firmware_type
+
+    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    if [ "$firmware_type" = "pure" ]; then
+        search_type="pure\|squashfs\|ubi"
+    fi
+
+    # Fetch the latest release data from GitHub
+    local release_data=$(curl -s "$url")
+
+    # Construct the grep pattern based on search_type
+    local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
+
+    # Filter the JSON for the desired firmware using grep and head to fetch the URL
+    local download_url=$(echo "$release_data" | 
+        grep -o "$grep_pattern" | 
+        grep -o "https://[^ ]*\.\(w\|pkgtb\)" | 
+        head -1)
+
+    # Check if a URL was found
+    if [ -z "$download_url" ]; then
+        echo "**ERROR** **NO_GITHUB_URL**"
+        return 1
+    else
+        # Extract the version from the download URL or release data
+        local version=$(echo "$download_url" | grep -oE "$PRODUCT_ID[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.w$//;s/_/./g")
+        echo "$version"
+        echo "$download_url"
+        return 0
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-05] ##
+##---------------------------------------##
+GetLatestFirmwareMD5Url() {
+    local url="$1"  # GitHub API URL for the latest release
+    local firmware_type="$2"  # Type of firmware, e.g., "tuf", "rog" or "pure"
+
+    local search_type="$firmware_type"  # Default to the input firmware_type
+
+    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    if [ "$firmware_type" = "pure" ]; then
+        search_type="pure\|squashfs\|ubi"
+    fi
+
+    # Fetch the latest release data from GitHub
+    local release_data=$(curl -s "$url")
+
+    # Construct the grep pattern based on search_type
+    local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.md5\""
+
+    # Filter the JSON for the desired firmware using grep and sed
+    local md5_url=$(echo "$release_data" |
+        grep -o "$grep_pattern" | 
+        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/' |
+        head -1)
+
+    # Check if a URL was found and output result or error
+    if [ -z "$md5_url" ]; then
+        echo "**ERROR** **NO_FIRMWARE_FILE_URL_FOUND**"
+        return 1
+    else
+        echo "$md5_url"
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-17] ##
+##---------------------------------------##
+GetLatestChangelogUrl() {
+    local url="$1"  # GitHub API URL for the latest release
+
+    # Fetch the latest release data from GitHub
+    local release_data=$(curl -s "$url")
+
+    # Parse the release data to find the download URL of the CHANGELOG file
+    # Directly find the URL without matching a specific model number
+    local changelog_url=$(echo "$release_data" | grep -o "\"browser_download_url\": \".*CHANGELOG.*\"" | grep -o "https://[^ ]*\"" | tr -d '"' | head -1)
+
+    # Check if the URL has been found
+    if [ -z "$changelog_url" ]; then
+        echo "**ERROR** **NO_CHANGELOG_FILE_URL_FOUND**"
+        return 1
+    else
+        echo "$changelog_url"
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
+_DownloadForGnuton_() {
+
+    # Follow redirects and capture the effective URL
+    local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")
+
+    # Use the effective URL to capture the Content-Disposition header
+    local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')   
+
+    # Sanitize filename by removing problematic characters
+    local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
+
+    # Extract the file extension
+    extension="${sanitized_filename##*.}"   
+
+    # Combine path, custom file name, and extension before download
+    FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
+    FW_MD5_GITHUB="${FW_ZIP_DIR}/${FW_FileName}.md5"
+    FW_Changelog_GITHUB="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
+
+    # Download the firmware using the release link
+    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+         -O "$FW_DL_FPATH" "$release_link"
+    if [ ! -f "$FW_DL_FPATH" ]; then
+        return 1
+    fi
+
+    # Download the latest MD5 checksum
+    Say "Downloading latest MD5 checksum ${GRNct}${md5_url}${NOct}"
+    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+         -O "$FW_MD5_GITHUB" "$md5_url"
+    if [ ! -f "$FW_MD5_GITHUB" ]; then
+        return 1
+    fi
+
+    # Download the latest changelog
+    Say "Downloading latest Changelog ${GRNct}${Gnuton_changelogurl}${NOct}"
+    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+         -O "$FW_Changelog_GITHUB" "$Gnuton_changelogurl"
+    if [ ! -f "$FW_Changelog_GITHUB" ]; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
+_DownloadForMerlin_() {
+    
+    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+         -O "$FW_ZIP_FPATH" "$release_link"
+
+    # Check if the file was downloaded successfully
+    if [ ! -f "$FW_ZIP_FPATH" ]; then
+        return 1
+    else
+        return 0
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
+_UnzipMerlin_() {
+    Say "-----------------------------------------------------------"
+    # List & log the contents of the ZIP file
+    unzip -l "$FW_ZIP_FPATH" 2>&1 | \
+    while IFS= read -r uzLINE ; do Say "$uzLINE" ; done
+    Say "-----------------------------------------------------------"
+
+    # Extracting the firmware binary image
+    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
+       while IFS= read -r line ; do Say "$line" ; done
+    then
+        Say "-----------------------------------------------------------"
+        #---------------------------------------------------------------#
+        # Check if ZIP file was downloaded to a USB-attached drive.
+        # Take into account special case for Entware "/opt/" paths.
+        #---------------------------------------------------------------#
+        if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+        then
+            # It's not on a USB drive, so it's safe to delete it
+            rm -f "$FW_ZIP_FPATH"
+        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+        then
+            -------------------------------------------------------------#
+            # This should not happen because we already checked for it
+            # at the very beginning of this function, but just in case
+            # it does (drive going bad suddenly?) we'll report it here.
+            #-------------------------------------------------------------#
+            Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+            Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+            return 1
+            # Consider how to handle this error. For now, we'll not delete the ZIP file.
+        else
+            keepZIPfile=1
+        fi
+    else
+        #------------------------------------------------------------#
+        # Remove ZIP file here because it may have been corrupted.
+        # Better to download it again and start all over, instead
+        # of trying to figure out why uncompressing it failed.
+        #------------------------------------------------------------#
+        rm -f "$FW_ZIP_FPATH"
+        _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
+        Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
+        _return 1
+    fi
+    return 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
+_CopyGnutonFiles_() {
+
+Say "Checking if file management is required"
+
+local copy_success=0
+local copy_attempted=1
+
+# Check and copy the firmware file if different from destination
+if [ "$FW_DL_FPATH" != "${FW_BIN_DIR}/${FW_FileName}.${extension}" ]; then
+    Say "File management is required"
+    copy_attempted=0
+    cp "$FW_DL_FPATH" "$FW_BIN_DIR" && Say "Copying firmware file..." || copy_success=1
+else
+    Say "File management is not required"
+fi
+
+# Check and copy the MD5 file if different from destination
+if [ "$FW_MD5_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}.md5" ]; then
+    copy_attempted=0
+    mv -f "$FW_MD5_GITHUB" "$FW_BIN_DIR" && Say "Moving MD5 file..." || copy_success=1
+fi
+
+# Check and copy the Changelog file if different from destination
+if [ "$FW_Changelog_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}_Changelog.txt" ]; then
+    copy_attempted=0
+    mv -f "$FW_Changelog_GITHUB" "$FW_BIN_DIR" && Say "Moving changelog file..." || copy_success=1
+fi
+
+if [ $copy_attempted -eq 0 ] && [ $copy_success -eq 0 ]
+then
+    #---------------------------------------------------------------#
+    # Check if Gntuon file was downloaded to a USB-attached drive.
+    # Take into account special case for Entware "/opt/" paths.
+    #---------------------------------------------------------------#
+    if ! echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+    then
+        # It's not on a USB drive, so it's safe to delete it
+        rm -f "$FW_DL_FPATH"
+        rm -f "$FW_Changelog_GITHUB"
+        rm -f "$FW_MD5_GITHUB"
+    elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+    then
+        -------------------------------------------------------------#
+        # This should not happen because we already checked for it
+        # at the very beginning of this function, but just in case
+        # it does (drive going bad suddenly?) we'll report it here.
+        #-------------------------------------------------------------#
+        Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+        Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+        return 1
+        # Consider how to handle this error. For now, we'll not delete the firmware file.
+    else
+        keepWfile=1
+    fi
+fi
+return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-05] ##
+##----------------------------------------##
+_CheckFirmwareSHA256_() {
+    # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
+    checksums="$(curl -Ls --retry 4 --retry-delay 5 https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')"
+
+    if [ -z "$checksums" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: Could not download the firmware SHA256 signatures from the website."
+        _DoCleanUp_ 1
+        if [ "$inMenuMode" = true ]
+        then
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        else
+            # Assume non-interactive mode; perform exit.
+            _DoExit_ 1
+        fi
+    fi
+
+    if [ -f "$firmware_file" ]
+    then
+        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+        # Extract the corresponding signature for the firmware file from the fetched checksums #
+        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | cut -d' ' -f1)"
+        if [ "$fw_sig" != "$dl_sig" ]
+        then
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            return 1
+        fi
+    else
+        Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
+        _DoCleanUp_ 1
+        return 1
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
+_CheckFirmwareMD5_() {
+    # Check if both the MD5 checksum file and the firmware file exist
+    if [ -f "${FW_BIN_DIR}/${FW_FileName}.md5" ] && [ -f "$firmware_file" ]; then
+        # Extract the MD5 checksum from the downloaded .md5 file
+        # Assuming the .md5 file contains a single line with the checksum followed by the filename
+        local md5_expected=$(cut -d' ' -f1 "${FW_BIN_DIR}/${FW_FileName}.md5")
+    
+        # Calculate the MD5 checksum of the firmware file
+        local md5_actual=$(md5sum "$firmware_file" | cut -d' ' -f1)
+    
+        # Compare the calculated MD5 checksum with the expected MD5 checksum
+        if [ "$md5_actual" != "$md5_expected" ]; then
+            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the MD5 checksum!"
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            return 1
+        else
+            Say "Firmware MD5 checksum verified successfully."
+        fi
+    else
+        Say "${REDct}**ERROR**${NOct}: MD5 checksum file not found or firmware file is missing!"
+        _DoCleanUp_ 1
+        return 1
+    fi
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-27] ##
 ##----------------------------------------##
@@ -2664,7 +3064,67 @@ _Toggle_Auto_Backups_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Feb-18] ##
 ##------------------------------------------##
-change_build_type()
+_ChangeBuildType_TUF_()
+{
+   local doReturnToMenu  buildtypechoice
+   printf "Changing Flash Build Type...\n"
+
+   # Use Get_Custom_Setting to retrieve the previous choice
+   previous_choice="$(Get_Custom_Setting "TUFBuild")"
+
+   # If the previous choice is not set, default to 'n'
+   if [ "$previous_choice" = "TBD" ]; then
+       previous_choice="n"
+   fi
+
+   # Convert previous choice to a descriptive text
+   if [ "$previous_choice" = "y" ]; then
+       display_choice="TUF Build"
+   else
+       display_choice="Pure Build"
+   fi
+
+   printf "\nCurrent Build Type: ${GRNct}$display_choice${NOct}.\n"
+
+   doReturnToMenu=false
+   while true
+   do
+       printf "\n${SEPstr}"
+       printf "\nChoose your preferred option for the build type to flash:\n"
+       printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface${NOct}\n"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-TUF${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
+       printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
+       printf "${SEPstr}\n"
+       printf "[$display_choice] Enter selection:  "
+       read -r choice
+
+       [ -z "$choice" ] && break
+
+       if echo "$choice" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       case $choice in
+           1) buildtypechoice="y" ; break
+              ;;
+           2) buildtypechoice="n" ; break
+              ;;
+           *) echo ; _InvalidMenuSelection_
+              ;;
+       esac
+   done
+
+   "$doReturnToMenu" && return 0
+
+   Update_Custom_Settings "TUFBuild" "$buildtypechoice"
+   printf "\nThe build type to flash was updated successfully.\n"
+
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-18] ##
+##------------------------------------------##
+_ChangeBuildType_ROG_()
 {
    local doReturnToMenu  buildtypechoice
    printf "Changing Flash Build Type...\n"
@@ -3610,21 +4070,31 @@ _ChangelogVerificationCheck_()
         current_version="$(_GetCurrentFWInstalledLongVersion_)"
         release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
 
-        # Get the correct Changelog filename: "Changelog-[3006|386|NG].txt" #
-        if echo "$release_version" | grep -qE "^3006[.]"
+        if "$isGNUtonFW"
         then
-            changeLogTag="3006"
-        elif echo "$release_version" | grep -q "386[.]"
-        then
-            changeLogTag="386"
+            changeLogFile="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
         else
-            changeLogTag="NG"
+            # Get the correct Changelog filename: "Changelog-[3006|386|NG].txt" #
+            if echo "$release_version" | grep -qE "^3006[.]"
+            then
+                changeLogTag="3006"
+            elif echo "$release_version" | grep -q "386[.]"
+            then
+                changeLogTag="386"
+            else
+                changeLogTag="NG"
+            fi
+            changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
         fi
-        changeLogFile="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "Changelog-${changeLogTag}.txt" -print)"
 
         if [ ! -f "$changeLogFile" ]
         then
-            Say "Changelog file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
+            if "$isGNUtonFW"
+            then
+                Say "Changelog file [${FW_BIN_DIR}/${FW_FileName}_Changelog.txt] does NOT exist."
+            else
+                Say "Changelog file [${FW_BIN_DIR}/Changelog-${changeLogTag}.txt] does NOT exist."
+            fi
             _DoCleanUp_
             return 1
         else
@@ -3665,15 +4135,19 @@ _ChangelogVerificationCheck_()
             release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
             current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
 
-            # Check if the current version is present in the changelog
-            if ! grep -Eq "$current_version_regex" "$changeLogFile"
+            if "$isGNUtonFW"
             then
-                Say "Current version NOT found in changelog file. Bypassing changelog verification for this run."
-                return 0
+                # For Gnuton, the whole file is relevant as it only contains the current version #
+                changelog_contents="$(cat "$changeLogFile")"
+            else
+                if ! grep -Eq "$current_version_regex" "$changeLogFile"; then
+                    Say "Current version NOT found in changelog file. Bypassing changelog verification for this run."
+                    return 0
+                else
+                    # Extract log contents between two firmware versions for non-Gnuton changelogs #
+                    changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
+                fi
             fi
-
-            # Extract log contents between two firmware versions
-            changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFile")"
 
             if [ "$mode" = "interactive" ]
             then
@@ -3697,7 +4171,7 @@ _ChangelogVerificationCheck_()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
-_ManageChangelog_()
+_ManageChangelogMerlin_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]
     then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
@@ -3773,6 +4247,59 @@ _ManageChangelog_()
     return 0
 }
 
+_ManageChangelogGnuton_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ]
+    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+    local mode="$1"  # Mode should be 'download' or 'view' #
+    local newUpdateVerStr=""
+    local wgetLogFile  changeLogFile  changeLogTag  changeLogURL
+
+    # Create directory to download changelog if missing
+    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
+
+    Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
+
+    # Follow redirects and capture the effective URL
+    local effective_url=$(curl -Ls -o /dev/null -w %{url_effective} "$Gnuton_changelogurl")
+
+    # Use the effective URL to capture the Content-Disposition header
+    local original_filename=$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')   
+
+    # Sanitize filename by removing problematic characters
+    local sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')  
+
+    FW_Changelog_GITHUB="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
+
+    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
+    printf "\nRetrieving ${GRNct}${FW_Changelog_GITHUB}${NOct} ...\n"
+
+    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+         -O "$FW_Changelog_GITHUB" -o "$wgetLogFile" "${Gnuton_changelogurl}"
+
+    if [ ! -f "$FW_Changelog_GITHUB" ]
+    then
+        Say "Changelog file [$FW_Changelog_GITHUB] does NOT exist."
+        echo ; [ -f "$wgetLogFile" ] && cat "$wgetLogFile"
+    else
+        if [ "$mode" = "download" ]
+        then
+            _ChangelogVerificationCheck_ "auto"
+        elif [ "$mode" = "view" ]
+        then
+            clear
+            printf "\n${GRNct}Changelog file is ready to review!${NOct}\n"
+            printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+            dos2unix "$FW_Changelog_GITHUB"
+            _WaitForEnterKey_
+            less "$FW_Changelog_GITHUB"
+        fi
+    fi
+    rm -f "$FW_Changelog_GITHUB" "$wgetLogFile"
+    return 1
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
@@ -3815,7 +4342,12 @@ _CheckNewUpdateFirmwareNotification_()
            then
               _SendEMailNotification_ NEW_FW_UPDATE_STATUS
            fi
-           _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
+           if "$isGNUtonFW"
+           then
+                _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
+           else
+                _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
+           fi
        fi
    fi
 
@@ -3828,7 +4360,12 @@ _CheckNewUpdateFirmwareNotification_()
        then
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
-       _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
+       if "$isGNUtonFW"
+       then
+            _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
+       else
+            _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
+       fi
    fi
 
    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
@@ -4216,18 +4753,96 @@ Please manually update to version $minimum_supported_version or higher to use th
         return 1
     fi
 
-    # Use set to read the output of the function into variables
-    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
-    if [ $? -eq 0 ] && [ $# -eq 2 ] && \
+   ##------------------------------------------##
+   ## Modified by ExtremeFiretop [2024-Apr-18] ##
+   ##------------------------------------------##
+   if "$isGNUtonFW"
+   then
+       Say "Using release information for Gnuton Firmware."
+       # Check if PRODUCT_ID is for a TUF model and requires user choice
+       if echo "$PRODUCT_ID" | grep -q "^TUF-"; then
+           # Fetch the previous choice from the settings file
+           local previous_choice="$(Get_Custom_Setting "TUFBuild")"
+
+           if [ "$previous_choice" = "y" ]; then
+               echo "TUF Build selected for flashing"
+               firmware_choice="tuf"
+           elif [ "$previous_choice" = "n" ]; then
+               echo "Pure Build selected for flashing"
+               firmware_choice="pure"
+           elif [ "$inMenuMode" = true ]; then
+               printf "${REDct}Found TUF build for: $PRODUCT_ID.${NOct}\n"
+               printf "${REDct}Would you like to use the TUF build?${NOct}\n"
+               printf "Enter your choice (y/n): "
+               read -r choice
+               if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                   echo "TUF Build selected for flashing"
+                   firmware_choice="tuf"
+                   Update_Custom_Settings "TUFBuild" "y"
+               else
+                   echo "Pure Build selected for flashing"
+                   firmware_choice="pure"
+                   Update_Custom_Settings "TUFBuild" "n"
+               fi
+           else
+               echo "Defaulting to Pure Build due to non-interactive mode."
+               firmware_choice="pure"
+               Update_Custom_Settings "TUFBuild" "n"
+           fi
+       elif echo "$PRODUCT_ID" | grep -q "^GT-"
+       then
+           # Fetch the previous choice from the settings file
+           local previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+           if [ "$previous_choice" = "y" ]; then
+               echo "ROG Build selected for flashing"
+               firmware_choice="rog"
+           elif [ "$previous_choice" = "n" ]; then
+               echo "Pure Build selected for flashing"
+               firmware_choice="pure"
+           elif [ "$inMenuMode" = true ]; then
+               printf "${REDct}Found ROG build for: $PRODUCT_ID.${NOct}\n"
+               printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+               printf "Enter your choice (y/n): "
+               read -r choice
+               if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                   echo "ROG Build selected for flashing"
+                   firmware_choice="rog"
+                   Update_Custom_Settings "ROGBuild" "y"
+               else
+                   echo "Pure Build selected for flashing"
+                   firmware_choice="pure"
+                   Update_Custom_Settings "ROGBuild" "n"
+               fi
+           else
+               echo "Defaulting to Pure Build due to non-interactive mode."
+               firmware_choice="pure"
+               Update_Custom_Settings "ROGBuild" "n"
+           fi
+       else
+           # If not a TUF model, process as usual
+           firmware_choice="pure"
+       fi
+       md5_url=$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE" "$firmware_choice")
+       Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
+       set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
+       retCode="$?"
+   else
+       Say "Using release information for Merlin Firmware."
+       set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+       retCode="$?"
+   fi
+
+   if [ "$retCode" -eq 0 ] && [ "$#" -eq 2 ] && \
        [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
-    then
+   then
         release_version="$1"
         release_link="$2"
-    else
+   else
         Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
-    fi
+   fi
 
     # Extracting the F/W Update codebase number to use in the curl #
     fwUpdateBaseNum="$(echo "$release_version" | cut -d'.' -f1)"
@@ -4352,22 +4967,27 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Downloading ${GRNct}${release_link}${NOct}"
         echo
 
-        ##----------------------------------------##
-        ## Modified by Martinski W. [2024-Feb-28] ##
-        ##----------------------------------------##
+        ##------------------------------------------##
+        ## Modified by ExtremeFiretop [2024-Apl-24] ##
+        ##------------------------------------------##
         # Avoid error message about HSTS database #
         wgetHstsFile="/tmp/home/root/.wget-hsts"
         [ -f "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
 
-        wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
-             -O "$FW_ZIP_FPATH" "$release_link"
-    fi
-
-    if [ ! -f "$FW_ZIP_FPATH" ]
-    then
-        Say "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
+        if "$isGNUtonFW"
+        then
+            _DownloadForGnuton_
+            retCode="$?"
+        else
+            _DownloadForMerlin_
+            retCode="$?"
+        fi
+        if [ "$retCode" -eq 1 ]
+        then
+            Say "${REDct}**ERROR**${NOct}: Firmware files were not downloaded successfully."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        fi
     fi
 
     ##------------------------------------------##
@@ -4379,50 +4999,18 @@ Please manually update to version $minimum_supported_version or higher to use th
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Mar-19] ##
+    ## Modified by ExtremeFiretop [2024-Apr-21] ##
     ##------------------------------------------##
-    Say "-----------------------------------------------------------"
-    # List & log the contents of the ZIP file #
-    unzip -l "$FW_ZIP_FPATH" 2>&1 | \
-    while IFS= read -r uzLINE ; do Say "$uzLINE" ; done
-    Say "-----------------------------------------------------------"
-
-    # Extracting the firmware binary image #
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
-       while IFS= read -r line ; do Say "$line" ; done
+    if "$isGNUtonFW"
     then
-        Say "-----------------------------------------------------------"
-        #---------------------------------------------------------------#
-        # Check if ZIP file was downloaded to a USB-attached drive.
-        # Take into account special case for Entware "/opt/" paths.
-        #---------------------------------------------------------------#
-        if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
-        then
-            # It's not on a USB drive, so it's safe to delete it #
-            rm -f "$FW_ZIP_FPATH"
-        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
-        then
-            #-------------------------------------------------------------#
-            # This should not happen because we already checked for it
-            # at the very beginning of this function, but just in case
-            # it does (drive going bad suddenly?) we'll report it here.
-            #-------------------------------------------------------------#
-            Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
-            Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-            "$inMenuMode" && _WaitForEnterKey_
-            # Consider how to handle this error. For now, we'll not delete the ZIP file.
-        else
-            keepZIPfile=1
-        fi
+        _CopyGnutonFiles_
+        retCode="$?"
     else
-        #------------------------------------------------------------#
-        # Remove ZIP file here because it may have been corrupted.
-        # Better to download it again and start all over, instead
-        # of trying to figure out why uncompressing it failed.
-        #------------------------------------------------------------#
-        rm -f "$FW_ZIP_FPATH"
-        _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
-        Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
+        _UnzipMerlin_
+        retCode="$?"
+    fi
+    if [ "$retCode" -eq 1 ]
+    then
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
@@ -4525,56 +5113,21 @@ Please manually update to version $minimum_supported_version or higher to use th
         firmware_file="$pure_file"
     fi
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Jun-05] ##
-    ##----------------------------------------##
-    # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(curl -Ls --retry 4 --retry-delay 5 https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')"
-
-    if [ -z "$checksums" ]
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Apr-25] ##
+    ##------------------------------------------##
+    if "$isGNUtonFW"
     then
-        Say "${REDct}**ERROR**${NOct}: Could not download the firmware SHA256 signatures from the website."
-        _DoCleanUp_ 1
-        if [ "$inMenuMode" = true ]
-        then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
-        fi
-    fi
-
-    if [ -f "$firmware_file" ]
-    then
-        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
-        # Extract the corresponding signature for the firmware file from the fetched checksums #
-        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | cut -d' ' -f1)"
-        if [ "$fw_sig" != "$dl_sig" ]
-        then
-            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
-            _DoCleanUp_ 1
-            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
-            if [ "$inMenuMode" = true ]
-            then
-                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                return 1
-            else
-                # Assume non-interactive mode; perform exit.
-                _DoExit_ 1
-            fi
-        fi
+        _CheckFirmwareMD5_
+        retCode="$?"
     else
-        Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
-        _DoCleanUp_ 1
-        if [ "$inMenuMode" = true ]
-        then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
-        fi
+        _CheckFirmwareSHA256_
+        retCode="$?"
+    fi
+    if [ "$retCode" -eq 1 ]
+    then
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
     fi
 
     ##----------------------------------------##
@@ -4596,7 +5149,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         if ! _WaitForYESorNO_ "Continue?"
         then
             Say "F/W Update was cancelled by user."
-            _DoCleanUp_ 1 "$keepZIPfile"
+            _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
             return 1
         fi
     fi
@@ -4695,7 +5248,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 2. Update credentials by selecting \"Set Router Login Credentials\" from the Main Menu."
 
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
-        _DoCleanUp_ 1 "$keepZIPfile"
+        _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
         _EntwareServicesHandler_ start
     fi
 
@@ -5097,7 +5650,8 @@ _ProcessMeshNodes_()
 }
 
 keepZIPfile=0
-trap '_DoCleanUp_ 0 "$keepZIPfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
+keepWfile=0
+trap '_DoCleanUp_ 0 "$keepZIPfile" "$keepWfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Feb-28] ##
@@ -5557,6 +6111,13 @@ _ShowMainMenu_()
    then notificationStr="${REDct}NOT SET${NOct}"
    else notificationStr="${GRNct}$(_SimpleNotificationDate_ "$notifyDate")${NOct}"
    fi
+   # Use the global variable
+   if "$isGNUtonFW"
+   then
+       FirmwareFlavor="${MAGENTAct}GNUton${NOct}"
+   else
+       FirmwareFlavor="${BLUEct}Merlin${NOct}"
+   fi
 
    printf "${SEPstr}"
    if [ "$HIDE_ROUTER_SECTION" = "false" ]
@@ -5567,6 +6128,7 @@ _ShowMainMenu_()
       fi
       printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelID}${padStr}(H)ide"
       printf "\n  USB-Attached Storage Connected:  $USBConnected"
+      printf "\n  F/W Variant Configuration Found: $FirmwareFlavor"
       printf "\n  F/W Version Currently Installed: $FW_InstalledVerStr"
       printf "\n  F/W Update Version Available:    $FW_NewUpdateVerStr"
       printf "\n  F/W Update Estimated Run Date:   $ExpectedFWUpdateRuntime"
@@ -5638,7 +6200,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-03] ##
+## Modified by ExtremeFiretop [2024-May-25] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -5675,26 +6237,96 @@ _ShowAdvancedOptionsMenu_()
        fi
    fi
 
-   if [ "$fwInstalledBaseVers" -le 3004 ]
+   if "$isGNUtonFW"
    then
-      # Retrieve the current build type setting
-      local current_build_type="$(Get_Custom_Setting "ROGBuild")"
-
-      # Convert the setting to a descriptive text
-      if [ "$current_build_type" = "y" ]; then
-          current_build_type_menu="ROG Build"
-      elif [ "$current_build_type" = "n" ]; then
-          current_build_type_menu="Pure Build"
-      else
-          current_build_type_menu="NOT SET"
-      fi
-
-      if echo "$PRODUCT_ID" | grep -q "^GT-"
+      if [ "$fwInstalledBaseVers" -le 3004 ]
       then
-          printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
-          if [ "$current_build_type_menu" = "NOT SET" ]
-          then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-          else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+         # Retrieve the current build type setting
+         local current_build_type="$(Get_Custom_Setting "TUFBuild")"
+
+         # Convert the setting to a descriptive text
+         if [ "$current_build_type" = "y" ]; then
+             current_build_type_menu="TUF Build"
+         elif [ "$current_build_type" = "n" ]; then
+             current_build_type_menu="Pure Build"
+         else
+             current_build_type_menu="NOT SET"
+         fi
+
+         if echo "$PRODUCT_ID" | grep -q "^TUF-"
+         then
+             printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+             if [ "$current_build_type_menu" = "NOT SET" ]
+             then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+             else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+             fi
+         fi
+      elif [ "$fwInstalledBaseVers" -ge 3006 ]
+      then
+          # Retrieve the current build type setting
+          local current_build_typerog="$(Get_Custom_Setting "ROGBuild")"
+
+          # Convert the setting to a descriptive text
+          if [ "$current_build_typerog" = "y" ]; then
+              current_build_type_menurog="ROG Build"
+          elif [ "$current_build_typerog" = "n" ]; then
+              current_build_type_menurog="Pure Build"
+          else
+              current_build_type_menurog="NOT SET"
+          fi
+
+          if echo "$PRODUCT_ID" | grep -q "^GT-"
+          then
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              if [ "$current_build_type_menurog" = "NOT SET" ]
+              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menurog}${NOct}]\n"
+              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menurog}${NOct}]\n"
+              fi
+          fi
+
+          # Retrieve the current build type setting
+          local current_build_typetuf="$(Get_Custom_Setting "TUFBuild")"
+
+          # Convert the setting to a descriptive text
+          if [ "$current_build_typetuf" = "y" ]; then
+              current_build_type_menutuf="TUF Build"
+          elif [ "$current_build_typetuf" = "n" ]; then
+              current_build_type_menutuf="Pure Build"
+          else
+              current_build_type_menutuf="NOT SET"
+          fi
+
+          if echo "$PRODUCT_ID" | grep -q "^TUF-"
+          then
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              if [ "$current_build_type_menutuf" = "NOT SET" ]
+              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menutuf}${NOct}]\n"
+              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menutuf}${NOct}]\n"
+              fi
+          fi
+       fi
+   else
+      if [ "$fwInstalledBaseVers" -le 3004 ]
+      then
+          # Retrieve the current build type setting
+          local current_build_type="$(Get_Custom_Setting "ROGBuild")"
+
+          # Convert the setting to a descriptive text
+          if [ "$current_build_type" = "y" ]; then
+              current_build_type_menu="ROG Build"
+          elif [ "$current_build_type" = "n" ]; then
+              current_build_type_menu="Pure Build"
+          else
+              current_build_type_menu="NOT SET"
+          fi
+
+          if echo "$PRODUCT_ID" | grep -q "^GT-"
+          then
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              if [ "$current_build_type_menu" = "NOT SET" ]
+              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+              fi
           fi
       fi
    fi
@@ -5832,7 +6464,12 @@ _AdvancedLogsOptions_()
                    _InvalidMenuSelection_
                fi
                ;;
-           cl) _ManageChangelog_ "view"
+           cl) if "$isGNUtonFW"
+               then
+                   _ManageChangelogGnuton_ "view"
+               else
+                   _ManageChangelogMerlin_ "view"
+               fi
                ;;
        e|exit) break
                ;;
@@ -5843,7 +6480,7 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-03] ##
+## Modified by ExtremeFiretop [2024-May-25] ##
 ##------------------------------------------##
 _advanced_options_menu_()
 {
@@ -5856,7 +6493,7 @@ _advanced_options_menu_()
         case $advancedChoice in
             1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
-            2) _Set_FW_UpdateCronSchedule_
+            2) _Set_FW_UpdateCronSchedule_ 
                ;;
             3) _Toggle_FW_UpdatesFromBeta_
                ;;
@@ -5865,9 +6502,14 @@ _advanced_options_menu_()
                else _InvalidMenuSelection_
                fi
                ;;
-           bt) if [ "$fwInstalledBaseVers" -le 3004 ] && \
+           bt) if echo "$PRODUCT_ID" | grep -q "^TUF-"
+               then _ChangeBuildType_TUF_
+               elif [ "$fwInstalledBaseVers" -le 3004 ]  && \
                   echo "$PRODUCT_ID" | grep -q "^GT-"
-               then change_build_type
+               then _ChangeBuildType_ROG_
+               elif [ "$fwInstalledBaseVers" -ge 3006 ]  && "$isGNUtonFW" && \
+                  echo "$PRODUCT_ID" | grep -q "^GT-"
+               then _ChangeBuildType_ROG_
                else _InvalidMenuSelection_
                fi
                ;;
