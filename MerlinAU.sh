@@ -2652,7 +2652,7 @@ _GetLatestFWUpdateVersionFromGithub_()
         return 1
     else
         # Extract the version from the download URL or release data
-        local version=$(echo "$download_url" | grep -oE "$PRODUCT_ID[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.w$//;s/_/./g")
+        local version=$(echo "$download_url" | grep -oE "${PRODUCT_ID}[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.w$//;s/_/./g")
         echo "$version"
         echo "$download_url"
         return 0
