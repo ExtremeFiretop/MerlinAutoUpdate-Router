@@ -1173,7 +1173,8 @@ _Init_Custom_Settings_Config_
 # ROG upgrades to 3006 codebase should have 
 # the ROG option deleted.
 #-----------------------------------------------------------
-if [ "$fwInstalledBaseVers" -ge 3006 ] && grep -q "^ROGBuild" "$SETTINGSFILE"
+if { [ "$fwInstalledBaseVers" -ge 3006 ] && grep -q "^ROGBuild" "$SETTINGSFILE"; } || 
+   { [ "$fwInstalledBaseVers" -eq 3004 ] && [ "$(echo "$fwInstalledBaseVers 388.8" | awk '{print ($1 > $2)}')" -eq 1 ] && grep -q "^ROGBuild" "$SETTINGSFILE"; }
 then
     Delete_Custom_Settings "ROGBuild"
 fi
@@ -3815,7 +3816,10 @@ _CheckNewUpdateFirmwareNotification_()
            then
               _SendEMailNotification_ NEW_FW_UPDATE_STATUS
            fi
-           _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
+           if ! "$isInteractive"
+           then
+              _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
+           fi
        fi
    fi
 
@@ -3829,6 +3833,10 @@ _CheckNewUpdateFirmwareNotification_()
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
        _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
+       if ! "$isInteractive"
+       then
+          _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
+       fi
    fi
 
    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
@@ -4457,7 +4465,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##----------------------------------------##
     pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
 
-    if [ "$fwInstalledBaseVers" -le 3004 ] && [ "$fwUpdateBaseNum" -le 3004 ]
+    if [ "$fwInstalledBaseVers" -le 3004 ] && [ "$fwUpdateBaseNum" -le 3004 ] && [ "$(echo "$fwInstalledBaseVers 388.8" | awk '{print ($1 < $2)}')" -eq 1 ]
     then
         # Handle upgrades from 3004 and lower #
 
@@ -4505,7 +4513,8 @@ Please manually update to version $minimum_supported_version or higher to use th
             Say "No ROG Build detected. Skipping."
             firmware_file="$pure_file"
         fi
-    elif [ "$fwInstalledBaseVers" -eq 3004 ] && [ "$fwUpdateBaseNum" -ge 3006 ]
+    elif [ "$fwInstalledBaseVers" -eq 3004 ] && [ "$fwUpdateBaseNum" -ge 3006 ] ||
+         [ "$fwInstalledBaseVers" -eq 3004 ] && [ "$(echo "$fwInstalledBaseVers 388.8" | awk '{print ($1 > $2)}')" -eq 1 ]
     then
         # Handle upgrade from 3004 to 3006
         # Fetch the previous choice from the settings file
@@ -4514,7 +4523,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         # Handle upgrade from 3004 to 3006 if there is a ROG setting
         if [ "$previous_choice" = "y" ]
         then
-            Say "Upgrading from 3004 to 3006, ROG UI is no longer supported, auto-selecting Pure UI firmware."
+            Say "Upgrading from previous release to next release, ROG UI is no longer supported, auto-selecting Pure UI firmware."
             firmware_file="$pure_file"
             Update_Custom_Settings "ROGBuild" "n"
         else
@@ -5675,7 +5684,7 @@ _ShowAdvancedOptionsMenu_()
        fi
    fi
 
-   if [ "$fwInstalledBaseVers" -le 3004 ]
+   if [ "$fwInstalledBaseVers" -le 3004 ] && [ "$(echo "$fwInstalledBaseVers 388.8" | awk '{print ($1 < $2)}')" -eq 1 ]
    then
       # Retrieve the current build type setting
       local current_build_type="$(Get_Custom_Setting "ROGBuild")"
@@ -5866,7 +5875,8 @@ _advanced_options_menu_()
                fi
                ;;
            bt) if [ "$fwInstalledBaseVers" -le 3004 ] && \
-                  echo "$PRODUCT_ID" | grep -q "^GT-"
+                  echo "$PRODUCT_ID" | grep -q "^GT-" && \
+                  [ "$(echo "$fwInstalledBaseVers 388.8" | awk '{print ($1 < $2)}')" -eq 1 ]
                then change_build_type
                else _InvalidMenuSelection_
                fi
