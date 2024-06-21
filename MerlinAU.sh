@@ -6507,7 +6507,7 @@ _advanced_options_menu_()
                elif [ "$fwInstalledBaseVers" -le 3004 ]  && \
                   echo "$PRODUCT_ID" | grep -q "^GT-"
                then _ChangeBuildType_ROG_
-               elif [ "$fwInstalledBaseVers" -ge 3006 ]  && [ "$isGNUtonFW" && \
+               elif [ "$fwInstalledBaseVers" -ge 3006 ]  && "$isGNUtonFW" && \
                   echo "$PRODUCT_ID" | grep -q "^GT-"
                then _ChangeBuildType_ROG_
                else _InvalidMenuSelection_
