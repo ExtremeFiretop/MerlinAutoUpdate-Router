@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-19
+# Last Modified: 2024-Jun-24
 ###################################################################
 set -u
 
@@ -94,6 +94,7 @@ fi
 ##----------------------------------------##
 inMenuMode=true
 isInteractive=false
+FlashStarted=false
 
 readonly mainLAN_IPaddr="$(nvram get lan_ipaddr)"
 readonly fwInstalledBaseVers="$(nvram get firmver | sed 's/\.//g')"
@@ -4343,11 +4344,14 @@ _CheckNewUpdateFirmwareNotification_()
            then
               _SendEMailNotification_ NEW_FW_UPDATE_STATUS
            fi
-           if "$isGNUtonFW"
+           if ! "$FlashStarted"
            then
-                _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
-           else
-                _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
+               if "$isGNUtonFW"
+               then
+                    _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
+               else
+                    _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
+               fi
            fi
        fi
    fi
@@ -4361,11 +4365,14 @@ _CheckNewUpdateFirmwareNotification_()
        then
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
-       if "$isGNUtonFW"
+       if ! "$FlashStarted"
        then
-            _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
-       else
-            _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
+           if "$isGNUtonFW"
+           then
+                _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
+           else
+                _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
+           fi
        fi
    fi
 
@@ -4679,6 +4686,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
     Say "Running the update task now... Checking for F/W updates..."
+    FlashStarted=true
 
     #---------------------------------------------------------------#
     # Check if an expected USB-attached drive is still mounted.
