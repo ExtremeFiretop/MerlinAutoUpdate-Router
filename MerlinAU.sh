@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-10
+# Last Modified: 2024-Jun-24
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.2
+readonly SCRIPT_VERSION=1.2.3
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -93,6 +93,7 @@ fi
 ##----------------------------------------##
 inMenuMode=true
 isInteractive=false
+FlashStarted=false
 
 readonly mainLAN_IPaddr="$(nvram get lan_ipaddr)"
 readonly fwInstalledBaseVers="$(nvram get firmver | sed 's/\.//g')"
@@ -3815,7 +3816,10 @@ _CheckNewUpdateFirmwareNotification_()
            then
               _SendEMailNotification_ NEW_FW_UPDATE_STATUS
            fi
-           _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
+           if ! "$FlashStarted"
+           then
+              _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
+           fi
        fi
    fi
 
@@ -3828,7 +3832,10 @@ _CheckNewUpdateFirmwareNotification_()
        then
           _SendEMailNotification_ NEW_FW_UPDATE_STATUS
        fi
-       _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
+       if ! "$FlashStarted"
+       then
+          _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
+       fi
    fi
 
    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
@@ -4056,13 +4063,15 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-16] ##
+## Modified by Martinski W. [2024-Jun-16] ##
 ##----------------------------------------##
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
 
-   local serviceCnt  entwOPT_init  entwOPT_unslung  actionStr=""  divAction=""
+   local actionStr=""  divAction=""
+   local serviceStr  serviceCnt=0
+   local entwOPT_init  entwOPT_unslung
 
    case "$1" in
        stop) actionStr="Stopping" ; divAction="unmount" ;;
@@ -4073,8 +4082,8 @@ _EntwareServicesHandler_()
    if [ -f /opt/bin/diversion ]
    then
        Say "${actionStr} Diversion service..."
-       /opt/bin/diversion "$divAction"
-       sleep 1
+       /opt/bin/diversion "$divAction" &
+       sleep 3
    fi
 
    entwOPT_init="/opt/etc/init.d"
@@ -4083,11 +4092,17 @@ _EntwareServicesHandler_()
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
    then return 0 ; fi  ## Entware is NOT found ##
 
-   serviceCnt="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -cE "${entwOPT_init}/S[0-9]+")"
+   serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -E "${entwOPT_init}/S[0-9]+")"
+   [ -n "$serviceStr" ] && serviceCnt="$(echo "$serviceStr" | wc -l)"
    [ "$serviceCnt" -eq 0 ] && return 0
 
    Say "${actionStr} Entware services..."
-   "$isInteractive" && printf "\nPlease wait.\n"
+   "$isInteractive" && printf "Please wait.\n"
+   Say "-----------------------------------------------------------"
+   # List the Entware service scripts found #
+   echo "$serviceStr" | while IFS= read -r servLine ; do Say "$servLine" ; done
+   Say "-----------------------------------------------------------"
+
    $entwOPT_unslung "$1" ; sleep 5
    "$isInteractive" && printf "\nDone.\n"
 }
@@ -4133,6 +4148,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
     Say "Running the update task now... Checking for F/W updates..."
+    FlashStarted=true
 
     #---------------------------------------------------------------#
     # Check if an expected USB-attached drive is still mounted.
@@ -4381,7 +4397,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     # Extracting the firmware binary image #
     if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
-    while IFS= read -r line ; do Say "$line" ; done
+       while IFS= read -r line ; do Say "$line" ; done
     then
         Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
