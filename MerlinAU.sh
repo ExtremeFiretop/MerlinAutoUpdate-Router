@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-24
+# Last Modified: 2024-Jun-25
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.3
+readonly SCRIPT_VERSION=1.2.4
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -265,12 +265,12 @@ FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 #---------------------------------------------------------#
 _GetDefaultUSBMountPoint_()
 {
-   local mounPointPath  retCode=0
+   local mountPointPath  retCode=0
    local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
 
-   mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
-   [ -z "$mounPointPath" ] && retCode=1
-   echo "$mounPointPath" ; return "$retCode"
+   mountPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mountPointPath" ] && retCode=1
+   echo "$mountPointPath" ; return "$retCode"
 }
 
 ##----------------------------------------##
@@ -1081,7 +1081,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
        # Move any existing log files to new directory #
        mv -f "${FW_LOG_DIR}"/*.log "$newLogFileDirPath" 2>/dev/null
        # Remove now the obsolete directory path #
-       rm -fr "$FW_LOG_DIR"
+       rm -fr "${FW_LOG_DIR:?}"
        # Update the log directory path after validation #
        Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
        Update_Custom_Settings FW_New_Update_LOG_Preferred_Path "$newLogBaseDirPath"
@@ -1156,7 +1156,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
            return 1
        fi
        # Remove now the obsolete directory path #
-       rm -fr "$FW_ZIP_DIR"
+       rm -fr "${FW_ZIP_DIR:?}"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
@@ -1274,7 +1274,7 @@ if echo "$UserPreferredLogPath" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
    [ "$UserPreferredLogPath" != "$FW_LOG_BASE_DIR" ]
 then
    mv -f "${FW_LOG_DIR}"/*.log "${UserPreferredLogPath}/$FW_LOG_SUBDIR" 2>/dev/null
-   rm -fr "$FW_LOG_DIR"
+   rm -fr "${FW_LOG_DIR:?}"
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
 
@@ -1907,8 +1907,8 @@ _DoCleanUp_()
    "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ] && \
    mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
 
-   rm -f "${FW_ZIP_DIR}"/*
-   "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
+   rm -f "${FW_ZIP_DIR:?}"/*
+   "$delBINfiles" && rm -f "${FW_BIN_DIR:?}"/*
 
    # Move file back to original location #
    "$keepZIPfile" && "$moveZIPback" && \
@@ -2443,7 +2443,9 @@ _GetNodeInfo_()
     --cookie-jar '/tmp/nodecookies.txt' \
     --max-time 2 > /tmp/login_response.txt 2>&1
 
-    if [ $? -ne 0 ]; then
+    if [ $? -ne 0 ]
+    then
+        printf "\n${REDct}Login failed for AiMesh Node [$NodeIP_Address].${NOct}\n"
         return 1
     fi
 
@@ -2459,7 +2461,9 @@ _GetNodeInfo_()
     --cookie '/tmp/nodecookies.txt' \
     --max-time 2 2>&1)"
 
-    if [ $? -ne 0 ]; then
+    if [ $? -ne 0 ] || [ -z "$htmlContent" ]
+    then
+        printf "\n${REDct}Failed to get information for AiMesh Node [$NodeIP_Address].${NOct}\n"
         return 1
     fi
 
@@ -5932,6 +5936,7 @@ do
           fi
           ;;
        1) _RunFirmwareUpdateNow_
+          FlashStarted=false
           ;;
        2) _GetLoginCredentials_
           ;;
