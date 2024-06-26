@@ -2520,7 +2520,7 @@ _GetNodeInfo_()
     --cookie '/tmp/nodecookies.txt' \
     --max-time 2 2>&1)"
 
-    if [ $? -ne 0 ]
+    if [ $? -ne 0 ] || [ -z "$htmlContent" ]
     then
         printf "\n${REDct}Failed to get information for AiMesh Node [$NodeIP_Address].${NOct}\n"
         return 1
