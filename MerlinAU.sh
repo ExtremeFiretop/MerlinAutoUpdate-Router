@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-25
+# Last Modified: 2024-Jun-26
 ###################################################################
 set -u
 
@@ -4066,9 +4066,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-16] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-26] ##
+##------------------------------------------##
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -4076,6 +4076,7 @@ _EntwareServicesHandler_()
    local actionStr=""  divAction=""
    local serviceStr  serviceCnt=0
    local entwOPT_init  entwOPT_unslung
+   local skipServices="tailscale" # space " " separated list #
 
    case "$1" in
        stop) actionStr="Stopping" ; divAction="unmount" ;;
@@ -4097,6 +4098,15 @@ _EntwareServicesHandler_()
    then return 0 ; fi  ## Entware is NOT found ##
 
    serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -E "${entwOPT_init}/S[0-9]+")"
+
+   # Filter out services to skip and add a skip message
+   for skipService in $skipServices; do
+       if echo "$serviceStr" | /bin/grep -q "$skipService"; then
+           Say "Skipping $skipService $actionStr..."
+       fi
+       serviceStr=$(echo "$serviceStr" | /bin/grep -v "$skipService")
+   done
+
    [ -n "$serviceStr" ] && serviceCnt="$(echo "$serviceStr" | wc -l)"
    [ "$serviceCnt" -eq 0 ] && return 0
 
@@ -4107,8 +4117,23 @@ _EntwareServicesHandler_()
    echo "$serviceStr" | while IFS= read -r servLine ; do Say "$servLine" ; done
    Say "-----------------------------------------------------------"
 
-   $entwOPT_unslung "$1" ; sleep 5
-   "$isInteractive" && printf "\nDone.\n"
+    # Stop or start each service individually
+    echo "$serviceStr" | while IFS= read -r servLine; do
+        serviceName=$(basename "$servLine")
+        Say "Processing service: $serviceName"  # Debug statement
+        if [ "$1" = "stop" ]; then
+            Say "Stopping $serviceName..."
+            "$servLine" stop
+            sleep 1
+        else
+            Say "Starting $serviceName..."
+            "$servLine" start
+            sleep 1
+        fi
+    done
+
+    "$isInteractive" && printf "\nDone.\n"
+    sleep 5
 }
 
 ##----------------------------------------##
