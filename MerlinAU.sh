@@ -4120,7 +4120,6 @@ _EntwareServicesHandler_()
     # Stop or start each service individually
     echo "$serviceStr" | while IFS= read -r servLine; do
         serviceName=$(basename "$servLine")
-        Say "Processing service: $serviceName"  # Debug statement
         if [ "$1" = "stop" ]; then
             Say "Stopping $serviceName..."
             "$servLine" stop
