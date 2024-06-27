@@ -4117,19 +4117,29 @@ _EntwareServicesHandler_()
    echo "$serviceStr" | while IFS= read -r servLine ; do Say "$servLine" ; done
    Say "-----------------------------------------------------------"
 
-    # Stop or start each service individually
-    echo "$serviceStr" | while IFS= read -r servLine; do
-        serviceName=$(basename "$servLine")
-        if [ "$1" = "stop" ]; then
-            Say "Stopping $serviceName..."
-            "$servLine" stop
-            sleep 1
-        else
-            Say "Starting $serviceName..."
-            "$servLine" start
-            sleep 1
-        fi
-    done
+   # Stop or start each service individually
+   echo "$serviceStr" | while IFS= read -r servLine ; do
+       case "$servLine" in
+           *tailscale*)
+               echo "Skipping Tailscale script: $servLine"
+               continue
+               ;;
+           S* | *.sh )
+               echo "Sourcing shell script: $servLine"
+               if [ -x "$servLine" ]; then
+                   trap "" INT QUIT TSTP EXIT
+                   . "$servLine" "$1" 2>&1 | tee -a /tmp/service_debug.log
+               fi
+               ;;
+           *)
+               echo "Forking subprocess for: $servLine"
+               if [ -x "$servLine" ]; then
+                   "$servLine" "$1" 2>&1 | tee -a /tmp/service_debug.log
+               fi
+               ;;
+       esac
+       sleep 1
+   done
 
     "$isInteractive" && printf "\nDone.\n"
     sleep 5
