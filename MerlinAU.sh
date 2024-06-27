@@ -4115,7 +4115,7 @@ _Toggle_FW_UpdateCheckSetting_()
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
-   AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
+   local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
    local actionStr=""  divAction=""
    local serviceStr  serviceCnt=0
