@@ -868,7 +868,8 @@ Get_Custom_Setting()
 
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
-            "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+            "ROGBuild" | "TUFBuild" | "credentials_base64" | \
+            "CheckChangeLog" | \
             "Allow_Updates_OverVPN" | \
             "FW_Allow_Beta_Production_Up" | \
             "FW_Auto_Backupmon" | \
@@ -941,7 +942,8 @@ Update_Custom_Settings()
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
-        "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+        "ROGBuild" | "TUFBuild" | "credentials_base64" | \
+        "CheckChangeLog" | \
         "Allow_Updates_OverVPN" | \
         "FW_Allow_Beta_Production_Up" | \
         "FW_Auto_Backupmon" | \
