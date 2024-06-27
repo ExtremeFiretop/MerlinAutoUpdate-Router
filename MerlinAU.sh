@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-26
+# Last Modified: 2024-Jun-27
 ###################################################################
 set -u
 
@@ -713,7 +713,7 @@ else
 fi
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
@@ -734,6 +734,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_EMail_CC_Name=TBD"
          echo "FW_New_Update_EMail_CC_Address=TBD"
          echo "CheckChangeLog ENABLED"
+         echo "Allow_Updates_OverVPN DISABLED"
          echo "FW_New_Update_Changelog_Approval=TBD"
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
@@ -793,6 +794,11 @@ _Init_Custom_Settings_Config_()
        sed -i "10 i CheckChangeLog ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^Allow_Updates_OverVPN " "$SETTINGSFILE"
+   then
+       sed -i "10 i Allow_Updates_OverVPN DISABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
    if ! grep -q "^FW_Allow_Beta_Production_Up " "$SETTINGSFILE"
    then
        sed -i "11 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
@@ -812,7 +818,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 Get_Custom_Setting()
 {
@@ -825,6 +831,7 @@ Get_Custom_Setting()
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
             "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+            "Allow_Updates_OverVPN" | \
             "FW_Allow_Beta_Production_Up" | \
             "FW_Auto_Backupmon" | \
             "FW_New_Update_Notification_Date" | \
@@ -883,7 +890,7 @@ _GetAllNodeSettings_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -897,6 +904,7 @@ Update_Custom_Settings()
 
     case "$setting_type" in
         "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+        "Allow_Updates_OverVPN" | \
         "FW_Allow_Beta_Production_Up" | \
         "FW_Auto_Backupmon" | \
         "FW_New_Update_Notification_Date" | \
@@ -2600,6 +2608,41 @@ _toggle_change_log_check_()
     _WaitForEnterKey_
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
+##------------------------------------------##
+_Toggle_VPN_Access_()
+{
+    local currentSetting="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+
+    if [ "$currentSetting" = "ENABLED" ]
+    then
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Disabling this feature means MerlinAU will shutdown Wireguard and Tailscale VPN access while updating.\n"
+        printf "The advice is to proceed only if you do not require the VPN access to stay alive while updating.\n"
+
+        if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "Allow_Updates_OverVPN" "DISABLED"
+            printf "VPN Access will now be ${REDct}DISABLED.${NOct}\n"
+        else
+            printf "VPN Access while updating remains ${GRNct}ENABLED.${NOct}\n"
+        fi
+    else
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Enabling this feature means MerlinAU will keep Wireguard and Tailscale VPN access alive while updating.\n"
+        printf "The advice is to proceed only if you do require the VPN access to stay alive while updating.\n"
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
+        then
+            Update_Custom_Settings "Allow_Updates_OverVPN" "ENABLED"
+            printf "VPN Access will now be ${GRNct}ENABLED.${NOct}\n"
+        else
+            printf "VPN Access while updating remains ${REDct}DISABLED.${NOct}\n"
+        fi
+    fi
+    _WaitForEnterKey_
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-27] ##
 ##----------------------------------------##
@@ -4067,11 +4110,12 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-26] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
    local actionStr=""  divAction=""
    local serviceStr  serviceCnt=0
@@ -4084,11 +4128,14 @@ _EntwareServicesHandler_()
           *) return 1 ;;
    esac
 
-   if [ -f /opt/bin/diversion ]
+   if [ "$AllowVPN" = "DISABLED" ]
    then
-       Say "${actionStr} Diversion service..."
-       /opt/bin/diversion "$divAction" &
-       sleep 3
+      if [ -f /opt/bin/diversion ]
+      then
+          Say "${actionStr} Diversion service..."
+          /opt/bin/diversion "$divAction" &
+          sleep 3
+      fi
    fi
 
    entwOPT_init="/opt/etc/init.d"
@@ -4099,13 +4146,16 @@ _EntwareServicesHandler_()
 
    serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -E "${entwOPT_init}/S[0-9]+")"
 
-   # Filter out services to skip and add a skip message
-   for skipService in $skipServices; do
-       if echo "$serviceStr" | /bin/grep -q "$skipService"; then
-           Say "Skipping $skipService $actionStr..."
-       fi
-       serviceStr=$(echo "$serviceStr" | /bin/grep -v "$skipService")
-   done
+   if [ "$AllowVPN" = "ENABLED" ]
+   then
+      # Filter out services to skip and add a skip message
+      for skipService in $skipServices; do
+          if echo "$serviceStr" | /bin/grep -q "$skipService"; then
+              Say "Skipping $skipService $actionStr..."
+          fi
+          serviceStr=$(echo "$serviceStr" | /bin/grep -v "$skipService")
+      done
+   fi
 
    [ -n "$serviceStr" ] && serviceCnt="$(echo "$serviceStr" | wc -l)"
    [ "$serviceCnt" -eq 0 ] && return 0
@@ -4120,10 +4170,6 @@ _EntwareServicesHandler_()
    # Stop or start each service individually
    echo "$serviceStr" | while IFS= read -r servLine ; do
        case "$servLine" in
-           *tailscale*)
-               echo "Skipping Tailscale script: $servLine"
-               continue
-               ;;
            S* | *.sh )
                echo "Sourcing shell script: $servLine"
                if [ -x "$servLine" ]; then
@@ -4141,8 +4187,8 @@ _EntwareServicesHandler_()
        sleep 1
    done
 
-    "$isInteractive" && printf "\nDone.\n"
-    sleep 5
+   "$isInteractive" && printf "\nDone.\n"
+   sleep 5
 }
 
 ##----------------------------------------##
@@ -5684,7 +5730,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-03] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -5706,6 +5752,16 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
        printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+   fi
+
+   local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+   if [ "$VPNAccess" = "DISABLED" ]
+   then
+       printf "\n  ${GRNct}4${NOct}.  Toggle VPN Access While Updating"
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+   else
+       printf "\n  ${GRNct}4${NOct}.  Toggle VPN Access While Updating"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
@@ -5889,7 +5945,7 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-03] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 _advanced_options_menu_()
 {
@@ -5905,6 +5961,8 @@ _advanced_options_menu_()
             2) _Set_FW_UpdateCronSchedule_
                ;;
             3) _Toggle_FW_UpdatesFromBeta_
+               ;;
+            4) _Toggle_VPN_Access_
                ;;
            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
                then _Toggle_Auto_Backups_
