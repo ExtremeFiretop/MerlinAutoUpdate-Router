@@ -4120,7 +4120,9 @@ _EntwareServicesHandler_()
    local actionStr=""  divAction=""
    local serviceStr  serviceCnt=0
    local entwOPT_init  entwOPT_unslung
-   local skipServices="tailscale" # space " " separated list #
+   # space-delimited list #
+   local skipServiceList="tailscaled"
+   local skippedService  skippedServiceFile  skippedServiceList=""
 
    case "$1" in
        stop) actionStr="Stopping" ; divAction="unmount" ;;
