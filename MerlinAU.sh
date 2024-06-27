@@ -4653,12 +4653,14 @@ _Toggle_FW_UpdateCheckSetting_()
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
-   AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
+   local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
    local actionStr=""  divAction=""
    local serviceStr  serviceCnt=0
    local entwOPT_init  entwOPT_unslung
-   local skipServices="tailscale" # space " " separated list #
+   # space-delimited list #
+   local skipServiceList="tailscaled"
+   local skippedService  skippedServiceFile  skippedServiceList=""
 
    case "$1" in
        stop) actionStr="Stopping" ; divAction="unmount" ;;
@@ -4684,19 +4686,27 @@ _EntwareServicesHandler_()
 
    serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -E "${entwOPT_init}/S[0-9]+")"
 
+   # Filter out services to skip and add a skip message #
    if [ "$AllowVPN" = "ENABLED" ]
    then
-      # Filter out services to skip and add a skip message
-      for skipService in $skipServices; do
-          if echo "$serviceStr" | /bin/grep -q "$skipService"; then
-              Say "Skipping $skipService $actionStr..."
+      for skipService in $skipServiceList
+      do
+          skippedService="$(echo "$serviceStr" | /bin/grep -E "S[0-9]+.*${skipService}$")"
+          if [ -n "$skippedService" ]
+          then
+              skippedServiceFile="$(basename "$skippedService")"
+              Say "Skipping $skippedServiceFile $1 call..."
+              # Rename service file so it's skipped by Entware #
+              if mv -f "${entwOPT_init}/$skippedServiceFile" "${entwOPT_init}/OFF.${skippedServiceFile}.OFF"
+              then
+                  [ -z "$skippedServiceList" ] && \
+                  skippedServiceList="$skippedServiceFile" || \
+                  skippedServiceList="$skippedServiceList $skippedServiceFile"
+                  serviceStr="$(echo "$serviceStr" | /bin/grep -vE "S[0-9]+.*${skipService}$")"
+              fi
           fi
-          serviceStr=$(echo "$serviceStr" | /bin/grep -v "$skipService")
       done
    fi
-
-   [ -n "$serviceStr" ] && serviceCnt="$(echo "$serviceStr" | wc -l)"
-   [ "$serviceCnt" -eq 0 ] && return 0
 
    Say "${actionStr} Entware services..."
    "$isInteractive" && printf "Please wait.\n"
@@ -4705,28 +4715,19 @@ _EntwareServicesHandler_()
    echo "$serviceStr" | while IFS= read -r servLine ; do Say "$servLine" ; done
    Say "-----------------------------------------------------------"
 
-   # Stop or start each service individually
-   echo "$serviceStr" | while IFS= read -r servLine ; do
-       case "$servLine" in
-           S* | *.sh )
-               echo "Sourcing shell script: $servLine"
-               if [ -x "$servLine" ]; then
-                   trap "" INT QUIT TSTP EXIT
-                   . "$servLine" "$1" 2>&1 | tee -a /tmp/service_debug.log
-               fi
-               ;;
-           *)
-               echo "Forking subprocess for: $servLine"
-               if [ -x "$servLine" ]; then
-                   "$servLine" "$1" 2>&1 | tee -a /tmp/service_debug.log
-               fi
-               ;;
-       esac
-       sleep 1
-   done
+   $entwOPT_unslung "$1" ; sleep 5
 
+   if [ -n "$skippedServiceList" ]
+   then
+       for skippedServiceFile in $skippedServiceList
+       do  # Rename service file back to original state #
+           if mv -f "${entwOPT_init}/OFF.${skippedServiceFile}.OFF" "${entwOPT_init}/$skippedServiceFile"
+           then
+               Say "Skipped $skippedServiceFile $1 call."
+           fi
+       done
+   fi
    "$isInteractive" && printf "\nDone.\n"
-   sleep 5
 }
 
 ##----------------------------------------##
