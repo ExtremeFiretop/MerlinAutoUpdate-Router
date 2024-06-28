@@ -3019,7 +3019,7 @@ _Toggle_VPN_Access_()
     if [ "$currentSetting" = "ENABLED" ]
     then
         printf "${REDct}*WARNING*${NOct}\n"
-        printf "Disabling this feature will shut down Diversion, Tailscale, and Wireguard VPN access during updates.\n"
+        printf "Disabling this feature will shut down Diversion and Tailscale VPN access during updates.\n"
         printf "Proceed only if you do not need VPN access during updates.\n"
 
         if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
@@ -3031,7 +3031,7 @@ _Toggle_VPN_Access_()
         fi
     else
         printf "${REDct}*WARNING*${NOct}\n"
-        printf "Enabling this feature will keep Diversion, Tailscale, and Wireguard VPN access active during updates.\n"
+        printf "Enabling this feature will keep Diversion and Tailscale VPN access active during updates.\n"
         printf "Proceed only if you need VPN access during updates.\n"
         if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
         then
@@ -4672,9 +4672,11 @@ _EntwareServicesHandler_()
    then
       if [ -f /opt/bin/diversion ]
       then
+          # Diversion unmount command also unloads entware services #
           Say "${actionStr} Diversion service..."
-          /opt/bin/diversion "$divAction" &
-          sleep 3
+          /opt/bin/diversion "$divAction" >/dev/null
+          sleep 5
+          return 0
       fi
    fi
 
