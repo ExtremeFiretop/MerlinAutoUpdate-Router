@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-24
+# Last Modified: 2024-Jun-28
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.3
+readonly SCRIPT_VERSION=1.2.4
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -265,12 +265,12 @@ FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 #---------------------------------------------------------#
 _GetDefaultUSBMountPoint_()
 {
-   local mounPointPath  retCode=0
+   local mountPointPath  retCode=0
    local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
 
-   mounPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
-   [ -z "$mounPointPath" ] && retCode=1
-   echo "$mounPointPath" ; return "$retCode"
+   mountPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mountPointPath" ] && retCode=1
+   echo "$mountPointPath" ; return "$retCode"
 }
 
 ##----------------------------------------##
@@ -713,7 +713,7 @@ else
 fi
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
@@ -734,6 +734,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_EMail_CC_Name=TBD"
          echo "FW_New_Update_EMail_CC_Address=TBD"
          echo "CheckChangeLog ENABLED"
+         echo "Allow_Updates_OverVPN DISABLED"
          echo "FW_New_Update_Changelog_Approval=TBD"
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
@@ -793,6 +794,11 @@ _Init_Custom_Settings_Config_()
        sed -i "10 i CheckChangeLog ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^Allow_Updates_OverVPN " "$SETTINGSFILE"
+   then
+       sed -i "10 i Allow_Updates_OverVPN DISABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
    if ! grep -q "^FW_Allow_Beta_Production_Up " "$SETTINGSFILE"
    then
        sed -i "11 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
@@ -812,7 +818,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 Get_Custom_Setting()
 {
@@ -825,6 +831,7 @@ Get_Custom_Setting()
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
             "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+            "Allow_Updates_OverVPN" | \
             "FW_Allow_Beta_Production_Up" | \
             "FW_Auto_Backupmon" | \
             "FW_New_Update_Notification_Date" | \
@@ -883,7 +890,7 @@ _GetAllNodeSettings_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -897,6 +904,7 @@ Update_Custom_Settings()
 
     case "$setting_type" in
         "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+        "Allow_Updates_OverVPN" | \
         "FW_Allow_Beta_Production_Up" | \
         "FW_Auto_Backupmon" | \
         "FW_New_Update_Notification_Date" | \
@@ -1081,7 +1089,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
        # Move any existing log files to new directory #
        mv -f "${FW_LOG_DIR}"/*.log "$newLogFileDirPath" 2>/dev/null
        # Remove now the obsolete directory path #
-       rm -fr "$FW_LOG_DIR"
+       rm -fr "${FW_LOG_DIR:?}"
        # Update the log directory path after validation #
        Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
        Update_Custom_Settings FW_New_Update_LOG_Preferred_Path "$newLogBaseDirPath"
@@ -1156,7 +1164,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
            return 1
        fi
        # Remove now the obsolete directory path #
-       rm -fr "$FW_ZIP_DIR"
+       rm -fr "${FW_ZIP_DIR:?}"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
@@ -1274,7 +1282,7 @@ if echo "$UserPreferredLogPath" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
    [ "$UserPreferredLogPath" != "$FW_LOG_BASE_DIR" ]
 then
    mv -f "${FW_LOG_DIR}"/*.log "${UserPreferredLogPath}/$FW_LOG_SUBDIR" 2>/dev/null
-   rm -fr "$FW_LOG_DIR"
+   rm -fr "${FW_LOG_DIR:?}"
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
 
@@ -1907,8 +1915,8 @@ _DoCleanUp_()
    "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ] && \
    mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
 
-   rm -f "${FW_ZIP_DIR}"/*
-   "$delBINfiles" && rm -f "${FW_BIN_DIR}"/*
+   rm -f "${FW_ZIP_DIR:?}"/*
+   "$delBINfiles" && rm -f "${FW_BIN_DIR:?}"/*
 
    # Move file back to original location #
    "$keepZIPfile" && "$moveZIPback" && \
@@ -2443,7 +2451,9 @@ _GetNodeInfo_()
     --cookie-jar '/tmp/nodecookies.txt' \
     --max-time 2 > /tmp/login_response.txt 2>&1
 
-    if [ $? -ne 0 ]; then
+    if [ $? -ne 0 ]
+    then
+        printf "\n${REDct}Login failed for AiMesh Node [$NodeIP_Address].${NOct}\n"
         return 1
     fi
 
@@ -2459,7 +2469,9 @@ _GetNodeInfo_()
     --cookie '/tmp/nodecookies.txt' \
     --max-time 2 2>&1)"
 
-    if [ $? -ne 0 ]; then
+    if [ $? -ne 0 ] || [ -z "$htmlContent" ]
+    then
+        printf "\n${REDct}Failed to get information for AiMesh Node [$NodeIP_Address].${NOct}\n"
         return 1
     fi
 
@@ -2591,6 +2603,41 @@ _toggle_change_log_check_()
             printf "Changelog verification check is now ${GRNct}ENABLED.${NOct}\n"
         else
             printf "Changelog verification check remains ${REDct}DISABLED.${NOct}\n"
+        fi
+    fi
+    _WaitForEnterKey_
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
+##------------------------------------------##
+_Toggle_VPN_Access_()
+{
+    local currentSetting="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+
+    if [ "$currentSetting" = "ENABLED" ]
+    then
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Disabling this feature will shut down Diversion and Tailscale VPN access during updates.\n"
+        printf "Proceed only if you do not need VPN access during updates.\n"
+
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "Allow_Updates_OverVPN" "DISABLED"
+            printf "VPN access will now be ${GRNct}DISABLED.${NOct}\n"
+        else
+            printf "VPN access during updates remains ${REDct}ENABLED.${NOct}\n"
+        fi
+    else
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Enabling this feature will keep Diversion and Tailscale VPN access active during updates.\n"
+        printf "Proceed only if you need VPN access during updates.\n"
+        if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
+        then
+            Update_Custom_Settings "Allow_Updates_OverVPN" "ENABLED"
+            printf "VPN access will now be ${REDct}ENABLED.${NOct}\n"
+        else
+            printf "VPN access during updates remains ${GRNct}DISABLED.${NOct}\n"
         fi
     fi
     _WaitForEnterKey_
@@ -4063,38 +4110,75 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-16] ##
+## Modified by Martinski W. [2024-Jun-28] ##
 ##----------------------------------------##
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
-   local actionStr=""  divAction=""
+   local actionStr=""
    local serviceStr  serviceCnt=0
    local entwOPT_init  entwOPT_unslung
-
-   case "$1" in
-       stop) actionStr="Stopping" ; divAction="unmount" ;;
-      start) actionStr="Restarting" ; divAction="mount" ;;
-          *) return 1 ;;
-   esac
-
-   if [ -f /opt/bin/diversion ]
-   then
-       Say "${actionStr} Diversion service..."
-       /opt/bin/diversion "$divAction" &
-       sleep 3
-   fi
+   # space-delimited list #
+   local skipServiceList="tailscaled"
+   local skippedService  skippedServiceFile  skippedServiceList=""
 
    entwOPT_init="/opt/etc/init.d"
    entwOPT_unslung="${entwOPT_init}/rc.unslung"
 
+   case "$1" in
+       stop) actionStr="Stopping" ;;
+      start) actionStr="Restarting" ;;
+          *) return 1 ;;
+   esac
+
+   _RenameSkippedService_()
+   {
+       [ -z "$skippedServiceList" ] && return 1
+       for skippedServiceFile in $skippedServiceList
+       do  # Rename service file back to original state #
+           if mv -f "${entwOPT_init}/OFF.${skippedServiceFile}.OFF" "${entwOPT_init}/$skippedServiceFile"
+           then Say "Skipped $skippedServiceFile $1 call." ; fi
+       done
+       return 0
+   }
+
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
    then return 0 ; fi  ## Entware is NOT found ##
 
-   serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -E "${entwOPT_init}/S[0-9]+")"
+   serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "*" -print 2>/dev/null | /bin/grep -E "(${entwOPT_init}/S[0-9]+|${entwOPT_init}/.*[.]sh$)")"
+
+   [ -n "$serviceStr" ] && Say "Looking for Entware services..."
+
+   # Filter out services to skip and add a skip message #
+   if [ "$AllowVPN" = "ENABLED" ]
+   then
+      for skipService in $skipServiceList
+      do
+          skippedService="$(echo "$serviceStr" | /bin/grep -E "/S[0-9]+.*${skipService}$")"
+          if [ -n "$skippedService" ]
+          then
+              skippedServiceFile="$(basename "$skippedService")"
+              Say "Skipping $skippedServiceFile $1 call..."
+              # Rename service file so it's skipped by Entware #
+              if mv -f "${entwOPT_init}/$skippedServiceFile" "${entwOPT_init}/OFF.${skippedServiceFile}.OFF"
+              then
+                  [ -z "$skippedServiceList" ] && \
+                  skippedServiceList="$skippedServiceFile" || \
+                  skippedServiceList="$skippedServiceList $skippedServiceFile"
+                  serviceStr="$(echo "$serviceStr" | /bin/grep -vE "/S[0-9]+.*${skipService}$")"
+              fi
+          fi
+      done
+   fi
+
    [ -n "$serviceStr" ] && serviceCnt="$(echo "$serviceStr" | wc -l)"
-   [ "$serviceCnt" -eq 0 ] && return 0
+   if [ "$serviceCnt" -eq 0 ]
+   then
+       _RenameSkippedService_ "$1" && echo
+       return 0
+   fi
 
    Say "${actionStr} Entware services..."
    "$isInteractive" && printf "Please wait.\n"
@@ -4104,6 +4188,7 @@ _EntwareServicesHandler_()
    Say "-----------------------------------------------------------"
 
    $entwOPT_unslung "$1" ; sleep 5
+   _RenameSkippedService_ "$1" && echo
    "$isInteractive" && printf "\nDone.\n"
 }
 
@@ -4648,6 +4733,18 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
+        local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
+        if [ "$AllowVPN" = "DISABLED" ]
+        then
+           if [ -f /opt/bin/diversion ]
+           then
+               # Diversion unmount command also unloads entware services #
+               Say "Stopping Diversion service..."
+               /opt/bin/diversion unmount &
+               sleep 5
+           fi
+        fi
+
         # *WARNING*: No more logging at this point & beyond #
         /sbin/ejusb -1 0 -u 1
 
@@ -4705,6 +4802,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
         _EntwareServicesHandler_ start
+        # /opt/bin/diversion mount >/dev/null #Does not work temporarily
     fi
 
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
@@ -5646,7 +5744,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-03] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -5662,13 +5760,21 @@ _ShowAdvancedOptionsMenu_()
    printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+   printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+   fi
+
+   local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+   printf "\n  ${GRNct}4${NOct}.  Toggle VPN Service During Updates"
+   if [ "$VPNAccess" = "DISABLED" ]
+   then
+       printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
+   else
+       printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
    fi
 
    if [ -f "/jffs/scripts/backupmon.sh" ]
@@ -5851,7 +5957,7 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-03] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 _advanced_options_menu_()
 {
@@ -5867,6 +5973,8 @@ _advanced_options_menu_()
             2) _Set_FW_UpdateCronSchedule_
                ;;
             3) _Toggle_FW_UpdatesFromBeta_
+               ;;
+            4) _Toggle_VPN_Access_
                ;;
            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
                then _Toggle_Auto_Backups_
@@ -5932,6 +6040,7 @@ do
           fi
           ;;
        1) _RunFirmwareUpdateNow_
+          FlashStarted=false
           ;;
        2) _GetLoginCredentials_
           ;;
