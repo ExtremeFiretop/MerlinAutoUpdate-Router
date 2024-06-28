@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-25
+# Last Modified: 2024-Jun-27
 ###################################################################
 set -u
 
@@ -713,7 +713,7 @@ else
 fi
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-25] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
@@ -734,6 +734,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_EMail_CC_Name=TBD"
          echo "FW_New_Update_EMail_CC_Address=TBD"
          echo "CheckChangeLog ENABLED"
+         echo "Allow_Updates_OverVPN DISABLED"
          echo "FW_New_Update_Changelog_Approval=TBD"
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
@@ -793,6 +794,11 @@ _Init_Custom_Settings_Config_()
        sed -i "10 i CheckChangeLog ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^Allow_Updates_OverVPN " "$SETTINGSFILE"
+   then
+       sed -i "10 i Allow_Updates_OverVPN DISABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
    if ! grep -q "^FW_Allow_Beta_Production_Up " "$SETTINGSFILE"
    then
        sed -i "11 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
@@ -812,7 +818,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 Get_Custom_Setting()
 {
@@ -825,6 +831,7 @@ Get_Custom_Setting()
     if [ -f "$SETTINGSFILE" ]; then
         case "$setting_type" in
             "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+            "Allow_Updates_OverVPN" | \
             "FW_Allow_Beta_Production_Up" | \
             "FW_Auto_Backupmon" | \
             "FW_New_Update_Notification_Date" | \
@@ -883,7 +890,7 @@ _GetAllNodeSettings_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 Update_Custom_Settings()
 {
@@ -897,6 +904,7 @@ Update_Custom_Settings()
 
     case "$setting_type" in
         "ROGBuild" | "credentials_base64" | "CheckChangeLog" | \
+        "Allow_Updates_OverVPN" | \
         "FW_Allow_Beta_Production_Up" | \
         "FW_Auto_Backupmon" | \
         "FW_New_Update_Notification_Date" | \
@@ -2600,6 +2608,41 @@ _toggle_change_log_check_()
     _WaitForEnterKey_
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
+##------------------------------------------##
+_Toggle_VPN_Access_()
+{
+    local currentSetting="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+
+    if [ "$currentSetting" = "ENABLED" ]
+    then
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Disabling this feature will shut down Diversion, Tailscale, and Wireguard VPN access during updates.\n"
+        printf "Proceed only if you do not need VPN access during updates.\n"
+
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "Allow_Updates_OverVPN" "DISABLED"
+            printf "VPN access will now be ${GRNct}DISABLED.${NOct}\n"
+        else
+            printf "VPN access during updates remains ${REDct}ENABLED.${NOct}\n"
+        fi
+    else
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Enabling this feature will keep Diversion, Tailscale, and Wireguard VPN access active during updates.\n"
+        printf "Proceed only if you need VPN access during updates.\n"
+        if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
+        then
+            Update_Custom_Settings "Allow_Updates_OverVPN" "ENABLED"
+            printf "VPN access will now be ${REDct}ENABLED.${NOct}\n"
+        else
+            printf "VPN access during updates remains ${GRNct}DISABLED.${NOct}\n"
+        fi
+    fi
+    _WaitForEnterKey_
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-27] ##
 ##----------------------------------------##
@@ -4066,16 +4109,20 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-16] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
+##------------------------------------------##
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
    local actionStr=""  divAction=""
    local serviceStr  serviceCnt=0
    local entwOPT_init  entwOPT_unslung
+   # space-delimited list #
+   local skipServiceList="tailscaled"
+   local skippedService  skippedServiceFile  skippedServiceList=""
 
    case "$1" in
        stop) actionStr="Stopping" ; divAction="unmount" ;;
@@ -4083,11 +4130,14 @@ _EntwareServicesHandler_()
           *) return 1 ;;
    esac
 
-   if [ -f /opt/bin/diversion ]
+   if [ "$AllowVPN" = "DISABLED" ]
    then
-       Say "${actionStr} Diversion service..."
-       /opt/bin/diversion "$divAction" &
-       sleep 3
+      if [ -f /opt/bin/diversion ]
+      then
+          Say "${actionStr} Diversion service..."
+          /opt/bin/diversion "$divAction" &
+          sleep 3
+      fi
    fi
 
    entwOPT_init="/opt/etc/init.d"
@@ -4097,8 +4147,28 @@ _EntwareServicesHandler_()
    then return 0 ; fi  ## Entware is NOT found ##
 
    serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -E "${entwOPT_init}/S[0-9]+")"
-   [ -n "$serviceStr" ] && serviceCnt="$(echo "$serviceStr" | wc -l)"
-   [ "$serviceCnt" -eq 0 ] && return 0
+
+   # Filter out services to skip and add a skip message #
+   if [ "$AllowVPN" = "ENABLED" ]
+   then
+      for skipService in $skipServiceList
+      do
+          skippedService="$(echo "$serviceStr" | /bin/grep -E "S[0-9]+.*${skipService}$")"
+          if [ -n "$skippedService" ]
+          then
+              skippedServiceFile="$(basename "$skippedService")"
+              Say "Skipping $skippedServiceFile $1 call..."
+              # Rename service file so it's skipped by Entware #
+              if mv -f "${entwOPT_init}/$skippedServiceFile" "${entwOPT_init}/OFF.${skippedServiceFile}.OFF"
+              then
+                  [ -z "$skippedServiceList" ] && \
+                  skippedServiceList="$skippedServiceFile" || \
+                  skippedServiceList="$skippedServiceList $skippedServiceFile"
+                  serviceStr="$(echo "$serviceStr" | /bin/grep -vE "S[0-9]+.*${skipService}$")"
+              fi
+          fi
+      done
+   fi
 
    Say "${actionStr} Entware services..."
    "$isInteractive" && printf "Please wait.\n"
@@ -4108,6 +4178,17 @@ _EntwareServicesHandler_()
    Say "-----------------------------------------------------------"
 
    $entwOPT_unslung "$1" ; sleep 5
+
+   if [ -n "$skippedServiceList" ]
+   then
+       for skippedServiceFile in $skippedServiceList
+       do  # Rename service file back to original state #
+           if mv -f "${entwOPT_init}/OFF.${skippedServiceFile}.OFF" "${entwOPT_init}/$skippedServiceFile"
+           then
+               Say "Skipped $skippedServiceFile $1 call."
+           fi
+       done
+   fi
    "$isInteractive" && printf "\nDone.\n"
 }
 
@@ -5650,7 +5731,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-03] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -5666,13 +5747,21 @@ _ShowAdvancedOptionsMenu_()
    printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+   printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+   fi
+
+   local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+   printf "\n  ${GRNct}4${NOct}.  Toggle VPN Service During Updates"
+   if [ "$VPNAccess" = "DISABLED" ]
+   then
+       printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
+   else
+       printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
    fi
 
    if [ -f "/jffs/scripts/backupmon.sh" ]
@@ -5855,7 +5944,7 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-03] ##
+## Modified by ExtremeFiretop [2024-Jun-27] ##
 ##------------------------------------------##
 _advanced_options_menu_()
 {
@@ -5871,6 +5960,8 @@ _advanced_options_menu_()
             2) _Set_FW_UpdateCronSchedule_
                ;;
             3) _Toggle_FW_UpdatesFromBeta_
+               ;;
+            4) _Toggle_VPN_Access_
                ;;
            ab) if [ -f "/jffs/scripts/backupmon.sh" ]
                then _Toggle_Auto_Backups_
