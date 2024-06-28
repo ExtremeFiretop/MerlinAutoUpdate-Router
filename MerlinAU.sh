@@ -2618,7 +2618,7 @@ _Toggle_VPN_Access_()
     if [ "$currentSetting" = "ENABLED" ]
     then
         printf "${REDct}*WARNING*${NOct}\n"
-        printf "Disabling this feature will shut down Diversion, Tailscale, and Wireguard VPN access during updates.\n"
+        printf "Disabling this feature will shut down Diversion and Tailscale VPN access during updates.\n"
         printf "Proceed only if you do not need VPN access during updates.\n"
 
         if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
@@ -2630,7 +2630,7 @@ _Toggle_VPN_Access_()
         fi
     else
         printf "${REDct}*WARNING*${NOct}\n"
-        printf "Enabling this feature will keep Diversion, Tailscale, and Wireguard VPN access active during updates.\n"
+        printf "Enabling this feature will keep Diversion and Tailscale VPN access active during updates.\n"
         printf "Proceed only if you need VPN access during updates.\n"
         if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
         then
@@ -4117,7 +4117,6 @@ _EntwareServicesHandler_()
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
-   local actionStr=""  divAction=""
    local serviceStr  serviceCnt=0
    local entwOPT_init  entwOPT_unslung
    # space-delimited list #
@@ -4137,23 +4136,7 @@ _EntwareServicesHandler_()
        done
        return 0
    }
-
-   case "$1" in
-       stop) actionStr="Stopping" ; divAction="unmount" ;;
-      start) actionStr="Restarting" ; divAction="mount" ;;
-          *) return 1 ;;
-   esac
-
-   if [ "$AllowVPN" = "DISABLED" ]
-   then
-      if [ -f /opt/bin/diversion ]
-      then
-          Say "${actionStr} Diversion service..."
-          /opt/bin/diversion "$divAction" &
-          sleep 3
-      fi
-   fi
-
+   
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
    then return 0 ; fi  ## Entware is NOT found ##
 
@@ -4743,6 +4726,18 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
+        local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
+        if [ "$AllowVPN" = "DISABLED" ]
+        then
+           if [ -f /opt/bin/diversion ]
+           then
+               # Diversion unmount command also unloads entware services #
+               Say "Stopping Diversion service..."
+               /opt/bin/diversion unmount >/dev/null
+               sleep 5
+           fi
+        fi
+
         # *WARNING*: No more logging at this point & beyond #
         /sbin/ejusb -1 0 -u 1
 
@@ -4800,6 +4795,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
         _EntwareServicesHandler_ start
+        # /opt/bin/diversion mount >/dev/null #Does not work temporarily
     fi
 
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
