@@ -3019,26 +3019,26 @@ _Toggle_VPN_Access_()
     if [ "$currentSetting" = "ENABLED" ]
     then
         printf "${REDct}*WARNING*${NOct}\n"
-        printf "Disabling this feature means MerlinAU will shutdown Wireguard and Tailscale VPN access while updating.\n"
-        printf "The advice is to proceed only if you do not require the VPN access to stay alive while updating.\n"
+        printf "Disabling this feature will shut down Diversion, Tailscale, and Wireguard VPN access during updates.\n"
+        printf "Proceed only if you do not need VPN access during updates.\n"
 
-        if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
         then
             Update_Custom_Settings "Allow_Updates_OverVPN" "DISABLED"
-            printf "VPN Access will now be ${REDct}DISABLED.${NOct}\n"
+            printf "VPN access will now be ${GRNct}DISABLED.${NOct}\n"
         else
-            printf "VPN Access while updating remains ${GRNct}ENABLED.${NOct}\n"
+            printf "VPN access during updates remains ${REDct}ENABLED.${NOct}\n"
         fi
     else
         printf "${REDct}*WARNING*${NOct}\n"
-        printf "Enabling this feature means MerlinAU will keep Wireguard and Tailscale VPN access alive while updating.\n"
-        printf "The advice is to proceed only if you do require the VPN access to stay alive while updating.\n"
-        if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
+        printf "Enabling this feature will keep Diversion, Tailscale, and Wireguard VPN access active during updates.\n"
+        printf "Proceed only if you need VPN access during updates.\n"
+        if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
         then
             Update_Custom_Settings "Allow_Updates_OverVPN" "ENABLED"
-            printf "VPN Access will now be ${GRNct}ENABLED.${NOct}\n"
+            printf "VPN access will now be ${REDct}ENABLED.${NOct}\n"
         else
-            printf "VPN Access while updating remains ${REDct}DISABLED.${NOct}\n"
+            printf "VPN access during updates remains ${GRNct}DISABLED.${NOct}\n"
         fi
     fi
     _WaitForEnterKey_
@@ -6310,23 +6310,21 @@ _ShowAdvancedOptionsMenu_()
    printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+   printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
        printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
    local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+   printf "\n  ${GRNct}4${NOct}.  Toggle VPN Service During Updates"
    if [ "$VPNAccess" = "DISABLED" ]
    then
-       printf "\n  ${GRNct}4${NOct}.  Toggle VPN Access While Updating"
-       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+       printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
    else
-       printf "\n  ${GRNct}4${NOct}.  Toggle VPN Access While Updating"
-       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+       printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
    fi
 
    if [ -f "/jffs/scripts/backupmon.sh" ]
