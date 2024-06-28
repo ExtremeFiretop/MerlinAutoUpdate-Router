@@ -5769,7 +5769,7 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
-   printf "\n  ${GRNct}4${NOct}.  Toggle VPN Service During Updates"
+   printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale During Updates"
    if [ "$VPNAccess" = "DISABLED" ]
    then
        printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
