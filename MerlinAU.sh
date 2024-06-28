@@ -5339,6 +5339,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
         _EntwareServicesHandler_ start
+        # /opt/bin/diversion mount >/dev/null #Does not work temporarily
     fi
 
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
