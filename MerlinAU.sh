@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-27
+# Last Modified: 2024-Jun-28
 ###################################################################
 set -u
 
@@ -4647,9 +4647,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-27] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-28] ##
+##----------------------------------------##
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -4664,17 +4664,36 @@ _EntwareServicesHandler_()
    entwOPT_init="/opt/etc/init.d"
    entwOPT_unslung="${entwOPT_init}/rc.unslung"
 
+   case "$1" in
+       stop) actionStr="Stopping" ;;
+      start) actionStr="Restarting" ;;
+          *) return 1 ;;
+   esac
+
+   _RenameSkippedService_()
+   {
+       [ -z "$skippedServiceList" ] && return 1
+       for skippedServiceFile in $skippedServiceList
+       do  # Rename service file back to original state #
+           if mv -f "${entwOPT_init}/OFF.${skippedServiceFile}.OFF" "${entwOPT_init}/$skippedServiceFile"
+           then Say "Skipped $skippedServiceFile $1 call." ; fi
+       done
+       return 0
+   }
+
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
    then return 0 ; fi  ## Entware is NOT found ##
 
-   serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "S*" -exec ls -1 {} \; 2>/dev/null | /bin/grep -E "${entwOPT_init}/S[0-9]+")"
+   serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "*" -print 2>/dev/null | /bin/grep -E "(${entwOPT_init}/S[0-9]+|${entwOPT_init}/.*[.]sh$)")"
+
+   [ -n "$serviceStr" ] && Say "Looking for Entware services..."
 
    # Filter out services to skip and add a skip message #
    if [ "$AllowVPN" = "ENABLED" ]
    then
       for skipService in $skipServiceList
       do
-          skippedService="$(echo "$serviceStr" | /bin/grep -E "S[0-9]+.*${skipService}$")"
+          skippedService="$(echo "$serviceStr" | /bin/grep -E "/S[0-9]+.*${skipService}$")"
           if [ -n "$skippedService" ]
           then
               skippedServiceFile="$(basename "$skippedService")"
@@ -4685,10 +4704,17 @@ _EntwareServicesHandler_()
                   [ -z "$skippedServiceList" ] && \
                   skippedServiceList="$skippedServiceFile" || \
                   skippedServiceList="$skippedServiceList $skippedServiceFile"
-                  serviceStr="$(echo "$serviceStr" | /bin/grep -vE "S[0-9]+.*${skipService}$")"
+                  serviceStr="$(echo "$serviceStr" | /bin/grep -vE "/S[0-9]+.*${skipService}$")"
               fi
           fi
       done
+   fi
+
+   [ -n "$serviceStr" ] && serviceCnt="$(echo "$serviceStr" | wc -l)"
+   if [ "$serviceCnt" -eq 0 ]
+   then
+       _RenameSkippedService_ "$1" && echo
+       return 0
    fi
 
    Say "${actionStr} Entware services..."
@@ -4699,17 +4725,7 @@ _EntwareServicesHandler_()
    Say "-----------------------------------------------------------"
 
    $entwOPT_unslung "$1" ; sleep 5
-
-   if [ -n "$skippedServiceList" ]
-   then
-       for skippedServiceFile in $skippedServiceList
-       do  # Rename service file back to original state #
-           if mv -f "${entwOPT_init}/OFF.${skippedServiceFile}.OFF" "${entwOPT_init}/$skippedServiceFile"
-           then
-               Say "Skipped $skippedServiceFile $1 call."
-           fi
-       done
-   fi
+   _RenameSkippedService_ "$1" && echo
    "$isInteractive" && printf "\nDone.\n"
 }
 
