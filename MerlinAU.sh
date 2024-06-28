@@ -4117,30 +4117,11 @@ _EntwareServicesHandler_()
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
-   local actionStr=""  divAction=""
    local serviceStr  serviceCnt=0
    local entwOPT_init  entwOPT_unslung
    # space-delimited list #
    local skipServiceList="tailscaled"
    local skippedService  skippedServiceFile  skippedServiceList=""
-
-   case "$1" in
-       stop) actionStr="Stopping" ; divAction="unmount" ;;
-      start) actionStr="Restarting" ; divAction="mount" ;;
-          *) return 1 ;;
-   esac
-
-   if [ "$AllowVPN" = "DISABLED" ]
-   then
-      if [ -f /opt/bin/diversion ]
-      then
-          # Diversion unmount command also unloads entware services #
-          Say "${actionStr} Diversion service..."
-          /opt/bin/diversion "$divAction" >/dev/null
-          sleep 5
-          return 0
-      fi
-   fi
 
    entwOPT_init="/opt/etc/init.d"
    entwOPT_unslung="${entwOPT_init}/rc.unslung"
@@ -4735,6 +4716,18 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
+        local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
+        if [ "$AllowVPN" = "DISABLED" ]
+        then
+           if [ -f /opt/bin/diversion ]
+           then
+               # Diversion unmount command also unloads entware services #
+               Say "Stopping Diversion service..."
+               /opt/bin/diversion unmount >/dev/null
+               sleep 5
+           fi
+        fi
+
         # *WARNING*: No more logging at this point & beyond #
         /sbin/ejusb -1 0 -u 1
 
@@ -4792,6 +4785,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
         _EntwareServicesHandler_ start
+        # /opt/bin/diversion mount >/dev/null #Does not work temporarily
     fi
 
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
