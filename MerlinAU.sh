@@ -4126,6 +4126,12 @@ _EntwareServicesHandler_()
    entwOPT_init="/opt/etc/init.d"
    entwOPT_unslung="${entwOPT_init}/rc.unslung"
 
+   case "$1" in
+       stop) actionStr="Stopping" ;;
+      start) actionStr="Restarting" ;;
+          *) return 1 ;;
+   esac
+
    _RenameSkippedService_()
    {
        [ -z "$skippedServiceList" ] && return 1
