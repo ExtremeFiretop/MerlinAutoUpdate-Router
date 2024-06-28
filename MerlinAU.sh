@@ -4144,12 +4144,6 @@ _EntwareServicesHandler_()
        return 0
    }
 
-   case "$1" in
-       stop) actionStr="Stopping" ;;
-      start) actionStr="Restarting" ;;
-          *) return 1 ;;
-   esac
-
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
    then return 0 ; fi  ## Entware is NOT found ##
 
