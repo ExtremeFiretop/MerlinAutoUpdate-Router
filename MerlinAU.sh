@@ -4117,6 +4117,7 @@ _EntwareServicesHandler_()
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
+   local actionStr=""
    local serviceStr  serviceCnt=0
    local entwOPT_init  entwOPT_unslung
    # space-delimited list #
@@ -4136,7 +4137,13 @@ _EntwareServicesHandler_()
        done
        return 0
    }
-   
+
+   case "$1" in
+       stop) actionStr="Stopping" ;;
+      start) actionStr="Restarting" ;;
+          *) return 1 ;;
+   esac
+
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
    then return 0 ; fi  ## Entware is NOT found ##
 
@@ -4733,7 +4740,7 @@ Please manually update to version $minimum_supported_version or higher to use th
            then
                # Diversion unmount command also unloads entware services #
                Say "Stopping Diversion service..."
-               /opt/bin/diversion unmount >/dev/null
+               /opt/bin/diversion unmount &
                sleep 5
            fi
         fi
