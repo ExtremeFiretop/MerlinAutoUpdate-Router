@@ -9,7 +9,7 @@
 
 ## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
- - GT-BE98 Pro
+ - GT-BE98 Pro (Tested)
  - GT-AX6000 (Tested)
  - GT-AXE16000 (Tested)
  - GT-AXE11000 (Tested)
