@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-28
+# Last Modified: 2024-Jun-30
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.4
+readonly SCRIPT_VERSION=1.2.5
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -4711,7 +4711,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     _EntwareServicesHandler_ stop
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Mar-15] ##
+    ## Modified by ExtremeFiretop [2024-Jun-30] ##
     ##------------------------------------------##
 
     curl_response="$(curl -k "${routerURLstr}/login.cgi" \
