@@ -4771,8 +4771,8 @@ Please manually update to version $minimum_supported_version or higher to use th
                 then
                     /opt/bin/diversion unmount &
                 fi
-                sleep 5
             fi
+            sleep 5
         fi
 
         # *WARNING*: No more logging at this point & beyond #
@@ -4844,8 +4844,8 @@ Please manually update to version $minimum_supported_version or higher to use th
                 then
                     Say "Unable to Restart Diversion. Please reboot to restart entware services."
                 fi
-                sleep 5
             fi
+            sleep 5
         fi
     fi
 
@@ -5813,7 +5813,7 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
-   printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale During Updates"
+   printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale Access During Updates"
    if [ "$VPNAccess" = "DISABLED" ]
    then
        printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
