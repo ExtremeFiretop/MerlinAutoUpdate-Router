@@ -1762,7 +1762,7 @@ _GetCurrentFWInstalledLongVersion_()
 {
 
 ##FOR TESTING/DEBUG ONLY##
-if true ; then echo "3004.388.6.2" ; return 0 ; fi
+if false ; then echo "3004.388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
    local theVersionStr  extVersNum
@@ -4774,9 +4774,6 @@ Please manually update to version $minimum_supported_version or higher to use th
             fi
             sleep 5
         fi
-
-        _DoExit_ 1
-        return 1
 
         # *WARNING*: No more logging at this point & beyond #
         /sbin/ejusb -1 0 -u 1
