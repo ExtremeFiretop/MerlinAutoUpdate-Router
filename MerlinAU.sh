@@ -4264,7 +4264,9 @@ Please manually update to version $minimum_supported_version or higher to use th
         FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
     fi
 
-    _ProcessMeshNodes_ 0
+    if ! node_online_status="$(_NodeActiveStatus_)"
+    then node_online_status="" 
+    else _ProcessMeshNodes_ 0 ; fi
 
     local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
