@@ -7,7 +7,7 @@
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/99b11bf5-20bb-43b3-adae-061a6181f329)
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/939732db-a296-4a1a-8503-225b1e77acf2)
 
-## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
+## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
  - GT-BE98 Pro (Tested)
  - GT-AX6000 (Tested)
