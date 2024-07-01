@@ -2907,7 +2907,7 @@ return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-05] ##
+## Modified by Martinski W. [2024-Jun-30] ##
 ##----------------------------------------##
 _CheckFirmwareSHA256_() {
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
