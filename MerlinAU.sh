@@ -4381,7 +4381,7 @@ Please manually update to version $minimum_supported_version or higher to use th
                 local BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
 
                 # Adjust version format from 1.46 to 1.4.6 if needed
-                DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
+                local DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
                 if [ "$DOT_COUNT" -eq 0 ]; then
                     # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
                     BM_VERSION="${BM_VERSION}.0.0"
@@ -4744,7 +4744,7 @@ Please manually update to version $minimum_supported_version or higher to use th
             local DIVER_VERSION="$(grep "^VERSION=" /opt/bin/diversion | awk -F'=' '{print $2}' | tr -d ' ')"
 
             # Adjust version format from 1.46 to 1.4.6 if needed
-            DDOT_COUNT="$(echo "$DIVER_VERSION" | tr -cd '.' | wc -c)"
+            local DDOT_COUNT="$(echo "$DIVER_VERSION" | tr -cd '.' | wc -c)"
             if [ "$DDOT_COUNT" -eq 0 ]; then
                 # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
                 DIVER_VERSION="${DIVER_VERSION}.0.0"
