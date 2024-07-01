@@ -7,8 +7,9 @@
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/99b11bf5-20bb-43b3-adae-061a6181f329)
 ![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/939732db-a296-4a1a-8503-225b1e77acf2)
 
-## TESTED MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
+## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
+ - GT-BE98_PRO (Tested)
  - GT-AX6000 (Tested)
  - GT-AXE16000 (Tested)
  - GT-AXE11000 (Tested)
@@ -39,16 +40,6 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AC68U (Blocked)
  - RT-AC66U_B1 (Blocked)
  - RT-AC1900 (Blocked)
-
-## UNTESTED MODELS: (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
-
- - GT-AC2900 (Untested)
- - RT-AX56U (Untested)
-
- ## TESTERS NEEDED!
- - If you see your router listed as untested above, feel free to test and report any issues.
- - If the test was successful on your model, feel free to leave a comment on snb forums or open an issue with your successful test and router model.
- - https://www.snbforums.com/threads/introducing-merlinau-the-ultimate-firmware-auto-updater-addon.88577/
 
 ## Merlin(A)uto(U)pdate
 

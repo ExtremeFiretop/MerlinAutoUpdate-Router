@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-28
+# Last Modified: 2024-Jun-30
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.4
+readonly SCRIPT_VERSION=1.2.5
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -2618,7 +2618,7 @@ _Toggle_VPN_Access_()
     if [ "$currentSetting" = "ENABLED" ]
     then
         printf "${REDct}*WARNING*${NOct}\n"
-        printf "Disabling this feature will shut down Diversion and Tailscale VPN access during updates.\n"
+        printf "Disabling this feature will shut down Tailscale VPN access during updates.\n"
         printf "Proceed only if you do not need VPN access during updates.\n"
 
         if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
@@ -2630,7 +2630,7 @@ _Toggle_VPN_Access_()
         fi
     else
         printf "${REDct}*WARNING*${NOct}\n"
-        printf "Enabling this feature will keep Diversion and Tailscale VPN access active during updates.\n"
+        printf "Enabling this feature will keep Tailscale VPN access active during updates.\n"
         printf "Proceed only if you need VPN access during updates.\n"
         if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
         then
@@ -4264,7 +4264,10 @@ Please manually update to version $minimum_supported_version or higher to use th
         FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
     fi
 
-    _ProcessMeshNodes_ 0
+    if ! node_online_status="$(_NodeActiveStatus_)"
+    then node_online_status="" 
+    else _ProcessMeshNodes_ 0
+    fi
 
     local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
@@ -4375,10 +4378,10 @@ Please manually update to version $minimum_supported_version or higher to use th
             if [ "$current_backup_settings" = "ENABLED" ]
             then
                 # Extract version number from backupmon.sh
-                BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
+                local BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
 
                 # Adjust version format from 1.46 to 1.4.6 if needed
-                DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
+                local DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
                 if [ "$DOT_COUNT" -eq 0 ]; then
                     # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
                     BM_VERSION="${BM_VERSION}.0.0"
@@ -4619,10 +4622,13 @@ Please manually update to version $minimum_supported_version or higher to use th
     fi
 
     ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Jun-05] ##
+    ## Modified by Martinski W. [2024-Jun-30] ##
     ##----------------------------------------##
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(curl -Ls --retry 4 --retry-delay 5 https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')"
+    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
+ https://www.asuswrt-merlin.net/download | \
+ sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' | \
+ sed -n '/<pre[^>].*>/,/<\/pre>/p' | sed -e 's/<[^>].*>//g')"
 
     if [ -z "$checksums" ]
     then
@@ -4656,6 +4662,8 @@ Please manually update to version $minimum_supported_version or higher to use th
                 # Assume non-interactive mode; perform exit.
                 _DoExit_ 1
             fi
+        else
+            Say "SHA256 signature check for firmware image file passed successfully."
         fi
     else
         Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
@@ -4709,7 +4717,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     _EntwareServicesHandler_ stop
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Mar-15] ##
+    ## Modified by ExtremeFiretop [2024-Jun-30] ##
     ##------------------------------------------##
 
     curl_response="$(curl -k "${routerURLstr}/login.cgi" \
@@ -4730,20 +4738,48 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
 
+        if [ -f /opt/bin/diversion ]
+        then
+            # Extract version number from Diversion
+            local DIVER_VERSION="$(grep "^VERSION=" /opt/bin/diversion | awk -F'=' '{print $2}' | tr -d ' ')"
+
+            # Adjust version format from 1.46 to 1.4.6 if needed
+            local DDOT_COUNT="$(echo "$DIVER_VERSION" | tr -cd '.' | wc -c)"
+            if [ "$DDOT_COUNT" -eq 0 ]; then
+                # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
+                DIVER_VERSION="${DIVER_VERSION}.0.0"
+            elif [ "$DDOT_COUNT" -eq 1 ]; then
+                # Check if there is only one character after the dot
+                if echo "$DIVER_VERSION" | grep -qE '^[0-9]+\.[0-9]{1}$'; then
+                    # If the version is like 5.2, convert it to 5.2.0
+                    DIVER_VERSION="${DIVER_VERSION}.0"
+                else
+                    # For versions like 5.26, insert a dot between the last two digits
+                    DIVER_VERSION="$(echo "$DIVER_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
+                fi
+            fi
+
+            # Convert version strings to comparable numbers
+            local currentDIVER_version="$(_ScriptVersionStrToNum_ "$DIVER_VERSION")"
+            local requiredDIVER_version="$(_ScriptVersionStrToNum_ "5.2.0")"
+
+            # Diversion unmount command also unloads entware services #
+            Say "Stopping Diversion service..."
+            if [ "$currentDIVER_version" -ge "$requiredDIVER_version" ]
+            then
+                /opt/bin/diversion temp_disable &
+            else
+                local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
+                if [ "$AllowVPN" = "DISABLED" ]
+                then
+                    /opt/bin/diversion unmount &
+                fi
+            fi
+            sleep 5
+        fi
+
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
-
-        local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
-        if [ "$AllowVPN" = "DISABLED" ]
-        then
-           if [ -f /opt/bin/diversion ]
-           then
-               # Diversion unmount command also unloads entware services #
-               Say "Stopping Diversion service..."
-               /opt/bin/diversion unmount &
-               sleep 5
-           fi
-        fi
 
         # *WARNING*: No more logging at this point & beyond #
         /sbin/ejusb -1 0 -u 1
@@ -4802,7 +4838,21 @@ Please manually update to version $minimum_supported_version or higher to use th
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile"
         _EntwareServicesHandler_ start
-        # /opt/bin/diversion mount >/dev/null #Does not work temporarily
+        if [ -f /opt/bin/diversion ]
+        then
+            Say "Restarting Diversion service..."
+            if [ "$currentDIVER_version" -ge "$requiredDIVER_version" ]
+            then
+                /opt/bin/diversion enable &
+            else
+                AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
+                if [ "$AllowVPN" = "DISABLED" ]
+                then
+                    Say "Unable to Restart Diversion. Please reboot to restart entware services."
+                fi
+            fi
+            sleep 5
+        fi
     fi
 
     "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
@@ -5769,7 +5819,7 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
-   printf "\n  ${GRNct}4${NOct}.  Toggle VPN Service During Updates"
+   printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale Access During Updates"
    if [ "$VPNAccess" = "DISABLED" ]
    then
        printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
