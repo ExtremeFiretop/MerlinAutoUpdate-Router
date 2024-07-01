@@ -4266,7 +4266,8 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     if ! node_online_status="$(_NodeActiveStatus_)"
     then node_online_status="" 
-    else _ProcessMeshNodes_ 0 ; fi
+    else _ProcessMeshNodes_ 0
+    fi
 
     local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
@@ -4624,7 +4625,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ## Modified by Martinski W. [2024-Jun-05] ##
     ##----------------------------------------##
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(curl -Ls --retry 4 --retry-delay 5 https://www.asuswrt-merlin.net/download | sed -n '/<p><strong>SHA256 signatures:<\/strong><\/p>/,/<\/pre>/p' | sed -n '/<pre[^>]*>/,/<\/pre>/p' | sed -e 's/<[^>]*>//g' | sed '1d')"
+    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused https://www.asuswrt-merlin.net/download | sed -n '/<p><strong>SHA256 signatures:<\/strong><\/p>/,/<\/pre>/p' | sed -n '/<pre[^>]*>/,/<\/pre>/p' | sed -e 's/<[^>]*>//g' | sed '1d')"
 
     if [ -z "$checksums" ]
     then
@@ -4658,6 +4659,8 @@ Please manually update to version $minimum_supported_version or higher to use th
                 # Assume non-interactive mode; perform exit.
                 _DoExit_ 1
             fi
+        else
+            Say "SHA256 signature check for firmware image file passed successfully."
         fi
     else
         Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
@@ -4732,9 +4735,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
 
-        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
-        echo
-
         if [ -f /opt/bin/diversion ]
         then
             # Extract version number from Diversion
@@ -4774,6 +4774,9 @@ Please manually update to version $minimum_supported_version or higher to use th
             fi
             sleep 5
         fi
+
+        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
+        echo
 
         # *WARNING*: No more logging at this point & beyond #
         /sbin/ejusb -1 0 -u 1
