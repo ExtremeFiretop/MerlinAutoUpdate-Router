@@ -4624,7 +4624,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     ## Modified by Martinski W. [2024-Jun-05] ##
     ##----------------------------------------##
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(curl -Ls --retry 4 --retry-delay 5 https://www.asuswrt-merlin.net/download | sed -n '/<pre>/,/</pre>/p' | sed -e 's/<[^>]*>//g')"
+    checksums="$(curl -Ls --retry 4 --retry-delay 5 https://www.asuswrt-merlin.net/download | sed -n '/<p><strong>SHA256 signatures:<\/strong><\/p>/,/<\/pre>/p' | sed -n '/<pre[^>]*>/,/<\/pre>/p' | sed -e 's/<[^>]*>//g' | sed '1d')"
 
     if [ -z "$checksums" ]
     then
