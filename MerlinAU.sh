@@ -4,11 +4,11 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-30
+# Last Modified: 2024-Jul-03
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.5
+readonly SCRIPT_VERSION=1.2.6
 readonly SCRIPT_NAME="MerlinAU"
 
 ##-------------------------------------##
@@ -609,9 +609,9 @@ ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-05] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-03] ##
+##------------------------------------------##
 #a function that provides a UI to check for script updates and allows you to install the latest version...
 _SCRIPTUPDATE_()
 {
@@ -5762,9 +5762,9 @@ _InvalidMenuSelection_()
    _WaitForEnterKey_
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-03] ##
+##------------------------------------------##
 _ShowMainMenu_()
 {
    local FW_NewUpdateVerStr  FW_NewUpdateVersion
@@ -5875,7 +5875,7 @@ _ShowMainMenu_()
       printf "\n${padStr}[Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
    else
       printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Now"
-      printf "\n${padStr}[${REDct}No Updates Available.${NOct} Current Version: ${GRNct}${SCRIPT_VERSION}${NOct}]\n"
+      printf "\n${padStr}[No Updates Available.]\n"
    fi
 
    # Add selection for "Advanced Options" sub-menu #
