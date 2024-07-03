@@ -602,7 +602,7 @@ _CheckForNewScriptUpdates_()
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
       scriptUpdateNotify="New script update available.
-${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
+${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
       Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
    else
       scriptUpdateNotify=0
@@ -5873,6 +5873,9 @@ _ShowMainMenu_()
    then
       printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
       printf "\n${padStr}[Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
+   else
+      printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Now"
+      printf "\n${padStr}[${REDct}No Updates Available.${NOct} Current Version: ${GRNct}${SCRIPT_VERSION}${NOct}]\n"
    fi
 
    # Add selection for "Advanced Options" sub-menu #
