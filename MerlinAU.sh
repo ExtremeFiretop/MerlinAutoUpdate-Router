@@ -16,7 +16,7 @@ readonly SCRIPT_NAME="MerlinAU"
 ##-------------------------------------##
 # Script URL Info #
 SCRIPT_BRANCH="master"
-readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
+SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
 
 # Firmware URL Info #
 readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
@@ -722,6 +722,7 @@ _SCRIPTUPDATE_()
 ##---------------------------------------##
 _ChangeToDev_(){
 		SCRIPT_BRANCH="dev"
+		SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
 		_SCRIPTUPDATE_ force
 		_DoExit_ 0
 }
@@ -731,6 +732,7 @@ _ChangeToDev_(){
 ##---------------------------------------##
 _ChangeToStable_(){
 		SCRIPT_BRANCH="master"
+		SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
 		_SCRIPTUPDATE_ force
 		_DoExit_ 0
 }
