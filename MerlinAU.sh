@@ -15,7 +15,7 @@ readonly SCRIPT_NAME="MerlinAU"
 ## Added by Martinski W. [2023-Dec-01] ##
 ##-------------------------------------##
 # Script URL Info #
-readonly SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="master"
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
 
 # Firmware URL Info #
@@ -231,6 +231,67 @@ _DoExit_()
    local exitCode=0
    [ $# -gt 0 ] && [ -n "$1" ] && exitCode="$1"
    _ReleaseLock_ ; exit "$exitCode"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-21] ##
+##------------------------------------------##
+logo() {
+  echo -e "${YLWct}"
+  echo -e "      __  __           _ _               _    _ "
+  echo -e "     |  \/  |         | (_)         /\  | |  | |"
+  echo -e "     | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
+  echo -e "     | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
+  echo -e "     | |  | |  __| |  | | | | | |/ ____ | |__| |"
+  echo -e "     |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
+  echo -e "${NOct}"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jul-03] ##
+##---------------------------------------##
+_ShowAbout_(){
+    logo
+	cat <<EOF
+About
+  $SCRIPT_NAME is a tool for automating firmware updates on AsusWRT Merlin,
+  ensuring your router stays up-to-date with the latest features and security
+  patches. It simplifies the update process by automatically checking for,
+  downloading, and applying new firmware versions.
+  Developed by ExtremeFiretop and Martinski W.
+License
+  $SCRIPT_NAME is free to use under the GNU General Public License
+  version 3 (GPL-3.0) https://opensource.org/licenses/GPL-3.0
+Help & Support
+  https://www.snbforums.com/threads/merlinau-the-ultimate-firmware-auto-updater-addon.88577/
+Source code
+  https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
+EOF
+	printf "\\n"
+    _DoExit_ 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jul-03] ##
+##---------------------------------------##
+_ShowHelp_(){
+    logo
+	cat <<EOF
+Available commands:
+  $SCRIPT_NAME about              explains functionality
+  $SCRIPT_NAME help               display available commands
+  $SCRIPT_NAME forceupdate        updates to latest version (force update)
+  $SCRIPT_NAME run_now            run update process on router
+  $SCRIPT_NAME processNodes       run update check on nodes
+  $SCRIPT_NAME develop            switch to development branch
+  $SCRIPT_NAME stable             switch to stable branch
+  $SCRIPT_NAME uninstall          uninstalls script
+  $SCRIPT_NAME addCronJob         add the MerlinAU cron job
+  $SCRIPT_NAME postRebootRun      add the post-update reboot cron job
+  $SCRIPT_NAME postUpdateEmail    Send post-update email
+EOF
+	printf "\\n"
+    _DoExit_ 0
 }
 
 ##----------------------------------------##
@@ -509,20 +570,6 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_URL_RELEASE="${FW_URL_BASE}/${PRODUCT_ID}/${FW_URL_RELEASE_SUFFIX}/"
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-21] ##
-##------------------------------------------##
-logo() {
-  echo -e "${YLWct}"
-  echo -e "      __  __           _ _               _    _ "
-  echo -e "     |  \/  |         | (_)         /\  | |  | |"
-  echo -e "     | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
-  echo -e "     | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
-  echo -e "     | |  | |  __| |  | | | | | |/ ____ | |__| |"
-  echo -e "     |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
-  echo -e "${NOct}"
-}
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
@@ -571,6 +618,28 @@ _SCRIPTUPDATE_()
    local ScriptFileDL="${ScriptFilePath}.DL"
 
    _CheckForNewScriptUpdates_
+    if [ "$1" = "force" ]
+    then
+        echo -e "${CYANct}Force downloading latest version...${NOct}"
+        serverver=$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "$SCRIPT_URL_BASE/version.txt")
+        echo -e "${CYANct}Downloading latest version ($serverver) of $SCRIPT_NAME${NOct}"
+        curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+        curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+        
+        if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
+        then
+            mv -f "$ScriptFileDL" "$ScriptFilePath"
+            chmod 755 "$ScriptFilePath"
+            echo -e "${CYANct}$SCRIPT_NAME successfully updated${NOct}"
+            _ReleaseLock_
+            exec "$ScriptFilePath"
+        else
+            rm -f "$ScriptFileDL"
+            echo -e "${REDct}Download failed.${NOct}"
+        fi
+         return
+    fi
+
    clear
    logo
    echo
@@ -646,6 +715,24 @@ _SCRIPTUPDATE_()
           return
       fi
    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jul-03] ##
+##---------------------------------------##
+_ChangeToDev_(){
+		SCRIPT_BRANCH="dev"
+		_SCRIPTUPDATE_ force
+		_DoExit_ 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jul-03] ##
+##---------------------------------------##
+_ChangeToStable_(){
+		SCRIPT_BRANCH="master"
+		_SCRIPTUPDATE_ force
+		_DoExit_ 0
 }
 
 ##----------------------------------------##
@@ -5280,9 +5367,9 @@ check_version_support
 ##-------------------------------------##
 _CheckEMailConfigFileFromAMTM_ 0
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-03] ##
+##------------------------------------------##
 if [ $# -gt 0 ]
 then
    inMenuMode=false
@@ -5296,6 +5383,16 @@ then
        postRebootRun) _PostRebootRunNow_
            ;;
        postUpdateEmail) _PostUpdateEmailNotification_
+           ;;
+       about) _ShowAbout_
+           ;;
+       help) _ShowHelp_
+           ;;
+       forceupdate) _SCRIPTUPDATE_ force
+           ;;
+       develop) _ChangeToDev_
+           ;;
+       stable) _ChangeToStable_
            ;;
        uninstall) _DoUninstall_
            ;;
