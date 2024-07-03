@@ -602,7 +602,7 @@ _CheckForNewScriptUpdates_()
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
       scriptUpdateNotify="New script update available.
-${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
+${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
       Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
    else
       scriptUpdateNotify=0
@@ -656,7 +656,7 @@ _SCRIPTUPDATE_()
       if _WaitForYESorNO_
       then
           echo ; echo
-          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
           curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
           curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
 
@@ -687,7 +687,7 @@ _SCRIPTUPDATE_()
       if _WaitForYESorNO_
       then
           echo ; echo
-          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
           curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
           curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
 
