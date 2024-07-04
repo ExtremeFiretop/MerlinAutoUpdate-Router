@@ -286,9 +286,6 @@ Available commands:
   $SCRIPT_NAME develop            switch to development branch
   $SCRIPT_NAME stable             switch to stable branch
   $SCRIPT_NAME uninstall          uninstalls script
-  $SCRIPT_NAME addCronJob         add the MerlinAU cron job
-  $SCRIPT_NAME postRebootRun      add the post-update reboot cron job
-  $SCRIPT_NAME postUpdateEmail    Send post-update email
 EOF
 	printf "\\n"
     _DoExit_ 0
