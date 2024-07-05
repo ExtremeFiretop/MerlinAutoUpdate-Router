@@ -5872,7 +5872,7 @@ _ShowMainMenu_()
    # Check for new script updates #
    if [ "$scriptUpdateNotify" != "0" ]
    then
-      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
+      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script"
       printf "\n${padStr}[Version ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
    else
       printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Script"
