@@ -5875,7 +5875,7 @@ _ShowMainMenu_()
       printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
       printf "\n${padStr}[Version ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
    else
-      printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Script Now"
+      printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Script"
       printf "\n${padStr}[No Update Available]\n"
    fi
 
