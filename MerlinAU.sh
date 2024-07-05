@@ -5872,12 +5872,10 @@ _ShowMainMenu_()
    # Check for new script updates #
    if [ "$scriptUpdateNotify" != "0" ]
    then
-      forceScriptUpdateOption=""
-      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
+      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script"
       printf "\n${padStr}[Version ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
    else
-      forceScriptUpdateOption="force"
-      printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Script Now"
+      printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Script"
       printf "\n${padStr}[No Update Available]\n"
    fi
 
@@ -6181,8 +6179,6 @@ do
    # Check if the directory exists again before attempting to navigate to it
    [ -d "$FW_BIN_DIR" ] && cd "$FW_BIN_DIR"
 
-   forceScriptUpdateOption=""
-
    _ShowMainMenu_
    printf "Enter selection:  " ; read -r userChoice
    echo
@@ -6210,7 +6206,7 @@ do
           else _Approve_FW_Update_
           fi
           ;;
-      up) _SCRIPTUPDATE_ "$forceScriptUpdateOption"
+      up) _SCRIPTUPDATE_
           ;;
       ad) _advanced_options_menu_
           ;;
