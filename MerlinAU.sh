@@ -4,19 +4,22 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jun-30
+# Last Modified: 2024-Jul-03
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.5
+readonly SCRIPT_VERSION=1.2.6
 readonly SCRIPT_NAME="MerlinAU"
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Dec-01] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-03] ##
+##----------------------------------------##
 # Script URL Info #
-readonly SCRIPT_BRANCH="master"
-readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/$SCRIPT_BRANCH"
+
+## Set to "master" for Production Releases ##
+SCRIPT_BRANCH="dev"
+readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router"
+SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
 
 # Firmware URL Info #
 readonly FW_URL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
@@ -231,6 +234,66 @@ _DoExit_()
    local exitCode=0
    [ $# -gt 0 ] && [ -n "$1" ] && exitCode="$1"
    _ReleaseLock_ ; exit "$exitCode"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-21] ##
+##------------------------------------------##
+logo() {
+  echo -e "${YLWct}"
+  echo -e "      __  __           _ _               _    _ "
+  echo -e "     |  \/  |         | (_)         /\  | |  | |"
+  echo -e "     | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
+  echo -e "     | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
+  echo -e "     | |  | |  __| |  | | | | | |/ ____ | |__| |"
+  echo -e "     |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
+  echo -e "${NOct}"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jul-03] ##
+##---------------------------------------##
+_ShowAbout_()
+{
+    logo
+    cat <<EOF
+About
+  $SCRIPT_NAME is a tool for automating firmware updates on AsusWRT Merlin,
+  ensuring your router stays up-to-date with the latest features and security
+  patches. It simplifies the update process by automatically checking for,
+  downloading, and applying new firmware versions.
+  Developed by ExtremeFiretop and Martinski W.
+License
+  $SCRIPT_NAME is free to use under the GNU General Public License
+  version 3 (GPL-3.0) https://opensource.org/licenses/GPL-3.0
+Help & Support
+  https://www.snbforums.com/threads/merlinau-the-ultimate-firmware-auto-updater-addon.88577/
+Source code
+  https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
+EOF
+    printf "\n"
+    _DoExit_ 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jul-03] ##
+##---------------------------------------##
+_ShowHelp_()
+{
+    logo
+    cat <<EOF
+Available commands:
+  $SCRIPT_NAME about              explains functionality
+  $SCRIPT_NAME help               display available commands
+  $SCRIPT_NAME forceupdate        updates to latest version (force update)
+  $SCRIPT_NAME run_now            run update process on router
+  $SCRIPT_NAME processNodes       run update check on nodes
+  $SCRIPT_NAME develop            switch to development branch
+  $SCRIPT_NAME stable             switch to stable branch
+  $SCRIPT_NAME uninstall          uninstalls script
+EOF
+    printf "\n"
+    _DoExit_ 0
 }
 
 ##----------------------------------------##
@@ -509,20 +572,6 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_URL_RELEASE="${FW_URL_BASE}/${PRODUCT_ID}/${FW_URL_RELEASE_SUFFIX}/"
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-21] ##
-##------------------------------------------##
-logo() {
-  echo -e "${YLWct}"
-  echo -e "      __  __           _ _               _    _ "
-  echo -e "     |  \/  |         | (_)         /\  | |  | |"
-  echo -e "     | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
-  echo -e "     | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
-  echo -e "     | |  | |  __| |  | | | | | |/ ____ | |__| |"
-  echo -e "     |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
-  echo -e "${NOct}"
-}
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
@@ -535,7 +584,7 @@ _CheckForNewScriptUpdates_()
    rm -f "$SCRIPTVERPATH"
 
    # Download the latest version file from the source repository
-   curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
+   curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
 
    if [ $? -ne 0 ] || [ ! -s "$SCRIPTVERPATH" ]
    then scriptUpdateNotify=0 ; return 1 ; fi
@@ -555,7 +604,7 @@ _CheckForNewScriptUpdates_()
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
       scriptUpdateNotify="New script update available.
-${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
+${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
       Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
    else
       scriptUpdateNotify=0
@@ -563,22 +612,54 @@ ${REDct}v$SCRIPT_VERSION${NOct} --> ${GRNct}v$DLRepoVersion${NOct}"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-05] ##
+## Modified by Martinski W. [2024-Jul-03] ##
 ##----------------------------------------##
-#a function that provides a UI to check for script updates and allows you to install the latest version...
 _SCRIPTUPDATE_()
 {
-   local ScriptFileDL="${ScriptFilePath}.DL"
+   local scriptVers  ScriptFileDL="${ScriptFilePath}.DL"
 
    _CheckForNewScriptUpdates_
+
+   _DownloadScriptFiles_()
+   {
+      local retCode
+
+      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
+      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+
+      if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
+      then
+          mv -f "$ScriptFileDL" "$ScriptFilePath"
+          chmod 755 "$ScriptFilePath"
+          retCode=0
+      else
+          rm -f "$ScriptFileDL"
+          printf "\n${REDct}Download failed.${NOct}\n"
+          retCode=1
+      fi
+      return "$retCode"
+   }
+
+   if [ $# -gt 0 ] && [ "$1" = "force" ]
+   then
+       echo -e "${CYANct}Force downloading latest version...${NOct}"
+       scriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
+       echo -e "${CYANct}Downloading latest version ($scriptVers) of ${SCRIPT_NAME}${NOct}"
+
+       if _DownloadScriptFiles_
+       then
+           echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
+           _ReleaseLock_
+           exec "$ScriptFilePath"
+       fi
+       return
+   fi
+
    clear
    logo
-   echo
-   echo -e "${YLWct}Update Utility${NOct}"
-   echo
-   echo -e "${CYANct}Current Version: ${YLWct}${SCRIPT_VERSION}${NOct}"
-   echo -e "${CYANct}Updated Version: ${YLWct}${DLRepoVersion}${NOct}"
-   echo
+   printf "\n${YLWct}Script Update Utility${NOct}\n\n"
+   printf "${CYANct}Version Currently Installed:  ${YLWct}${SCRIPT_VERSION}${NOct}\n"
+   printf "${CYANct}Update Version Available Now: ${YLWct}${DLRepoVersion}${NOct}\n\n"
 
    if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ]
    then
@@ -586,29 +667,21 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
       if _WaitForYESorNO_
       then
-          echo ; echo
-          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+          printf "\n\n"
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
 
-          if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
+          if _DownloadScriptFiles_
           then
-              mv -f "$ScriptFileDL" "$ScriptFilePath"
-              chmod 755 "$ScriptFilePath"
               echo
               echo -e "${CYANct}Download successful!${NOct}"
               echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
               echo
-          else
-              rm -f "$ScriptFileDL"
-              echo
-              echo -e "${REDct}Download failed.${NOct}"
           fi
           _WaitForEnterKey_
           return
       else
-          echo ; echo
-          echo -e "${GRNct}Exiting Update Utility...${NOct}"
+          printf "\n\n"
+          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
           sleep 1
           return
       fi
@@ -617,15 +690,11 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
       if _WaitForYESorNO_
       then
-          echo ; echo
-          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v$DLRepoVersion${NOct}"
-          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/version.txt" -o "$SCRIPTVERPATH"
-          curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_BASE}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+          printf "\n\n"
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
 
-          if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
+          if _DownloadScriptFiles_
           then
-              mv -f "$ScriptFileDL" "$ScriptFilePath"
-              chmod 755 "$ScriptFilePath"
               echo
               echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
               echo -e "${CYANct}Update successful! Restarting script...${NOct}"
@@ -633,19 +702,38 @@ _SCRIPTUPDATE_()
               exec "$ScriptFilePath"  # Re-execute the updated script #
               exit 0  # This line will not be executed due to above exec #
           else
-              rm -f "$ScriptFileDL"
-              echo
-              echo -e "${REDct}Download failed.${NOct}"
               _WaitForEnterKey_
               return
           fi
       else
-          echo ; echo
-          echo -e "${GRNct}Exiting Update Utility...${NOct}"
+          printf "\n\n"
+          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
           sleep 1
           return
       fi
    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-03] ##
+##----------------------------------------##
+_ChangeToDev_()
+{
+    SCRIPT_BRANCH="dev"
+    SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
+    _SCRIPTUPDATE_ force
+    _DoExit_ 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-03] ##
+##----------------------------------------##
+_ChangeToStable_()
+{
+    SCRIPT_BRANCH="master"
+    SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
+    _SCRIPTUPDATE_ force
+    _DoExit_ 0
 }
 
 ##----------------------------------------##
@@ -5189,9 +5277,9 @@ _SetSecondaryEMailAddress_()
 }
 
 # RegExp for IPv4 address #
-readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-5][0-5])"
-readonly IPv4addrs_RegEx="((${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx})"
-readonly IPv4privt_RegEx="((^10\.)|(^172\.1[6-9]\.)|(^172\.2[0-9]\.)|(^172\.3[0-1]\.)|(^192\.168\.))"
+readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
+readonly IPv4addrs_RegEx="(${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx}"
+readonly IPv4privt_RegEx="(^10\.|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[0-1]\.|^192\.168\.)"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Apr-06] ##
@@ -5280,9 +5368,9 @@ check_version_support
 ##-------------------------------------##
 _CheckEMailConfigFileFromAMTM_ 0
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-03] ##
+##------------------------------------------##
 if [ $# -gt 0 ]
 then
    inMenuMode=false
@@ -5296,6 +5384,16 @@ then
        postRebootRun) _PostRebootRunNow_
            ;;
        postUpdateEmail) _PostUpdateEmailNotification_
+           ;;
+       about) _ShowAbout_
+           ;;
+       help) _ShowHelp_
+           ;;
+       forceupdate) _SCRIPTUPDATE_ force
+           ;;
+       develop) _ChangeToDev_
+           ;;
+       stable) _ChangeToStable_
            ;;
        uninstall) _DoUninstall_
            ;;
@@ -5666,7 +5764,7 @@ _InvalidMenuSelection_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
+## Modified by Martinski W. [2024-Jul-03] ##
 ##----------------------------------------##
 _ShowMainMenu_()
 {
@@ -5774,8 +5872,11 @@ _ShowMainMenu_()
    # Check for new script updates #
    if [ "$scriptUpdateNotify" != "0" ]
    then
-      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script Now"
-      printf "\n${padStr}[Version: ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
+      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script"
+      printf "\n${padStr}[Version ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
+   else
+      printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Script"
+      printf "\n${padStr}[No Update Available]\n"
    fi
 
    # Add selection for "Advanced Options" sub-menu #
