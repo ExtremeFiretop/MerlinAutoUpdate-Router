@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jul-03
+# Last Modified: 2024-Jul-07
 ###################################################################
 set -u
 
@@ -17,7 +17,7 @@ readonly SCRIPT_NAME="MerlinAU"
 # Script URL Info #
 
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="dev"
+SCRIPT_BRANCH="master"
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router"
 SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
 
