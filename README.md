@@ -15,6 +15,8 @@
  - GT-AXE11000 (Tested)
  - GT-AX11000_PRO (Tested)
  - GT-AX11000 (Tested)
+ - GT-AC2900 **(Untested)**
+ - RT-BE96U **(Untested)**
  - RT-AX88U_PRO (Tested)
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
@@ -23,6 +25,7 @@
  - RT-AX86S (Tested)
  - RT-AX68U (Tested)
  - RT-AX58U V1 (Tested)
+ - RT-AX56U **(Untested)**
  - RT-AX3000 V1 (Tested)
  - XT12 (Tested)
 
