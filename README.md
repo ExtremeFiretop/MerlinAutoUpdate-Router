@@ -29,7 +29,7 @@
  - RT-AX3000 V1 (Tested)
  - XT12 (Tested)
 
-## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
+## UNSUPPORTED MERLIN MODELS: (Single image models) - i.e. Any model that uses a .trx file
 Blocked due to low RAM/ROM space and/or have not received updates in several years.
    
  - RT-AC87U (Blocked)
