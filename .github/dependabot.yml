@@ -12,3 +12,15 @@ updates:
     groups:
       all-actions:
         patterns: [ "*" ]
+    target-branch: "main"
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions" # See documentation for possible values
+    directory: "/" # Location of package manifests
+    schedule:
+      interval: "weekly"
+    groups:
+      all-actions:
+        patterns: [ "*" ]
+    target-branch: "dev"
