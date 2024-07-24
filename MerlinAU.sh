@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jul-03
+# Last Modified: 2024-Jul-23
 ###################################################################
 set -u
 
@@ -275,22 +275,22 @@ EOF
     _DoExit_ 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jul-03] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-23] ##
+##----------------------------------------##
 _ShowHelp_()
 {
     logo
     cat <<EOF
 Available commands:
-  $SCRIPT_NAME about              explains functionality
-  $SCRIPT_NAME help               display available commands
-  $SCRIPT_NAME forceupdate        updates to latest version (force update)
-  $SCRIPT_NAME run_now            run update process on router
-  $SCRIPT_NAME processNodes       run update check on nodes
-  $SCRIPT_NAME develop            switch to development branch
-  $SCRIPT_NAME stable             switch to stable branch
-  $SCRIPT_NAME uninstall          uninstalls script
+  ${SCRIPT_NAME}.sh about              explains functionality
+  ${SCRIPT_NAME}.sh help               display available commands
+  ${SCRIPT_NAME}.sh forceupdate        updates to latest version (force update)
+  ${SCRIPT_NAME}.sh run_now            run update process on router
+  ${SCRIPT_NAME}.sh processNodes       run update check on nodes
+  ${SCRIPT_NAME}.sh develop            switch to development branch
+  ${SCRIPT_NAME}.sh stable             switch to stable branch
+  ${SCRIPT_NAME}.sh uninstall          uninstalls script
 EOF
     printf "\n"
     _DoExit_ 0
