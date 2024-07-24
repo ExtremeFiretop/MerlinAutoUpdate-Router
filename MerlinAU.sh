@@ -1752,7 +1752,6 @@ _CreateDirectory_()
     then
         # Clear directory in case any previous files still exist #
         rm -f "${1}"/*
-
     fi
     return 0
 }
@@ -4497,47 +4496,39 @@ _RunBackupmon_()
 ##---------------------------------------##
 _RunManualUpdateNow_()
 {
-	logo
+    logo
     printf "\n---------------------------------------------------\n"
 
-	ManualUpdateTrigger=0
+    ManualUpdateTrigger=0
     _Set_FW_UpdateZIP_DirectoryPath_
     if [ $? -eq 0 ]; then
         # Create directory for downloading & extracting firmware #
         if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
-
-        # Check if the _Set_FW_UpdateZIP_DirectoryPath_ returned a status code of 0
-        if [ $? -eq 0 ]; then
-            printf "\n---------------------------------------------------\n"
-            printf "\nPlease copy your firmware zip file (with the original zip name) in this directory:"
-            printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
-            printf "\nPrease '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
-            printf "\n---------------------------------------------------\n"
-            if _WaitForYESorNO_; then
-                printf "Continuing with the update process.\n"
-                if _ViewZipFile_; then
-                    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
-                    if [ $? -eq 0 ] && [ $# -eq 2 ] && \
-                       [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
-                    then
-                        release_link="$2"
-                        _RunFirmwareUpdateNow_
-                    else
-                        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-                        _WaitForEnterKey_
-                        return 1
-                    fi
+        printf "\n---------------------------------------------------\n"
+        printf "\nPlease copy your firmware zip file (with the original zip name) in this directory:"
+        printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
+        printf "\nPrease '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
+        printf "\n---------------------------------------------------\n"
+        if _WaitForYESorNO_; then
+            printf "Continuing with the update process.\n"
+            if _ViewZipFile_; then
+                set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
+                if [ $? -eq 0 ] && [ $# -eq 2 ] && \
+                    [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
+                then
+                    release_link="$2"
+                    _RunFirmwareUpdateNow_
                 else
+                    Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
                     _WaitForEnterKey_
-                    _DoExit_ 1
+                    return 1
                 fi
             else
-                printf "Update process cancelled. Exiting script."
                 _WaitForEnterKey_
                 _DoExit_ 1
             fi
         else
-            printf "Failed to set firmware update ZIP directory path."
+            printf "Update process cancelled. Exiting script."
             _WaitForEnterKey_
             _DoExit_ 1
         fi
