@@ -275,6 +275,7 @@ logo() {
 ##---------------------------------------##
 _ShowAbout_()
 {
+    clear
     logo
     cat <<EOF
 About
@@ -300,6 +301,7 @@ EOF
 ##----------------------------------------##
 _ShowHelp_()
 {
+    clear
     logo
     cat <<EOF
 Available commands:
@@ -1138,7 +1140,9 @@ _Set_FW_UpdateLOG_DirectoryPath_()
          [ "${#userInput}" -lt 4 ]          || \
          [ "$(echo "$userInput" | awk -F '/' '{print NF-1}')" -lt 2 ]
       then
-          printf "${REDct}INVALID input.${NOct}\n"
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
           continue
       fi
 
@@ -1149,7 +1153,9 @@ _Set_FW_UpdateLOG_DirectoryPath_()
       if [ ! -d "$rootDir" ]
       then
           printf "\n${REDct}**ERROR**${NOct}: Root directory path [${REDct}${rootDir}${NOct}] does NOT exist.\n\n"
-          printf "${REDct}INVALID input.${NOct}\n"
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
           continue
       fi
 
@@ -1216,7 +1222,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
       if [ -z "$userInput" ]
       then break ; fi
-      if echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+      if echo "$userInput" | grep -qE "^(e|E|exit|Exit)$"
       then return 1 ; fi
 
       if echo "$userInput" | grep -q '/$'
@@ -1228,7 +1234,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
          [ "${#userInput}" -lt 4 ]          || \
          [ "$(echo "$userInput" | awk -F '/' '{print NF-1}')" -lt 2 ]
       then
-          printf "${REDct}INVALID input.${NOct}\n"
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
           continue
       fi
 
@@ -1239,7 +1247,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
       if [ ! -d "$rootDir" ]
       then
           printf "\n${REDct}**ERROR**${NOct}: Root directory path [${REDct}${rootDir}${NOct}] does NOT exist.\n\n"
-          printf "${REDct}INVALID input.${NOct}\n"
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
           continue
       fi
 
@@ -1271,7 +1281,6 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        rm -fr "${FW_ZIP_DIR:?}"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
-       FW_ZIP_BASE_DIR="$newZIP_BaseDirPath"
        echo "The directory path for the F/W ZIP file was updated successfully."
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
@@ -3510,7 +3519,9 @@ _Set_FW_UpdatePostponementDays_()
           [ "$userInput" -le "$FW_UpdateMaximumPostponementDays" ]
        then newPostponementDays="$userInput" ; break ; fi
 
-       printf "${REDct}INVALID input.${NOct}\n"
+       printf "\n${REDct}INVALID input.${NOct}\n"
+       _WaitForEnterKey_
+       clear
    done
 
    if [ "$newPostponementDays" != "$oldPostponementDays" ]
@@ -4311,11 +4322,11 @@ _ManualFirmwareVer_()
     if [ -n "$firmware_version" ]; then
         # Replace underscores with dots
         formatted_version=$(echo "$firmware_version" | sed 's/_/./g')
-        printf "Identified firmware version: ${GRNct}$formatted_version${NOct}\n"
+        printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
+        printf "\n---------------------------------------------------\n"
     else
         # Prompt user for the firmware version if extraction fails
-        printf "\n---------------------------------------------------\n"
-        printf "${REDct}**WARNING**${NOct}\n"
+        printf "\n${REDct}**WARNING**${NOct}\n"
         printf "\nFailed to identify firmware version from the file name."
         printf "\nPlease enter the firmware version number in the format ${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}\n"
         printf "\n(Examples: 3004.388.8.0 or 3004.388.8.beta1) : "
@@ -4323,12 +4334,11 @@ _ManualFirmwareVer_()
 
         # Validate user input
         while ! echo "$formatted_version" | grep -qE "$validate_version_regex"; do
-            printf "**ERROR** Invalid format detected!\n"
-            printf "Please enter the firmware version number in the format BASE.MAJOR.MINOR.PATCH "
-            printf "(i.e 3004.388.8.0 or 3004.388.8.beta1) : "
+            printf "\n${REDct}**WARNING**${NOct} Invalid format detected!\n"
+            printf "\nPlease enter the firmware version number in the format ${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}\n"
+            printf "\n(i.e 3004.388.8.0 or 3004.388.8.beta1) : "
             read -r formatted_version
         done
-        printf "\n---------------------------------------------------\n"
         printf "\nUsing user-provided firmware version: ${GRNct}$formatted_version${NOct}\n"
     fi
 
@@ -4343,7 +4353,6 @@ _ViewZipFile_()
     local selection
     # Check if the directory is empty or no zip files are found
     if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]; then
-        printf "\n---------------------------------------------------\n"
         printf "\nNo zip files found in the directory."
         printf "\nExiting....\n"
         printf "\n---------------------------------------------------\n"
@@ -4352,7 +4361,6 @@ _ViewZipFile_()
 
     while true; do
         # List all zip files in the directory
-        printf "\n---------------------------------------------------\n"
         printf "\nAvailable zip files in the directory: [${GRNct}$FW_ZIP_DIR${NOct}]:\n"
         printf "\n"  # Add this line to create an empty line
 
@@ -4365,24 +4373,30 @@ _ViewZipFile_()
 
         # Prompt user to select a zip file
         printf "\n---------------------------------------------------\n"
-        printf "\nEnter the number of the zip file you want to select: "
+        printf "\n[${theMUExitStr}] Enter the number of the zip file you want to select: "
         read -r selection
 
         if [ -z "$selection" ]; then
-            printf "Invalid selection. Please try again.\n"
+            printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
+            _WaitForEnterKey_
+            clear
             continue
         fi
 
-        if echo "$selection" | grep -qE "^(e|exit|Exit)$"
+        if echo "$selection" | grep -qE "^(e|E|exit|Exit)$"
         then echo "Update process cancelled. Exiting script." ; _WaitForEnterKey_ ; _DoExit_ 1 ; fi
 
         # Validate selection
         selected_file=$(echo "$file_list" | awk "NR==$selection")
         if [ -z "$selected_file" ]; then
-            printf "Invalid selection. Please try again.\n"
+            printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
+            _WaitForEnterKey_
+            clear
             continue
         else
-            printf "You have selected: ${GRNct}$selected_file${NOct}\n"
+			clear
+            printf "\n---------------------------------------------------\n"
+            printf "\nYou have selected: ${GRNct}$selected_file${NOct}\n"
             break
         fi
     done
@@ -4394,7 +4408,7 @@ _ViewZipFile_()
     if _WaitForYESorNO_ "\nDo you want to continue with the selected zip file?"
     then
         printf "\n---------------------------------------------------\n"
-        printf "\nContinuing with the selected zip file\n"
+        printf "\nStarting update with the selected zip file\n"
        # Rename the selected file
         new_file_name="${PRODUCT_ID}_firmware.zip"
         mv "$selected_file" "$FW_ZIP_DIR/$new_file_name"
@@ -4402,6 +4416,8 @@ _ViewZipFile_()
             printf "\nFile renamed to ${GRNct}$new_file_name${NOct}"
             printf "\nRelease version: ${GRNct}$release_version${NOct}\n"  # Show the release version
             printf "\n---------------------------------------------------\n"
+            sleep 4
+			clear
             return 0
         else
             printf "\nFailed to rename the file.\n"
@@ -4496,12 +4512,14 @@ _RunBackupmon_()
 ##---------------------------------------##
 _RunManualUpdateNow_()
 {
+    clear
     logo
     printf "\n---------------------------------------------------\n"
 
     ManualUpdateTrigger=0
     _Set_FW_UpdateZIP_DirectoryPath_
     if [ $? -eq 0 ]; then
+        clear
         # Create directory for downloading & extracting firmware #
         if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
         printf "\n---------------------------------------------------\n"
@@ -4510,7 +4528,9 @@ _RunManualUpdateNow_()
         printf "\nPrease '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
         printf "\n---------------------------------------------------\n"
         if _WaitForYESorNO_; then
-            printf "Continuing with the update process.\n"
+            clear
+            printf "\n---------------------------------------------------\n"
+            printf "\nContinuing to the file selection process.\n"
             if _ViewZipFile_; then
                 set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
                 if [ $? -eq 0 ] && [ $# -eq 2 ] && \
@@ -5396,8 +5416,10 @@ _SetSecondaryEMailAddress_()
 
        if ! echo "$userInput" | grep -qE ".+[@].+"
        then
-           printf "${REDct}INVALID input.${NOct} "
+           printf "\n${REDct}INVALID input.${NOct} "
            printf "No ampersand character [${GRNct}@${NOct}] is found.\n"
+           _WaitForEnterKey_
+           clear
            continue
        fi
 
