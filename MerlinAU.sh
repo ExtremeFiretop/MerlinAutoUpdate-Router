@@ -17,7 +17,7 @@ readonly SCRIPT_NAME="MerlinAU"
 # Script URL Info #
 
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router"
 SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
 
@@ -4300,83 +4300,6 @@ _EntwareServicesHandler_()
    "$isInteractive" && printf "\nDone.\n"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-23] ##
-##------------------------------------------##
-_RunBackupmon_()
-{
-    # Check for the presence of backupmon.sh script
-    if [ -f "/jffs/scripts/backupmon.sh" ]
-    then
-        local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-        if [ "$current_backup_settings" = "ENABLED" ]
-        then
-            # Extract version number from backupmon.sh
-            local BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
-
-            # Adjust version format from 1.46 to 1.4.6 if needed
-            local DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
-            if [ "$DOT_COUNT" -eq 0 ]; then
-                # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
-                BM_VERSION="${BM_VERSION}.0.0"
-            elif [ "$DOT_COUNT" -eq 1 ]; then
-                # For versions like 1.46, insert a dot before the last two digits
-                BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
-            fi
-
-            # Convert version strings to comparable numbers
-            local currentBM_version="$(_ScriptVersionStrToNum_ "$BM_VERSION")"
-            local requiredBM_version="$(_ScriptVersionStrToNum_ "1.5.3")"
-
-            # Check if BACKUPMON version is greater than or equal to 1.5.3
-            if [ "$currentBM_version" -ge "$requiredBM_version" ]; then
-                # Execute the backup script if it exists #
-                echo ""
-                Say "Backup Started (by BACKUPMON)"
-                sh /jffs/scripts/backupmon.sh -backup >/dev/null
-                BE=$?
-                Say "Backup Finished"
-                echo ""
-                if [ $BE -eq 0 ]; then
-                    Say "Backup Completed Successfully"
-                    echo ""
-                else
-                    Say "Backup Failed"
-                    echo ""
-                    _SendEMailNotification_ NEW_BM_BACKUP_FAILED
-                    _DoCleanUp_ 1
-                    if "$isInteractive"
-                    then
-                        printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
-                        printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
-                        printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
-                        printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
-                        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                        return 1
-                    else
-                        _DoExit_ 1
-                    fi
-                fi
-            else
-                # BACKUPMON version is not sufficient
-                echo ""
-                Say "${REDct}**IMPORTANT NOTICE**:${NOct}"
-                echo ""
-                Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.5.3."
-                Say "Skipping backup. Please update your version of BACKUPMON."
-                echo ""
-            fi
-        else
-            Say "Backup script (BACKUPMON) is disabled in the advanced options. Skipping backup."
-            echo ""
-        fi
-    else
-        Say "Backup script (BACKUPMON) is not installed. Skipping backup."
-        echo ""
-    fi
-    return 0
-}
-
 _ManualFirmwareVer_()
 {
     local zip_file=$1
@@ -4490,6 +4413,83 @@ _ViewZipFile_()
         printf "Operation cancelled by user."
         return 1
     fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-23] ##
+##------------------------------------------##
+_RunBackupmon_()
+{
+    # Check for the presence of backupmon.sh script
+    if [ -f "/jffs/scripts/backupmon.sh" ]
+    then
+        local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+        if [ "$current_backup_settings" = "ENABLED" ]
+        then
+            # Extract version number from backupmon.sh
+            local BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
+
+            # Adjust version format from 1.46 to 1.4.6 if needed
+            local DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
+            if [ "$DOT_COUNT" -eq 0 ]; then
+                # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
+                BM_VERSION="${BM_VERSION}.0.0"
+            elif [ "$DOT_COUNT" -eq 1 ]; then
+                # For versions like 1.46, insert a dot before the last two digits
+                BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
+            fi
+
+            # Convert version strings to comparable numbers
+            local currentBM_version="$(_ScriptVersionStrToNum_ "$BM_VERSION")"
+            local requiredBM_version="$(_ScriptVersionStrToNum_ "1.5.3")"
+
+            # Check if BACKUPMON version is greater than or equal to 1.5.3
+            if [ "$currentBM_version" -ge "$requiredBM_version" ]; then
+                # Execute the backup script if it exists #
+                echo ""
+                Say "Backup Started (by BACKUPMON)"
+                sh /jffs/scripts/backupmon.sh -backup >/dev/null
+                BE=$?
+                Say "Backup Finished"
+                echo ""
+                if [ $BE -eq 0 ]; then
+                    Say "Backup Completed Successfully"
+                    echo ""
+                else
+                    Say "Backup Failed"
+                    echo ""
+                    _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+                    _DoCleanUp_ 1
+                    if "$isInteractive"
+                    then
+                        printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+                        printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+                        printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+                        printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+                        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                        return 1
+                    else
+                        _DoExit_ 1
+                    fi
+                fi
+            else
+                # BACKUPMON version is not sufficient
+                echo ""
+                Say "${REDct}**IMPORTANT NOTICE**:${NOct}"
+                echo ""
+                Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.5.3."
+                Say "Skipping backup. Please update your version of BACKUPMON."
+                echo ""
+            fi
+        else
+            Say "Backup script (BACKUPMON) is disabled in the advanced options. Skipping backup."
+            echo ""
+        fi
+    else
+        Say "Backup script (BACKUPMON) is not installed. Skipping backup."
+        echo ""
+    fi
+    return 0
 }
 
 ##---------------------------------------##
