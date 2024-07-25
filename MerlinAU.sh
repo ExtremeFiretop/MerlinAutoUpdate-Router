@@ -4586,7 +4586,7 @@ _RunManualUpdateNow_()
         # Create directory for downloading & extracting firmware #
         if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
         printf "\n---------------------------------------------------\n"
-        printf "\nPlease copy your firmware zip file (with the original zip name) in this directory:"
+        printf "\nPlease copy your firmware zip file (with the original zip name) to this directory:"
         printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
         printf "\nPrease '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
         printf "\n---------------------------------------------------\n"
