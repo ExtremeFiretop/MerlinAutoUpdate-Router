@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jul-05
+# Last Modified: 2024-Jul-24
 ###################################################################
 set -u
 
@@ -17,7 +17,7 @@ readonly SCRIPT_NAME="MerlinAU"
 # Script URL Info #
 
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router"
 SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
 
@@ -276,22 +276,22 @@ EOF
     _DoExit_ 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jul-03] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-23] ##
+##----------------------------------------##
 _ShowHelp_()
 {
     logo
     cat <<EOF
 Available commands:
-  $SCRIPT_NAME about              explains functionality
-  $SCRIPT_NAME help               display available commands
-  $SCRIPT_NAME forceupdate        updates to latest version (force update)
-  $SCRIPT_NAME run_now            run update process on router
-  $SCRIPT_NAME processNodes       run update check on nodes
-  $SCRIPT_NAME develop            switch to development branch
-  $SCRIPT_NAME stable             switch to stable branch
-  $SCRIPT_NAME uninstall          uninstalls script
+  ${SCRIPT_NAME}.sh about              explains functionality
+  ${SCRIPT_NAME}.sh help               display available commands
+  ${SCRIPT_NAME}.sh forceupdate        updates to latest version (force update)
+  ${SCRIPT_NAME}.sh run_now            run update process on router
+  ${SCRIPT_NAME}.sh processNodes       run update check on nodes
+  ${SCRIPT_NAME}.sh develop            switch to development branch
+  ${SCRIPT_NAME}.sh stable             switch to stable branch
+  ${SCRIPT_NAME}.sh uninstall          uninstalls script
 EOF
     printf "\n"
     _DoExit_ 0
@@ -2994,9 +2994,9 @@ fi
 return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-30] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-24] ##
+##------------------------------------------##
 _CheckFirmwareSHA256_() {
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
     checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
@@ -3008,14 +3008,7 @@ _CheckFirmwareSHA256_() {
     then
         Say "${REDct}**ERROR**${NOct}: Could not download the firmware SHA256 signatures from the website."
         _DoCleanUp_ 1
-        if [ "$inMenuMode" = true ]
-        then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
-        fi
+        return 1
     fi
 
     if [ -f "$firmware_file" ]
@@ -3029,6 +3022,8 @@ _CheckFirmwareSHA256_() {
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             return 1
+        else
+            Say "SHA256 signature check for firmware image file passed successfully."
         fi
     else
         Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
