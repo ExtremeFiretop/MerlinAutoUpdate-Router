@@ -2692,6 +2692,66 @@ _GetLatestFWUpdateVersionFromWebsite_()
 }
 
 ##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-30] ##
+##----------------------------------------##
+_CheckOnlineFirmwareSHA256_() {
+    # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
+    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
+ https://www.asuswrt-merlin.net/download | \
+ sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' | \
+ sed -n '/<pre[^>].*>/,/<\/pre>/p' | sed -e 's/<[^>].*>//g')"
+
+    if [ -z "$checksums" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: Could not download the firmware SHA256 signatures from the website."
+        _DoCleanUp_ 1
+        return 1
+    fi
+
+    if [ -f "$firmware_file" ]
+    then
+        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+        # Extract the corresponding signature for the firmware file from the fetched checksums #
+        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | cut -d' ' -f1)"
+        if [ "$fw_sig" != "$dl_sig" ]
+        then
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            return 1
+        else
+            Say "SHA256 signature check for firmware image file passed successfully."
+        fi
+    else
+        Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
+        _DoCleanUp_ 1
+        return 1
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-30] ##
+##----------------------------------------##
+_CheckOfflineFirmwareSHA256_() {
+    if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]
+    then
+        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+        dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
+        if [ "$fw_sig" != "$dl_sig" ]
+        then
+            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+        else
+            Say "SHA256 signature check for firmware image file passed successfully."
+        fi
+    else
+        Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
+        _DoCleanUp_ 1
+    fi
+}
+
+##----------------------------------------##
 ## Modified by Martinski W. [2024-May-27] ##
 ##----------------------------------------##
 _toggle_change_log_check_()
@@ -4413,7 +4473,7 @@ _ViewZipFile_()
         new_file_name="${PRODUCT_ID}_firmware.zip"
         mv "$selected_file" "$FW_ZIP_DIR/$new_file_name"
         if [ $? -eq 0 ]; then
-            printf "\nFile renamed to ${GRNct}$new_file_name${NOct}"
+            printf "\nFile packaged to ${GRNct}$new_file_name${NOct}"
             printf "\nRelease version: ${GRNct}$release_version${NOct}\n"  # Show the release version
             printf "\n---------------------------------------------------\n"
             sleep 4
@@ -4930,61 +4990,21 @@ Please manually update to version $minimum_supported_version or higher to use th
         firmware_file="$pure_file"
     fi
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Jun-30] ##
-    ##----------------------------------------##
-    # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
- https://www.asuswrt-merlin.net/download | \
- sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' | \
- sed -n '/<pre[^>].*>/,/<\/pre>/p' | sed -e 's/<[^>].*>//g')"
-
-    if [ -z "$checksums" ]
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jul-23] ##
+    ##------------------------------------------##
+    if [ $ManualUpdateTrigger = "1" ]
     then
-        Say "${REDct}**ERROR**${NOct}: Could not download the firmware SHA256 signatures from the website."
-        _DoCleanUp_ 1
-        if [ "$inMenuMode" = true ]
-        then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
-        fi
-    fi
-
-    if [ -f "$firmware_file" ]
-    then
-        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
-        # Extract the corresponding signature for the firmware file from the fetched checksums #
-        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | cut -d' ' -f1)"
-        if [ "$fw_sig" != "$dl_sig" ]
-        then
-            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
-            _DoCleanUp_ 1
-            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
-            if [ "$inMenuMode" = true ]
-            then
-                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                return 1
-            else
-                # Assume non-interactive mode; perform exit.
-                _DoExit_ 1
-            fi
-        else
-            Say "SHA256 signature check for firmware image file passed successfully."
-        fi
+        _CheckOnlineFirmwareSHA256_
+        retCode="$?"
     else
-        Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
-        _DoCleanUp_ 1
-        if [ "$inMenuMode" = true ]
-        then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
-        fi
+        _CheckOfflineFirmwareSHA256_
+        retCode="$?"
+    fi
+    if [ "$retCode" -eq 1 ]
+    then
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
     fi
 
     ##----------------------------------------##
