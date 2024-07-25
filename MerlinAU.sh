@@ -2691,9 +2691,9 @@ _GetLatestFWUpdateVersionFromWebsite_()
     return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-30] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-24] ##
+##------------------------------------------##
 _CheckOnlineFirmwareSHA256_() {
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
     checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
@@ -2729,9 +2729,9 @@ _CheckOnlineFirmwareSHA256_() {
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-30] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-24] ##
+##------------------------------------------##
 _CheckOfflineFirmwareSHA256_() {
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]
     then
