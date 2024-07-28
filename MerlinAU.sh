@@ -2139,7 +2139,7 @@ check_memory_and_prompt_reboot()
                 # Attempt to clear clears pagecache, dentries, and inodes after shutting down services
                 Say "Attempting to free up memory once more even more aggressively..."
 
-                # Stop Entware services before F/W flash #
+                # Stop Entware services to free some memory #
                 _EntwareServicesHandler_ stop
 
                 _ShutDownNonCriticalServices_
@@ -4734,7 +4734,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-28] ##
+## Modified by Martinski W. [2024-Jul-24] ##
 ##----------------------------------------##
 _EntwareServicesHandler_()
 {
@@ -4757,6 +4757,9 @@ _EntwareServicesHandler_()
           *) return 1 ;;
    esac
 
+   # Check if *NOT* skipping any services #
+   [ $# -gt 1 ] && [ "$2" = "-noskip" ] && skipServiceList=""
+
    _RenameSkippedService_()
    {
        [ -z "$skippedServiceList" ] && return 1
@@ -4775,8 +4778,8 @@ _EntwareServicesHandler_()
 
    [ -n "$serviceStr" ] && Say "Looking for Entware services..."
 
-   # Filter out services to skip and add a skip message #
-   if [ "$AllowVPN" = "ENABLED" ]
+   # Filter out services to skip and add a "skip message" #
+   if [ "$AllowVPN" = "ENABLED" ] && [ -n "$skipServiceList" ]
    then
       for skipService in $skipServiceList
       do
@@ -5348,9 +5351,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
-    # Stop Entware services before F/W flash #
-    _EntwareServicesHandler_ stop
-
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Jun-30] ##
     ##------------------------------------------##
@@ -5416,14 +5416,23 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
-        # *WARNING*: No more logging at this point & beyond #
-        /sbin/ejusb -1 0 -u 1
-
         #-------------------------------------------------------
         # Stop toggling LEDs during the F/W flash to avoid
         # modifying NVRAM during the actual flash process.
         #-------------------------------------------------------
         _Reset_LEDs_
+
+        ##----------------------------------------##
+        ## Modified by Martinski W. [2024-Jul-24] ##
+        ##----------------------------------------##
+        # Remove SIGHUP to allow script to continue #
+        trap '' HUP
+
+        # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
+        _EntwareServicesHandler_ stop -noskip
+
+        # *WARNING*: NO MORE logging at this point & beyond #
+        /sbin/ejusb -1 0 -u 1
 
         nohup curl -k "${routerURLstr}/upgrade.cgi" \
         --referer "${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
@@ -5464,6 +5473,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         # reboot by itself after the process returns, do it now.
         #----------------------------------------------------------#
         sleep 180
+        _ReleaseLock_
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
