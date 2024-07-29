@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jul-24
+# Last Modified: 2024-Jul-28
 ###################################################################
 set -u
 
@@ -4575,6 +4575,54 @@ _RunBackupmon_()
 ##---------------------------------------##
 _RunManualUpdateNow_()
 {
+    OfflineConfigFile="${SETTINGS_DIR}/offline_updates.txt"
+    if [ ! -f "$OfflineConfigFile" ]; then
+        _DoExit_ 1
+    fi
+    # Source the configuration file
+    . "$OfflineConfigFile"
+
+    # Check required parameters
+    if [ "$FW_OFFLINE_UPDATE_IS_ALLOWED" != "true" ]; then
+        _DoExit_ 1
+    fi
+
+    # Reset FW_OFFLINE_UPDATE_ACCEPT_RISK to false
+    if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$OfflineConfigFile"; then
+        sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$OfflineConfigFile"
+    fi
+    clear
+    printf "\n${REDct}***WARNING***${NOct}"
+    printf "\nYou are about to initiate an ${REDct}offline${NOct} firmware update."
+    printf "\nThe firmware image to be flashed is ${REDct}unvetted${NOct} and of ${REDct}unknown${NOct} origin.\n"
+    printf "\n1. This feature is intended for developers and advanced users only."    
+    printf "\n2. No support will be offered when flashing offline."
+    printf "\n3. This offline feature is excluded from documentation on purpose.\n"
+    printf "\nDo you acknowledge the risk and wish to proceed? Type '${REDct}YES${NOct}' to continue.\n"
+
+    read -r response
+
+    if [ "$response" = "YES" ]; then
+        # Add or update the setting to true
+        if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$OfflineConfigFile"; then
+            sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"true\"/" "$OfflineConfigFile"
+        else
+            # Ensure the new setting is added on a new line
+            echo "" >> "$OfflineConfigFile"
+            echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"true\"" >> "$OfflineConfigFile"
+        fi
+    else
+        # Add or update the setting to false
+        if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$OfflineConfigFile"; then
+            sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$OfflineConfigFile"
+        else
+            # Ensure the new setting is added on a new line
+            echo "" >> "$OfflineConfigFile"
+            echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"" >> "$OfflineConfigFile"
+        fi
+        printf "Operation aborted by the user.\n"
+        _DoExit_ 1
+    fi
     clear
     logo
     printf "\n---------------------------------------------------\n"
@@ -5650,7 +5698,7 @@ then
            ;;
        uninstall) _DoUninstall_
            ;;
-       manualupdate) _RunManualUpdateNow_
+       offlineupdate) _RunManualUpdateNow_
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
            ;;
