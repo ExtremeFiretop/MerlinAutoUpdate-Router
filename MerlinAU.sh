@@ -5698,7 +5698,7 @@ then
            ;;
        uninstall) _DoUninstall_
            ;;
-       offlineupdate) _RunManualUpdateNow_
+       -offlineupdate) _RunManualUpdateNow_
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
            ;;
