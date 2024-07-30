@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jul-28
+# Last Modified: 2024-Jul-29
 ###################################################################
 set -u
 
@@ -39,10 +39,16 @@ readonly high_risk_terms="factory default reset|features are disabled|break back
 DLRepoVersion=""
 scriptUpdateNotify=0
 
-# For supported version and model checks #
-MinFirmwareCheckFailed=0
-ModelCheckFailed=0
-ManualUpdateTrigger=1
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-29] ##
+##----------------------------------------##
+# For minimum supported firmware version check #
+MinFirmwareVerCheckFailed=false
+MinSupportedFirmwareVers="3004.386.12.0"
+
+# For router model check #
+routerModelCheckFailed=false
+offlineUpdateTrigger=false
 
 ##--------------------------------------------##
 ## Modified by ExtremeFiretop [2023-Nov-26]   ##
@@ -1200,9 +1206,9 @@ _Set_FW_UpdateLOG_DirectoryPath_()
    return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-29] ##
+##----------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
    local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath=""
@@ -1210,20 +1216,22 @@ _Set_FW_UpdateZIP_DirectoryPath_()
    while true
    do
       printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
-      printf "Default directory for 'USB' storage is: [${GRNct}/tmp/mnt/${REDct}USBLABEL${NOct}${GRNct}/${NOct}].\n"
-      printf "Default directory for 'Local' storage is: [${GRNct}/home/root/${NOct}].\n"      
-      if [ "$ManualUpdateTrigger" = "0" ]
+      if [ -n "$USBMountPoint" ] && _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
       then
-         printf "\n[${theMUExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+          printf "Default directory for USB-attached drive: [${GRNct}${FW_ZIP_BASE_DIR}${NOct}]\n"
       else
-         printf "\n[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+          printf "Default directory for 'Local' storage is: [${GRNct}/home/root${NOct}]\n"
+      fi
+      if "$offlineUpdateTrigger"
+      then
+          printf "\n[${theMUExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+      else
+          printf "\n[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
       fi
       read -r userInput
 
-      if [ -z "$userInput" ]
-      then break ; fi
-      if echo "$userInput" | grep -qE "^(e|E|exit|Exit)$"
-      then return 1 ; fi
+      if [ -z "$userInput" ] ; then break ; fi
+      if echo "$userInput" | grep -qE "^(e|E|exit|Exit)$" ; then return 1 ; fi
 
       if echo "$userInput" | grep -q '/$'
       then userInput="${userInput%/*}" ; fi
@@ -1757,7 +1765,7 @@ _CreateDirectory_()
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
-    if [ ManualUpdateTrigger = "1" ]
+    if ! "$offlineUpdateTrigger"
     then
         # Clear directory in case any previous files still exist #
         rm -f "${1}"/*
@@ -2159,38 +2167,31 @@ check_memory_and_prompt_reboot()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
-# Function to check if the current router model is supported
 check_version_support()
 {
     local numOfFields  current_version  numCurrentVers  numMinimumVers
-
-    # Minimum supported firmware version #
-    minimum_supported_version="3004.386.12.0"
-
     current_version="$(_GetCurrentFWInstalledLongVersion_)"
 
     numOfFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
     numCurrentVers="$(_FWVersionStrToNum_ "$current_version" "$numOfFields")"
-    numMinimumVers="$(_FWVersionStrToNum_ "$minimum_supported_version" "$numOfFields")"
+    numMinimumVers="$(_FWVersionStrToNum_ "$MinSupportedFirmwareVers" "$numOfFields")"
 
     # If the current firmware version is lower than the minimum supported firmware version, exit.
     if [ "$numCurrentVers" -lt "$numMinimumVers" ]
-    then
-       MinFirmwareCheckFailed="1"
-    fi
+    then MinFirmwareVerCheckFailed=true ; fi
 }
 
-check_model_support() {
+check_model_support()
+{
     # List of unsupported models as a space-separated string
     local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC1900"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
 
-    # Check if the current model is in the list of unsupported models
-    if echo "$unsupported_models" | grep -wq "$current_model"; then
-       ModelCheckFailed="1"
-    fi
+    # Check if the current model is in the list of unsupported models #
+    if echo "$unsupported_models" | grep -wq "$current_model"
+    then routerModelCheckFailed=true ; fi
 }
 
 ##---------------------------------------##
@@ -2694,7 +2695,8 @@ _GetLatestFWUpdateVersionFromWebsite_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jul-24] ##
 ##------------------------------------------##
-_CheckOnlineFirmwareSHA256_() {
+_CheckOnlineFirmwareSHA256_()
+{
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
     checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
  https://www.asuswrt-merlin.net/download | \
@@ -2721,6 +2723,7 @@ _CheckOnlineFirmwareSHA256_() {
             return 1
         else
             Say "SHA256 signature check for firmware image file passed successfully."
+            return 0
         fi
     else
         Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
@@ -2729,25 +2732,31 @@ _CheckOnlineFirmwareSHA256_() {
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-24] ##
-##------------------------------------------##
-_CheckOfflineFirmwareSHA256_() {
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-29] ##
+##----------------------------------------##
+_CheckOfflineFirmwareSHA256_()
+{
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]
     then
         fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
         dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
         if [ "$fw_sig" != "$dl_sig" ]
         then
-            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the SHA256 signature!"
-            _DoCleanUp_ 1
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature from firmware file does NOT have a matching SHA256 signature."
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            printf "Offline update was aborted. Exiting script.\n"
+            _DoCleanUp_ 1
+            return 1
         else
             Say "SHA256 signature check for firmware image file passed successfully."
+            return 0
         fi
     else
-        Say "${REDct}**ERROR**${NOct}: SHA256 signature file not found!"
+        Say "${REDct}**ERROR**${NOct}: SHA256 signature file NOT found."
+        printf "Offline update was aborted. Exiting script.\n"
         _DoCleanUp_ 1
+        return 1
     fi
 }
 
@@ -4373,73 +4382,83 @@ _EntwareServicesHandler_()
    "$isInteractive" && printf "\nDone.\n"
 }
 
-_ManualFirmwareVer_()
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-29] ##
+##----------------------------------------##
+_GetOfflineFirmwareVersion_()
 {
-    local zip_file=$1
+    local zip_file="$1"
     local extract_version_regex='[0-9]+_[0-9]+\.[0-9]+_[0-9a-zA-Z]+'
     local validate_version_regex='[0-9]+\.[0-9]+\.[0-9]+\.[0-9a-zA-Z]+'
+    local fwVersionFormat
 
-    # Extract the version number using regex
-    firmware_version=$(echo "$zip_file" | grep -oE "$extract_version_regex")
+    # Extract the version number using regex #
+    firmware_version="$(echo "$zip_file" | grep -oE "$extract_version_regex")"
 
-    if [ -n "$firmware_version" ]; then
-        # Replace underscores with dots
-        formatted_version=$(echo "$firmware_version" | sed 's/_/./g')
+    if [ -n "$firmware_version" ]
+    then
+        # Replace underscores with dots #
+        formatted_version="$(echo "$firmware_version" | sed 's/_/./g')"
         printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
         printf "\n---------------------------------------------------\n"
     else
-        # Prompt user for the firmware version if extraction fails
+        fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
+        # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
-        printf "\nFailed to identify firmware version from the file name."
-        printf "\nPlease enter the firmware version number in the format ${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}\n"
-        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.beta1) : "
+        printf "\nFailed to identify firmware version from the ZIP file name."
+        printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
+        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.beta1):  "
         read -r formatted_version
 
-        # Validate user input
-        while ! echo "$formatted_version" | grep -qE "$validate_version_regex"; do
+        # Validate user input #
+        while ! echo "$formatted_version" | grep -qE "^${validate_version_regex}$"
+        do
             printf "\n${REDct}**WARNING**${NOct} Invalid format detected!\n"
-            printf "\nPlease enter the firmware version number in the format ${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}\n"
-            printf "\n(i.e 3004.388.8.0 or 3004.388.8.beta1) : "
+            printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
+            printf "\n(i.e 3004.388.8.0 or 3004.388.8.beta1):  "
             read -r formatted_version
         done
-        printf "\nUsing user-provided firmware version: ${GRNct}$formatted_version${NOct}\n"
+        printf "\nThe user-provided firmware version: ${GRNct}$formatted_version${NOct}\n"
     fi
 
     export release_version="$formatted_version"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jul-23] ##
-##---------------------------------------##
-_ViewZipFile_()
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-29] ##
+##----------------------------------------##
+_SelectOfflineZipFile_()
 {
-    local selection
-    # Check if the directory is empty or no zip files are found
-    if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]; then
-        printf "\nNo zip files found in the directory."
+    local selection  zipFileList  fileCount
+
+    # Check if the directory is empty or no ZIP files are found #
+    if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
+    then
+        printf "\nNo ZIP files found in the directory."
         printf "\nExiting....\n"
         printf "\n---------------------------------------------------\n"
         return 1
     fi
 
-    while true; do
-        # List all zip files in the directory
-        printf "\nAvailable zip files in the directory: [${GRNct}$FW_ZIP_DIR${NOct}]:\n"
-        printf "\n"  # Add this line to create an empty line
+    while true
+    do
+        printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
 
-        file_list=$(ls "$FW_ZIP_DIR"/*.zip 2>/dev/null)
-        i=1
-        for file in $file_list; do
-            printf "${GRNct}%d${NOct}) %s\n" $i $file
-            i=$((i + 1))
+        zipFileList="$(ls -A1 "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
+        fileCount=1
+        for zipFile in $zipFileList
+        do
+            printf "${GRNct}%d${NOct}) %s\n" "$fileCount" "$zipFile"
+            fileCount="$((fileCount + 1))"
         done
 
-        # Prompt user to select a zip file
+        # Prompt user to select a ZIP file #
         printf "\n---------------------------------------------------\n"
-        printf "\n[${theMUExitStr}] Enter the number of the zip file you want to select: "
+        printf "\n[${theMUExitStr}] Enter the number of the ZIP file you want to select:  "
         read -r selection
 
-        if [ -z "$selection" ]; then
+        if [ -z "$selection" ]
+        then
             printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
             _WaitForEnterKey_
             clear
@@ -4447,43 +4466,49 @@ _ViewZipFile_()
         fi
 
         if echo "$selection" | grep -qE "^(e|E|exit|Exit)$"
-        then echo "Update process cancelled. Exiting script." ; _WaitForEnterKey_ ; _DoExit_ 1 ; fi
+        then
+            echo "Update process cancelled. Exiting script."
+            _WaitForEnterKey_
+            _DoExit_ 1
+        fi
 
-        # Validate selection
-        selected_file=$(echo "$file_list" | awk "NR==$selection")
-        if [ -z "$selected_file" ]; then
+        # Validate selection #
+        selected_file="$(echo "$zipFileList" | awk "NR==$selection")"
+        if [ -z "$selected_file" ]
+        then
             printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
             _WaitForEnterKey_
             clear
             continue
         else
-			clear
+            clear
             printf "\n---------------------------------------------------\n"
             printf "\nYou have selected: ${GRNct}$selected_file${NOct}\n"
             break
         fi
     done
 
-    # Extract or prompt for firmware version
-    _ManualFirmwareVer_ "$selected_file"
+    # Extract or prompt for firmware version #
+    _GetOfflineFirmwareVersion_ "$selected_file"
 
     # Confirm the selection
-    if _WaitForYESorNO_ "\nDo you want to continue with the selected zip file?"
+    if _WaitForYESorNO_ "\nDo you want to continue with the selected ZIP file?"
     then
         printf "\n---------------------------------------------------\n"
-        printf "\nStarting update with the selected zip file\n"
-       # Rename the selected file
+        printf "\nStarting firmware update with the selected ZIP file.\n"
+        # Rename the selected ZIP file #
         new_file_name="${PRODUCT_ID}_firmware.zip"
-        mv "$selected_file" "$FW_ZIP_DIR/$new_file_name"
-        if [ $? -eq 0 ]; then
-            printf "\nFile packaged to ${GRNct}$new_file_name${NOct}"
-            printf "\nRelease version: ${GRNct}$release_version${NOct}\n"  # Show the release version
+        mv -f "$selected_file" "${FW_ZIP_DIR}/$new_file_name"
+        if [ $? -eq 0 ]
+        then
+            printf "\nFile packaged to ${GRNct}${new_file_name}${NOct}"
+            printf "\nRelease version: ${GRNct}${release_version}${NOct}\n"
             printf "\n---------------------------------------------------\n"
-            sleep 4
-			clear
+            _WaitForEnterKey_
+            clear
             return 0
         else
-            printf "\nFailed to rename the file.\n"
+            printf "\nFailed to rename the ZIP file.\n"
             return 1
         fi
         return 0
@@ -4570,79 +4595,88 @@ _RunBackupmon_()
     return 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jul-23] ##
-##---------------------------------------##
-_RunManualUpdateNow_()
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-29] ##
+##----------------------------------------##
+_RunOfflineUpdateNow_()
 {
-    OfflineConfigFile="${SETTINGS_DIR}/offline_updates.txt"
-    if [ ! -f "$OfflineConfigFile" ]; then
+    local offlineConfigFile="${SETTINGS_DIR}/offline_updates.txt"
+
+    if [ ! -s "$offlineConfigFile" ]; then
         _DoExit_ 1
     fi
-    # Source the configuration file
-    . "$OfflineConfigFile"
+    # Source the configuration file #
+    . "$offlineConfigFile"
 
-    # Check required parameters
-    if [ "$FW_OFFLINE_UPDATE_IS_ALLOWED" != "true" ]; then
+    # Check required parameter #
+    if [ -z "${FW_OFFLINE_UPDATE_IS_ALLOWED:+xSETx}" ] || \
+       [ "$FW_OFFLINE_UPDATE_IS_ALLOWED" != "true" ]
+    then
         _DoExit_ 1
     fi
 
-    # Reset FW_OFFLINE_UPDATE_ACCEPT_RISK to false
-    if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$OfflineConfigFile"; then
-        sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$OfflineConfigFile"
+    # Reset FW_OFFLINE_UPDATE_ACCEPT_RISK to false #
+    if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$offlineConfigFile"
+    then
+        sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$offlineConfigFile"
     fi
     clear
     printf "\n${REDct}***WARNING***${NOct}"
     printf "\nYou are about to initiate an ${REDct}offline${NOct} firmware update."
     printf "\nThe firmware image to be flashed is ${REDct}unvetted${NOct} and of ${REDct}unknown${NOct} origin.\n"
     printf "\n1. This feature is intended for developers and advanced users only."    
-    printf "\n2. No support will be offered when flashing offline."
+    printf "\n2. No support will be offered when flashing firmware offline."
     printf "\n3. This offline feature is excluded from documentation on purpose.\n"
-    printf "\nDo you acknowledge the risk and wish to proceed? Type '${REDct}YES${NOct}' to continue.\n"
+    printf "\nDo you acknowledge the risk and wish to proceed?"
+    printf "\nYou must type '${REDct}YES${NOct}' to continue.\n"
 
     read -r response
-
-    if [ "$response" = "YES" ]; then
-        # Add or update the setting to true
-        if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$OfflineConfigFile"; then
-            sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"true\"/" "$OfflineConfigFile"
+    if [ "$response" = "YES" ]
+    then
+        # Add or update the setting to true #
+        if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$offlineConfigFile"
+        then
+            sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"true\"/" "$offlineConfigFile"
         else
             # Ensure the new setting is added on a new line
-            echo "" >> "$OfflineConfigFile"
-            echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"true\"" >> "$OfflineConfigFile"
+            echo "" >> "$offlineConfigFile"
+            echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"true\"" >> "$offlineConfigFile"
         fi
     else
-        # Add or update the setting to false
-        if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$OfflineConfigFile"; then
-            sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$OfflineConfigFile"
+        # Add or update the setting to false #
+        if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$offlineConfigFile"
+        then
+            sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$offlineConfigFile"
         else
-            # Ensure the new setting is added on a new line
-            echo "" >> "$OfflineConfigFile"
-            echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"" >> "$OfflineConfigFile"
+            # Ensure the new setting is added on a new line #
+            echo "" >> "$offlineConfigFile"
+            echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"" >> "$offlineConfigFile"
         fi
-        printf "Operation aborted by the user.\n"
+        printf "Offline update was aborted. Exiting script.\n"
         _DoExit_ 1
     fi
     clear
     logo
     printf "\n---------------------------------------------------\n"
 
-    ManualUpdateTrigger=0
-    _Set_FW_UpdateZIP_DirectoryPath_
-    if [ $? -eq 0 ]; then
+    offlineUpdateTrigger=true
+    if _Set_FW_UpdateZIP_DirectoryPath_
+    then
         clear
         # Create directory for downloading & extracting firmware #
         if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
         printf "\n---------------------------------------------------\n"
-        printf "\nPlease copy your firmware zip file (with the original zip name) to this directory:"
+        printf "\nPlease copy your firmware ZIP file (using the *original* ZIP filename) to this directory:"
         printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
-        printf "\nPrease '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
+        printf "\nPress '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
         printf "\n---------------------------------------------------\n"
-        if _WaitForYESorNO_; then
+        if _WaitForYESorNO_
+        then
             clear
             printf "\n---------------------------------------------------\n"
-            printf "\nContinuing to the file selection process.\n"
-            if _ViewZipFile_; then
+            printf "\nContinuing to the ZIP file selection process.\n"
+            if _SelectOfflineZipFile_
+            then
                 set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
                 if [ $? -eq 0 ] && [ $# -eq 2 ] && \
                     [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
@@ -4659,12 +4693,12 @@ _RunManualUpdateNow_()
                 _DoExit_ 1
             fi
         else
-            printf "Update process cancelled. Exiting script."
+            printf "Offline update process cancelled. Exiting script."
             _WaitForEnterKey_
             _DoExit_ 1
         fi
     else
-        printf "Update process cancelled. Exiting script."
+        printf "Offline update process cancelled. Exiting script."
         _WaitForEnterKey_
         _DoExit_ 1
     fi
@@ -4673,7 +4707,6 @@ _RunManualUpdateNow_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jul-23] ##
 ##------------------------------------------##
-# Embed functions from second script, modified as necessary.
 _RunFirmwareUpdateNow_()
 {
     # Double-check the directory exists before using it #
@@ -4685,11 +4718,14 @@ _RunFirmwareUpdateNow_()
 
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
-    if [ "$ModelCheckFailed" != "0" ]; then
+    if "$routerModelCheckFailed"
+    then
         Say "${REDct}WARNING:${NOct} The current router model is not supported by this script."
-        if "$inMenuMode"; then
+        if "$inMenuMode"
+        then
             printf "\nWould you like to uninstall the script now?"
-            if _WaitForYESorNO_; then
+            if _WaitForYESorNO_
+            then
                 _DoUninstall_
                 return 0
             else
@@ -4702,9 +4738,10 @@ _RunFirmwareUpdateNow_()
             _DoExit_ 1
         fi
     fi
-    if [ "$MinFirmwareCheckFailed" != "0" ] && [ "$ManualUpdateTrigger" = "1" ]; then
+    if "$MinFirmwareVerCheckFailed" && ! "$offlineUpdateTrigger"
+    then
         Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
-Please manually update to version $minimum_supported_version or higher to use this script.\n"
+Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
@@ -4769,7 +4806,8 @@ Please manually update to version $minimum_supported_version or higher to use th
     # is that the user wants to do a MANUAL Update Check
     # regardless of the state of the "F/W Update Check."
     #---------------------------------------------------------#
-    if [ "$ManualUpdateTrigger" = "1" ]; then
+    if ! "$offlineUpdateTrigger"
+    then
         FW_UpdateCheckState="$(nvram get firmware_check_enable)"
         [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 
@@ -4785,7 +4823,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         # If no new F/W version update is available return.
         #------------------------------------------------------
         if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
-            ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+           ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
         then
             Say "No new firmware version update is found for [$PRODUCT_ID] router model."
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
@@ -4846,24 +4884,17 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
-    ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jul-23] ##
-    ##------------------------------------------##
-    # Compare versions before deciding to download
-    if [ "$ManualUpdateTrigger" = "0" ]
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Jul-29] ##
+    ##----------------------------------------##
+    _RunBackupmon_
+    # Background function to create a blinking LED effect #
+    Toggle_LEDs 2 & Toggle_LEDs_PID=$!
+
+    # Compare versions before deciding to download #
+    if ! "$offlineUpdateTrigger" && \
+       [ "$releaseVersionNum" -gt "$currentVersionNum" ]
     then
-
-        _RunBackupmon_
-        # Background function to create a blinking LED effect #
-        Toggle_LEDs 2 & Toggle_LEDs_PID=$!
-
-	elif [ "$releaseVersionNum" -gt "$currentVersionNum" ]
-	then
-
-        _RunBackupmon_
-        # Background function to create a blinking LED effect #
-        Toggle_LEDs 2 & Toggle_LEDs_PID=$!
-
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
         echo
@@ -5044,12 +5075,12 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Jul-23] ##
     ##------------------------------------------##
-    if [ $ManualUpdateTrigger = "1" ]
+    if "$offlineUpdateTrigger"
     then
-        _CheckOnlineFirmwareSHA256_
+        _CheckOfflineFirmwareSHA256_
         retCode="$?"
     else
-        _CheckOfflineFirmwareSHA256_
+        _CheckOnlineFirmwareSHA256_
         retCode="$?"
     fi
     if [ "$retCode" -eq 1 ]
@@ -5504,8 +5535,10 @@ _SetSecondaryEMailAddress_()
        curCharLen="${#userInput}"
        if [ "$curCharLen" -lt "$minCharLen" ] || [ "$curCharLen" -gt "$maxCharLen" ]
        then
-           printf "${REDct}INVALID input length${NOct} "
+           printf "\n${REDct}INVALID input length${NOct} "
            printf "[Minimum=${GRNct}${minCharLen}${NOct}, Maximum=${GRNct}${maxCharLen}${NOct}]\n"
+           _WaitForEnterKey_
+           clear
            continue
        fi
 
@@ -5698,7 +5731,7 @@ then
            ;;
        uninstall) _DoUninstall_
            ;;
-       -offlineupdate) _RunManualUpdateNow_
+       -offlineupdate) _RunOfflineUpdateNow_
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
            ;;
@@ -6085,17 +6118,20 @@ _ShowMainMenu_()
       Say "${REDct}WARNING:${NOct} ${scriptUpdateNotify}${NOct}\n"
    fi
 
-   # Unsupported Model Checks #
-   if [ "$ModelCheckFailed" != "0" ]; then
+   # Unsupported Model Check #
+   if "$routerModelCheckFailed"
+   then
       Say "${REDct}WARNING:${NOct} The current router model is not supported by this script.
  Please uninstall.\n"
    fi
-   if [ "$MinFirmwareCheckFailed" != "0" ]; then
+   if "$MinFirmwareVerCheckFailed"
+   then
       Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
- Please manually update to version $minimum_supported_version or higher to use this script.\n"
+ Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
    fi
 
-   if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+   if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+   then
       Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB).
  A USB drive is required for F/W updates.\n"
    fi
