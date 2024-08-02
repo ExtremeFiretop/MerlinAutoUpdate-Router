@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jul-29
+# Last Modified: 2024-Jul-31
 ###################################################################
 set -u
 
@@ -131,6 +131,7 @@ fi
 readonly mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
 readonly advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Options Menu..."
 readonly logsMenuReturnPromptStr="Press <Enter> to return to the Log Options Menu..."
+theMenuReturnPromptMsg="$mainMenuReturnPromptStr"
 
 # menu setup variables #
 theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
@@ -368,7 +369,7 @@ _GetDefaultUSBMountPoint_()
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
 # Background function to create a blinking LED effect #
-Toggle_LEDs()
+_Toggle_LEDs_()
 {
    if [ -z "$LEDsToggleState" ]
    then
@@ -1207,7 +1208,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-29] ##
+## Modified by Martinski W. [2024-Jul-31] ##
 ##----------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
@@ -1222,12 +1223,8 @@ _Set_FW_UpdateZIP_DirectoryPath_()
       else
           printf "Default directory for 'Local' storage is: [${GRNct}/home/root${NOct}]\n"
       fi
-      if "$offlineUpdateTrigger"
-      then
-          printf "\n[${theMUExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
-      else
-          printf "\n[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
-      fi
+      printf "\n[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+
       read -r userInput
 
       if [ -z "$userInput" ] ; then break ; fi
@@ -1750,9 +1747,9 @@ _SendEMailNotification_()
    return "$curlCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
 # Directory for downloading & extracting firmware #
 _CreateDirectory_()
 {
@@ -1762,7 +1759,7 @@ _CreateDirectory_()
     if [ ! -d "$1" ]
     then
         Say "${REDct}**ERROR**${NOct}: Unable to create directory [$1] to download firmware."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
     if ! "$offlineUpdateTrigger"
@@ -2238,13 +2235,147 @@ _TestLoginCredentials_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-23] ##
+## Modified by Martinski W. [2024-Jul-30] ##
+##----------------------------------------##
+_GetRawKeypress_() 
+{
+   local savedSettings
+   savedSettings="$(stty -g)"
+   stty -echo raw
+   echo "$(dd count=1 2>/dev/null)"
+   stty "$savedSettings"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+_GetKeypressInput_()
+{
+   local inputStrLenMAX=16  inputString  promptStr
+   local charNum  inputStrLen  keypressCount
+   local theKeySeqCnt  maxKeySeqCnt=4  retCode
+   local theKeySeqNum  maxKeySeqNum="27251624"
+   local offlineModeFlag=false
+
+   if [ -n "${offlineUpdateFlag:+xSETx}" ]
+   then offlineModeFlag=true ; fi
+
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       printf "\n**ERROR**: NO prompt string was provided.\n"
+       return 1
+   fi
+   promptStr="$1"
+
+   _ShowInputString_()
+   { printf "\r\033[0K${promptStr}  %s" "$inputString" ; }
+
+   _ClearKeySeqState_()
+   {
+      theKeySeqNum=0 ; theKeySeqCnt=0
+      if "$offlineModeFlag"
+      then offlineUpdateFlag=false
+      else unset offlineUpdateFlag
+      fi
+   }
+
+   charNum=""
+   inputString=""
+   inputStrLen=0
+   keypressCount=0
+   _ClearKeySeqState_
+   _ShowInputString_
+
+   local savedIFS="$IFS"
+   while IFS='' theChar="$(_GetRawKeypress_)"
+   do
+      charNum="$(printf "%d" "'$theChar")"
+
+      if [ "$charNum" -eq 0 ] || [ "$charNum" -eq 10 ] || [ "$charNum" -eq 13 ]
+      then
+          if [ "$inputStrLen" -gt 0 ]
+          then retCode=0 ; else retCode=1 ; fi
+          break
+      fi
+
+      ## BACKSPACE keypress ##
+      if [ "$charNum" -eq 8 ] || [ "$charNum" -eq 127 ]
+      then
+          if [ "$inputStrLen" -gt 0 ]
+          then
+              inputString="${inputString%?}"
+              inputStrLen="${#inputString}"
+              _ShowInputString_
+          fi
+          _ClearKeySeqState_
+          continue
+      fi
+
+      ## BACKSPACE ALL keypress ##
+      if [ "$charNum" -eq 21 ]
+      then
+          if [ "$inputStrLen" -gt 0 ]
+          then
+              inputString=""
+              inputStrLen=0
+              _ShowInputString_
+          fi
+          _ClearKeySeqState_
+          continue
+      fi
+
+      ## ONLY 7-bit ASCII printable characters are VALID ##
+      if [ "$charNum" -gt 31 ] && [ "$charNum" -lt 127 ]
+      then
+          if [ "$inputStrLen" -le "$inputStrLenMAX" ]
+          then
+              inputString="${inputString}${theChar}"
+              inputStrLen="${#inputString}"
+          fi
+          _ShowInputString_
+          _ClearKeySeqState_
+          continue
+      fi
+
+      # Non-Printable ASCII Codes ##
+      if "$offlineModeFlag" && [ "$charNum" -gt 0 ] && [ "$charNum" -lt 32 ]
+      then
+          offlineUpdateFlag=false
+          theKeySeqCnt="$((theKeySeqCnt + 1))"
+          if [ "$theKeySeqCnt" -eq 1 ]
+          then theKeySeqNum="$charNum"
+          else theKeySeqNum="${theKeySeqNum}${charNum}"
+          fi
+          if [ "$theKeySeqCnt" -eq "$maxKeySeqCnt" ] && \
+             [ "$theKeySeqNum" -eq "$maxKeySeqNum" ]
+          then
+              _ClearKeySeqState_
+              if [ "$inputString" = "offline" ]
+              then offlineUpdateFlag=true ; fi
+              continue
+          fi
+          if [ "$theKeySeqCnt" -gt "$maxKeySeqCnt" ] || \
+             { [ "$theKeySeqCnt" -eq "$maxKeySeqCnt" ] && \
+               [ "$theKeySeqNum" -ne "$maxKeySeqNum" ] ; }
+          then _ClearKeySeqState_ ; fi
+      else
+          _ClearKeySeqState_
+      fi
+   done
+   IFS="$savedIFS"
+
+   theUserInputStr="$inputString"
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
 ##----------------------------------------##
 _GetPasswordInput_()
 {
    local PSWDstrLenMIN=1  PSWDstrLenMAX=64
-   local PSWDstring  PSWDtmpStr  PSWDprompt
-   local retCode  charNum  pswdLength  showPSWD
+   local newPSWDstring  newPSWDtmpStr  PSWDprompt
+   local retCode  charNum  newPSWDlength  showPSWD
    # For more responsive TAB keypress debounce #
    local tabKeyDebounceSem="/tmp/var/tmp/${ScriptFNameTag}_TabKeySEM.txt"
 
@@ -2254,15 +2385,6 @@ _GetPasswordInput_()
        return 1
    fi
    PSWDprompt="$1"
-
-   _GetKeypress_()
-   {
-      local savedSettings
-      savedSettings="$(stty -g)"
-      stty -echo raw
-      echo "$(dd count=1 2>/dev/null)"
-      stty "$savedSettings"
-   }
 
    _TabKeyDebounceWait_()
    {
@@ -2282,41 +2404,41 @@ _GetPasswordInput_()
    _ShowPSWDPrompt_()
    {
       local pswdTemp  LENct  LENwd
-      [ "$showPSWD" = "1" ] && pswdTemp="$PSWDstring" || pswdTemp="$PSWDtmpStr"
-      if [ "$pswdLength" -lt "$PSWDstrLenMIN" ] || [ "$pswdLength" -gt "$PSWDstrLenMAX" ]
+      [ "$showPSWD" = "1" ] && pswdTemp="$newPSWDstring" || pswdTemp="$newPSWDtmpStr"
+      if [ "$newPSWDlength" -lt "$PSWDstrLenMIN" ] || [ "$newPSWDlength" -gt "$PSWDstrLenMAX" ]
       then LENct="$REDct" ; LENwd=""
       else LENct="$GRNct" ; LENwd="02"
       fi
-      printf "\r\033[0K$PSWDprompt [Length=${LENct}%${LENwd}d${NOct}]: %s" "$pswdLength" "$pswdTemp"
+      printf "\r\033[0K$PSWDprompt [Length=${LENct}%${LENwd}d${NOct}]: %s" "$newPSWDlength" "$pswdTemp"
    }
 
    showPSWD=0
    charNum=""
-   PSWDstring="$pswdString"
-   pswdLength="${#PSWDstring}"
-   PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+   newPSWDstring="$thePWSDstring"
+   newPSWDlength="${#newPSWDstring}"
+   newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
    echo ; _ShowPSWDPrompt_
 
    local savedIFS="$IFS"
-   while IFS='' theChar="$(_GetKeypress_)"
+   while IFS='' theChar="$(_GetRawKeypress_)"
    do
       charNum="$(printf "%d" "'$theChar")"
 
-      if [ "$theChar" = "" ] || [ "$charNum" -eq 13 ]
+      if [ "$charNum" -eq 0 ] || [ "$charNum" -eq 10 ] || [ "$charNum" -eq 13 ]
       then
-          if [ "$pswdLength" -ge "$PSWDstrLenMIN" ] && [ "$pswdLength" -le "$PSWDstrLenMAX" ]
+          if [ "$newPSWDlength" -ge "$PSWDstrLenMIN" ] && [ "$newPSWDlength" -le "$PSWDstrLenMAX" ]
           then
               echo
               retCode=0
-          elif [ "$pswdLength" -lt "$PSWDstrLenMIN" ]
+          elif [ "$newPSWDlength" -lt "$PSWDstrLenMIN" ]
           then
-              PSWDstring=""
+              newPSWDstring=""
               printf "\n${REDct}**ERROR**${NOct}: Password length is less than allowed minimum length "
               printf "[MIN=${GRNct}${PSWDstrLenMIN}${NOct}].\n"
               retCode=1
-          elif [ "$pswdLength" -gt "$PSWDstrLenMAX" ]
+          elif [ "$newPSWDlength" -gt "$PSWDstrLenMAX" ]
           then
-              PSWDstring=""
+              newPSWDstring=""
               printf "\n${REDct}**ERROR**${NOct}: Password length is greater than allowed maximum length "
               printf "[MAX=${GRNct}${PSWDstrLenMAX}${NOct}].\n"
               retCode=1
@@ -2324,8 +2446,13 @@ _GetPasswordInput_()
           break
       fi
 
-      ## Ignore Escape Sequences ##
-      [ "$charNum" -eq 27 ] && continue
+      ## Keep same previous password string ##
+      if [ "$charNum" -eq 27 ] && [ -n "$thePWSDstring" ]
+      then
+          retCode=0
+          newPSWDstring="$thePWSDstring"
+          break
+      fi
 
       ## TAB keypress as toggle with debounce ##
       if [ "$charNum" -eq 9 ]
@@ -2342,41 +2469,55 @@ _GetPasswordInput_()
       ## BACKSPACE keypress ##
       if [ "$charNum" -eq 8 ] || [ "$charNum" -eq 127 ]
       then
-          if [ "$pswdLength" -gt 0 ]
+          if [ "$newPSWDlength" -gt 0 ]
           then
-              PSWDstring="${PSWDstring%?}"
-              pswdLength="${#PSWDstring}"
-              PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+              newPSWDstring="${newPSWDstring%?}"
+              newPSWDlength="${#newPSWDstring}"
+              newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
               _ShowPSWDPrompt_
-              continue
           fi
+          continue
+      fi
+
+      ## BACKSPACE ALL keypress ##
+      if [ "$charNum" -eq 21 ]
+      then
+          if [ "$newPSWDlength" -gt 0 ]
+          then
+              newPSWDstring=""
+              newPSWDlength=0
+              newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
+              _ShowPSWDPrompt_
+          fi
+          continue
       fi
 
       ## ONLY 7-bit ASCII printable characters are VALID ##
       if [ "$charNum" -gt 31 ] && [ "$charNum" -lt 127 ]
       then
-          if [ "$pswdLength" -le "$PSWDstrLenMAX" ]
+          if [ "$newPSWDlength" -le "$PSWDstrLenMAX" ]
           then
-              PSWDstring="${PSWDstring}${theChar}"
-              pswdLength="${#PSWDstring}"
-              PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
-              _ShowPSWDPrompt_
-              continue
+              newPSWDstring="${newPSWDstring}${theChar}"
+              newPSWDlength="${#newPSWDstring}"
+              newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
           fi
+          _ShowPSWDPrompt_
+          continue
       fi
    done
    IFS="$savedIFS"
 
-   pswdString="$PSWDstring"
+   thePWSDstring="$newPSWDstring"
    return "$retCode"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-29] ##
+## Modified by Martinski W. [2024-Jul-30] ##
 ##----------------------------------------##
 _GetLoginCredentials_()
 {
-    local retry="yes"  userName  pswdString
+    local retry="yes"  userName  savedMsg
+    local oldPWSDstring  thePWSDstring
     local loginCredsENC  loginCredsDEC
 
     # Get the Username from NVRAM #
@@ -2385,17 +2526,18 @@ _GetLoginCredentials_()
     loginCredsENC="$(Get_Custom_Setting credentials_base64)"
     if [ -z "$loginCredsENC" ] || [ "$loginCredsENC" = "TBD" ]
     then
-        pswdString=""
+        thePWSDstring=""
     else
         loginCredsDEC="$(echo "$loginCredsENC" | openssl base64 -d)"
-        pswdString="$(echo "$loginCredsDEC" | sed "s/${userName}://")"
+        thePWSDstring="$(echo "$loginCredsDEC" | sed "s/${userName}://")"
     fi
+    oldPWSDstring="$thePWSDstring"
 
     while [ "$retry" = "yes" ]
     do
         echo "=== Login Credentials ==="
         _GetPasswordInput_ "Enter password for user ${GRNct}${userName}${NOct}"
-        if [ -z "$pswdString" ]
+        if [ -z "$thePWSDstring" ]
         then
             printf "\nPassword string is ${REDct}NOT${NOct} valid. Credentials were not saved.\n"
             _WaitForEnterKey_
@@ -2403,12 +2545,16 @@ _GetLoginCredentials_()
         fi
 
         # Encode the Username and Password in Base64 #
-        loginCredsENC="$(echo -n "${userName}:${pswdString}" | openssl base64 -A)"
+        loginCredsENC="$(echo -n "${userName}:${thePWSDstring}" | openssl base64 -A)"
 
         # Save the credentials to the SETTINGSFILE #
         Update_Custom_Settings credentials_base64 "$loginCredsENC"
 
-        printf "\n${GRNct}Credentials saved.${NOct}\n"
+        if [ "$thePWSDstring" != "$oldPWSDstring" ]
+        then savedMsg="${GRNct}New credentials saved.${NOct}"
+        else savedMsg="${GRNct}Credentials remain unchanged.${NOct}"
+        fi
+        printf "\n${savedMsg}\n"
         printf "Encoded Credentials:\n"
         printf "${GRNct}$loginCredsENC${NOct}\n"
 
@@ -2733,7 +2879,7 @@ _CheckOnlineFirmwareSHA256_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-29] ##
+## Modified by Martinski W. [2024-Jul-31] ##
 ##----------------------------------------##
 _CheckOfflineFirmwareSHA256_()
 {
@@ -2743,9 +2889,10 @@ _CheckOfflineFirmwareSHA256_()
         dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
         if [ "$fw_sig" != "$dl_sig" ]
         then
+            echo
             Say "${REDct}**ERROR**${NOct}: SHA256 signature from firmware file does NOT have a matching SHA256 signature."
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
-            printf "Offline update was aborted. Exiting script.\n"
+            printf "\nOffline update was aborted. Exiting.\n"
             _DoCleanUp_ 1
             return 1
         else
@@ -2753,8 +2900,9 @@ _CheckOfflineFirmwareSHA256_()
             return 0
         fi
     else
+        echo
         Say "${REDct}**ERROR**${NOct}: SHA256 signature file NOT found."
-        printf "Offline update was aborted. Exiting script.\n"
+        printf "\nOffline update was aborted. Exiting.\n"
         _DoCleanUp_ 1
         return 1
     fi
@@ -2816,7 +2964,7 @@ _Toggle_VPN_Access_()
     else
         printf "${REDct}*WARNING*${NOct}\n"
         printf "Enabling this feature will keep Tailscale VPN access active during updates.\n"
-        printf "Proceed only if you require a Tailscale to connect over SSH/Putty during updates.\n"
+        printf "Proceed only if you require Tailscale to connect via an SSH session during updates.\n"
         if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
         then
             Update_Custom_Settings "Allow_Updates_OverVPN" "ENABLED"
@@ -4425,7 +4573,7 @@ _GetOfflineFirmwareVersion_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-29] ##
+## Modified by Martinski W. [2024-Jul-30] ##
 ##----------------------------------------##
 _SelectOfflineZipFile_()
 {
@@ -4434,8 +4582,7 @@ _SelectOfflineZipFile_()
     # Check if the directory is empty or no ZIP files are found #
     if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
     then
-        printf "\nNo ZIP files found in the directory."
-        printf "\nExiting....\n"
+        printf "\nNo ZIP files found in the directory. Exiting.\n"
         printf "\n---------------------------------------------------\n"
         return 1
     fi
@@ -4467,9 +4614,8 @@ _SelectOfflineZipFile_()
 
         if echo "$selection" | grep -qE "^(e|E|exit|Exit)$"
         then
-            echo "Update process cancelled. Exiting script."
-            _WaitForEnterKey_
-            _DoExit_ 1
+            printf "Update process was cancelled. Exiting.\n"
+            return 1
         fi
 
         # Validate selection #
@@ -4483,7 +4629,7 @@ _SelectOfflineZipFile_()
         else
             clear
             printf "\n---------------------------------------------------\n"
-            printf "\nYou have selected: ${GRNct}$selected_file${NOct}\n"
+            printf "\nYou have selected:\n${GRNct}$selected_file${NOct}\n"
             break
         fi
     done
@@ -4508,12 +4654,11 @@ _SelectOfflineZipFile_()
             clear
             return 0
         else
-            printf "\nFailed to rename the ZIP file.\n"
+            printf "\nFailed to rename the ZIP file. Exiting.\n"
             return 1
         fi
-        return 0
     else
-        printf "Operation cancelled by user."
+        printf "Operation was cancelled by user. Exiting.\n"
         return 1
     fi
 }
@@ -4596,30 +4741,37 @@ _RunBackupmon_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-29] ##
+## Modified by Martinski W. [2024-Jul-31] ##
 ##----------------------------------------##
 _RunOfflineUpdateNow_()
 {
     local offlineConfigFile="${SETTINGS_DIR}/offline_updates.txt"
 
-    if [ ! -s "$offlineConfigFile" ]; then
-        _DoExit_ 1
-    fi
+    _ClearOfflineUpdateState_()
+    {
+        offlineUpdateTrigger=false
+        theMenuReturnPromptMsg="$mainMenuReturnPromptStr"
+        if [ $# -eq 0 ] || [ -z "$1" ] ; then return 0 ; fi
+        [ "$1" != "1" ] && printf "$1"
+        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+    }
+
+    [ ! -s "$offlineConfigFile" ] && return 2
+
     # Source the configuration file #
     . "$offlineConfigFile"
 
     # Check required parameter #
     if [ -z "${FW_OFFLINE_UPDATE_IS_ALLOWED:+xSETx}" ] || \
        [ "$FW_OFFLINE_UPDATE_IS_ALLOWED" != "true" ]
-    then
-        _DoExit_ 1
-    fi
+    then return 2 ; fi
 
     # Reset FW_OFFLINE_UPDATE_ACCEPT_RISK to false #
     if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$offlineConfigFile"
     then
         sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$offlineConfigFile"
     fi
+
     clear
     printf "\n${REDct}***WARNING***${NOct}"
     printf "\nYou are about to initiate an ${REDct}offline${NOct} firmware update."
@@ -4652,19 +4804,24 @@ _RunOfflineUpdateNow_()
             echo "" >> "$offlineConfigFile"
             echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"" >> "$offlineConfigFile"
         fi
-        printf "Offline update was aborted. Exiting script.\n"
-        _DoExit_ 1
+        _ClearOfflineUpdateState_ "Offline update was aborted. Exiting.\n"
+        return 1
     fi
     clear
     logo
     printf "\n---------------------------------------------------\n"
 
     offlineUpdateTrigger=true
+    theMenuReturnPromptMsg="$advnMenuReturnPromptStr"
+
     if _Set_FW_UpdateZIP_DirectoryPath_
     then
         clear
         # Create directory for downloading & extracting firmware #
-        if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
+        if ! _CreateDirectory_ "$FW_ZIP_DIR"
+        then
+            _ClearOfflineUpdateState_ 1 ; return 1
+        fi
         printf "\n---------------------------------------------------\n"
         printf "\nPlease copy your firmware ZIP file (using the *original* ZIP filename) to this directory:"
         printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
@@ -4683,29 +4840,28 @@ _RunOfflineUpdateNow_()
                 then
                     release_link="$2"
                     _RunFirmwareUpdateNow_
+                    _ClearOfflineUpdateState_
                 else
                     Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-                    _WaitForEnterKey_
+                    _ClearOfflineUpdateState_ 1
                     return 1
                 fi
             else
-                _WaitForEnterKey_
-                _DoExit_ 1
+                _ClearOfflineUpdateState_ 1
+                return 1
             fi
         else
-            printf "Offline update process cancelled. Exiting script."
-            _WaitForEnterKey_
-            _DoExit_ 1
+            _ClearOfflineUpdateState_ "Offline update process was cancelled. Exiting.\n"
+            return 1
         fi
     else
-        printf "Offline update process cancelled. Exiting script."
-        _WaitForEnterKey_
-        _DoExit_ 1
+        _ClearOfflineUpdateState_ "Offline update process was cancelled. Exiting.\n"
+        return 1
     fi
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-23] ##
+## Modified by ExtremeFiretop [2024-Jul-31] ##
 ##------------------------------------------##
 _RunFirmwareUpdateNow_()
 {
@@ -4730,7 +4886,7 @@ _RunFirmwareUpdateNow_()
                 return 0
             else
                 Say "Uninstallation cancelled. Exiting script."
-                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                _WaitForEnterKey_ "$theMenuReturnPromptMsg"
                 return 0
             fi
         else
@@ -4742,11 +4898,12 @@ _RunFirmwareUpdateNow_()
     then
         Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
 Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
 
-    Say "\n${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
+    echo
+    Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
     Say "Running the update task now... Checking for F/W updates..."
     FlashStarted=true
 
@@ -4759,7 +4916,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
     then
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
 
@@ -4860,7 +5017,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
     if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
     then
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
 
@@ -4874,7 +5031,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
         if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
             Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
-            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
             return 1
         fi
     fi
@@ -4889,7 +5046,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
     ##----------------------------------------##
     _RunBackupmon_
     # Background function to create a blinking LED effect #
-    Toggle_LEDs 2 & Toggle_LEDs_PID=$!
+    _Toggle_LEDs_ 2 & Toggle_LEDs_PID=$!
 
     # Compare versions before deciding to download #
     if ! "$offlineUpdateTrigger" && \
@@ -4913,6 +5070,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
         then
             Say "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            _Reset_LEDs_
             return 1
         fi
     fi
@@ -4970,7 +5128,8 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
         rm -f "$FW_ZIP_FPATH"
         _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        _Reset_LEDs_
         return 1
     fi
 
@@ -4990,7 +5149,8 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
 
     if [ "$retCode" -eq 1 ]
     then
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        _Reset_LEDs_
         return 1
     fi
 
@@ -5085,7 +5245,8 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
     fi
     if [ "$retCode" -eq 1 ]
     then
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        _Reset_LEDs_
         return 1
     fi
 
@@ -5273,7 +5434,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
         fi
     fi
 
-    "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+    "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
 ##-------------------------------------##
@@ -5702,9 +5863,9 @@ check_version_support
 ##-------------------------------------##
 _CheckEMailConfigFileFromAMTM_ 0
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-03] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
 if [ $# -gt 0 ]
 then
    inMenuMode=false
@@ -5730,8 +5891,6 @@ then
        stable) _ChangeToStable_
            ;;
        uninstall) _DoUninstall_
-           ;;
-       -offlineupdate) _RunOfflineUpdateNow_
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
            ;;
@@ -6335,7 +6494,7 @@ _ShowAdvancedOptionsMenu_()
 
    printf "\n ${GRNct}un${NOct}.  Uninstall\n"
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-   printf "${SEPstr}"
+   printf "${SEPstr}\n"
 }
 
 ##---------------------------------------##
@@ -6441,18 +6600,19 @@ _AdvancedLogsOptions_()
     done
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-27] ##
-##------------------------------------------##
-_advanced_options_menu_()
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+_AdvancedOptionsMenu_()
 {
+    local theUserInputStr=""
+    local offlineUpdateFlag=false
     while true
     do
         _ShowAdvancedOptionsMenu_
-        printf "\nEnter selection:  "
-        read -r advancedChoice
+        _GetKeypressInput_ "Enter selection:"
         echo
-        case $advancedChoice in
+        case "$theUserInputStr" in
             1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
             2) _Set_FW_UpdateCronSchedule_
@@ -6491,9 +6651,12 @@ _advanced_options_menu_()
                ;;
            un) _DoUninstall_ && _WaitForEnterKey_
                ;;
-       e|exit) break
+           e|E|exit) break
                ;;
-            *) _InvalidMenuSelection_
+            *) if [ -n "${offlineUpdateFlag:+OK}" ] && "$offlineUpdateFlag"
+               then _RunOfflineUpdateNow_ ; [ "$?" -eq 2 ] && _InvalidMenuSelection_
+               else _InvalidMenuSelection_
+               fi
                ;;
         esac
     done
@@ -6542,7 +6705,7 @@ do
           ;;
       up) _SCRIPTUPDATE_
           ;;
-      ad) _advanced_options_menu_
+      ad) _AdvancedOptionsMenu_
           ;;
       mn) if "$inRouterSWmode" && [ -n "$node_list" ]
           then _ShowNodesMenuOptions_
@@ -6551,7 +6714,7 @@ do
           ;;
       lo) _AdvancedLogsOptions_
           ;;
-  e|exit) _DoExit_ 0
+      e|E|exit) _DoExit_ 0
           ;;
        *) _InvalidMenuSelection_
           ;;
