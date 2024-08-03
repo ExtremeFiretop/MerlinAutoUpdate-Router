@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-02
+# Last Modified: 2024-Aug-03
 ###################################################################
 set -u
 
@@ -2951,6 +2951,7 @@ _Toggle_VPN_Access_()
 
     if [ "$currentSetting" = "ENABLED" ]
     then
+        printf "\n${REDct}*NOTICE*${NOct}\n"
         printf "Disabling this feature will shut down Tailscale/ZeroTier VPN access during updates.\n"
         printf "Proceed if you do not need remote VPN access during firmware updates.\n"
 
@@ -2962,7 +2963,7 @@ _Toggle_VPN_Access_()
             printf "VPN access during updates remains ${REDct}ENABLED.${NOct}\n"
         fi
     else
-        printf "${REDct}*WARNING*${NOct}\n"
+        printf "\n${REDct}*WARNING*${NOct}\n"
         printf "Enabling this feature will keep Tailscale/ZeroTier VPN access active during updates.\n"
         printf "Proceed only if you require Tailscale/ZeroTier to connect remotely via an SSH session during firmware updates.\n"
         if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
