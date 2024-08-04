@@ -1247,9 +1247,9 @@ _Set_FW_UpdateLOG_DirectoryPath_()
    return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-29] ##
+##----------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
    local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath=""
@@ -1257,20 +1257,18 @@ _Set_FW_UpdateZIP_DirectoryPath_()
    while true
    do
       printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
-      printf "Default directory for 'USB' storage is: [${GRNct}/tmp/mnt/${REDct}USBLABEL${NOct}${GRNct}/${NOct}].\n"
-      printf "Default directory for 'Local' storage is: [${GRNct}/home/root/${NOct}].\n"      
-      if [ "$ManualUpdateTrigger" = "0" ]
+      if [ -n "$USBMountPoint" ] && _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
       then
-         printf "\n[${theMUExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+          printf "Default directory for USB-attached drive: [${GRNct}${FW_ZIP_BASE_DIR}${NOct}]\n"
       else
-         printf "\n[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+          printf "Default directory for 'Local' storage is: [${GRNct}/home/root${NOct}]\n"
       fi
+      printf "\n[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+
       read -r userInput
 
-      if [ -z "$userInput" ]
-      then break ; fi
-      if echo "$userInput" | grep -qE "^(e|E|exit|Exit)$"
-      then return 1 ; fi
+      if [ -z "$userInput" ] ; then break ; fi
+      if echo "$userInput" | grep -qE "^(e|E|exit|Exit)$" ; then return 1 ; fi
 
       if echo "$userInput" | grep -q '/$'
       then userInput="${userInput%/*}" ; fi
@@ -1808,7 +1806,7 @@ _CreateDirectory_()
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
-    if [ $ManualUpdateTrigger = "1" ]
+    if ! "$offlineUpdateTrigger"
     then
         # Clear directory in case any previous files still exist #
         rm -f "${1}"/*
@@ -2225,38 +2223,32 @@ check_memory_and_prompt_reboot()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
-# Function to check if the current router model is supported
 check_version_support()
 {
     local numOfFields  current_version  numCurrentVers  numMinimumVers
-
-    # Minimum supported firmware version #
-    minimum_supported_version="3004.386.12.0"
 
     current_version="$(_GetCurrentFWInstalledLongVersion_)"
 
     numOfFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
     numCurrentVers="$(_FWVersionStrToNum_ "$current_version" "$numOfFields")"
-    numMinimumVers="$(_FWVersionStrToNum_ "$minimum_supported_version" "$numOfFields")"
+    numMinimumVers="$(_FWVersionStrToNum_ "$MinSupportedFirmwareVers" "$numOfFields")"
 
     # If the current firmware version is lower than the minimum supported firmware version, exit.
     if [ "$numCurrentVers" -lt "$numMinimumVers" ]
-    then
-       MinFirmwareCheckFailed="1"
-    fi
+    then MinFirmwareVerCheckFailed=true ; fi
 }
 
-check_model_support() {
+check_model_support()
+{
     # List of unsupported models as a space-separated string
     local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC1900 DSL-AC68U"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
 
-    # Check if the current model is in the list of unsupported models
-    if echo "$unsupported_models" | grep -wq "$current_model"; then
-       ModelCheckFailed="1"
-    fi
+    # Check if the current model is in the list of unsupported models #
+    if echo "$unsupported_models" | grep -wq "$current_model"
+    then routerModelCheckFailed=true ; fi
 }
 
 ##---------------------------------------##
@@ -5232,11 +5224,14 @@ _RunFirmwareUpdateNow_()
 
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
-    if [ "$ModelCheckFailed" != "0" ]; then
+    if "$routerModelCheckFailed"
+    then
         Say "${REDct}WARNING:${NOct} The current router model is not supported by this script."
-        if "$inMenuMode"; then
+        if "$inMenuMode"
+        then
             printf "\nWould you like to uninstall the script now?"
-            if _WaitForYESorNO_; then
+            if _WaitForYESorNO_
+            then
                 _DoUninstall_
                 return 0
             else
@@ -5249,9 +5244,10 @@ _RunFirmwareUpdateNow_()
             _DoExit_ 1
         fi
     fi
-    if [ "$MinFirmwareCheckFailed" != "0" ] && [ "$ManualUpdateTrigger" = "1" ]; then
+    if "$MinFirmwareVerCheckFailed" && ! "$offlineUpdateTrigger"
+    then
         Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
-Please manually update to version $minimum_supported_version or higher to use this script.\n"
+Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
@@ -5649,7 +5645,14 @@ Please manually update to version $minimum_supported_version or higher to use th
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Apr-25] ##
     ##------------------------------------------##
-    if "$isGNUtonFW"
+    if "$offlineUpdateTrigger"
+    then
+        if ! "$isGNUtonFW"
+		then
+            _CheckOfflineFirmwareSHA256_
+            retCode="$?"
+		fi
+    elif "$isGNUtonFW"
     then
         _CheckFirmwareMD5_
         retCode="$?"
@@ -5660,6 +5663,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     if [ "$retCode" -eq 1 ]
     then
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        _Reset_LEDs_
         return 1
     fi
 
@@ -6689,17 +6693,20 @@ _ShowMainMenu_()
       Say "${REDct}WARNING:${NOct} ${scriptUpdateNotify}${NOct}\n"
    fi
 
-   # Unsupported Model Checks #
-   if [ "$ModelCheckFailed" != "0" ]; then
+   # Unsupported Model Check #
+   if "$routerModelCheckFailed"
+   then
       Say "${REDct}WARNING:${NOct} The current router model is not supported by this script.
  Please uninstall.\n"
    fi
-   if [ "$MinFirmwareCheckFailed" != "0" ]; then
+   if "$MinFirmwareVerCheckFailed"
+   then
       Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
- Please manually update to version $minimum_supported_version or higher to use this script.\n"
+Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
    fi
 
-   if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+   if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+   then
       Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB).
  A USB drive is required for F/W updates.\n"
    fi
