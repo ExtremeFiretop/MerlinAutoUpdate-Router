@@ -1339,7 +1339,7 @@ readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 
 # Postponement Days for F/W Update Check #
 FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
-FW_UpdateDays="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
+FW_UpdateDate="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Feb-18] ##
@@ -1464,7 +1464,7 @@ _CreateEMailContent_()
              echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
              printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n"
-             printf "\nThe firmware update is expected to occur on: <b>${FW_UpdateDays}</b>\n"
+             printf "\nThe firmware update is expected to occur on: <b>${FW_UpdateDate}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        AGGREGATED_UPDATE_NOTIFICATION)
