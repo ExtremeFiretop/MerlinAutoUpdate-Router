@@ -4943,7 +4943,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-24] ##
+## Modified by Martinski W. [2024-Aug-02] ##
 ##----------------------------------------##
 _EntwareServicesHandler_()
 {
@@ -4951,11 +4951,12 @@ _EntwareServicesHandler_()
    local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
    local actionStr=""
-   local serviceStr  serviceCnt=0
+   local servicesList  servicesCnt=0
    local entwOPT_init  entwOPT_unslung
-   # space-delimited list #
-   local skipServiceList="tailscaled"
-   local skippedService  skippedServiceFile  skippedServiceList=""
+   # space-delimited list of services to skip #
+   local skipServiceList="tailscaled zerotier-one sshd"
+   local skippedService  skippedServiceFile  skippedServiceName
+   local theSkippedServiceList=""
 
    entwOPT_init="/opt/etc/init.d"
    entwOPT_unslung="${entwOPT_init}/rc.unslung"
@@ -4971,10 +4972,11 @@ _EntwareServicesHandler_()
 
    _RenameSkippedService_()
    {
-       [ -z "$skippedServiceList" ] && return 1
-       for skippedServiceFile in $skippedServiceList
+       [ -z "$theSkippedServiceList" ] && return 1
+       for skippedServiceName in $theSkippedServiceList
        do  # Rename service file back to original state #
-           if mv -f "${entwOPT_init}/OFF.${skippedServiceFile}.OFF" "${entwOPT_init}/$skippedServiceFile"
+           skippedServiceFile="${entwOPT_init}/$skippedServiceName"
+           if mv -f "${entwOPT_init}/OFF.${skippedServiceName}.OFF" "$skippedServiceFile"
            then Say "Skipped $skippedServiceFile $1 call." ; fi
        done
        return 0
@@ -4983,35 +4985,40 @@ _EntwareServicesHandler_()
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
    then return 0 ; fi  ## Entware is NOT found ##
 
-   serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "*" -print 2>/dev/null | /bin/grep -E "(${entwOPT_init}/S[0-9]+|${entwOPT_init}/.*[.]sh$)")"
+   servicesList="$(/usr/bin/find -L "$entwOPT_init" -name "*" -print 2>/dev/null | /bin/grep -E "(${entwOPT_init}/S[0-9]+|${entwOPT_init}/.*[.]sh$)")"
+   [ -z "$servicesList" ] && return 0
 
-   [ -n "$serviceStr" ] && Say "Looking for Entware services..."
+   Say "Searching for Entware services to ${1}..."
 
    # Filter out services to skip and add a "skip message" #
    if [ "$AllowVPN" = "ENABLED" ] && [ -n "$skipServiceList" ]
    then
       for skipService in $skipServiceList
       do
-          skippedService="$(echo "$serviceStr" | /bin/grep -E "/S[0-9]+.*${skipService}$")"
+          skippedService="$(echo "$servicesList" | /bin/grep -E "/S[0-9]+.*${skipService}([.]sh)?$")"
           if [ -n "$skippedService" ]
           then
-              skippedServiceFile="$(basename "$skippedService")"
-              Say "Skipping $skippedServiceFile $1 call..."
-              # Rename service file so it's skipped by Entware #
-              if mv -f "${entwOPT_init}/$skippedServiceFile" "${entwOPT_init}/OFF.${skippedServiceFile}.OFF"
-              then
-                  [ -z "$skippedServiceList" ] && \
-                  skippedServiceList="$skippedServiceFile" || \
-                  skippedServiceList="$skippedServiceList $skippedServiceFile"
-                  serviceStr="$(echo "$serviceStr" | /bin/grep -vE "/S[0-9]+.*${skipService}$")"
-              fi
+              for skippedServiceFile in $skippedService
+              do
+                  skippedServiceName="$(basename "$skippedServiceFile")"
+                  Say "Skipping $skippedServiceFile $1 call..."
+                  # Rename service file so it's skipped by Entware #
+                  if mv -f "$skippedServiceFile" "${entwOPT_init}/OFF.${skippedServiceName}.OFF"
+                  then
+                      [ -z "$theSkippedServiceList" ] && \
+                      theSkippedServiceList="$skippedServiceName" || \
+                      theSkippedServiceList="$theSkippedServiceList $skippedServiceName"
+                      servicesList="$(echo "$servicesList" | /bin/grep -vE "${skippedServiceFile}$")"
+                  fi
+              done
           fi
       done
    fi
 
-   [ -n "$serviceStr" ] && serviceCnt="$(echo "$serviceStr" | wc -l)"
-   if [ "$serviceCnt" -eq 0 ]
+   [ -n "$servicesList" ] && servicesCnt="$(echo "$servicesList" | wc -l)"
+   if [ "$servicesCnt" -eq 0 ]
    then
+       Say "No Entware services to ${1}."
        _RenameSkippedService_ "$1" && echo
        return 0
    fi
@@ -5019,8 +5026,8 @@ _EntwareServicesHandler_()
    Say "${actionStr} Entware services..."
    "$isInteractive" && printf "Please wait.\n"
    Say "-----------------------------------------------------------"
-   # List the Entware service scripts found #
-   echo "$serviceStr" | while IFS= read -r servLine ; do Say "$servLine" ; done
+   # List the Entware services found to stop/start #
+   echo "$servicesList" | while IFS= read -r servLine ; do Say "$servLine" ; done
    Say "-----------------------------------------------------------"
 
    $entwOPT_unslung "$1" ; sleep 5
@@ -6990,7 +6997,7 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
-   printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale Access During Updates"
+   printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale/ZeroTier Access During Updates"
    if [ "$VPNAccess" = "DISABLED" ]
    then
        printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
