@@ -4276,7 +4276,7 @@ _CheckNodeFWUpdateNotification_()
            nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
            echo "" > "$tempNodeEMailList"
            echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
-           echo "Please wait for the automated update... (Only if MerlinAU is installed on the node only)" >> "$tempNodeEMailList"
+           echo "Automated update will be scheduled only if MerlinAU is installed on the node." >> "$tempNodeEMailList"
        fi
    fi
 
