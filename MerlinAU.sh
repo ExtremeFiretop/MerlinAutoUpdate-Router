@@ -1339,6 +1339,7 @@ readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 
 # Postponement Days for F/W Update Check #
 FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+FW_UpdateDate="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Feb-18] ##
@@ -1438,7 +1439,11 @@ _CreateEMailContent_()
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
-   subjectStr="F/W Update Status for $MODEL_ID"
+   if [ -s "$tempNodeEMailList" ]; then
+        subjectStr="F/W Update Status for $node_lan_hostname"
+   else
+        subjectStr="F/W Update Status for $MODEL_ID"
+   fi
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 
@@ -1459,6 +1464,7 @@ _CreateEMailContent_()
              echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
              printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n"
+             printf "\nThe firmware update is expected to occur on: <b>${FW_UpdateDate}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        AGGREGATED_UPDATE_NOTIFICATION)
@@ -4270,6 +4276,7 @@ _CheckNodeFWUpdateNotification_()
            nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
            echo "" > "$tempNodeEMailList"
            echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
+           echo "Automated update will be scheduled only if MerlinAU is installed on the node." >> "$tempNodeEMailList"
        fi
    fi
 
