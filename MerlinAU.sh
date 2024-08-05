@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-03
+# Last Modified: 2024-Aug-05
 ###################################################################
 set -u
 
@@ -993,9 +993,9 @@ _GetAllNodeSettings_()
     echo "$setting_value"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-27] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-04] ##
+##----------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -1057,6 +1057,10 @@ Update_Custom_Settings()
             if [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
             then
                 FW_UpdatePostponementDays="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_Expected_Run_Date" ]
+            then
+                FW_UpdateExpectedRunDate="$setting_value"
             #
             elif [ "$setting_type" = "FW_New_Update_EMail_Notification" ]
             then
@@ -1339,7 +1343,7 @@ readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 
 # Postponement Days for F/W Update Check #
 FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
-FW_UpdateDate="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
+FW_UpdateExpectedRunDate="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Feb-18] ##
@@ -1427,9 +1431,9 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-03] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-04] ##
+##----------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -1439,10 +1443,9 @@ _CreateEMailContent_()
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
-   if [ -s "$tempNodeEMailList" ]; then
-        subjectStr="F/W Update Status for $node_lan_hostname"
-   else
-        subjectStr="F/W Update Status for $MODEL_ID"
+   if [ -s "$tempNodeEMailList" ]
+   then subjectStr="F/W Update Status for $node_lan_hostname"
+   else subjectStr="F/W Update Status for $MODEL_ID"
    fi
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
@@ -1464,7 +1467,8 @@ _CreateEMailContent_()
              echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
              printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n"
-             printf "\nThe firmware update is expected to occur on: <b>${FW_UpdateDate}</b>\n"
+             [ "$FW_UpdateExpectedRunDate" != "TBD" ] && \
+             printf "\nThe firmware update is expected to occur on: <b>${FW_UpdateExpectedRunDate}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        AGGREGATED_UPDATE_NOTIFICATION)
@@ -4164,7 +4168,7 @@ _ManageChangelog_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
+## Modified by Martinski W. [2024-Aug-05] ##
 ##----------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
@@ -4172,6 +4176,7 @@ _CheckNewUpdateFirmwareNotification_()
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
    local numOfFields  fwNewUpdateVersNum
+   local sendNewUpdateStatusEmail=false
    local currentVersionStr="$1"  releaseVersionStr="$2"
 
    numOfFields="$(echo "$currentVersionStr" | awk -F '.' '{print NF}')"
@@ -4183,6 +4188,7 @@ _CheckNewUpdateFirmwareNotification_()
        Say "Current firmware version '${currentVersionStr}' is up to date."
        Update_Custom_Settings FW_New_Update_Notification_Date TBD
        Update_Custom_Settings FW_New_Update_Notification_Vers TBD
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
        Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
        return 1
    fi
@@ -4201,14 +4207,9 @@ _CheckNewUpdateFirmwareNotification_()
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-           if "$inRouterSWmode" 
-           then
-              _SendEMailNotification_ NEW_FW_UPDATE_STATUS
-           fi
+           "$inRouterSWmode" && sendNewUpdateStatusEmail=true
            if ! "$FlashStarted"
-           then
-              _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
-           fi
+           then _ManageChangelog_ "download" "$fwNewUpdateNotificationVers" ; fi
        fi
    fi
 
@@ -4217,30 +4218,26 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-       if "$inRouterSWmode" 
-       then
-          _SendEMailNotification_ NEW_FW_UPDATE_STATUS
-       fi
+       "$inRouterSWmode" && sendNewUpdateStatusEmail=true
        if ! "$FlashStarted"
-       then
-          _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
-       fi
+       then _ManageChangelog_ "download" "$fwNewUpdateNotificationVers" ; fi
    fi
 
    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
    nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+
    if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
-   then
-       Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
-   else
-       Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
+   then Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
+   else Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
    fi
+
+   "$sendNewUpdateStatusEmail" && _SendEMailNotification_ NEW_FW_UPDATE_STATUS
    return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
+## Modified by Martinski W. [2024-Aug-04] ##
 ##----------------------------------------##
 _CheckNodeFWUpdateNotification_()
 {
@@ -4274,9 +4271,12 @@ _CheckNodeFWUpdateNotification_()
            nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
            nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
-           echo "" > "$tempNodeEMailList"
-           echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
-           echo "Automated update will be scheduled only if MerlinAU is installed on the node." >> "$tempNodeEMailList"
+           {
+             echo ""
+             echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
+             echo "(<b>${1}</b> --> <b>${2}</b>)"
+             echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
+           } > "$tempNodeEMailList"
        fi
    fi
 
@@ -4286,8 +4286,12 @@ _CheckNodeFWUpdateNotification_()
        nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
        nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
-       echo "" > "$tempNodeEMailList"
-       echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
+       {
+         echo ""
+         echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
+         echo "(<b>${1}</b> --> <b>${2}</b>)"
+         echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
+       } > "$tempNodeEMailList"
    fi
    return 0
 }
