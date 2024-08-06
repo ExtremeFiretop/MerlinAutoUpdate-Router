@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-05
+# Last Modified: 2024-Aug-06
 ###################################################################
 set -u
 
@@ -4134,9 +4134,9 @@ _CheckPostponementDays_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-06] ##
+##----------------------------------------##
 _Set_FW_UpdatePostponementDays_()
 {
    local validNumRegExp="([0-9]|[1-9][0-9]|1[0-9][0-9])"
