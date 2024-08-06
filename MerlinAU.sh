@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-05
+# Last Modified: 2024-Aug-06
 ###################################################################
 set -u
 
@@ -575,12 +575,12 @@ readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1
 readonly CRON_UNKNOWN_DATE="**ERROR**: UNKNOWN Date Found"
 
 ##------------------------------------------##
-## Modified by Martinski W. [2024-Jan-22]   ##
+## Modified by Martinski W. [2024-Aug-06]   ##
 ##------------------------------------------##
 # To postpone a firmware update for a few days #
 readonly FW_UpdateMinimumPostponementDays=0
 readonly FW_UpdateDefaultPostponementDays=15
-readonly FW_UpdateMaximumPostponementDays=60
+readonly FW_UpdateMaximumPostponementDays=199
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
@@ -3580,9 +3580,9 @@ _Calculate_DST_()
 {
    local notifyTimeStrn notifyTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
    local postponeTimeSecs fwNewUpdatePostponementDays
-   
+
    notifyTimeStrn="$1"
-   
+
    currentTimeSecs="$(date +%s)"
    notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
 
@@ -3713,12 +3713,12 @@ _CheckPostponementDays_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-06] ##
+##----------------------------------------##
 _Set_FW_UpdatePostponementDays_()
 {
-   local validNumRegExp="([0-9]|[1-9][0-9])"
+   local validNumRegExp="([0-9]|[1-9][0-9]|1[0-9][0-9])"
    local oldPostponementDays  newPostponementDays  postponeDaysStr  userInput
 
    oldPostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
