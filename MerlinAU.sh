@@ -1490,6 +1490,7 @@ _CreateEMailContent_()
    if [ -s "$tempNodeEMailList" ]
    then subjectStr="F/W Update Status for $node_lan_hostname"
    else subjectStr="F/W Update Status for $MODEL_ID"
+   fi
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 
@@ -4733,12 +4734,13 @@ _CheckNewUpdateFirmwareNotification_()
    then Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
    else Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
    fi
+
    "$sendNewUpdateStatusEmail" && _SendEMailNotification_ NEW_FW_UPDATE_STATUS
    return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
+## Modified by Martinski W. [2024-Aug-04] ##
 ##----------------------------------------##
 _CheckNodeFWUpdateNotification_()
 {
@@ -4777,7 +4779,7 @@ _CheckNodeFWUpdateNotification_()
              echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
              echo "(<b>${1}</b> --> <b>${2}</b>)"
              echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
-           } > "$tempNodeEMailList"      
+           } > "$tempNodeEMailList"
        fi
    fi
 
