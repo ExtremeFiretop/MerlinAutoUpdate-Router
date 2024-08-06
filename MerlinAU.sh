@@ -4714,7 +4714,6 @@ _CheckNewUpdateFirmwareNotification_()
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
        "$inRouterSWmode" && sendNewUpdateStatusEmail=true
-       fi
        if ! "$FlashStarted"
        then
            if "$isGNUtonFW"
