@@ -4595,36 +4595,36 @@ _GetOfflineFirmwareVersion_()
     export release_version="$formatted_version"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-30] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Aug-06] ##
+##------------------------------------------##
 _SelectOfflineUpdateFile_()
 {
-    local selection  zipFileList  fileCount
+    local selection fileList fileCount
 
-    # Check if the directory is empty or no ZIP files are found #
-    if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
+    # Check if the directory is empty or no desired files are found #
+    if [ -z "$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
     then
-        printf "\nNo ZIP files found in the directory. Exiting.\n"
+        printf "\nNo valid files found in the directory. Exiting.\n"
         printf "\n---------------------------------------------------\n"
         return 1
     fi
 
     while true
     do
-        printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
+        printf "\nAvailable files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
 
-        zipFileList="$(ls -A1 "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
+        fileList="$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
         fileCount=1
-        for zipFile in $zipFileList
+        for file in $fileList
         do
-            printf "${GRNct}%d${NOct}) %s\n" "$fileCount" "$zipFile"
+            printf "${GRNct}%d${NOct}) %s\n" "$fileCount" "$file"
             fileCount="$((fileCount + 1))"
         done
 
-        # Prompt user to select a ZIP file #
+        # Prompt user to select a file #
         printf "\n---------------------------------------------------\n"
-        printf "\n[${theMUExitStr}] Enter the number of the ZIP file you want to select:  "
+        printf "\n[${theMUExitStr}] Enter the number of the file you want to select:  "
         read -r selection
 
         if [ -z "$selection" ]
@@ -4642,7 +4642,7 @@ _SelectOfflineUpdateFile_()
         fi
 
         # Validate selection #
-        selected_file="$(echo "$zipFileList" | awk "NR==$selection")"
+        selected_file="$(echo "$fileList" | awk "NR==$selection")"
         if [ -z "$selected_file" ]
         then
             printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
@@ -4661,12 +4661,12 @@ _SelectOfflineUpdateFile_()
     _GetOfflineFirmwareVersion_ "$selected_file"
 
     # Confirm the selection
-    if _WaitForYESorNO_ "\nDo you want to continue with the selected ZIP file?"
+    if _WaitForYESorNO_ "\nDo you want to continue with the selected file?"
     then
         printf "\n---------------------------------------------------\n"
-        printf "\nStarting firmware update with the selected ZIP file.\n"
-        # Rename the selected ZIP file #
-        new_file_name="${PRODUCT_ID}_firmware.zip"
+        printf "\nStarting firmware update with the selected file.\n"
+        # Rename the selected file #
+        new_file_name="${PRODUCT_ID}_firmware.${selected_file##*.}"
         mv -f "$selected_file" "${FW_ZIP_DIR}/$new_file_name"
         if [ $? -eq 0 ]
         then
@@ -4677,7 +4677,7 @@ _SelectOfflineUpdateFile_()
             clear
             return 0
         else
-            printf "\nFailed to rename the ZIP file. Exiting.\n"
+            printf "\nFailed to rename the file. Exiting.\n"
             return 1
         fi
     else
