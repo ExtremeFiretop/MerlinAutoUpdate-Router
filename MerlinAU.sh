@@ -1492,7 +1492,12 @@ _CreateEMailContent_()
    else subjectStr="F/W Update Status for $MODEL_ID"
    fi
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
-   fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   if ! "$offlineUpdateTrigger"
+   then
+      fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   else
+      fwNewUpdateVersion="$release_version"
+   fi
 
    # Remove "_rog" or "_tuf" suffix to avoid version comparison failures
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_\(rog\|tuf\)$//')"
