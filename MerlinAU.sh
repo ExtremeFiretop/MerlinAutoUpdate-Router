@@ -1220,7 +1220,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
    while true
    do
-      printf "\nEnter the directory path where the update file subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
+      printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
       if [ -n "$USBMountPoint" ] && _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
       then
           printf "Default directory for USB-attached drive: [${GRNct}${FW_ZIP_BASE_DIR}${NOct}]\n"
@@ -1290,7 +1290,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        rm -fr "${FW_ZIP_DIR:?}"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
-       echo "The directory path for the F/W update file was updated successfully."
+       echo "The directory path for the F/W ZIP file was updated successfully."
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
    return 0
@@ -4612,7 +4612,7 @@ _SelectOfflineUpdateFile_()
 
     while true
     do
-        printf "\nAvailable files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
+        printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
 
         fileList="$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
         fileCount=1
@@ -4624,7 +4624,7 @@ _SelectOfflineUpdateFile_()
 
         # Prompt user to select a file #
         printf "\n---------------------------------------------------\n"
-        printf "\n[${theMUExitStr}] Enter the number of the file you want to select:  "
+        printf "\n[${theMUExitStr}] Enter the number of the ZIP file you want to select:  "
         read -r selection
 
         if [ -z "$selection" ]
