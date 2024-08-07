@@ -1260,7 +1260,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
    while true
    do
-      printf "\nEnter the directory path where the update file subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
+      printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
       if [ -n "$USBMountPoint" ] && _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
       then
           printf "Default directory for USB-attached drive: [${GRNct}${FW_ZIP_BASE_DIR}${NOct}]\n"
@@ -1330,7 +1330,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        rm -fr "${FW_LOG_DIR:?}"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
-       echo "The directory path for the F/W update file was updated successfully."
+       echo "The directory path for the F/W ZIP file was updated successfully."
        keepWfile=0
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
@@ -5082,7 +5082,7 @@ _GetOfflineFirmwareVersion_()
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
-        printf "\nFailed to identify firmware version from the update file name."
+        printf "\nFailed to identify firmware version from the ZIP file name."
         printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
         printf "\n(Examples: 3004.388.8.0 or 3004.388.8.beta1):  "
         read -r formatted_version
@@ -5118,7 +5118,7 @@ _SelectOfflineUpdateFile_()
 
     while true
     do
-        printf "\nAvailable files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
+        printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
 
         fileList="$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
         fileCount=1
@@ -5130,7 +5130,7 @@ _SelectOfflineUpdateFile_()
 
         # Prompt user to select a file #
         printf "\n---------------------------------------------------\n"
-        printf "\n[${theMUExitStr}] Enter the number of the file you want to select:  "
+        printf "\n[${theMUExitStr}] Enter the number of the ZIP file you want to select:  "
         read -r selection
 
         if [ -z "$selection" ]
