@@ -5432,7 +5432,7 @@ _RunOfflineUpdateNow_()
         then
             clear
             printf "\n---------------------------------------------------\n"
-            printf "\nContinuing to the ZIP file selection process.\n"
+            printf "\nContinuing to the update file selection process.\n"
             if _SelectOfflineUpdateFile_
             then
                 if "$isGNUtonFW"
