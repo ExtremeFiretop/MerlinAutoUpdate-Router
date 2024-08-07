@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-06
+# Last Modified: 2024-Aug-05
 ###################################################################
 set -u
 
@@ -1260,7 +1260,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
    while true
    do
-      printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
+      printf "\nEnter the directory path where the update file subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
       if [ -n "$USBMountPoint" ] && _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
       then
           printf "Default directory for USB-attached drive: [${GRNct}${FW_ZIP_BASE_DIR}${NOct}]\n"
@@ -1330,7 +1330,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        rm -fr "${FW_LOG_DIR:?}"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
-       echo "The directory path for the F/W ZIP file was updated successfully."
+       echo "The directory path for the F/W update file was updated successfully."
        keepWfile=0
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
@@ -3138,16 +3138,19 @@ else
     Say "File management is not required"
 fi
 
-# Check and copy the MD5 file if different from destination
-if [ "$FW_MD5_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}.md5" ]; then
-    copy_attempted=0
-    mv -f "$FW_MD5_GITHUB" "$FW_BIN_DIR" && Say "Moving MD5 file..." || copy_success=1
-fi
+if ! "$offlineUpdateTrigger"
+then
+    # Check and copy the MD5 file if different from destination
+    if [ "$FW_MD5_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}.md5" ]; then
+        copy_attempted=0
+        mv -f "$FW_MD5_GITHUB" "$FW_BIN_DIR" && Say "Moving MD5 file..." || copy_success=1
+    fi
 
-# Check and copy the Changelog file if different from destination
-if [ "$FW_Changelog_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}_Changelog.txt" ]; then
-    copy_attempted=0
-    mv -f "$FW_Changelog_GITHUB" "$FW_BIN_DIR" && Say "Moving changelog file..." || copy_success=1
+    # Check and copy the Changelog file if different from destination
+    if [ "$FW_Changelog_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}_Changelog.txt" ]; then
+        copy_attempted=0
+        mv -f "$FW_Changelog_GITHUB" "$FW_BIN_DIR" && Say "Moving changelog file..." || copy_success=1
+    fi
 fi
 
 if [ $copy_attempted -eq 0 ] && [ $copy_success -eq 0 ]
@@ -4134,9 +4137,9 @@ _CheckPostponementDays_()
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-06] ##
+##------------------------------------------##
 _Set_FW_UpdatePostponementDays_()
 {
    local validNumRegExp="([0-9]|[1-9][0-9]|1[0-9][0-9])"
@@ -4700,9 +4703,9 @@ _CheckNewUpdateFirmwareNotification_()
            then
                if "$isGNUtonFW"
                then
-                    _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
+                   _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
                else
-                    _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
+                   _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
                fi
            fi
        fi
@@ -5074,7 +5077,7 @@ _GetOfflineFirmwareVersion_()
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
-        printf "\nFailed to identify firmware version from the ZIP file name."
+        printf "\nFailed to identify firmware version from the update file name."
         printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
         printf "\n(Examples: 3004.388.8.0 or 3004.388.8.beta1):  "
         read -r formatted_version
@@ -5093,36 +5096,36 @@ _GetOfflineFirmwareVersion_()
     export release_version="$formatted_version"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-30] ##
-##----------------------------------------##
-_SelectOfflineZipFile_()
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Aug-06] ##
+##------------------------------------------##
+_SelectOfflineUpdateFile_()
 {
-    local selection  zipFileList  fileCount
+    local selection fileList fileCount
 
-    # Check if the directory is empty or no ZIP files are found #
-    if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
+    # Check if the directory is empty or no desired files are found #
+    if [ -z "$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
     then
-        printf "\nNo ZIP files found in the directory. Exiting.\n"
+        printf "\nNo valid files found in the directory. Exiting.\n"
         printf "\n---------------------------------------------------\n"
         return 1
     fi
 
     while true
     do
-        printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
+        printf "\nAvailable files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
 
-        zipFileList="$(ls -A1 "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
+        fileList="$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
         fileCount=1
-        for zipFile in $zipFileList
+        for file in $fileList
         do
-            printf "${GRNct}%d${NOct}) %s\n" "$fileCount" "$zipFile"
+            printf "${GRNct}%d${NOct}) %s\n" "$fileCount" "$file"
             fileCount="$((fileCount + 1))"
         done
 
-        # Prompt user to select a ZIP file #
+        # Prompt user to select a file #
         printf "\n---------------------------------------------------\n"
-        printf "\n[${theMUExitStr}] Enter the number of the ZIP file you want to select:  "
+        printf "\n[${theMUExitStr}] Enter the number of the file you want to select:  "
         read -r selection
 
         if [ -z "$selection" ]
@@ -5140,7 +5143,7 @@ _SelectOfflineZipFile_()
         fi
 
         # Validate selection #
-        selected_file="$(echo "$zipFileList" | awk "NR==$selection")"
+        selected_file="$(echo "$fileList" | awk "NR==$selection")"
         if [ -z "$selected_file" ]
         then
             printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
@@ -5159,12 +5162,12 @@ _SelectOfflineZipFile_()
     _GetOfflineFirmwareVersion_ "$selected_file"
 
     # Confirm the selection
-    if _WaitForYESorNO_ "\nDo you want to continue with the selected ZIP file?"
+    if _WaitForYESorNO_ "\nDo you want to continue with the selected file?"
     then
         printf "\n---------------------------------------------------\n"
-        printf "\nStarting firmware update with the selected ZIP file.\n"
-        # Rename the selected ZIP file #
-        new_file_name="${PRODUCT_ID}_firmware.zip"
+        printf "\nStarting firmware update with the selected file.\n"
+        # Rename the selected file #
+        new_file_name="${PRODUCT_ID}_firmware.${selected_file##*.}"
         mv -f "$selected_file" "${FW_ZIP_DIR}/$new_file_name"
         if [ $? -eq 0 ]
         then
@@ -5175,13 +5178,85 @@ _SelectOfflineZipFile_()
             clear
             return 0
         else
-            printf "\nFailed to rename the ZIP file. Exiting.\n"
+            printf "\nFailed to rename the file. Exiting.\n"
             return 1
         fi
     else
         printf "Operation was cancelled by user. Exiting.\n"
         return 1
     fi
+}
+
+_GnutonBuildSelection_()
+{
+   ##------------------------------------------##
+   ## Modified by ExtremeFiretop [2024-Apr-18] ##
+   ##------------------------------------------##
+    # Check if PRODUCT_ID is for a TUF model and requires user choice
+    if echo "$PRODUCT_ID" | grep -q "^TUF-"; then
+        # Fetch the previous choice from the settings file
+        local previous_choice="$(Get_Custom_Setting "TUFBuild")"
+
+        if [ "$previous_choice" = "y" ]; then
+            echo "TUF Build selected for flashing"
+            firmware_choice="tuf"
+        elif [ "$previous_choice" = "n" ]; then
+            echo "Pure Build selected for flashing"
+            firmware_choice="pure"
+        elif [ "$inMenuMode" = true ]; then
+            printf "${REDct}Found TUF build for: $PRODUCT_ID.${NOct}\n"
+            printf "${REDct}Would you like to use the TUF build?${NOct}\n"
+            printf "Enter your choice (y/n): "
+            read -r choice
+            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                echo "TUF Build selected for flashing"
+                firmware_choice="tuf"
+                Update_Custom_Settings "TUFBuild" "y"
+            else
+                echo "Pure Build selected for flashing"
+                firmware_choice="pure"
+                Update_Custom_Settings "TUFBuild" "n"
+            fi
+        else
+            echo "Defaulting to Pure Build due to non-interactive mode."
+            firmware_choice="pure"
+            Update_Custom_Settings "TUFBuild" "n"
+        fi
+    elif echo "$PRODUCT_ID" | grep -q "^GT-"
+    then
+        # Fetch the previous choice from the settings file
+        local previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+        if [ "$previous_choice" = "y" ]; then
+            echo "ROG Build selected for flashing"
+            firmware_choice="rog"
+        elif [ "$previous_choice" = "n" ]; then
+            echo "Pure Build selected for flashing"
+            firmware_choice="pure"
+        elif [ "$inMenuMode" = true ]; then
+            printf "${REDct}Found ROG build for: $PRODUCT_ID.${NOct}\n"
+            printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+            printf "Enter your choice (y/n): "
+            read -r choice
+            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                echo "ROG Build selected for flashing"
+                firmware_choice="rog"
+                Update_Custom_Settings "ROGBuild" "y"
+            else
+                echo "Pure Build selected for flashing"
+                firmware_choice="pure"
+                Update_Custom_Settings "ROGBuild" "n"
+            fi
+        else
+            echo "Defaulting to Pure Build due to non-interactive mode."
+            firmware_choice="pure"
+            Update_Custom_Settings "ROGBuild" "n"
+        fi
+    else
+        # If not a TUF model, process as usual
+        firmware_choice="pure"
+    fi
+    return 0
 }
 
 ##------------------------------------------##
@@ -5353,9 +5428,22 @@ _RunOfflineUpdateNow_()
             clear
             printf "\n---------------------------------------------------\n"
             printf "\nContinuing to the ZIP file selection process.\n"
-            if _SelectOfflineZipFile_
+            if _SelectOfflineUpdateFile_
             then
-                set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
+                if "$isGNUtonFW"
+                then
+                    # Extract the filename from the path
+                    original_filename=$(basename "$selected_file")
+                    # Sanitize filename by removing problematic characters (if necessary)
+                    sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')
+                    # Extract the file extension
+                    extension="${sanitized_filename##*.}"
+                    FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
+                    _GnutonBuildSelection_
+                    set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
+                else
+                    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
+                fi
                 if [ $? -eq 0 ] && [ $# -eq 2 ] && \
                     [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
                 then
@@ -5509,8 +5597,20 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
         fi
 
         # Use set to read the output of the function into variables
-        set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
-        if [ $? -eq 0 ] && [ $# -eq 2 ] && \
+        if "$isGNUtonFW"
+        then
+           Say "Using release information for Gnuton Firmware."
+           _GnutonBuildSelection_
+           md5_url=$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE" "$firmware_choice")
+           Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
+           set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
+           retCode="$?"
+        else
+           Say "Using release information for Merlin Firmware."
+           set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+           retCode="$?"
+        fi
+        if [ "$retCode" -eq 0 ] && [ $# -eq 2 ] && \
            [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
         then
             release_version="$1"
@@ -5527,97 +5627,6 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
             return 0
         fi
     fi
-
-   ##------------------------------------------##
-   ## Modified by ExtremeFiretop [2024-Apr-18] ##
-   ##------------------------------------------##
-   if "$isGNUtonFW"
-   then
-       Say "Using release information for Gnuton Firmware."
-       # Check if PRODUCT_ID is for a TUF model and requires user choice
-       if echo "$PRODUCT_ID" | grep -q "^TUF-"; then
-           # Fetch the previous choice from the settings file
-           local previous_choice="$(Get_Custom_Setting "TUFBuild")"
-
-           if [ "$previous_choice" = "y" ]; then
-               echo "TUF Build selected for flashing"
-               firmware_choice="tuf"
-           elif [ "$previous_choice" = "n" ]; then
-               echo "Pure Build selected for flashing"
-               firmware_choice="pure"
-           elif [ "$inMenuMode" = true ]; then
-               printf "${REDct}Found TUF build for: $PRODUCT_ID.${NOct}\n"
-               printf "${REDct}Would you like to use the TUF build?${NOct}\n"
-               printf "Enter your choice (y/n): "
-               read -r choice
-               if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-                   echo "TUF Build selected for flashing"
-                   firmware_choice="tuf"
-                   Update_Custom_Settings "TUFBuild" "y"
-               else
-                   echo "Pure Build selected for flashing"
-                   firmware_choice="pure"
-                   Update_Custom_Settings "TUFBuild" "n"
-               fi
-           else
-               echo "Defaulting to Pure Build due to non-interactive mode."
-               firmware_choice="pure"
-               Update_Custom_Settings "TUFBuild" "n"
-           fi
-       elif echo "$PRODUCT_ID" | grep -q "^GT-"
-       then
-           # Fetch the previous choice from the settings file
-           local previous_choice="$(Get_Custom_Setting "ROGBuild")"
-
-           if [ "$previous_choice" = "y" ]; then
-               echo "ROG Build selected for flashing"
-               firmware_choice="rog"
-           elif [ "$previous_choice" = "n" ]; then
-               echo "Pure Build selected for flashing"
-               firmware_choice="pure"
-           elif [ "$inMenuMode" = true ]; then
-               printf "${REDct}Found ROG build for: $PRODUCT_ID.${NOct}\n"
-               printf "${REDct}Would you like to use the ROG build?${NOct}\n"
-               printf "Enter your choice (y/n): "
-               read -r choice
-               if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-                   echo "ROG Build selected for flashing"
-                   firmware_choice="rog"
-                   Update_Custom_Settings "ROGBuild" "y"
-               else
-                   echo "Pure Build selected for flashing"
-                   firmware_choice="pure"
-                   Update_Custom_Settings "ROGBuild" "n"
-               fi
-           else
-               echo "Defaulting to Pure Build due to non-interactive mode."
-               firmware_choice="pure"
-               Update_Custom_Settings "ROGBuild" "n"
-           fi
-       else
-           # If not a TUF model, process as usual
-           firmware_choice="pure"
-       fi
-       md5_url=$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE" "$firmware_choice")
-       Gnuton_changelogurl=$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")
-       set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
-       retCode="$?"
-   else
-       Say "Using release information for Merlin Firmware."
-       set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
-       retCode="$?"
-   fi
-
-   if [ "$retCode" -eq 0 ] && [ "$#" -eq 2 ] && \
-       [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
-   then
-        release_version="$1"
-        release_link="$2"
-   else
-        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
-   fi
 
     # Extracting the F/W Update codebase number to use in the curl #
     fwUpdateBaseNum="$(echo "$release_version" | cut -d'.' -f1)"
@@ -5729,14 +5738,16 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-May-25] ##
     ##------------------------------------------##
-    _ChangelogVerificationCheck_ "interactive"
-    retCode="$?"
+    if ! [[ "$isGNUtonFW" && "$offlineUpdateTrigger" ]]; then
+        _ChangelogVerificationCheck_ "interactive"
+        retCode="$?"
 
-    if [ "$retCode" -eq 1 ]
-    then
-        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
-        _Reset_LEDs_
-        return 1
+        if [ "$retCode" -eq 1 ]
+        then
+            "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+            _Reset_LEDs_
+            return 1
+        fi
     fi
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
@@ -6998,7 +7009,7 @@ _ShowAdvancedOptionsMenu_()
    printf "================== Advanced Options Menu =================\n"
    printf "${SEPstr}\n"
 
-   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
    printf "\n  ${GRNct}2${NOct}.  Set F/W Update Cron Schedule"
