@@ -4576,7 +4576,7 @@ _GetOfflineFirmwareVersion_()
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
-        printf "\nFailed to identify firmware version from the update file name."
+        printf "\nFailed to identify firmware version from the ZIP file name."
         printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
         printf "\n(Examples: 3004.388.8.0 or 3004.388.8.beta1):  "
         read -r formatted_version
