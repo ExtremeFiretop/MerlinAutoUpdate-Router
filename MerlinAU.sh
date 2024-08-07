@@ -1220,7 +1220,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
    while true
    do
-      printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
+      printf "\nEnter the directory path where the update file subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
       if [ -n "$USBMountPoint" ] && _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
       then
           printf "Default directory for USB-attached drive: [${GRNct}${FW_ZIP_BASE_DIR}${NOct}]\n"
@@ -1290,7 +1290,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        rm -fr "${FW_ZIP_DIR:?}"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
-       echo "The directory path for the F/W ZIP file was updated successfully."
+       echo "The directory path for the F/W update file was updated successfully."
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
    return 0
@@ -1447,8 +1447,12 @@ _CreateEMailContent_()
    then subjectStr="F/W Update Status for $node_lan_hostname"
    else subjectStr="F/W Update Status for $MODEL_ID"
    fi
-   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
-   fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   if ! "$offlineUpdateTrigger"
+   then
+      fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   else
+      fwNewUpdateVersion="$release_version"
+   fi
 
    # Remove "_rog" suffix to avoid version comparison failures #
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
@@ -4572,7 +4576,7 @@ _GetOfflineFirmwareVersion_()
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
-        printf "\nFailed to identify firmware version from the ZIP file name."
+        printf "\nFailed to identify firmware version from the update file name."
         printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
         printf "\n(Examples: 3004.388.8.0 or 3004.388.8.beta1):  "
         read -r formatted_version
@@ -4594,7 +4598,7 @@ _GetOfflineFirmwareVersion_()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-30] ##
 ##----------------------------------------##
-_SelectOfflineZipFile_()
+_SelectOfflineUpdateFile_()
 {
     local selection  zipFileList  fileCount
 
@@ -4850,8 +4854,8 @@ _RunOfflineUpdateNow_()
         then
             clear
             printf "\n---------------------------------------------------\n"
-            printf "\nContinuing to the ZIP file selection process.\n"
-            if _SelectOfflineZipFile_
+            printf "\nContinuing to the update file selection process.\n"
+            if _SelectOfflineUpdateFile_
             then
                 set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
                 if [ $? -eq 0 ] && [ $# -eq 2 ] && \
@@ -6416,7 +6420,7 @@ _ShowAdvancedOptionsMenu_()
    printf "================== Advanced Options Menu =================\n"
    printf "${SEPstr}\n"
 
-   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
    printf "\n  ${GRNct}2${NOct}.  Set F/W Update Cron Schedule"
