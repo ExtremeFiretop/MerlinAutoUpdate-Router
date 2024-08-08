@@ -5324,7 +5324,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
-		if ! "$offlineUpdateTrigger"
+        if ! "$offlineUpdateTrigger"
         then
             _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
         fi
