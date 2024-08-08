@@ -5435,8 +5435,8 @@ _RunOfflineUpdateNow_()
             _ClearOfflineUpdateState_ 1 ; return 1
         fi
         printf "\n---------------------------------------------------\n"
-        if "$isGNUtonFW"; then printf "\nPlease copy your firmware ZIP file (using the *original* ZIP filename) to this directory:"
-        else printf "\nPlease copy your firmware update file (.w or .pkgtb) (using the *original* update filename) to this directory:"; fi
+        if "$isGNUtonFW"; then printf "\nPlease copy your firmware update file (.w or .pkgtb) using the *original* ZIP filename to this directory:"
+        else printf "\nPlease copy your firmware ZIP file (using the *original* ZIP filename) to this directory:"; fi
         printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
         printf "\nPress '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
         printf "\n---------------------------------------------------\n"
