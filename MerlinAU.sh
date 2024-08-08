@@ -1260,7 +1260,8 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 
    while true
    do
-      printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
+      if "$isGNUtonFW"; then printf "\nEnter the directory path where the update subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n" 
+      else printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"; fi
       if [ -n "$USBMountPoint" ] && _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
       then
           printf "Default directory for USB-attached drive: [${GRNct}${FW_ZIP_BASE_DIR}${NOct}]\n"
@@ -1330,7 +1331,8 @@ _Set_FW_UpdateZIP_DirectoryPath_()
        rm -fr "${FW_LOG_DIR:?}"
        rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
        Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
-       echo "The directory path for the F/W ZIP file was updated successfully."
+       if "$isGNUtonFW"; then echo "The directory path for the F/W update file was updated successfully." 
+       else echo "The directory path for the F/W ZIP file was updated successfully."; fi
        keepWfile=0
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
    fi
@@ -1492,12 +1494,7 @@ _CreateEMailContent_()
    else subjectStr="F/W Update Status for $MODEL_ID"
    fi
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
-   if ! "$offlineUpdateTrigger"
-   then
-      fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-   else
-      fwNewUpdateVersion="$release_version"
-   fi
+   fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 
    # Remove "_rog" or "_tuf" suffix to avoid version comparison failures
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_\(rog\|tuf\)$//')"
@@ -5082,7 +5079,8 @@ _GetOfflineFirmwareVersion_()
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
-        printf "\nFailed to identify firmware version from the ZIP file name."
+        if "$isGNUtonFW"; then printf "\nFailed to identify firmware version from the update file name."
+        else printf "\nFailed to identify firmware version from the ZIP file name."; fi
         printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
         printf "\n(Examples: 3004.388.8.0 or 3004.388.8.beta1):  "
         read -r formatted_version
@@ -5109,18 +5107,30 @@ _SelectOfflineUpdateFile_()
     local selection fileList fileCount
 
     # Check if the directory is empty or no desired files are found #
-    if [ -z "$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
+    if "$isGNUtonFW"
     then
-        printf "\nNo valid files found in the directory. Exiting.\n"
-        printf "\n---------------------------------------------------\n"
-        return 1
+        if [ -z "$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb 2>/dev/null)" ]
+        then
+            printf "\nNo valid update files found in the directory. Exiting.\n"
+            printf "\n---------------------------------------------------\n"
+            return 1
+        fi
+    else
+        if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
+        then
+            printf "\nNo valid ZIP files found in the directory. Exiting.\n"
+            printf "\n---------------------------------------------------\n"
+            return 1
+        fi
     fi
 
     while true
     do
-        printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
+        if "$isGNUtonFW"; then printf "\nAvailable update files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
+        else printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"; fi
 
-        fileList="$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
+        if "$isGNUtonFW"; then fileList="$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb 2>/dev/null)"
+        else fileList="$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)"; fi
         fileCount=1
         for file in $fileList
         do
@@ -5130,7 +5140,8 @@ _SelectOfflineUpdateFile_()
 
         # Prompt user to select a file #
         printf "\n---------------------------------------------------\n"
-        printf "\n[${theMUExitStr}] Enter the number of the ZIP file you want to select:  "
+        if "$isGNUtonFW"; then printf "\n[${theMUExitStr}] Enter the number of the update file you want to select:  "
+        else printf "\n[${theMUExitStr}] Enter the number of the ZIP file you want to select:  "; fi
         read -r selection
 
         if [ -z "$selection" ]
@@ -5424,7 +5435,8 @@ _RunOfflineUpdateNow_()
             _ClearOfflineUpdateState_ 1 ; return 1
         fi
         printf "\n---------------------------------------------------\n"
-        printf "\nPlease copy your firmware ZIP file (using the *original* ZIP filename) to this directory:"
+        if "$isGNUtonFW"; then printf "\nPlease copy your firmware ZIP file (using the *original* ZIP filename) to this directory:"
+        else printf "\nPlease copy your firmware update file (.w or .pkgtb) (using the *original* update filename) to this directory:"; fi
         printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
         printf "\nPress '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
         printf "\n---------------------------------------------------\n"
@@ -5913,7 +5925,10 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
-        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+        if ! "$offlineUpdateTrigger"
+        then
+            _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+        fi
 
         if [ -f /opt/bin/diversion ]
         then
