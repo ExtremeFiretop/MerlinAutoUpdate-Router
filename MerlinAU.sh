@@ -4591,17 +4591,17 @@ _GetOfflineFirmwareVersion_()
     export release_version="$formatted_version"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-30] ##
-##----------------------------------------##
-_SelectOfflineZipFile_()
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Aug-06] ##
+##------------------------------------------##
+_SelectOfflineUpdateFile_()
 {
-    local selection  zipFileList  fileCount
+    local selection fileList fileCount
 
-    # Check if the directory is empty or no ZIP files are found #
+    # Check if the directory is empty or no desired files are found #
     if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
     then
-        printf "\nNo ZIP files found in the directory. Exiting.\n"
+        printf "\nNo valid files found in the directory. Exiting.\n"
         printf "\n---------------------------------------------------\n"
         return 1
     fi
@@ -4610,15 +4610,15 @@ _SelectOfflineZipFile_()
     do
         printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
 
-        zipFileList="$(ls -A1 "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
+        fileList=="$(ls -A1 "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
         fileCount=1
-        for zipFile in $zipFileList
+        for file in $fileList
         do
-            printf "${GRNct}%d${NOct}) %s\n" "$fileCount" "$zipFile"
+            printf "${GRNct}%d${NOct}) %s\n" "$fileCount" "$file"
             fileCount="$((fileCount + 1))"
         done
 
-        # Prompt user to select a ZIP file #
+        # Prompt user to select a file #
         printf "\n---------------------------------------------------\n"
         printf "\n[${theMUExitStr}] Enter the number of the ZIP file you want to select:  "
         read -r selection
@@ -4638,7 +4638,7 @@ _SelectOfflineZipFile_()
         fi
 
         # Validate selection #
-        selected_file="$(echo "$zipFileList" | awk "NR==$selection")"
+        selected_file="$(echo "$fileList" | awk "NR==$selection")"
         if [ -z "$selected_file" ]
         then
             printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
@@ -4657,12 +4657,12 @@ _SelectOfflineZipFile_()
     _GetOfflineFirmwareVersion_ "$selected_file"
 
     # Confirm the selection
-    if _WaitForYESorNO_ "\nDo you want to continue with the selected ZIP file?"
+    if _WaitForYESorNO_ "\nDo you want to continue with the selected file?"
     then
         printf "\n---------------------------------------------------\n"
-        printf "\nStarting firmware update with the selected ZIP file.\n"
-        # Rename the selected ZIP file #
-        new_file_name="${PRODUCT_ID}_firmware.zip"
+        printf "\nStarting firmware update with the selected file.\n"
+        # Rename the selected file #
+        new_file_name="${PRODUCT_ID}_firmware.${selected_file##*.}"
         mv -f "$selected_file" "${FW_ZIP_DIR}/$new_file_name"
         if [ $? -eq 0 ]
         then
@@ -4673,7 +4673,7 @@ _SelectOfflineZipFile_()
             clear
             return 0
         else
-            printf "\nFailed to rename the ZIP file. Exiting.\n"
+            printf "\nFailed to rename the file. Exiting.\n"
             return 1
         fi
     else
@@ -4850,8 +4850,8 @@ _RunOfflineUpdateNow_()
         then
             clear
             printf "\n---------------------------------------------------\n"
-            printf "\nContinuing to the ZIP file selection process.\n"
-            if _SelectOfflineZipFile_
+            printf "\nContinuing to the update file selection process.\n"
+            if _SelectOfflineUpdateFile_
             then
                 set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
                 if [ $? -eq 0 ] && [ $# -eq 2 ] && \
@@ -5324,7 +5324,10 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
-        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+        if ! "$offlineUpdateTrigger"
+        then
+            _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+        fi
 
         if [ -f /opt/bin/diversion ]
         then
@@ -6416,7 +6419,7 @@ _ShowAdvancedOptionsMenu_()
    printf "================== Advanced Options Menu =================\n"
    printf "${SEPstr}\n"
 
-   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
    printf "\n  ${GRNct}2${NOct}.  Set F/W Update Cron Schedule"
