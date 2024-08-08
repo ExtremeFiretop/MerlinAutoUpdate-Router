@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-06
+# Last Modified: 2024-Aug-07
 ###################################################################
 set -u
 
@@ -4598,7 +4598,7 @@ _SelectOfflineUpdateFile_()
 {
     local selection fileList fileCount
 
-    # Check if the directory is empty or no desired files are found #
+    # Check if the directory is empty or no valid files are found #
     if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
     then
         printf "\nNo valid files found in the directory. Exiting.\n"
@@ -4610,7 +4610,7 @@ _SelectOfflineUpdateFile_()
     do
         printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
 
-        fileList=="$(ls -A1 "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
+        fileList="$(ls -A1 "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
         fileCount=1
         for file in $fileList
         do
