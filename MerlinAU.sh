@@ -1447,12 +1447,8 @@ _CreateEMailContent_()
    then subjectStr="F/W Update Status for $node_lan_hostname"
    else subjectStr="F/W Update Status for $MODEL_ID"
    fi
-   if ! "$offlineUpdateTrigger"
-   then
-      fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-   else
-      fwNewUpdateVersion="$release_version"
-   fi
+   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+   fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 
    # Remove "_rog" suffix to avoid version comparison failures #
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_rog$//')"
@@ -4603,7 +4599,7 @@ _SelectOfflineUpdateFile_()
     local selection fileList fileCount
 
     # Check if the directory is empty or no desired files are found #
-    if [ -z "$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
+    if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
     then
         printf "\nNo valid files found in the directory. Exiting.\n"
         printf "\n---------------------------------------------------\n"
@@ -4614,7 +4610,7 @@ _SelectOfflineUpdateFile_()
     do
         printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
 
-        fileList="$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
+        fileList=="$(ls -A1 "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
         fileCount=1
         for file in $fileList
         do
@@ -5328,7 +5324,10 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
-        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+		if ! "$offlineUpdateTrigger"
+        then
+            _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+        fi
 
         if [ -f /opt/bin/diversion ]
         then
