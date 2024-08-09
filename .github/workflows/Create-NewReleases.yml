@@ -57,6 +57,12 @@ jobs:
 
           echo "Next version tag: $NEXT_TAG"
           echo "tag=$NEXT_TAG" >> $GITHUB_OUTPUT
+
+      - name: Update MerlinAU.sh Script Version and Branch
+        run: |
+          # Update the SCRIPT_VERSION and SCRIPT_BRANCH values in MerlinAU.sh
+          sed -i "/^readonly SCRIPT_VERSION=/s/.*/readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}/" MerlinAU.sh
+          sed -i "/^SCRIPT_BRANCH=.*$/s/.*/SCRIPT_BRANCH=\"master\"/" MerlinAU.sh
           
       - name: Create and Push Tag
         run: |
