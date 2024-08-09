@@ -12,7 +12,7 @@ set -u
 readonly SCRIPT_VERSION=1.3.0
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -5459,7 +5459,7 @@ _RunOfflineUpdateNow_()
                     _GnutonBuildSelection_
                     set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
                 else
-                    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
+                    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
                 fi
                 if [ $? -eq 0 ] && [ $# -eq 2 ] && \
                     [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
