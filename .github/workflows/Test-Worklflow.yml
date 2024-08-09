@@ -24,7 +24,7 @@ jobs:
         id: nextver
         run: |
           # Example version for debugging, you can adjust as needed
-          NEXT_TAG="v1.2.3" 
+          NEXT_TAG="1.2.3" 
           echo "Next version tag: $NEXT_TAG"
           echo "tag=$NEXT_TAG" >> $GITHUB_OUTPUT
           
@@ -35,8 +35,8 @@ jobs:
           cat MerlinAU.sh
           
           # Simulate updating the SCRIPT_VERSION and SCRIPT_BRANCH values
-          sed -e "s/^readonly SCRIPT_VERSION=.*$/readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}/" \
-              -e "s/^SCRIPT_BRANCH=.*$/SCRIPT_BRANCH=\"dev\"/" \
+          sed -e "/^readonly SCRIPT_VERSION=/s/.*/readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}/" \
+              -e "/^SCRIPT_BRANCH=.*$/s/.*/SCRIPT_BRANCH=\"dev\"/" \
               MerlinAU.sh > MerlinAU.sh.tmp
           
           # Display the simulated updated contents
