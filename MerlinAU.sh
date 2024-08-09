@@ -5755,7 +5755,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-May-25] ##
     ##------------------------------------------##
-    if ! [[ "$isGNUtonFW" && "$offlineUpdateTrigger" ]]; then
+    if ! { "$isGNUtonFW" && "$offlineUpdateTrigger" ; } then
         _ChangelogVerificationCheck_ "interactive"
         retCode="$?"
 
