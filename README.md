@@ -1,11 +1,11 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.2.6
-## 2024-07-06
+## v1.2.7
+## 2024-08-08
 
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/a5b443a5-914d-496a-8b0e-7fd22c3ed87d)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/8a516fd9-444b-4c6b-9bc3-c2989e8e78a7)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/722a7b0c-96a9-48ee-ac66-9e0a5702f3d2)
-![image](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/assets/1971404/23ce21d9-fcdc-46e8-9365-1262271471ec)
+![image](https://github.com/user-attachments/assets/2b2b886c-0719-4d0a-861a-7fec94087e1e)
+![image](https://github.com/user-attachments/assets/fffdb79c-6fbb-44ee-ac79-366c7fedc5b7)
+![image](https://github.com/user-attachments/assets/a79e3044-ae49-483a-b9ff-2f081fa81964)
+![image](https://github.com/user-attachments/assets/6d0aad68-5c02-4355-abd3-cd441cdfe108)
 
 ## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
@@ -15,6 +15,8 @@
  - GT-AXE11000 (Tested)
  - GT-AX11000_PRO (Tested)
  - GT-AX11000 (Tested)
+ - GT-AC2900 **(Untested)**
+ - RT-BE96U **(Untested)**
  - RT-AX88U_PRO (Tested)
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
@@ -23,10 +25,11 @@
  - RT-AX86S (Tested)
  - RT-AX68U (Tested)
  - RT-AX58U V1 (Tested)
+ - RT-AX56U **(Untested)**
  - RT-AX3000 V1 (Tested)
  - XT12 (Tested)
 
-## UNSUPPORTED MODELS: (Single image models) - i.e. Any model that uses a .trx file
+## UNSUPPORTED MERLIN MODELS: (Single image models) - i.e. Any model that uses a .trx file
 Blocked due to low RAM/ROM space and/or have not received updates in several years.
    
  - RT-AC87U (Blocked)

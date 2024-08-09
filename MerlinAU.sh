@@ -4,20 +4,20 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Jul-03
+# Last Modified: 2024-Aug-07
 ###################################################################
 set -u
 
-readonly SCRIPT_VERSION=1.2.6
+## Set version for each Production Release ##
+readonly SCRIPT_VERSION=1.2.7
 readonly SCRIPT_NAME="MerlinAU"
+## Set to "master" for Production Releases ##
+SCRIPT_BRANCH="master"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
 ##----------------------------------------##
 # Script URL Info #
-
-## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router"
 SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
 
@@ -39,9 +39,29 @@ readonly high_risk_terms="factory default reset|features are disabled|break back
 DLRepoVersion=""
 scriptUpdateNotify=0
 
-# For supported version and model checks #
-MinFirmwareCheckFailed=0
-ModelCheckFailed=0
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-29] ##
+##----------------------------------------##
+# For minimum supported firmware version check #
+MinFirmwareVerCheckFailed=false
+MinSupportedFirmwareVers="3004.386.12.0"
+
+# For router model check #
+routerModelCheckFailed=false
+offlineUpdateTrigger=false
+
+##--------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-26]   ##
+##--------------------------------------------##
+readonly NOct="\e[0m"
+readonly REDct="\e[1;31m"
+readonly GRNct="\e[1;32m"
+readonly BLKct="\e[1;30m"
+readonly YLWct="\e[1;33m"
+readonly BLUEct="\e[1;34m"
+readonly MAGENTAct="\e[1;35m"
+readonly CYANct="\e[1;36m"
+readonly WHITEct="\e[1;37m"
 
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
@@ -111,6 +131,13 @@ fi
 readonly mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
 readonly advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Options Menu..."
 readonly logsMenuReturnPromptStr="Press <Enter> to return to the Log Options Menu..."
+theMenuReturnPromptMsg="$mainMenuReturnPromptStr"
+
+# menu setup variables #
+theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
+theMUExitStr="${GRNct}e${NOct}=Exit"
+theADExitStr="${GRNct}e${NOct}=Exit to Advanced Options Menu"
+theLGExitStr="${GRNct}e${NOct}=Exit to Log Options Menu"
 
 [ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
 
@@ -255,6 +282,7 @@ logo() {
 ##---------------------------------------##
 _ShowAbout_()
 {
+    clear
     logo
     cat <<EOF
 About
@@ -275,22 +303,23 @@ EOF
     _DoExit_ 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jul-03] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-23] ##
+##----------------------------------------##
 _ShowHelp_()
 {
+    clear
     logo
     cat <<EOF
 Available commands:
-  $SCRIPT_NAME about              explains functionality
-  $SCRIPT_NAME help               display available commands
-  $SCRIPT_NAME forceupdate        updates to latest version (force update)
-  $SCRIPT_NAME run_now            run update process on router
-  $SCRIPT_NAME processNodes       run update check on nodes
-  $SCRIPT_NAME develop            switch to development branch
-  $SCRIPT_NAME stable             switch to stable branch
-  $SCRIPT_NAME uninstall          uninstalls script
+  ${SCRIPT_NAME}.sh about              explains functionality
+  ${SCRIPT_NAME}.sh help               display available commands
+  ${SCRIPT_NAME}.sh forceupdate        updates to latest version (force update)
+  ${SCRIPT_NAME}.sh run_now            run update process on router
+  ${SCRIPT_NAME}.sh processNodes       run update check on nodes
+  ${SCRIPT_NAME}.sh develop            switch to development branch
+  ${SCRIPT_NAME}.sh stable             switch to stable branch
+  ${SCRIPT_NAME}.sh uninstall          uninstalls script
 EOF
     printf "\n"
     _DoExit_ 0
@@ -340,7 +369,7 @@ _GetDefaultUSBMountPoint_()
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
 # Background function to create a blinking LED effect #
-Toggle_LEDs()
+_Toggle_LEDs_()
 {
    if [ -z "$LEDsToggleState" ]
    then
@@ -523,19 +552,6 @@ _FWVersionStrToNum_()
     echo "$verNum" ; return 0
 }
 
-##--------------------------------------------##
-## Modified by ExtremeFiretop [2023-Nov-26]   ##
-##--------------------------------------------##
-readonly NOct="\e[0m"
-readonly REDct="\e[1;31m"
-readonly GRNct="\e[1;32m"
-readonly BLKct="\e[1;30m"
-readonly YLWct="\e[1;33m"
-readonly BLUEct="\e[1;34m"
-readonly MAGENTAct="\e[1;35m"
-readonly CYANct="\e[1;36m"
-readonly WHITEct="\e[1;37m"
-
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-May-03] ##
 ##------------------------------------------##
@@ -559,12 +575,12 @@ readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1
 readonly CRON_UNKNOWN_DATE="**ERROR**: UNKNOWN Date Found"
 
 ##------------------------------------------##
-## Modified by Martinski W. [2024-Jan-22]   ##
+## Modified by Martinski W. [2024-Aug-06]   ##
 ##------------------------------------------##
 # To postpone a firmware update for a few days #
 readonly FW_UpdateMinimumPostponementDays=0
 readonly FW_UpdateDefaultPostponementDays=15
-readonly FW_UpdateMaximumPostponementDays=60
+readonly FW_UpdateMaximumPostponementDays=199
 readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
 
 readonly MODEL_ID="$(_GetRouterModelID_)"
@@ -977,9 +993,9 @@ _GetAllNodeSettings_()
     echo "$setting_value"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-27] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-04] ##
+##----------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -1041,6 +1057,10 @@ Update_Custom_Settings()
             if [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
             then
                 FW_UpdatePostponementDays="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_Expected_Run_Date" ]
+            then
+                FW_UpdateExpectedRunDate="$setting_value"
             #
             elif [ "$setting_type" = "FW_New_Update_EMail_Notification" ]
             then
@@ -1131,7 +1151,9 @@ _Set_FW_UpdateLOG_DirectoryPath_()
          [ "${#userInput}" -lt 4 ]          || \
          [ "$(echo "$userInput" | awk -F '/' '{print NF-1}')" -lt 2 ]
       then
-          printf "${REDct}INVALID input.${NOct}\n"
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
           continue
       fi
 
@@ -1142,7 +1164,9 @@ _Set_FW_UpdateLOG_DirectoryPath_()
       if [ ! -d "$rootDir" ]
       then
           printf "\n${REDct}**ERROR**${NOct}: Root directory path [${REDct}${rootDir}${NOct}] does NOT exist.\n\n"
-          printf "${REDct}INVALID input.${NOct}\n"
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
           continue
       fi
 
@@ -1187,9 +1211,9 @@ _Set_FW_UpdateLOG_DirectoryPath_()
    return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-24] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
    local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath=""
@@ -1197,11 +1221,18 @@ _Set_FW_UpdateZIP_DirectoryPath_()
    while true
    do
       printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
-      printf "[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+      if [ -n "$USBMountPoint" ] && _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+      then
+          printf "Default directory for USB-attached drive: [${GRNct}${FW_ZIP_BASE_DIR}${NOct}]\n"
+      else
+          printf "Default directory for 'Local' storage is: [${GRNct}/home/root${NOct}]\n"
+      fi
+      printf "\n[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+
       read -r userInput
 
-      if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
-      then break ; fi
+      if [ -z "$userInput" ] ; then break ; fi
+      if echo "$userInput" | grep -qE "^(e|E|exit|Exit)$" ; then return 1 ; fi
 
       if echo "$userInput" | grep -q '/$'
       then userInput="${userInput%/*}" ; fi
@@ -1212,7 +1243,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
          [ "${#userInput}" -lt 4 ]          || \
          [ "$(echo "$userInput" | awk -F '/' '{print NF-1}')" -lt 2 ]
       then
-          printf "${REDct}INVALID input.${NOct}\n"
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
           continue
       fi
 
@@ -1223,7 +1256,9 @@ _Set_FW_UpdateZIP_DirectoryPath_()
       if [ ! -d "$rootDir" ]
       then
           printf "\n${REDct}**ERROR**${NOct}: Root directory path [${REDct}${rootDir}${NOct}] does NOT exist.\n\n"
-          printf "${REDct}INVALID input.${NOct}\n"
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
           continue
       fi
 
@@ -1308,6 +1343,7 @@ readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 
 # Postponement Days for F/W Update Check #
 FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+FW_UpdateExpectedRunDate="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Feb-18] ##
@@ -1395,9 +1431,9 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-03] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-04] ##
+##----------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -1407,7 +1443,10 @@ _CreateEMailContent_()
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
-   subjectStr="F/W Update Status for $MODEL_ID"
+   if [ -s "$tempNodeEMailList" ]
+   then subjectStr="F/W Update Status for $node_lan_hostname"
+   else subjectStr="F/W Update Status for $MODEL_ID"
+   fi
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
 
@@ -1428,6 +1467,8 @@ _CreateEMailContent_()
              echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
              printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n"
+             [ "$FW_UpdateExpectedRunDate" != "TBD" ] && \
+             printf "\nThe firmware update is expected to occur on: <b>${FW_UpdateExpectedRunDate}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        AGGREGATED_UPDATE_NOTIFICATION)
@@ -1716,9 +1757,9 @@ _SendEMailNotification_()
    return "$curlCode"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Oct-12] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
 # Directory for downloading & extracting firmware #
 _CreateDirectory_()
 {
@@ -1728,11 +1769,14 @@ _CreateDirectory_()
     if [ ! -d "$1" ]
     then
         Say "${REDct}**ERROR**${NOct}: Unable to create directory [$1] to download firmware."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
-    # Clear directory in case any previous files still exist #
-    rm -f "${1}"/*
+    if ! "$offlineUpdateTrigger"
+    then
+        # Clear directory in case any previous files still exist #
+        rm -f "${1}"/*
+    fi
     return 0
 }
 
@@ -2080,7 +2124,7 @@ check_memory_and_prompt_reboot()
                 # Attempt to clear clears pagecache, dentries, and inodes after shutting down services
                 Say "Attempting to free up memory once more even more aggressively..."
 
-                # Stop Entware services before F/W flash #
+                # Stop Entware services to free some memory #
                 _EntwareServicesHandler_ stop
 
                 _ShutDownNonCriticalServices_
@@ -2130,38 +2174,31 @@ check_memory_and_prompt_reboot()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
-# Function to check if the current router model is supported
 check_version_support()
 {
     local numOfFields  current_version  numCurrentVers  numMinimumVers
-
-    # Minimum supported firmware version #
-    minimum_supported_version="3004.386.12.0"
-
     current_version="$(_GetCurrentFWInstalledLongVersion_)"
 
     numOfFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
     numCurrentVers="$(_FWVersionStrToNum_ "$current_version" "$numOfFields")"
-    numMinimumVers="$(_FWVersionStrToNum_ "$minimum_supported_version" "$numOfFields")"
+    numMinimumVers="$(_FWVersionStrToNum_ "$MinSupportedFirmwareVers" "$numOfFields")"
 
     # If the current firmware version is lower than the minimum supported firmware version, exit.
     if [ "$numCurrentVers" -lt "$numMinimumVers" ]
-    then
-       MinFirmwareCheckFailed="1"
-    fi
+    then MinFirmwareVerCheckFailed=true ; fi
 }
 
-check_model_support() {
+check_model_support()
+{
     # List of unsupported models as a space-separated string
     local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC1900"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
 
-    # Check if the current model is in the list of unsupported models
-    if echo "$unsupported_models" | grep -wq "$current_model"; then
-       ModelCheckFailed="1"
-    fi
+    # Check if the current model is in the list of unsupported models #
+    if echo "$unsupported_models" | grep -wq "$current_model"
+    then routerModelCheckFailed=true ; fi
 }
 
 ##---------------------------------------##
@@ -2208,13 +2245,147 @@ _TestLoginCredentials_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-23] ##
+## Modified by Martinski W. [2024-Jul-30] ##
+##----------------------------------------##
+_GetRawKeypress_() 
+{
+   local savedSettings
+   savedSettings="$(stty -g)"
+   stty -echo raw
+   echo "$(dd count=1 2>/dev/null)"
+   stty "$savedSettings"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+_GetKeypressInput_()
+{
+   local inputStrLenMAX=16  inputString  promptStr
+   local charNum  inputStrLen  keypressCount
+   local theKeySeqCnt  maxKeySeqCnt=4  retCode
+   local theKeySeqNum  maxKeySeqNum="27251624"
+   local offlineModeFlag=false
+
+   if [ -n "${offlineUpdateFlag:+xSETx}" ]
+   then offlineModeFlag=true ; fi
+
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       printf "\n**ERROR**: NO prompt string was provided.\n"
+       return 1
+   fi
+   promptStr="$1"
+
+   _ShowInputString_()
+   { printf "\r\033[0K${promptStr}  %s" "$inputString" ; }
+
+   _ClearKeySeqState_()
+   {
+      theKeySeqNum=0 ; theKeySeqCnt=0
+      if "$offlineModeFlag"
+      then offlineUpdateFlag=false
+      else unset offlineUpdateFlag
+      fi
+   }
+
+   charNum=""
+   inputString=""
+   inputStrLen=0
+   keypressCount=0
+   _ClearKeySeqState_
+   _ShowInputString_
+
+   local savedIFS="$IFS"
+   while IFS='' theChar="$(_GetRawKeypress_)"
+   do
+      charNum="$(printf "%d" "'$theChar")"
+
+      if [ "$charNum" -eq 0 ] || [ "$charNum" -eq 10 ] || [ "$charNum" -eq 13 ]
+      then
+          if [ "$inputStrLen" -gt 0 ]
+          then retCode=0 ; else retCode=1 ; fi
+          break
+      fi
+
+      ## BACKSPACE keypress ##
+      if [ "$charNum" -eq 8 ] || [ "$charNum" -eq 127 ]
+      then
+          if [ "$inputStrLen" -gt 0 ]
+          then
+              inputString="${inputString%?}"
+              inputStrLen="${#inputString}"
+              _ShowInputString_
+          fi
+          _ClearKeySeqState_
+          continue
+      fi
+
+      ## BACKSPACE ALL keypress ##
+      if [ "$charNum" -eq 21 ]
+      then
+          if [ "$inputStrLen" -gt 0 ]
+          then
+              inputString=""
+              inputStrLen=0
+              _ShowInputString_
+          fi
+          _ClearKeySeqState_
+          continue
+      fi
+
+      ## ONLY 7-bit ASCII printable characters are VALID ##
+      if [ "$charNum" -gt 31 ] && [ "$charNum" -lt 127 ]
+      then
+          if [ "$inputStrLen" -le "$inputStrLenMAX" ]
+          then
+              inputString="${inputString}${theChar}"
+              inputStrLen="${#inputString}"
+          fi
+          _ShowInputString_
+          _ClearKeySeqState_
+          continue
+      fi
+
+      # Non-Printable ASCII Codes ##
+      if "$offlineModeFlag" && [ "$charNum" -gt 0 ] && [ "$charNum" -lt 32 ]
+      then
+          offlineUpdateFlag=false
+          theKeySeqCnt="$((theKeySeqCnt + 1))"
+          if [ "$theKeySeqCnt" -eq 1 ]
+          then theKeySeqNum="$charNum"
+          else theKeySeqNum="${theKeySeqNum}${charNum}"
+          fi
+          if [ "$theKeySeqCnt" -eq "$maxKeySeqCnt" ] && \
+             [ "$theKeySeqNum" -eq "$maxKeySeqNum" ]
+          then
+              _ClearKeySeqState_
+              if [ "$inputString" = "offline" ]
+              then offlineUpdateFlag=true ; fi
+              continue
+          fi
+          if [ "$theKeySeqCnt" -gt "$maxKeySeqCnt" ] || \
+             { [ "$theKeySeqCnt" -eq "$maxKeySeqCnt" ] && \
+               [ "$theKeySeqNum" -ne "$maxKeySeqNum" ] ; }
+          then _ClearKeySeqState_ ; fi
+      else
+          _ClearKeySeqState_
+      fi
+   done
+   IFS="$savedIFS"
+
+   theUserInputStr="$inputString"
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
 ##----------------------------------------##
 _GetPasswordInput_()
 {
    local PSWDstrLenMIN=1  PSWDstrLenMAX=64
-   local PSWDstring  PSWDtmpStr  PSWDprompt
-   local retCode  charNum  pswdLength  showPSWD
+   local newPSWDstring  newPSWDtmpStr  PSWDprompt
+   local retCode  charNum  newPSWDlength  showPSWD
    # For more responsive TAB keypress debounce #
    local tabKeyDebounceSem="/tmp/var/tmp/${ScriptFNameTag}_TabKeySEM.txt"
 
@@ -2224,15 +2395,6 @@ _GetPasswordInput_()
        return 1
    fi
    PSWDprompt="$1"
-
-   _GetKeypress_()
-   {
-      local savedSettings
-      savedSettings="$(stty -g)"
-      stty -echo raw
-      echo "$(dd count=1 2>/dev/null)"
-      stty "$savedSettings"
-   }
 
    _TabKeyDebounceWait_()
    {
@@ -2252,41 +2414,41 @@ _GetPasswordInput_()
    _ShowPSWDPrompt_()
    {
       local pswdTemp  LENct  LENwd
-      [ "$showPSWD" = "1" ] && pswdTemp="$PSWDstring" || pswdTemp="$PSWDtmpStr"
-      if [ "$pswdLength" -lt "$PSWDstrLenMIN" ] || [ "$pswdLength" -gt "$PSWDstrLenMAX" ]
+      [ "$showPSWD" = "1" ] && pswdTemp="$newPSWDstring" || pswdTemp="$newPSWDtmpStr"
+      if [ "$newPSWDlength" -lt "$PSWDstrLenMIN" ] || [ "$newPSWDlength" -gt "$PSWDstrLenMAX" ]
       then LENct="$REDct" ; LENwd=""
       else LENct="$GRNct" ; LENwd="02"
       fi
-      printf "\r\033[0K$PSWDprompt [Length=${LENct}%${LENwd}d${NOct}]: %s" "$pswdLength" "$pswdTemp"
+      printf "\r\033[0K$PSWDprompt [Length=${LENct}%${LENwd}d${NOct}]: %s" "$newPSWDlength" "$pswdTemp"
    }
 
    showPSWD=0
    charNum=""
-   PSWDstring="$pswdString"
-   pswdLength="${#PSWDstring}"
-   PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+   newPSWDstring="$thePWSDstring"
+   newPSWDlength="${#newPSWDstring}"
+   newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
    echo ; _ShowPSWDPrompt_
 
    local savedIFS="$IFS"
-   while IFS='' theChar="$(_GetKeypress_)"
+   while IFS='' theChar="$(_GetRawKeypress_)"
    do
       charNum="$(printf "%d" "'$theChar")"
 
-      if [ "$theChar" = "" ] || [ "$charNum" -eq 13 ]
+      if [ "$charNum" -eq 0 ] || [ "$charNum" -eq 10 ] || [ "$charNum" -eq 13 ]
       then
-          if [ "$pswdLength" -ge "$PSWDstrLenMIN" ] && [ "$pswdLength" -le "$PSWDstrLenMAX" ]
+          if [ "$newPSWDlength" -ge "$PSWDstrLenMIN" ] && [ "$newPSWDlength" -le "$PSWDstrLenMAX" ]
           then
               echo
               retCode=0
-          elif [ "$pswdLength" -lt "$PSWDstrLenMIN" ]
+          elif [ "$newPSWDlength" -lt "$PSWDstrLenMIN" ]
           then
-              PSWDstring=""
+              newPSWDstring=""
               printf "\n${REDct}**ERROR**${NOct}: Password length is less than allowed minimum length "
               printf "[MIN=${GRNct}${PSWDstrLenMIN}${NOct}].\n"
               retCode=1
-          elif [ "$pswdLength" -gt "$PSWDstrLenMAX" ]
+          elif [ "$newPSWDlength" -gt "$PSWDstrLenMAX" ]
           then
-              PSWDstring=""
+              newPSWDstring=""
               printf "\n${REDct}**ERROR**${NOct}: Password length is greater than allowed maximum length "
               printf "[MAX=${GRNct}${PSWDstrLenMAX}${NOct}].\n"
               retCode=1
@@ -2294,8 +2456,13 @@ _GetPasswordInput_()
           break
       fi
 
-      ## Ignore Escape Sequences ##
-      [ "$charNum" -eq 27 ] && continue
+      ## Keep same previous password string ##
+      if [ "$charNum" -eq 27 ] && [ -n "$thePWSDstring" ]
+      then
+          retCode=0
+          newPSWDstring="$thePWSDstring"
+          break
+      fi
 
       ## TAB keypress as toggle with debounce ##
       if [ "$charNum" -eq 9 ]
@@ -2312,41 +2479,55 @@ _GetPasswordInput_()
       ## BACKSPACE keypress ##
       if [ "$charNum" -eq 8 ] || [ "$charNum" -eq 127 ]
       then
-          if [ "$pswdLength" -gt 0 ]
+          if [ "$newPSWDlength" -gt 0 ]
           then
-              PSWDstring="${PSWDstring%?}"
-              pswdLength="${#PSWDstring}"
-              PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
+              newPSWDstring="${newPSWDstring%?}"
+              newPSWDlength="${#newPSWDstring}"
+              newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
               _ShowPSWDPrompt_
-              continue
           fi
+          continue
+      fi
+
+      ## BACKSPACE ALL keypress ##
+      if [ "$charNum" -eq 21 ]
+      then
+          if [ "$newPSWDlength" -gt 0 ]
+          then
+              newPSWDstring=""
+              newPSWDlength=0
+              newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
+              _ShowPSWDPrompt_
+          fi
+          continue
       fi
 
       ## ONLY 7-bit ASCII printable characters are VALID ##
       if [ "$charNum" -gt 31 ] && [ "$charNum" -lt 127 ]
       then
-          if [ "$pswdLength" -le "$PSWDstrLenMAX" ]
+          if [ "$newPSWDlength" -le "$PSWDstrLenMAX" ]
           then
-              PSWDstring="${PSWDstring}${theChar}"
-              pswdLength="${#PSWDstring}"
-              PSWDtmpStr="$(_ShowAsterisks_ "$pswdLength")"
-              _ShowPSWDPrompt_
-              continue
+              newPSWDstring="${newPSWDstring}${theChar}"
+              newPSWDlength="${#newPSWDstring}"
+              newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
           fi
+          _ShowPSWDPrompt_
+          continue
       fi
    done
    IFS="$savedIFS"
 
-   pswdString="$PSWDstring"
+   thePWSDstring="$newPSWDstring"
    return "$retCode"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-29] ##
+## Modified by Martinski W. [2024-Jul-30] ##
 ##----------------------------------------##
 _GetLoginCredentials_()
 {
-    local retry="yes"  userName  pswdString
+    local retry="yes"  userName  savedMsg
+    local oldPWSDstring  thePWSDstring
     local loginCredsENC  loginCredsDEC
 
     # Get the Username from NVRAM #
@@ -2355,17 +2536,18 @@ _GetLoginCredentials_()
     loginCredsENC="$(Get_Custom_Setting credentials_base64)"
     if [ -z "$loginCredsENC" ] || [ "$loginCredsENC" = "TBD" ]
     then
-        pswdString=""
+        thePWSDstring=""
     else
         loginCredsDEC="$(echo "$loginCredsENC" | openssl base64 -d)"
-        pswdString="$(echo "$loginCredsDEC" | sed "s/${userName}://")"
+        thePWSDstring="$(echo "$loginCredsDEC" | sed "s/${userName}://")"
     fi
+    oldPWSDstring="$thePWSDstring"
 
     while [ "$retry" = "yes" ]
     do
         echo "=== Login Credentials ==="
         _GetPasswordInput_ "Enter password for user ${GRNct}${userName}${NOct}"
-        if [ -z "$pswdString" ]
+        if [ -z "$thePWSDstring" ]
         then
             printf "\nPassword string is ${REDct}NOT${NOct} valid. Credentials were not saved.\n"
             _WaitForEnterKey_
@@ -2373,12 +2555,16 @@ _GetLoginCredentials_()
         fi
 
         # Encode the Username and Password in Base64 #
-        loginCredsENC="$(echo -n "${userName}:${pswdString}" | openssl base64 -A)"
+        loginCredsENC="$(echo -n "${userName}:${thePWSDstring}" | openssl base64 -A)"
 
         # Save the credentials to the SETTINGSFILE #
         Update_Custom_Settings credentials_base64 "$loginCredsENC"
 
-        printf "\n${GRNct}Credentials saved.${NOct}\n"
+        if [ "$thePWSDstring" != "$oldPWSDstring" ]
+        then savedMsg="${GRNct}New credentials saved.${NOct}"
+        else savedMsg="${GRNct}Credentials remain unchanged.${NOct}"
+        fi
+        printf "\n${savedMsg}\n"
         printf "Encoded Credentials:\n"
         printf "${GRNct}$loginCredsENC${NOct}\n"
 
@@ -2662,6 +2848,76 @@ _GetLatestFWUpdateVersionFromWebsite_()
     return 0
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-24] ##
+##------------------------------------------##
+_CheckOnlineFirmwareSHA256_()
+{
+    # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
+    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
+ https://www.asuswrt-merlin.net/download | \
+ sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' | \
+ sed -n '/<pre[^>].*>/,/<\/pre>/p' | sed -e 's/<[^>].*>//g')"
+
+    if [ -z "$checksums" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: Could not download the firmware SHA256 signatures from the website."
+        _DoCleanUp_ 1
+        return 1
+    fi
+
+    if [ -f "$firmware_file" ]
+    then
+        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+        # Extract the corresponding signature for the firmware file from the fetched checksums #
+        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | cut -d' ' -f1)"
+        if [ "$fw_sig" != "$dl_sig" ]
+        then
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            return 1
+        else
+            Say "SHA256 signature check for firmware image file passed successfully."
+            return 0
+        fi
+    else
+        Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
+        _DoCleanUp_ 1
+        return 1
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+_CheckOfflineFirmwareSHA256_()
+{
+    if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]
+    then
+        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+        dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
+        if [ "$fw_sig" != "$dl_sig" ]
+        then
+            echo
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature from firmware file does NOT have a matching SHA256 signature."
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            printf "\nOffline update was aborted. Exiting.\n"
+            _DoCleanUp_ 1
+            return 1
+        else
+            Say "SHA256 signature check for firmware image file passed successfully."
+            return 0
+        fi
+    else
+        echo
+        Say "${REDct}**ERROR**${NOct}: SHA256 signature file NOT found."
+        printf "\nOffline update was aborted. Exiting.\n"
+        _DoCleanUp_ 1
+        return 1
+    fi
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-27] ##
 ##----------------------------------------##
@@ -2697,7 +2953,7 @@ _toggle_change_log_check_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-27] ##
+## Modified by ExtremeFiretop [2024-Jul-23] ##
 ##------------------------------------------##
 _Toggle_VPN_Access_()
 {
@@ -2705,9 +2961,9 @@ _Toggle_VPN_Access_()
 
     if [ "$currentSetting" = "ENABLED" ]
     then
-        printf "${REDct}*WARNING*${NOct}\n"
-        printf "Disabling this feature will shut down Tailscale VPN access during updates.\n"
-        printf "Proceed only if you do not need VPN access during updates.\n"
+        printf "\n${REDct}*NOTICE*${NOct}\n"
+        printf "Disabling this feature will shut down Tailscale/ZeroTier VPN access during updates.\n"
+        printf "Proceed if you do not need remote VPN access during firmware updates.\n"
 
         if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
         then
@@ -2717,9 +2973,9 @@ _Toggle_VPN_Access_()
             printf "VPN access during updates remains ${REDct}ENABLED.${NOct}\n"
         fi
     else
-        printf "${REDct}*WARNING*${NOct}\n"
-        printf "Enabling this feature will keep Tailscale VPN access active during updates.\n"
-        printf "Proceed only if you need VPN access during updates.\n"
+        printf "\n${REDct}*WARNING*${NOct}\n"
+        printf "Enabling this feature will keep Tailscale/ZeroTier VPN access active during updates.\n"
+        printf "Proceed only if you require Tailscale/ZeroTier to connect remotely via an SSH session during firmware updates.\n"
         if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
         then
             Update_Custom_Settings "Allow_Updates_OverVPN" "ENABLED"
@@ -3324,9 +3580,9 @@ _Calculate_DST_()
 {
    local notifyTimeStrn notifyTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
    local postponeTimeSecs fwNewUpdatePostponementDays
-   
+
    notifyTimeStrn="$1"
-   
+
    currentTimeSecs="$(date +%s)"
    notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
 
@@ -3457,12 +3713,12 @@ _CheckPostponementDays_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-06] ##
+##----------------------------------------##
 _Set_FW_UpdatePostponementDays_()
 {
-   local validNumRegExp="([0-9]|[1-9][0-9])"
+   local validNumRegExp="([0-9]|[1-9][0-9]|1[0-9][0-9])"
    local oldPostponementDays  newPostponementDays  postponeDaysStr  userInput
 
    oldPostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
@@ -3491,7 +3747,9 @@ _Set_FW_UpdatePostponementDays_()
           [ "$userInput" -le "$FW_UpdateMaximumPostponementDays" ]
        then newPostponementDays="$userInput" ; break ; fi
 
-       printf "${REDct}INVALID input.${NOct}\n"
+       printf "\n${REDct}INVALID input.${NOct}\n"
+       _WaitForEnterKey_
+       clear
    done
 
    if [ "$newPostponementDays" != "$oldPostponementDays" ]
@@ -3910,7 +4168,7 @@ _ManageChangelog_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
+## Modified by Martinski W. [2024-Aug-05] ##
 ##----------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
@@ -3918,6 +4176,7 @@ _CheckNewUpdateFirmwareNotification_()
    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
    local numOfFields  fwNewUpdateVersNum
+   local sendNewUpdateStatusEmail=false
    local currentVersionStr="$1"  releaseVersionStr="$2"
 
    numOfFields="$(echo "$currentVersionStr" | awk -F '.' '{print NF}')"
@@ -3929,6 +4188,7 @@ _CheckNewUpdateFirmwareNotification_()
        Say "Current firmware version '${currentVersionStr}' is up to date."
        Update_Custom_Settings FW_New_Update_Notification_Date TBD
        Update_Custom_Settings FW_New_Update_Notification_Vers TBD
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
        Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
        return 1
    fi
@@ -3947,14 +4207,9 @@ _CheckNewUpdateFirmwareNotification_()
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-           if "$inRouterSWmode" 
-           then
-              _SendEMailNotification_ NEW_FW_UPDATE_STATUS
-           fi
+           "$inRouterSWmode" && sendNewUpdateStatusEmail=true
            if ! "$FlashStarted"
-           then
-              _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
-           fi
+           then _ManageChangelog_ "download" "$fwNewUpdateNotificationVers" ; fi
        fi
    fi
 
@@ -3963,30 +4218,26 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-       if "$inRouterSWmode" 
-       then
-          _SendEMailNotification_ NEW_FW_UPDATE_STATUS
-       fi
+       "$inRouterSWmode" && sendNewUpdateStatusEmail=true
        if ! "$FlashStarted"
-       then
-          _ManageChangelog_ "download" "$fwNewUpdateNotificationVers"
-       fi
+       then _ManageChangelog_ "download" "$fwNewUpdateNotificationVers" ; fi
    fi
 
    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
    upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
    nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+
    if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
-   then
-       Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
-   else
-       Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
+   then Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
+   else Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
    fi
+
+   "$sendNewUpdateStatusEmail" && _SendEMailNotification_ NEW_FW_UPDATE_STATUS
    return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
+## Modified by Martinski W. [2024-Aug-04] ##
 ##----------------------------------------##
 _CheckNodeFWUpdateNotification_()
 {
@@ -4020,8 +4271,12 @@ _CheckNodeFWUpdateNotification_()
            nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
            nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
-           echo "" > "$tempNodeEMailList"
-           echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
+           {
+             echo ""
+             echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
+             echo "(<b>${1}</b> --> <b>${2}</b>)"
+             echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
+           } > "$tempNodeEMailList"
        fi
    fi
 
@@ -4031,8 +4286,12 @@ _CheckNodeFWUpdateNotification_()
        nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
        nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
-       echo "" > "$tempNodeEMailList"
-       echo "AiMesh Node $nodefriendlyname with MAC Address: $node_label_mac requires update from $1 to $2 ($1 --> $2)" >> "$tempNodeEMailList"
+       {
+         echo ""
+         echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
+         echo "(<b>${1}</b> --> <b>${2}</b>)"
+         echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
+       } > "$tempNodeEMailList"
    fi
    return 0
 }
@@ -4198,7 +4457,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-28] ##
+## Modified by Martinski W. [2024-Aug-02] ##
 ##----------------------------------------##
 _EntwareServicesHandler_()
 {
@@ -4206,11 +4465,12 @@ _EntwareServicesHandler_()
    local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
    local actionStr=""
-   local serviceStr  serviceCnt=0
+   local servicesList  servicesCnt=0
    local entwOPT_init  entwOPT_unslung
-   # space-delimited list #
-   local skipServiceList="tailscaled"
-   local skippedService  skippedServiceFile  skippedServiceList=""
+   # space-delimited list of services to skip #
+   local skipServiceList="tailscaled zerotier-one sshd"
+   local skippedService  skippedServiceFile  skippedServiceName
+   local theSkippedServiceList=""
 
    entwOPT_init="/opt/etc/init.d"
    entwOPT_unslung="${entwOPT_init}/rc.unslung"
@@ -4221,12 +4481,16 @@ _EntwareServicesHandler_()
           *) return 1 ;;
    esac
 
+   # Check if *NOT* skipping any services #
+   [ $# -gt 1 ] && [ "$2" = "-noskip" ] && skipServiceList=""
+
    _RenameSkippedService_()
    {
-       [ -z "$skippedServiceList" ] && return 1
-       for skippedServiceFile in $skippedServiceList
+       [ -z "$theSkippedServiceList" ] && return 1
+       for skippedServiceName in $theSkippedServiceList
        do  # Rename service file back to original state #
-           if mv -f "${entwOPT_init}/OFF.${skippedServiceFile}.OFF" "${entwOPT_init}/$skippedServiceFile"
+           skippedServiceFile="${entwOPT_init}/$skippedServiceName"
+           if mv -f "${entwOPT_init}/OFF.${skippedServiceName}.OFF" "$skippedServiceFile"
            then Say "Skipped $skippedServiceFile $1 call." ; fi
        done
        return 0
@@ -4235,35 +4499,40 @@ _EntwareServicesHandler_()
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
    then return 0 ; fi  ## Entware is NOT found ##
 
-   serviceStr="$(/usr/bin/find -L "$entwOPT_init" -name "*" -print 2>/dev/null | /bin/grep -E "(${entwOPT_init}/S[0-9]+|${entwOPT_init}/.*[.]sh$)")"
+   servicesList="$(/usr/bin/find -L "$entwOPT_init" -name "*" -print 2>/dev/null | /bin/grep -E "(${entwOPT_init}/S[0-9]+|${entwOPT_init}/.*[.]sh$)")"
+   [ -z "$servicesList" ] && return 0
 
-   [ -n "$serviceStr" ] && Say "Looking for Entware services..."
+   Say "Searching for Entware services to ${1}..."
 
-   # Filter out services to skip and add a skip message #
-   if [ "$AllowVPN" = "ENABLED" ]
+   # Filter out services to skip and add a "skip message" #
+   if [ "$AllowVPN" = "ENABLED" ] && [ -n "$skipServiceList" ]
    then
       for skipService in $skipServiceList
       do
-          skippedService="$(echo "$serviceStr" | /bin/grep -E "/S[0-9]+.*${skipService}$")"
+          skippedService="$(echo "$servicesList" | /bin/grep -E "/S[0-9]+.*${skipService}([.]sh)?$")"
           if [ -n "$skippedService" ]
           then
-              skippedServiceFile="$(basename "$skippedService")"
-              Say "Skipping $skippedServiceFile $1 call..."
-              # Rename service file so it's skipped by Entware #
-              if mv -f "${entwOPT_init}/$skippedServiceFile" "${entwOPT_init}/OFF.${skippedServiceFile}.OFF"
-              then
-                  [ -z "$skippedServiceList" ] && \
-                  skippedServiceList="$skippedServiceFile" || \
-                  skippedServiceList="$skippedServiceList $skippedServiceFile"
-                  serviceStr="$(echo "$serviceStr" | /bin/grep -vE "/S[0-9]+.*${skipService}$")"
-              fi
+              for skippedServiceFile in $skippedService
+              do
+                  skippedServiceName="$(basename "$skippedServiceFile")"
+                  Say "Skipping $skippedServiceFile $1 call..."
+                  # Rename service file so it's skipped by Entware #
+                  if mv -f "$skippedServiceFile" "${entwOPT_init}/OFF.${skippedServiceName}.OFF"
+                  then
+                      [ -z "$theSkippedServiceList" ] && \
+                      theSkippedServiceList="$skippedServiceName" || \
+                      theSkippedServiceList="$theSkippedServiceList $skippedServiceName"
+                      servicesList="$(echo "$servicesList" | /bin/grep -vE "${skippedServiceFile}$")"
+                  fi
+              done
           fi
       done
    fi
 
-   [ -n "$serviceStr" ] && serviceCnt="$(echo "$serviceStr" | wc -l)"
-   if [ "$serviceCnt" -eq 0 ]
+   [ -n "$servicesList" ] && servicesCnt="$(echo "$servicesList" | wc -l)"
+   if [ "$servicesCnt" -eq 0 ]
    then
+       Say "No Entware services to ${1}."
        _RenameSkippedService_ "$1" && echo
        return 0
    fi
@@ -4271,8 +4540,8 @@ _EntwareServicesHandler_()
    Say "${actionStr} Entware services..."
    "$isInteractive" && printf "Please wait.\n"
    Say "-----------------------------------------------------------"
-   # List the Entware service scripts found #
-   echo "$serviceStr" | while IFS= read -r servLine ; do Say "$servLine" ; done
+   # List the Entware services found to stop/start #
+   echo "$servicesList" | while IFS= read -r servLine ; do Say "$servLine" ; done
    Say "-----------------------------------------------------------"
 
    $entwOPT_unslung "$1" ; sleep 5
@@ -4281,9 +4550,338 @@ _EntwareServicesHandler_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-25] ##
+## Modified by Martinski W. [2024-Jul-29] ##
 ##----------------------------------------##
-# Embed functions from second script, modified as necessary.
+_GetOfflineFirmwareVersion_()
+{
+    local zip_file="$1"
+    local extract_version_regex='[0-9]+_[0-9]+\.[0-9]+_[0-9a-zA-Z]+'
+    local validate_version_regex='[0-9]+\.[0-9]+\.[0-9]+\.[0-9a-zA-Z]+'
+    local fwVersionFormat
+
+    # Extract the version number using regex #
+    firmware_version="$(echo "$zip_file" | grep -oE "$extract_version_regex")"
+
+    if [ -n "$firmware_version" ]
+    then
+        # Replace underscores with dots #
+        formatted_version="$(echo "$firmware_version" | sed 's/_/./g')"
+        printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
+        printf "\n---------------------------------------------------\n"
+    else
+        fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
+        # Prompt user for the firmware version if extraction fails #
+        printf "\n${REDct}**WARNING**${NOct}\n"
+        printf "\nFailed to identify firmware version from the ZIP file name."
+        printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
+        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.beta1):  "
+        read -r formatted_version
+
+        # Validate user input #
+        while ! echo "$formatted_version" | grep -qE "^${validate_version_regex}$"
+        do
+            printf "\n${REDct}**WARNING**${NOct} Invalid format detected!\n"
+            printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
+            printf "\n(i.e 3004.388.8.0 or 3004.388.8.beta1):  "
+            read -r formatted_version
+        done
+        printf "\nThe user-provided firmware version: ${GRNct}$formatted_version${NOct}\n"
+    fi
+
+    export release_version="$formatted_version"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Aug-06] ##
+##------------------------------------------##
+_SelectOfflineUpdateFile_()
+{
+    local selection fileList fileCount
+
+    # Check if the directory is empty or no valid files are found #
+    if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
+    then
+        printf "\nNo valid files found in the directory. Exiting.\n"
+        printf "\n---------------------------------------------------\n"
+        return 1
+    fi
+
+    while true
+    do
+        printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
+
+        fileList="$(ls -A1 "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
+        fileCount=1
+        for file in $fileList
+        do
+            printf "${GRNct}%d${NOct}) %s\n" "$fileCount" "$file"
+            fileCount="$((fileCount + 1))"
+        done
+
+        # Prompt user to select a file #
+        printf "\n---------------------------------------------------\n"
+        printf "\n[${theMUExitStr}] Enter the number of the ZIP file you want to select:  "
+        read -r selection
+
+        if [ -z "$selection" ]
+        then
+            printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
+            _WaitForEnterKey_
+            clear
+            continue
+        fi
+
+        if echo "$selection" | grep -qE "^(e|E|exit|Exit)$"
+        then
+            printf "Update process was cancelled. Exiting.\n"
+            return 1
+        fi
+
+        # Validate selection #
+        selected_file="$(echo "$fileList" | awk "NR==$selection")"
+        if [ -z "$selected_file" ]
+        then
+            printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
+            _WaitForEnterKey_
+            clear
+            continue
+        else
+            clear
+            printf "\n---------------------------------------------------\n"
+            printf "\nYou have selected:\n${GRNct}$selected_file${NOct}\n"
+            break
+        fi
+    done
+
+    # Extract or prompt for firmware version #
+    _GetOfflineFirmwareVersion_ "$selected_file"
+
+    # Confirm the selection
+    if _WaitForYESorNO_ "\nDo you want to continue with the selected file?"
+    then
+        printf "\n---------------------------------------------------\n"
+        printf "\nStarting firmware update with the selected file.\n"
+        # Rename the selected file #
+        new_file_name="${PRODUCT_ID}_firmware.${selected_file##*.}"
+        mv -f "$selected_file" "${FW_ZIP_DIR}/$new_file_name"
+        if [ $? -eq 0 ]
+        then
+            printf "\nFile packaged to ${GRNct}${new_file_name}${NOct}"
+            printf "\nRelease version: ${GRNct}${release_version}${NOct}\n"
+            printf "\n---------------------------------------------------\n"
+            _WaitForEnterKey_
+            clear
+            return 0
+        else
+            printf "\nFailed to rename the file. Exiting.\n"
+            return 1
+        fi
+    else
+        printf "Operation was cancelled by user. Exiting.\n"
+        return 1
+    fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-23] ##
+##------------------------------------------##
+_RunBackupmon_()
+{
+    # Check for the presence of backupmon.sh script
+    if [ -f "/jffs/scripts/backupmon.sh" ]
+    then
+        local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+        if [ "$current_backup_settings" = "ENABLED" ]
+        then
+            # Extract version number from backupmon.sh
+            local BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
+
+            # Adjust version format from 1.46 to 1.4.6 if needed
+            local DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
+            if [ "$DOT_COUNT" -eq 0 ]; then
+                # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
+                BM_VERSION="${BM_VERSION}.0.0"
+            elif [ "$DOT_COUNT" -eq 1 ]; then
+                # For versions like 1.46, insert a dot before the last two digits
+                BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
+            fi
+
+            # Convert version strings to comparable numbers
+            local currentBM_version="$(_ScriptVersionStrToNum_ "$BM_VERSION")"
+            local requiredBM_version="$(_ScriptVersionStrToNum_ "1.5.3")"
+
+            # Check if BACKUPMON version is greater than or equal to 1.5.3
+            if [ "$currentBM_version" -ge "$requiredBM_version" ]; then
+                # Execute the backup script if it exists #
+                echo ""
+                Say "Backup Started (by BACKUPMON)"
+                sh /jffs/scripts/backupmon.sh -backup >/dev/null
+                BE=$?
+                Say "Backup Finished"
+                echo ""
+                if [ $BE -eq 0 ]; then
+                    Say "Backup Completed Successfully"
+                    echo ""
+                else
+                    Say "Backup Failed"
+                    echo ""
+                    _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+                    _DoCleanUp_ 1
+                    if "$isInteractive"
+                    then
+                        printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+                        printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+                        printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+                        printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+                        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                        return 1
+                    else
+                        _DoExit_ 1
+                    fi
+                fi
+            else
+                # BACKUPMON version is not sufficient
+                echo ""
+                Say "${REDct}**IMPORTANT NOTICE**:${NOct}"
+                echo ""
+                Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.5.3."
+                Say "Skipping backup. Please update your version of BACKUPMON."
+                echo ""
+            fi
+        else
+            Say "Backup script (BACKUPMON) is disabled in the advanced options. Skipping backup."
+            echo ""
+        fi
+    else
+        Say "Backup script (BACKUPMON) is not installed. Skipping backup."
+        echo ""
+    fi
+    return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+_RunOfflineUpdateNow_()
+{
+    local offlineConfigFile="${SETTINGS_DIR}/offline_updates.txt"
+
+    _ClearOfflineUpdateState_()
+    {
+        offlineUpdateTrigger=false
+        theMenuReturnPromptMsg="$mainMenuReturnPromptStr"
+        if [ $# -eq 0 ] || [ -z "$1" ] ; then return 0 ; fi
+        [ "$1" != "1" ] && printf "$1"
+        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+    }
+
+    [ ! -s "$offlineConfigFile" ] && return 2
+
+    # Source the configuration file #
+    . "$offlineConfigFile"
+
+    # Check required parameter #
+    if [ -z "${FW_OFFLINE_UPDATE_IS_ALLOWED:+xSETx}" ] || \
+       [ "$FW_OFFLINE_UPDATE_IS_ALLOWED" != "true" ]
+    then return 2 ; fi
+
+    # Reset FW_OFFLINE_UPDATE_ACCEPT_RISK to false #
+    if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$offlineConfigFile"
+    then
+        sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$offlineConfigFile"
+    fi
+
+    clear
+    printf "\n${REDct}***WARNING***${NOct}"
+    printf "\nYou are about to initiate an ${REDct}offline${NOct} firmware update."
+    printf "\nThe firmware image to be flashed is ${REDct}unvetted${NOct} and of ${REDct}unknown${NOct} origin.\n"
+    printf "\n1. This feature is intended for developers and advanced users only."    
+    printf "\n2. No support will be offered when flashing firmware offline."
+    printf "\n3. This offline feature is excluded from documentation on purpose.\n"
+    printf "\nDo you acknowledge the risk and wish to proceed?"
+    printf "\nYou must type '${REDct}YES${NOct}' to continue.\n"
+
+    read -r response
+    if [ "$response" = "YES" ]
+    then
+        # Add or update the setting to true #
+        if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$offlineConfigFile"
+        then
+            sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"true\"/" "$offlineConfigFile"
+        else
+            # Ensure the new setting is added on a new line
+            echo "" >> "$offlineConfigFile"
+            echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"true\"" >> "$offlineConfigFile"
+        fi
+    else
+        # Add or update the setting to false #
+        if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$offlineConfigFile"
+        then
+            sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$offlineConfigFile"
+        else
+            # Ensure the new setting is added on a new line #
+            echo "" >> "$offlineConfigFile"
+            echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"" >> "$offlineConfigFile"
+        fi
+        _ClearOfflineUpdateState_ "Offline update was aborted. Exiting.\n"
+        return 1
+    fi
+    clear
+    logo
+    printf "\n---------------------------------------------------\n"
+
+    offlineUpdateTrigger=true
+    theMenuReturnPromptMsg="$advnMenuReturnPromptStr"
+
+    if _Set_FW_UpdateZIP_DirectoryPath_
+    then
+        clear
+        # Create directory for downloading & extracting firmware #
+        if ! _CreateDirectory_ "$FW_ZIP_DIR"
+        then
+            _ClearOfflineUpdateState_ 1 ; return 1
+        fi
+        printf "\n---------------------------------------------------\n"
+        printf "\nPlease copy your firmware ZIP file (using the *original* ZIP filename) to this directory:"
+        printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
+        printf "\nPress '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
+        printf "\n---------------------------------------------------\n"
+        if _WaitForYESorNO_
+        then
+            clear
+            printf "\n---------------------------------------------------\n"
+            printf "\nContinuing to the update file selection process.\n"
+            if _SelectOfflineUpdateFile_
+            then
+                set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
+                if [ $? -eq 0 ] && [ $# -eq 2 ] && \
+                    [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
+                then
+                    release_link="$2"
+                    _RunFirmwareUpdateNow_
+                    _ClearOfflineUpdateState_
+                else
+                    Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
+                    _ClearOfflineUpdateState_ 1
+                    return 1
+                fi
+            else
+                _ClearOfflineUpdateState_ 1
+                return 1
+            fi
+        else
+            _ClearOfflineUpdateState_ "Offline update process was cancelled. Exiting.\n"
+            return 1
+        fi
+    else
+        _ClearOfflineUpdateState_ "Offline update process was cancelled. Exiting.\n"
+        return 1
+    fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-31] ##
+##------------------------------------------##
 _RunFirmwareUpdateNow_()
 {
     # Double-check the directory exists before using it #
@@ -4295,16 +4893,19 @@ _RunFirmwareUpdateNow_()
 
     # Check if the router model is supported OR if
     # it has the minimum firmware version supported.
-    if [ "$ModelCheckFailed" != "0" ]; then
+    if "$routerModelCheckFailed"
+    then
         Say "${REDct}WARNING:${NOct} The current router model is not supported by this script."
-        if "$inMenuMode"; then
+        if "$inMenuMode"
+        then
             printf "\nWould you like to uninstall the script now?"
-            if _WaitForYESorNO_; then
+            if _WaitForYESorNO_
+            then
                 _DoUninstall_
                 return 0
             else
                 Say "Uninstallation cancelled. Exiting script."
-                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+                _WaitForEnterKey_ "$theMenuReturnPromptMsg"
                 return 0
             fi
         else
@@ -4312,13 +4913,15 @@ _RunFirmwareUpdateNow_()
             _DoExit_ 1
         fi
     fi
-    if [ "$MinFirmwareCheckFailed" != "0" ]; then
+    if "$MinFirmwareVerCheckFailed" && ! "$offlineUpdateTrigger"
+    then
         Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
-Please manually update to version $minimum_supported_version or higher to use this script.\n"
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
 
+    echo
     Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
     Say "Running the update task now... Checking for F/W updates..."
     FlashStarted=true
@@ -4332,7 +4935,7 @@ Please manually update to version $minimum_supported_version or higher to use th
     then
         Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
         Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
 
@@ -4359,7 +4962,7 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     local credsBase64=""
     local currentVersionNum=""  releaseVersionNum=""
-    local current_version=""  release_version=""
+    local current_version=""
 
     # Create directory for downloading & extracting firmware #
     if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
@@ -4379,38 +4982,48 @@ Please manually update to version $minimum_supported_version or higher to use th
     # is that the user wants to do a MANUAL Update Check
     # regardless of the state of the "F/W Update Check."
     #---------------------------------------------------------#
-    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
-    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
-    if [ "$FW_UpdateCheckState" -eq 0 ]
+    if ! "$offlineUpdateTrigger"
     then
-        Say "Firmware update check is currently disabled."
-        "$inMenuMode" && _WaitForEnterKey_ || return 1
-    fi
+        FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+        [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 
-    #------------------------------------------------------
-    # If the "New F/W Update" flag has been set get the
-    # "New F/W Release Version" from the router itself.
-    # If no new F/W version update is available return.
-    #------------------------------------------------------
-    if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
-       ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-    then
-        Say "No new firmware version update is found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
-    fi
+        if [ "$FW_UpdateCheckState" -eq 0 ]
+        then
+            Say "Firmware update check is currently disabled."
+            "$inMenuMode" && _WaitForEnterKey_ || return 1
+        fi
 
-    # Use set to read the output of the function into variables
-    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
-    if [ $? -eq 0 ] && [ $# -eq 2 ] && \
-       [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
-    then
-        release_version="$1"
-        release_link="$2"
-    else
-        Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
+        #------------------------------------------------------
+        # If the "New F/W Update" flag has been set get the
+        # "New F/W Release Version" from the router itself.
+        # If no new F/W version update is available return.
+        #------------------------------------------------------
+        if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+           ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+        then
+            Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        fi
+
+        # Use set to read the output of the function into variables
+        set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_URL_RELEASE")
+        if [ $? -eq 0 ] && [ $# -eq 2 ] && \
+           [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
+        then
+            release_version="$1"
+            release_link="$2"
+        else
+            Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        fi
+
+        if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
+        then
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 0
+        fi
     fi
 
     # Extracting the F/W Update codebase number to use in the curl #
@@ -4418,18 +5031,12 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Inserting dots between each number
     dottedVersion="$(echo "$fwUpdateBaseNum" | sed 's/./&./g' | sed 's/.$//')"
 
-    if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
-    then
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 0
-    fi
-
     ## Check for Login Credentials ##
     credsBase64="$(Get_Custom_Setting credentials_base64)"
     if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
     then
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
 
@@ -4443,7 +5050,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
         then
             Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
-            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
             return 1
         fi
     fi
@@ -4453,85 +5060,17 @@ Please manually update to version $minimum_supported_version or higher to use th
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
-    # Compare versions before deciding to download
-    if [ "$releaseVersionNum" -gt "$currentVersionNum" ]
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Jul-29] ##
+    ##----------------------------------------##
+    _RunBackupmon_
+    # Background function to create a blinking LED effect #
+    _Toggle_LEDs_ 2 & Toggle_LEDs_PID=$!
+
+    # Compare versions before deciding to download #
+    if ! "$offlineUpdateTrigger" && \
+       [ "$releaseVersionNum" -gt "$currentVersionNum" ]
     then
-        ##------------------------------------------##
-        ## Modified by ExtremeFiretop [2024-Mar-20] ##
-        ##------------------------------------------##
-        # Check for the presence of backupmon.sh script
-        if [ -f "/jffs/scripts/backupmon.sh" ]
-        then
-            local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-            if [ "$current_backup_settings" = "ENABLED" ]
-            then
-                # Extract version number from backupmon.sh
-                local BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
-
-                # Adjust version format from 1.46 to 1.4.6 if needed
-                local DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
-                if [ "$DOT_COUNT" -eq 0 ]; then
-                    # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
-                    BM_VERSION="${BM_VERSION}.0.0"
-                elif [ "$DOT_COUNT" -eq 1 ]; then
-                    # For versions like 1.46, insert a dot before the last two digits
-                    BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
-                fi
-
-                # Convert version strings to comparable numbers
-                local currentBM_version="$(_ScriptVersionStrToNum_ "$BM_VERSION")"
-                local requiredBM_version="$(_ScriptVersionStrToNum_ "1.5.3")"
-
-                # Check if BACKUPMON version is greater than or equal to 1.5.3
-                if [ "$currentBM_version" -ge "$requiredBM_version" ]; then
-                    # Execute the backup script if it exists #
-                    echo ""
-                    Say "Backup Started (by BACKUPMON)"
-                    sh /jffs/scripts/backupmon.sh -backup >/dev/null
-                    BE=$?
-                    Say "Backup Finished"
-                    echo ""
-                    if [ $BE -eq 0 ]; then
-                        Say "Backup Completed Successfully"
-                        echo ""
-                    else
-                        Say "Backup Failed"
-                        echo ""
-                        _SendEMailNotification_ NEW_BM_BACKUP_FAILED
-                        _DoCleanUp_ 1
-                        if "$isInteractive"
-                        then
-                            printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
-                            printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
-                            printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
-                            printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
-                            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                            return 1
-                        else
-                            _DoExit_ 1
-                        fi
-                    fi
-                else
-                    # BACKUPMON version is not sufficient
-                    echo ""
-                    Say "${REDct}**IMPORTANT NOTICE**:${NOct}"
-                    echo ""
-                    Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.5.3."
-                    Say "Skipping backup. Please update your version of BACKUPMON."
-                    echo ""
-                fi
-            else
-                Say "Backup script (BACKUPMON) is disabled in the advanced options. Skipping backup."
-                echo ""
-            fi
-        else
-            Say "Backup script (BACKUPMON) is not installed. Skipping backup."
-            echo ""
-        fi
-
-        # Background function to create a blinking LED effect #
-        Toggle_LEDs 2 & Toggle_LEDs_PID=$!
-
         Say "Latest release version is ${GRNct}${release_version}${NOct}."
         Say "Downloading ${GRNct}${release_link}${NOct}"
         echo
@@ -4545,13 +5084,14 @@ Please manually update to version $minimum_supported_version or higher to use th
 
         wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
              -O "$FW_ZIP_FPATH" "$release_link"
-    fi
 
-    if [ ! -f "$FW_ZIP_FPATH" ]
-    then
-        Say "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
+        if [ ! -f "$FW_ZIP_FPATH" ]
+        then
+            Say "${REDct}**ERROR**${NOct}: Firmware ZIP file [$FW_ZIP_FPATH] was not downloaded."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            _Reset_LEDs_
+            return 1
+        fi
     fi
 
     ##------------------------------------------##
@@ -4607,7 +5147,8 @@ Please manually update to version $minimum_supported_version or higher to use th
         rm -f "$FW_ZIP_FPATH"
         _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        _Reset_LEDs_
         return 1
     fi
 
@@ -4627,7 +5168,8 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     if [ "$retCode" -eq 1 ]
     then
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        _Reset_LEDs_
         return 1
     fi
 
@@ -4709,61 +5251,22 @@ Please manually update to version $minimum_supported_version or higher to use th
         firmware_file="$pure_file"
     fi
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Jun-30] ##
-    ##----------------------------------------##
-    # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
- https://www.asuswrt-merlin.net/download | \
- sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' | \
- sed -n '/<pre[^>].*>/,/<\/pre>/p' | sed -e 's/<[^>].*>//g')"
-
-    if [ -z "$checksums" ]
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Jul-23] ##
+    ##------------------------------------------##
+    if "$offlineUpdateTrigger"
     then
-        Say "${REDct}**ERROR**${NOct}: Could not download the firmware SHA256 signatures from the website."
-        _DoCleanUp_ 1
-        if [ "$inMenuMode" = true ]
-        then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
-        fi
-    fi
-
-    if [ -f "$firmware_file" ]
-    then
-        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
-        # Extract the corresponding signature for the firmware file from the fetched checksums #
-        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | cut -d' ' -f1)"
-        if [ "$fw_sig" != "$dl_sig" ]
-        then
-            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
-            _DoCleanUp_ 1
-            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
-            if [ "$inMenuMode" = true ]
-            then
-                _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                return 1
-            else
-                # Assume non-interactive mode; perform exit.
-                _DoExit_ 1
-            fi
-        else
-            Say "SHA256 signature check for firmware image file passed successfully."
-        fi
+        _CheckOfflineFirmwareSHA256_
+        retCode="$?"
     else
-        Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
-        _DoCleanUp_ 1
-        if [ "$inMenuMode" = true ]
-        then
-            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 1
-        else
-            # Assume non-interactive mode; perform exit.
-            _DoExit_ 1
-        fi
+        _CheckOnlineFirmwareSHA256_
+        retCode="$?"
+    fi
+    if [ "$retCode" -eq 1 ]
+    then
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        _Reset_LEDs_
+        return 1
     fi
 
     ##----------------------------------------##
@@ -4801,9 +5304,6 @@ Please manually update to version $minimum_supported_version or higher to use th
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
-    # Stop Entware services before F/W flash #
-    _EntwareServicesHandler_ stop
-
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Jun-30] ##
     ##------------------------------------------##
@@ -4824,7 +5324,10 @@ Please manually update to version $minimum_supported_version or higher to use th
 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
-        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+        if ! "$offlineUpdateTrigger"
+        then
+            _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+        fi
 
         if [ -f /opt/bin/diversion ]
         then
@@ -4869,14 +5372,23 @@ Please manually update to version $minimum_supported_version or higher to use th
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
-        # *WARNING*: No more logging at this point & beyond #
-        /sbin/ejusb -1 0 -u 1
-
         #-------------------------------------------------------
         # Stop toggling LEDs during the F/W flash to avoid
         # modifying NVRAM during the actual flash process.
         #-------------------------------------------------------
         _Reset_LEDs_
+
+        ##----------------------------------------##
+        ## Modified by Martinski W. [2024-Jul-24] ##
+        ##----------------------------------------##
+        # Remove SIGHUP to allow script to continue #
+        trap '' HUP
+
+        # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
+        _EntwareServicesHandler_ stop -noskip
+
+        # *WARNING*: NO MORE logging at this point & beyond #
+        /sbin/ejusb -1 0 -u 1
 
         nohup curl -k "${routerURLstr}/upgrade.cgi" \
         --referer "${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
@@ -4917,6 +5429,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         # reboot by itself after the process returns, do it now.
         #----------------------------------------------------------#
         sleep 180
+        _ReleaseLock_
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
@@ -4943,7 +5456,7 @@ Please manually update to version $minimum_supported_version or higher to use th
         fi
     fi
 
-    "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+    "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
 ##-------------------------------------##
@@ -5195,16 +5708,20 @@ _SetSecondaryEMailAddress_()
 
        if ! echo "$userInput" | grep -qE ".+[@].+"
        then
-           printf "${REDct}INVALID input.${NOct} "
+           printf "\n${REDct}INVALID input.${NOct} "
            printf "No ampersand character [${GRNct}@${NOct}] is found.\n"
+           _WaitForEnterKey_
+           clear
            continue
        fi
 
        curCharLen="${#userInput}"
        if [ "$curCharLen" -lt "$minCharLen" ] || [ "$curCharLen" -gt "$maxCharLen" ]
        then
-           printf "${REDct}INVALID input length${NOct} "
+           printf "\n${REDct}INVALID input length${NOct} "
            printf "[Minimum=${GRNct}${minCharLen}${NOct}, Maximum=${GRNct}${maxCharLen}${NOct}]\n"
+           _WaitForEnterKey_
+           clear
            continue
        fi
 
@@ -5368,9 +5885,9 @@ check_version_support
 ##-------------------------------------##
 _CheckEMailConfigFileFromAMTM_ 0
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-03] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
 if [ $# -gt 0 ]
 then
    inMenuMode=false
@@ -5453,11 +5970,6 @@ then
     "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ] && sh $FW_UpdateCheckScript 2>&1 &
     _WaitForEnterKey_
 fi
-
-# menu setup variables #
-theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
-theADExitStr="${GRNct}e${NOct}=Exit to Advanced Options Menu"
-theLGExitStr="${GRNct}e${NOct}=Exit to Log Options Menu"
 
 padStr="      "
 SEPstr="----------------------------------------------------------"
@@ -5787,17 +6299,20 @@ _ShowMainMenu_()
       Say "${REDct}WARNING:${NOct} ${scriptUpdateNotify}${NOct}\n"
    fi
 
-   # Unsupported Model Checks #
-   if [ "$ModelCheckFailed" != "0" ]; then
+   # Unsupported Model Check #
+   if "$routerModelCheckFailed"
+   then
       Say "${REDct}WARNING:${NOct} The current router model is not supported by this script.
  Please uninstall.\n"
    fi
-   if [ "$MinFirmwareCheckFailed" != "0" ]; then
+   if "$MinFirmwareVerCheckFailed"
+   then
       Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
- Please manually update to version $minimum_supported_version or higher to use this script.\n"
+ Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
    fi
 
-   if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"; then
+   if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+   then
       Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB).
  A USB drive is required for F/W updates.\n"
    fi
@@ -5895,7 +6410,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-27] ##
+## Modified by ExtremeFiretop [2024-Jul-23] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -5904,10 +6419,10 @@ _ShowAdvancedOptionsMenu_()
    printf "================== Advanced Options Menu =================\n"
    printf "${SEPstr}\n"
 
-   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update ZIP File"
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
-   printf "\n  ${GRNct}2${NOct}.  Set F/W Update Check Schedule"
+   printf "\n  ${GRNct}2${NOct}.  Set F/W Update Cron Schedule"
    printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
    local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
@@ -5920,7 +6435,7 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
-   printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale Access During Updates"
+   printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale/ZeroTier Access During Updates"
    if [ "$VPNAccess" = "DISABLED" ]
    then
        printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
@@ -6001,7 +6516,7 @@ _ShowAdvancedOptionsMenu_()
 
    printf "\n ${GRNct}un${NOct}.  Uninstall\n"
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-   printf "${SEPstr}"
+   printf "${SEPstr}\n"
 }
 
 ##---------------------------------------##
@@ -6107,18 +6622,19 @@ _AdvancedLogsOptions_()
     done
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-27] ##
-##------------------------------------------##
-_advanced_options_menu_()
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+_AdvancedOptionsMenu_()
 {
+    local theUserInputStr=""
+    local offlineUpdateFlag=false
     while true
     do
         _ShowAdvancedOptionsMenu_
-        printf "\nEnter selection:  "
-        read -r advancedChoice
+        _GetKeypressInput_ "Enter selection:"
         echo
-        case $advancedChoice in
+        case "$theUserInputStr" in
             1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
             2) _Set_FW_UpdateCronSchedule_
@@ -6157,9 +6673,12 @@ _advanced_options_menu_()
                ;;
            un) _DoUninstall_ && _WaitForEnterKey_
                ;;
-       e|exit) break
+           e|E|exit) break
                ;;
-            *) _InvalidMenuSelection_
+            *) if [ -n "${offlineUpdateFlag:+OK}" ] && "$offlineUpdateFlag"
+               then _RunOfflineUpdateNow_ ; [ "$?" -eq 2 ] && _InvalidMenuSelection_
+               else _InvalidMenuSelection_
+               fi
                ;;
         esac
     done
@@ -6208,7 +6727,7 @@ do
           ;;
       up) _SCRIPTUPDATE_
           ;;
-      ad) _advanced_options_menu_
+      ad) _AdvancedOptionsMenu_
           ;;
       mn) if "$inRouterSWmode" && [ -n "$node_list" ]
           then _ShowNodesMenuOptions_
@@ -6217,7 +6736,7 @@ do
           ;;
       lo) _AdvancedLogsOptions_
           ;;
-  e|exit) _DoExit_ 0
+      e|E|exit) _DoExit_ 0
           ;;
        *) _InvalidMenuSelection_
           ;;
