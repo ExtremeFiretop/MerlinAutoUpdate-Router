@@ -34,11 +34,10 @@ jobs:
           echo "Original MerlinAU.sh contents:"
           cat MerlinAU.sh
           
-          # Simulate Update the SCRIPT_VERSION and SCRIPT_BRANCH values
-          sed -e "s/^readonly SCRIPT_VERSION=.*$/readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}/" MerlinAU.sh
-          sed -e "s/^SCRIPT_BRANCH=.*$/SCRIPT_BRANCH=\"dev\"/" MerlinAU.sh \
+          # Simulate updating the SCRIPT_VERSION and SCRIPT_BRANCH values
+          sed -e "/^readonly SCRIPT_VERSION=/s/.*/readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}/" \
+              -e "/^SCRIPT_BRANCH=.*$/s/.*/SCRIPT_BRANCH=\"dev\"/" \
               MerlinAU.sh > MerlinAU.sh.tmp
-
           
           # Display the simulated updated contents
           echo "Simulated updated MerlinAU.sh contents:"
