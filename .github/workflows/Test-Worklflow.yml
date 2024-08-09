@@ -36,7 +36,8 @@ jobs:
           
           # Simulate Update the SCRIPT_VERSION and SCRIPT_BRANCH values
           sed -i "/^readonly SCRIPT_VERSION=/s/.*/readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}/" MerlinAU.sh
-          sed -i "/^SCRIPT_BRANCH=.*$/s/.*/SCRIPT_BRANCH=\"master\"/" MerlinAU.sh
+          sed -i "/^SCRIPT_BRANCH=.*$/s/.*/SCRIPT_BRANCH=\"master\"/" MerlinAU.sh \
+              MerlinAU.sh > MerlinAU.sh.tmp
           
           # Display the simulated updated contents
           echo "Simulated updated MerlinAU.sh contents:"
