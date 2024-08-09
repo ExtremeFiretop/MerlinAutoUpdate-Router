@@ -35,7 +35,7 @@ jobs:
           cat MerlinAU.sh
           
           # Simulate updating the SCRIPT_VERSION and SCRIPT_BRANCH values
-          sed -e "/^readonly SCRIPT_VERSION=/s/.*/readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}/" \
+          sed -e "s/^readonly SCRIPT_VERSION=.*$/readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}/" \
               -e "/^SCRIPT_BRANCH=.*$/s/.*/SCRIPT_BRANCH=\"dev\"/" \
               MerlinAU.sh > MerlinAU.sh.tmp
           
