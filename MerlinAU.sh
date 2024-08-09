@@ -8,16 +8,16 @@
 ###################################################################
 set -u
 
+## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.3.0
 readonly SCRIPT_NAME="MerlinAU"
+## Set to "master" for Production Releases ##
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
 ##----------------------------------------##
 # Script URL Info #
-
-## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="dev"
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router"
 SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
 
