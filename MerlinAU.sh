@@ -5426,58 +5426,52 @@ _RunOfflineUpdateNow_()
     offlineUpdateTrigger=true
     theMenuReturnPromptMsg="$advnMenuReturnPromptStr"
 
-    if _Set_FW_UpdateZIP_DirectoryPath_
+    clear
+    # Create directory for downloading & extracting firmware #
+    if ! _CreateDirectory_ "$FW_ZIP_DIR"
+    then
+        _ClearOfflineUpdateState_ 1 ; return 1
+    fi
+    printf "\n---------------------------------------------------\n"
+    if "$isGNUtonFW"; then printf "\nPlease copy your firmware update file (.w or .pkgtb) using the *original* ZIP filename to this directory:"
+    else printf "\nPlease copy your firmware ZIP file (using the *original* ZIP filename) to this directory:"; fi
+    printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
+    printf "\nPress '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
+    printf "\n---------------------------------------------------\n"
+    if _WaitForYESorNO_
     then
         clear
-        # Create directory for downloading & extracting firmware #
-        if ! _CreateDirectory_ "$FW_ZIP_DIR"
-        then
-            _ClearOfflineUpdateState_ 1 ; return 1
-        fi
         printf "\n---------------------------------------------------\n"
-        if "$isGNUtonFW"; then printf "\nPlease copy your firmware update file (.w or .pkgtb) using the *original* ZIP filename to this directory:"
-        else printf "\nPlease copy your firmware ZIP file (using the *original* ZIP filename) to this directory:"; fi
-        printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
-        printf "\nPress '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
-        printf "\n---------------------------------------------------\n"
-        if _WaitForYESorNO_
+        printf "\nContinuing to the update file selection process.\n"
+        if _SelectOfflineUpdateFile_
         then
-            clear
-            printf "\n---------------------------------------------------\n"
-            printf "\nContinuing to the update file selection process.\n"
-            if _SelectOfflineUpdateFile_
+            if "$isGNUtonFW"
             then
-                if "$isGNUtonFW"
-                then
-                    # Extract the filename from the path
-                    original_filename=$(basename "$selected_file")
-                    # Sanitize filename by removing problematic characters (if necessary)
-                    sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')
-                    # Extract the file extension
-                    extension="${sanitized_filename##*.}"
-                    FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
-                    _GnutonBuildSelection_
-                    set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
-                else
-                    set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
-                fi
-                if [ $? -eq 0 ] && [ $# -eq 2 ] && \
-                    [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
-                then
-                    release_link="$2"
-                    _RunFirmwareUpdateNow_
-                    _ClearOfflineUpdateState_
-                else
-                    Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
-                    _ClearOfflineUpdateState_ 1
-                    return 1
-                fi
+                # Extract the filename from the path
+                original_filename=$(basename "$selected_file")
+                # Sanitize filename by removing problematic characters (if necessary)
+                sanitized_filename=$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')
+                # Extract the file extension
+                extension="${sanitized_filename##*.}"
+                FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
+                _GnutonBuildSelection_
+                set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
             else
+                set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+            fi
+            if [ $? -eq 0 ] && [ $# -eq 2 ] && \
+                [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
+            then
+                release_link="$2"
+                _RunFirmwareUpdateNow_
+                _ClearOfflineUpdateState_
+            else
+                Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
                 _ClearOfflineUpdateState_ 1
                 return 1
             fi
         else
-            _ClearOfflineUpdateState_ "Offline update process was cancelled. Exiting.\n"
+            _ClearOfflineUpdateState_ 1
             return 1
         fi
     else
