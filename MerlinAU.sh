@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-07
+# Last Modified: 2024-Aug-10
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.2.7
+readonly SCRIPT_VERSION=1.2.8
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -4759,9 +4759,9 @@ _RunBackupmon_()
     return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Aug-08] ##
+##------------------------------------------##
 _RunOfflineUpdateNow_()
 {
     local offlineConfigFile="${SETTINGS_DIR}/offline_updates.txt"
