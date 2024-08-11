@@ -5840,25 +5840,31 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
     fi
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Apr-25] ##
+    ## Modified by ExtremeFiretop [2024-Aug-11] ##
     ##------------------------------------------##
     if "$offlineUpdateTrigger"
     then
         if ! "$isGNUtonFW"
-		then
+        then
             _CheckOfflineFirmwareSHA256_
             retCode="$?"
-		fi
-    elif "$isGNUtonFW"
-    then
-        _CheckFirmwareMD5_
-        retCode="$?"
+        elif [ -f "${FW_BIN_DIR}/${FW_FileName}.md5" ]; then
+            _CheckFirmwareMD5_
+            retCode="$?"
+        else
+            retCode=0  # Skip if the MD5 file does not exist
+        fi
     else
-        _CheckOnlineFirmwareSHA256_
-        retCode="$?"
+        if "$isGNUtonFW"; then
+            _CheckFirmwareMD5_
+            retCode="$?"
+        else
+            _CheckOnlineFirmwareSHA256_
+            retCode="$?"
+        fi
     fi
-    if [ "$retCode" -eq 1 ]
-    then
+
+    if [ "$retCode" -eq 1 ]; then
         "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         _Reset_LEDs_
         return 1
