@@ -5864,7 +5864,8 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
         fi
     fi
 
-    if [ "$retCode" -eq 1 ]; then
+    if [ "$retCode" -eq 1 ]
+    then
         "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         _Reset_LEDs_
         return 1
