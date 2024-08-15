@@ -30,7 +30,7 @@
  - XT12 (Tested)
 
 ## SUPPORTED GNUTON MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
- - GT-BE98 **Known issues due to missing manifest2.txt file in Gnuton branch**
+ - GT-BE98 - **Known issues due to missing manifest2.txt file in Gnuton branch**
  - DSL-AX82U **(Untested)**
  - TUF-AX3000 **(Untested)**
  - TUF-AX3000 V2 (Tested)
@@ -39,7 +39,7 @@
  - RT-AX82U (Tested)
  - RT-AX82U V2 **(Untested)**
  - RT-AX58U V2 **(Untested)**
- - RT-AX92U **Known issues due to PR: https://github.com/gnuton/asuswrt-merlin.ng/pull/654**
+ - RT-AX92U - **Known issues due to PR: https://github.com/gnuton/asuswrt-merlin.ng/pull/654**
  - RT-AX95Q **(Untested)**
  - RT-AXE95Q **(Untested)**
 
