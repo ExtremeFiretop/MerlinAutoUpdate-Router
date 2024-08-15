@@ -29,6 +29,19 @@
  - RT-AX3000 V1 (Tested)
  - XT12 (Tested)
 
+## SUPPORTED GNUTON MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
+ - DSL-AX82U **(Untested)**
+ - TUF-AX3000 **(Untested)**
+ - TUF-AX3000 V2 (Tested)
+ - TUF-AX5400 (Tested)
+ - RT-AX5400 **(Untested)**
+ - RT-AX82U (Tested)
+ - RT-AX82U V2 **(Untested)**
+ - RT-AX58U V2 **(Untested)**
+ - RT-AX92U (Tested)
+ - RT-AX95Q **(Untested)**
+ - RT-AXE95Q **(Untested)**
+
 ## UNSUPPORTED MERLIN MODELS: (Single image models) - i.e. Any model that uses a .trx file
 Blocked due to low RAM/ROM space and/or have not received updates in several years.
    
@@ -43,6 +56,11 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AC68U (Blocked)
  - RT-AC66U_B1 (Blocked)
  - RT-AC1900 (Blocked)
+
+## UNSUPPORTED GNUTON MODELS: (Single image models) - i.e. Any model that uses a .trx file
+Blocked due to low RAM/ROM space and/or have not received updates in several years.
+   
+ - DSL-AC68U (Blocked)
 
 ## Merlin(A)uto(U)pdate
 
