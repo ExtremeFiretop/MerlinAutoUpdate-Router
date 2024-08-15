@@ -43,7 +43,7 @@
  - RT-AXE95Q **(Untested)**
 
 ## UNSUPPORTED MERLIN MODELS: (Single image models) - i.e. Any model that uses a .trx file
-Blocked due to low RAM/ROM space and/or have not received updates in several years.
+Blocked due to low RAM/ROM space and/or have reached end-of-life support from ASUS and Merlin.
    
  - RT-AC87U (Blocked)
  - RT-AC56U (Blocked)
@@ -58,7 +58,7 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AC1900 (Blocked)
 
 ## UNSUPPORTED GNUTON MODELS: (Single image models) - i.e. Any model that uses a .trx file
-Blocked due to low RAM/ROM space and/or have not received updates in several years.
+Blocked due to low RAM/ROM space and/or have reached end-of-life support from ASUS and Gnuton.
    
  - DSL-AC68U (Blocked)
 
