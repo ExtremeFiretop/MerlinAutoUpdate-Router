@@ -2301,11 +2301,11 @@ _TestLoginCredentials_()
         sleep 1
         return 0
     else
-        printf "\n${REDct}Login test failed.${NOct}\n"
-        if _WaitForYESorNO_ "Would you like to try again?"; then
-            return 1 # Indicates failure but with intent to retry
-        else
-            return 0 # User opted not to retry; treated as a graceful exit
+        printf "\n${REDct}**ERROR**${NOct}: Router Login test failed.\n"
+        printf "\n%s\n\n" "$routerLoginFailureMsg"
+        if _WaitForYESorNO_ "Would you like to try again?"
+        then return 1  # Indicates failure but with intent to retry #
+        else return 0  # User opted not to retry; do a graceful exit #
         fi
     fi
 }
