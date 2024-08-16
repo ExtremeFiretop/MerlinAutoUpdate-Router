@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-11
+# Last Modified: 2024-Aug-16
 ###################################################################
 set -u
 
@@ -140,6 +140,15 @@ theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
 theMUExitStr="${GRNct}e${NOct}=Exit"
 theADExitStr="${GRNct}e${NOct}=Exit to Advanced Options Menu"
 theLGExitStr="${GRNct}e${NOct}=Exit to Log Options Menu"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Aug-15] ##
+##-------------------------------------##
+routerLoginFailureMsg="Please try the following:
+1. Confirm that you are *not* already logged into the router webGUI using a web browser.
+2. Check that the \"Enable Access Restrictions\" option from the webGUI is *not* set up
+   to restrict access to the router webGUI from the current network client you're using. 
+3. Confirm your password via the \"Set Router Login Credentials\" option from the Main Menu."
 
 [ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
 
@@ -2257,18 +2266,18 @@ check_model_support()
     then routerModelCheckFailed=true ; fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Feb-29] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-15] ##
+##----------------------------------------##
 _TestLoginCredentials_()
 {
     local credsBase64="$1"
     local curl_response routerURLstr
 
-    # Define routerURLstr
+    # Define routerURLstr #
     routerURLstr="$(_GetRouterURL_)"
 
-    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+    printf "\nRestarting web server... Please wait.\n"
     /sbin/service restart_httpd >/dev/null 2>&1 &
     sleep 5
 
@@ -2282,11 +2291,12 @@ _TestLoginCredentials_()
     --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsBase64}" \
     --cookie-jar /tmp/cookie.txt)"
 
-    # Interpret the curl_response to determine login success or failure
-    # This is a basic check
-    if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'; then
-        printf "\n${GRNct}Login test passed.${NOct}"
-        "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+    # Interpret the curl_response to determine login success or failure #
+    # This is a basic check #
+    if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
+    then
+        printf "\n${GRNct}Router Login test passed.${NOct}"
+        printf "\nRestarting web server... Please wait.\n"
         /sbin/service restart_httpd >/dev/null 2>&1 &
         sleep 1
         return 0
@@ -2587,13 +2597,20 @@ _GetLoginCredentials_()
     local loginCredsENC  loginCredsDEC
 
     # Check if Access Restrictions are enabled #
-    local accRestriction
+    local accRestriction restrictRuleList
     accRestriction="$(nvram get enable_acc_restriction)"
+    
     if [ "$accRestriction" = "1" ]; then
-        printf "${REDct}WARNING: Access Restrictions are enabled!${NOct}\n"
-        printf "${REDct}Please disable 'Enable Access Restrictions' from 'Administration - System' for MerlinAU to login to the WebUI.${NOct}\n"
-        _WaitForEnterKey_
-        return 1
+        # Get the restrict_rulelist value #
+        restrictRuleList="$(nvram get restrict_rulelist)"
+
+        # Check if restrict_rulelist contains IPs with 1 or 3
+        if echo "$restrictRuleList" | grep -qE '>(1|3)<'; then
+            printf "\n${REDct}WARNING: Access Restrictions are enabled and affect IP addresses!${NOct}\n"
+            printf "${REDct}Please disable 'Enable Access Restrictions' for MerlinAU to log in to the web interface.${NOct}\n"
+            _WaitForEnterKey_
+            return 1
+        fi
     fi
 
     # Get the Username from NVRAM #
@@ -2634,12 +2651,14 @@ _GetLoginCredentials_()
         printf "Encoded Credentials:\n"
         printf "${GRNct}$loginCredsENC${NOct}\n"
 
-        # Prompt to test the credentials
-        if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"; then
+        # Prompt to test the credentials #
+        if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"
+        then
             _TestLoginCredentials_ "$loginCredsENC" || continue
         fi
 
-        retry="no"  # Stop the loop if the test passes or if the user chooses not to test
+        # Stop the loop if the test passes or if the user chooses not to test #
+        retry="no"
     done
 
     _WaitForEnterKey_ "$mainMenuReturnPromptStr"
@@ -4734,9 +4753,9 @@ _CheckNewUpdateFirmwareNotification_()
        then
            if "$isGNUtonFW"
            then
-                _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
+               _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
            else
-                _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
+               _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
            fi
        fi
    fi
@@ -4859,12 +4878,10 @@ _CheckTimeToUpdateFirmware_()
    Say "The firmware update is expected to occur on ${GRNct}${nextCronTimeSecs}${NOct}."
    echo ""
 
-   # Check if running in a menu environment
+   # Check if running in a menu environment #
    if "$isInteractive" && _WaitForYESorNO_ "Would you like to proceed with the update now?"
-   then
-        return 0
-   else
-        return 1
+   then return 0
+   else return 1
    fi
 }
 
@@ -5502,7 +5519,7 @@ _RunOfflineUpdateNow_()
                 retCode="$?"
             fi
             if [ "$retCode" -eq 0 ] && [ $# -eq 2 ] && \
-                [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
+               [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
             then
                 release_link="$2"
                 _RunFirmwareUpdateNow_
@@ -6075,10 +6092,12 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
         _ReleaseLock_
         /sbin/service reboot
     else
-        Say "${REDct}**ERROR**${NOct}: Login failed. Please try the following:
-1. Confirm you are not already logged into the router using a web browser.
-2. Update credentials by selecting \"Set Router Login Credentials\" from the Main Menu."
-
+        Say "${REDct}**ERROR**${NOct}: Router Login failed."
+        if "$inMenuMode" || "$isInteractive"
+        then
+            printf "\n%s\n\n" "$routerLoginFailureMsg"
+            _WaitForEnterKey_
+        fi
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
         _EntwareServicesHandler_ start
@@ -7378,11 +7397,11 @@ _AdvancedOptionsMenu_()
                ;;
            bt) if echo "$PRODUCT_ID" | grep -q "^TUF-"
                then _ChangeBuildType_TUF_
-               elif [ "$fwInstalledBaseVers" -le 3004 ]  && \
-                  echo "$PRODUCT_ID" | grep -q "^GT-"
+               elif [ "$fwInstalledBaseVers" -le 3004 ] && \
+                    echo "$PRODUCT_ID" | grep -q "^GT-"
                then _ChangeBuildType_ROG_
-               elif [ "$fwInstalledBaseVers" -ge 3006 ]  && "$isGNUtonFW" && \
-                  echo "$PRODUCT_ID" | grep -q "^GT-"
+               elif [ "$fwInstalledBaseVers" -ge 3006 ] && "$isGNUtonFW" && \
+                    echo "$PRODUCT_ID" | grep -q "^GT-"
                then _ChangeBuildType_ROG_
                else _InvalidMenuSelection_
                fi
