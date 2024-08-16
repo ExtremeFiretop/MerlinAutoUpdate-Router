@@ -610,6 +610,7 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 
 ##FOR TESTING/DEBUG ONLY##
 ##readonly PRODUCT_ID="TUF-AX3000_V2"
+##readonly MODEL_ID="$PRODUCT_ID"
 ##FOR TESTING/DEBUG ONLY##
 
 readonly FW_FileName="${PRODUCT_ID}_firmware"
@@ -1938,7 +1939,7 @@ _GetCurrentFWInstalledLongVersion_()
 {
 
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "3004.388.6.2" ; return 0 ; fi
+if true ; then echo "3004.388.6.2" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
    local theVersionStr  extVersNum
@@ -2584,6 +2585,16 @@ _GetLoginCredentials_()
     local retry="yes"  userName  savedMsg
     local oldPWSDstring  thePWSDstring
     local loginCredsENC  loginCredsDEC
+
+    # Check if Access Restrictions are enabled #
+    local accRestriction
+    accRestriction="$(nvram get enable_acc_restriction)"
+    if [ "$accRestriction" = "1" ]; then
+        printf "${REDct}WARNING: Access Restrictions are enabled!${NOct}\n"
+        printf "${REDct}Please disable 'Enable Access Restrictions' from 'Administration - System' for MerlinAU to login to the WebUI.${NOct}\n"
+        _WaitForEnterKey_
+        return 1
+    fi
 
     # Get the Username from NVRAM #
     userName="$(nvram get http_username)"
@@ -5935,6 +5946,10 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
 
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
+
+	_ReleaseLock_
+	_DoExit_ 1
+	exit 1
 
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Jun-30] ##
