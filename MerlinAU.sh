@@ -2611,7 +2611,7 @@ _GetLoginCredentials_()
         if [ -z "$ruleMatch" ] || echo "$restrictRuleList" | grep -qE "${routerIP}>2"; then
             printf "${REDct}WARNING: Access Restrictions are enabled!${NOct}\n"
             printf "${REDct}Please add the routers IP with 'Web UI' access under 'Administration -> System -> Access restriction list' to permit login to the WebUI.${NOct}\n"
-            printf "${REDct}Another alternative is to disable 'Access restrictions' if not required.${NOct}\n"
+            printf "${REDct}The alternative option is to disable 'Access restrictions' if unrequired.${NOct}\n"
             _WaitForEnterKey_
             return 1
         fi
