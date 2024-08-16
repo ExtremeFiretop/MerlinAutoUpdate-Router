@@ -2597,17 +2597,21 @@ _GetLoginCredentials_()
     local loginCredsENC  loginCredsDEC
 
     # Check if Access Restrictions are enabled #
-    local accRestriction restrictRuleList
+    local accRestriction restrictRuleList routerIP ruleMatch
     accRestriction="$(nvram get enable_acc_restriction)"
     
     if [ "$accRestriction" = "1" ]; then
-        # Get the restrict_rulelist value #
+        # Get the restrict_rulelist and the router IP address #
         restrictRuleList="$(nvram get restrict_rulelist)"
+        routerIP="$(nvram get lan_ipaddr)"
 
-        # Check if restrict_rulelist contains IPs with 1 or 3
-        if echo "$restrictRuleList" | grep -qE '>(1|3)<'; then
+        # Check if the router IP is followed by >1 or >3
+        ruleMatch=$(echo "$restrictRuleList" | grep -oE "${routerIP}>[13]")
+
+        if [ -z "$ruleMatch" ] || echo "$restrictRuleList" | grep -qE "${routerIP}>2"; then
             printf "${REDct}WARNING: Access Restrictions are enabled!${NOct}\n"
-            printf "${REDct}Please disable 'Web UI' from 'Administration -> System -> Access restriction list' to permit login to the WebUI.${NOct}\n"
+            printf "${REDct}Please add the routers IP with 'Web UI' access under 'Administration -> System -> Access restriction list' to permit login to the WebUI.${NOct}\n"
+            printf "${REDct}Another alternative is to disable 'Access restrictions' if not required.${NOct}\n"
             _WaitForEnterKey_
             return 1
         fi
