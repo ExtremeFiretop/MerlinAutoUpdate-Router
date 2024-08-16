@@ -2606,8 +2606,8 @@ _GetLoginCredentials_()
 
         # Check if restrict_rulelist contains IPs with 1 or 3
         if echo "$restrictRuleList" | grep -qE '>(1|3)<'; then
-            printf "\n${REDct}WARNING: Access Restrictions are enabled and affect IP addresses!${NOct}\n"
-            printf "${REDct}Please disable 'Enable Access Restrictions' for MerlinAU to log in to the web interface.${NOct}\n"
+            printf "${REDct}WARNING: Access Restrictions are enabled!${NOct}\n"
+            printf "${REDct}Please disable 'Web UI' from 'Administration -> System -> Access restriction list' to permit login to the WebUI.${NOct}\n"
             _WaitForEnterKey_
             return 1
         fi
