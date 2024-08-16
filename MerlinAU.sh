@@ -2606,7 +2606,7 @@ _GetLoginCredentials_()
         routerIP="$(nvram get lan_ipaddr)"
 
         # Check if the router IP is followed by >1 or >3
-        ruleMatch=$(echo "$restrictRuleList" | grep -oE "${routerIP}>[13]")
+        ruleMatch="$(echo "$restrictRuleList" | grep -oE "${routerIP}>[13]")"
 
         if [ -z "$ruleMatch" ] || echo "$restrictRuleList" | grep -qE "${routerIP}>2"; then
             printf "${REDct}WARNING: Access Restrictions are enabled!${NOct}\n"
