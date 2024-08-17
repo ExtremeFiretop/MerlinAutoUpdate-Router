@@ -39,7 +39,7 @@
  - RT-AX82U V1 (Tested)
  - RT-AX82U V2 **(Untested)**
  - RT-AX58U V2 **(Untested)**
- - RT-AX92U - **Known issues due to PR: https://github.com/gnuton/asuswrt-merlin.ng/pull/654**
+ - RT-AX92U - (Tested)
  - RT-AX95Q **(Untested)**
  - RT-AXE95Q **(Untested)**
 
