@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-15
+# Last Modified: 2024-Aug-16
 ###################################################################
 set -u
 
@@ -147,7 +147,7 @@ theLGExitStr="${GRNct}e${NOct}=Exit to Log Options Menu"
 routerLoginFailureMsg="Please try the following:
 1. Confirm that you are *not* already logged into the router webGUI using a web browser.
 2. Check that the \"Enable Access Restrictions\" option from the webGUI is *not* set up
-   to restrict access to the router webGUI from the current network client you're using. 
+   to restrict access to the router webGUI from the router's IP address. 
 3. Confirm your password via the \"Set Router Login Credentials\" option from the Main Menu."
 
 [ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
@@ -619,6 +619,7 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 
 ##FOR TESTING/DEBUG ONLY##
 ##readonly PRODUCT_ID="TUF-AX3000_V2"
+##readonly MODEL_ID="$PRODUCT_ID"
 ##FOR TESTING/DEBUG ONLY##
 
 readonly FW_FileName="${PRODUCT_ID}_firmware"
@@ -2594,6 +2595,27 @@ _GetLoginCredentials_()
     local retry="yes"  userName  savedMsg
     local oldPWSDstring  thePWSDstring
     local loginCredsENC  loginCredsDEC
+
+    # Check if Access Restrictions are enabled #
+    local accRestriction restrictRuleList routerIP ruleMatch
+    accRestriction="$(nvram get enable_acc_restriction)"
+    
+    if [ "$accRestriction" = "1" ]; then
+        # Get the restrict_rulelist and the router IP address #
+        restrictRuleList="$(nvram get restrict_rulelist)"
+        routerIP="$(nvram get lan_ipaddr)"
+
+        # Check if the router IP is followed by >1 or >3
+        ruleMatch="$(echo "$restrictRuleList" | grep -oE "${routerIP}>[13]")"
+
+        if [ -z "$ruleMatch" ] || echo "$restrictRuleList" | grep -qE "${routerIP}>2"; then
+            printf "${REDct}WARNING: Access Restrictions are enabled!${NOct}\n"
+            printf "${REDct}Please add the routers IP with 'Web UI' access under 'Administration -> System -> Access restriction list' to permit login to the WebUI.${NOct}\n"
+            printf "${REDct}The alternative option is to disable 'Access restrictions' if unrequired.${NOct}\n"
+            _WaitForEnterKey_
+            return 1
+        fi
+    fi
 
     # Get the Username from NVRAM #
     userName="$(nvram get http_username)"
