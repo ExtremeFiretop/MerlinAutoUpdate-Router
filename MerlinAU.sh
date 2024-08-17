@@ -147,7 +147,7 @@ theLGExitStr="${GRNct}e${NOct}=Exit to Log Options Menu"
 routerLoginFailureMsg="Please try the following:
 1. Confirm that you are *not* already logged into the router webGUI using a web browser.
 2. Check that the \"Enable Access Restrictions\" option from the webGUI is *not* set up
-   to restrict access to the router webGUI from the router's IP address. 
+   to restrict access to the router webGUI from the router's IP address [${GRNct}${mainLAN_IPaddr}${NOct}].
 3. Confirm your password via the \"Set Router Login Credentials\" option from the Main Menu."
 
 [ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
@@ -2302,7 +2302,7 @@ _TestLoginCredentials_()
         return 0
     else
         printf "\n${REDct}**ERROR**${NOct}: Router Login test failed.\n"
-        printf "\n%s\n\n" "$routerLoginFailureMsg"
+        printf "\n${routerLoginFailureMsg}\n\n"
         if _WaitForYESorNO_ "Would you like to try again?"
         then return 1  # Indicates failure but with intent to retry #
         else return 0  # User opted not to retry; do a graceful exit #
@@ -2587,8 +2587,40 @@ _GetPasswordInput_()
    return "$retCode"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Aug-16] ##
+##-------------------------------------##
+_CheckWebGUILoginAccessOK_()
+{
+   local accessRestriction  restrictRuleList  netIPv4Addr
+   local lanIPaddrRegEx1 lanIPaddrRegEx2 lanIPaddrRegEx3
+
+   accessRestriction="$(nvram get enable_acc_restriction)"
+   if [ -z "$accessRestriction" ] || [ "$accessRestriction" -eq 0 ]
+   then return 0 ; fi
+
+   restrictRuleList="$(nvram get restrict_rulelist)"
+   netIPv4Addr="${mainLAN_IPaddr%.*}.0"
+
+   # Router IP address MUST have access to WebGUI #
+   lanIPaddrRegEx1=">${mainLAN_IPaddr}>[13]"
+   lanIPaddrRegEx2=">${mainLAN_IPaddr}/32>[13]"
+   lanIPaddrRegEx3=">${netIPv4Addr}/(2[4-9]|3[0-1])>[13]"
+
+   if echo "$restrictRuleList" | grep -qE "$lanIPaddrRegEx1|$lanIPaddrRegEx2|$lanIPaddrRegEx3"
+   then return 0 ; fi
+
+   printf "\n${REDct}*WARNING*: The \"Enable Access Restrictions\" option is currently active.${NOct}"
+   printf "\nTo allow webGUI login access you must add the router IP address ${GRNct}${mainLAN_IPaddr}${NOct}
+with the \"${GRNct}Web UI${NOct}\" access type on the \"Access restriction list\" panel."
+   printf "\n[See ${GRNct}'Administration -> System -> Access restriction list'${NOct}]"
+   printf "\nAn alternative method would be to disable the \"Enable Access Restrictions\" option.\n"
+
+   return 1
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-30] ##
+## Modified by Martinski W. [2024-Aug-16] ##
 ##----------------------------------------##
 _GetLoginCredentials_()
 {
@@ -2596,25 +2628,11 @@ _GetLoginCredentials_()
     local oldPWSDstring  thePWSDstring
     local loginCredsENC  loginCredsDEC
 
-    # Check if Access Restrictions are enabled #
-    local accRestriction restrictRuleList routerIP ruleMatch
-    accRestriction="$(nvram get enable_acc_restriction)"
-    
-    if [ "$accRestriction" = "1" ]; then
-        # Get the restrict_rulelist and the router IP address #
-        restrictRuleList="$(nvram get restrict_rulelist)"
-        routerIP="$(nvram get lan_ipaddr)"
-
-        # Check if the router IP is followed by >1 or >3
-        ruleMatch="$(echo "$restrictRuleList" | grep -oE "${routerIP}>[13]")"
-
-        if [ -z "$ruleMatch" ] || echo "$restrictRuleList" | grep -qE "${routerIP}>2"; then
-            printf "${REDct}WARNING: Access Restrictions are enabled!${NOct}\n"
-            printf "${REDct}Please add the routers IP with 'Web UI' access under 'Administration -> System -> Access restriction list' to permit login to the WebUI.${NOct}\n"
-            printf "${REDct}The alternative option is to disable 'Access restrictions' if unrequired.${NOct}\n"
-            _WaitForEnterKey_
-            return 1
-        fi
+    # Check if WebGUI access is NOT restricted #
+    if ! _CheckWebGUILoginAccessOK_
+    then
+        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
     fi
 
     # Get the Username from NVRAM #
@@ -6099,7 +6117,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
         Say "${REDct}**ERROR**${NOct}: Router Login failed."
         if "$inMenuMode" || "$isInteractive"
         then
-            printf "\n%s\n\n" "$routerLoginFailureMsg"
+            printf "\n${routerLoginFailureMsg}\n\n"
             _WaitForEnterKey_
         fi
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
