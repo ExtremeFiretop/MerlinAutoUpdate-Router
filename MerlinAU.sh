@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-16
+# Last Modified: 2024-Aug-18
 ###################################################################
 set -u
 
@@ -113,13 +113,22 @@ else cronListCmd="crontab -l"
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
+## Modified by Martinski W. [2024-Aug-17] ##
 ##----------------------------------------##
 inMenuMode=true
 isInteractive=false
 FlashStarted=false
 
+# Main LAN Network Info #
+readonly mainLAN_IFname="$(nvram get lan_ifname)"
 readonly mainLAN_IPaddr="$(nvram get lan_ipaddr)"
+readonly mainNET_IPaddr="$(ip route show | grep -E "[[:blank:]]+dev[[:blank:]]+${mainLAN_IFname}[[:blank:]]+proto[[:blank:]]+" | awk -F ' ' '{print $1}')"
+
+# RegExp for IPv4 address #
+readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
+readonly IPv4addrs_RegEx="(${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx}"
+readonly IPv4privt_RegEx="(^10\.|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[0-1]\.|^192\.168\.)"
+
 readonly fwInstalledBaseVers="$(nvram get firmver | sed 's/\.//g')"
 readonly fwInstalledBuildVers="$(nvram get buildno)"
 readonly fwInstalledExtendNum="$(nvram get extendno)"
@@ -2588,27 +2597,88 @@ _GetPasswordInput_()
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2024-Aug-16] ##
+## Added by Martinski W. [2024-Aug-18] ##
 ##-------------------------------------##
+_CIDR_IPaddrBlockContainsIPaddr_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1 ; fi
+
+   local lastNETIPaddr4thOctet  cidrIPRangeMax=0
+
+   local thisLANIPaddr="$2"
+   local cidrNETIPaddr="${1%/*}"
+   local cidrNETIPmask="${1#*/}"
+   local NETIPaddr4thOctet="${cidrNETIPaddr##*.}"
+   local LANIPaddr4thOctet="${thisLANIPaddr##*.}"
+
+   # Assumes the host segment has a maximum of 8 bits #
+   # and the network segment has a minimum of 24 bits #
+   case "$cidrNETIPmask" in
+       31) cidrIPRangeMax=1 ;;
+       30) cidrIPRangeMax=3 ;;
+       29) cidrIPRangeMax=7 ;;
+       28) cidrIPRangeMax=15 ;;
+       27) cidrIPRangeMax=31 ;;
+       26) cidrIPRangeMax=63 ;;
+       25) cidrIPRangeMax=127 ;;
+       24) cidrIPRangeMax=255 ;;
+   esac
+   lastNETIPaddr4thOctet="$((NETIPaddr4thOctet + cidrIPRangeMax))"
+   [ "$lastNETIPaddr4thOctet" -gt 255 ] && lastNETIPaddr4thOctet=255
+
+   if [ "$LANIPaddr4thOctet" -ge "$NETIPaddr4thOctet" ] && \
+      [ "$LANIPaddr4thOctet" -le "$lastNETIPaddr4thOctet" ]
+   then return 0
+   else return 1
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-18] ##
+##----------------------------------------##
 _CheckWebGUILoginAccessOK_()
 {
-   local accessRestriction  restrictRuleList  netIPv4Addr
+   local accessRestriction  restrictRuleList
    local lanIPaddrRegEx1 lanIPaddrRegEx2 lanIPaddrRegEx3
+   local cidrIPaddrEntry  cidrIPaddrBlock  cidrIPaddrRegEx
+   local mainLANIPaddrRegEx  netwkIPv4AddrRegEx  netwkIPv4AddrX
 
    accessRestriction="$(nvram get enable_acc_restriction)"
    if [ -z "$accessRestriction" ] || [ "$accessRestriction" -eq 0 ]
    then return 0 ; fi
 
    restrictRuleList="$(nvram get restrict_rulelist)"
-   netIPv4Addr="${mainLAN_IPaddr%.*}.0"
+   if [ -n "$mainNET_IPaddr" ]
+   then
+       netwkIPv4AddrX="${mainNET_IPaddr%/*}"
+       netwkIPv4AddrX="${netwkIPv4AddrX%.*}"
+   else
+       netwkIPv4AddrX="${mainLAN_IPaddr%.*}"
+   fi
+   netwkIPv4AddrX="${netwkIPv4AddrX}.${IPv4octet_RegEx}"
+   netwkIPv4AddrRegEx="$(echo "$netwkIPv4AddrX" | sed 's/\./\\./g')"
+   mainLANIPaddrRegEx="$(echo "$mainLAN_IPaddr" | sed 's/\./\\./g')"
 
    # Router IP address MUST have access to WebGUI #
-   lanIPaddrRegEx1=">${mainLAN_IPaddr}>[13]"
-   lanIPaddrRegEx2=">${mainLAN_IPaddr}/32>[13]"
-   lanIPaddrRegEx3=">${netIPv4Addr}/(2[4-9]|3[0-1])>[13]"
+   cidrIPaddrRegEx="${netwkIPv4AddrRegEx}/(2[4-9]|3[0-1])"
+   lanIPaddrRegEx1=">${mainLANIPaddrRegEx}>[13]"
+   lanIPaddrRegEx2=">${mainLANIPaddrRegEx}/(2[4-9]|3[0-2])>[13]"
+   lanIPaddrRegEx3=">${cidrIPaddrRegEx}>[13]"
 
-   if echo "$restrictRuleList" | grep -qE "$lanIPaddrRegEx1|$lanIPaddrRegEx2|$lanIPaddrRegEx3"
+   if echo "$restrictRuleList" | grep -qE "$lanIPaddrRegEx1|$lanIPaddrRegEx2"
    then return 0 ; fi
+
+   cidrIPaddrEntry="$(echo "$restrictRuleList" | grep -oE "$lanIPaddrRegEx3")"
+   if [ -n "$cidrIPaddrEntry" ]
+   then
+       cidrIPaddrBlock="$(echo "$cidrIPaddrEntry" | grep -oE "$cidrIPaddrRegEx")"
+       for cidrIPblock in $cidrIPaddrBlock
+       do
+           if _CIDR_IPaddrBlockContainsIPaddr_ "$cidrIPblock" "$mainLAN_IPaddr"
+           then return 0 ; fi
+       done
+   fi
 
    printf "\n${REDct}*WARNING*: The \"Enable Access Restrictions\" option is currently active.${NOct}"
    printf "\nTo allow webGUI login access you must add the router IP address ${GRNct}${mainLAN_IPaddr}${NOct}
@@ -6476,11 +6546,6 @@ _SetSecondaryEMailAddress_()
    _RunEMailNotificationTest_
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
-
-# RegExp for IPv4 address #
-readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
-readonly IPv4addrs_RegEx="(${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx}"
-readonly IPv4privt_RegEx="(^10\.|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[0-1]\.|^192\.168\.)"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Apr-06] ##
