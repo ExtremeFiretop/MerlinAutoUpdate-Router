@@ -25,7 +25,7 @@
  - RT-AX86S (Tested)
  - RT-AX68U (Tested)
  - RT-AX58U V1 (Tested)
- - RT-AX56U **(Untested)**
+ - RT-AX56U (Tested)
  - RT-AX3000 V1 (Tested)
  - XT12 (Tested)
 
