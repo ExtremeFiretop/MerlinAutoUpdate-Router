@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Aug-18
+# Last Modified: 2024-Sep-02
 ###################################################################
 set -u
 
@@ -4729,6 +4729,9 @@ _ManageChangelogMerlin_()
     return 0
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Sep-02] ##
+##------------------------------------------##
 _ManageChangelogGnuton_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]
@@ -4755,7 +4758,10 @@ _ManageChangelogGnuton_()
     FW_Changelog_GITHUB="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
 
     wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
-    printf "\nRetrieving ${GRNct}${FW_Changelog_GITHUB}${NOct} ...\n"
+
+    if [ "$mode" = "view" ]; then
+        printf "\nRetrieving ${GRNct}${FW_Changelog_GITHUB}${NOct} ...\n"
+    fi
 
     wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
          -O "$FW_Changelog_GITHUB" -o "$wgetLogFile" "${Gnuton_changelogurl}"
