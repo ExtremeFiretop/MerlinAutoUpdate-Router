@@ -5328,8 +5328,8 @@ _SelectOfflineUpdateFile_()
             printf "\nRelease version: ${GRNct}${release_version}${NOct}\n"
             printf "\n---------------------------------------------------\n"
             _WaitForEnterKey_
-			Update_Custom_Settings FW_New_Update_Notification_Vers "$release_version"
-			Update_Custom_Settings FW_New_Update_Notification_Date "$(date +"$FW_UpdateNotificationDateFormat")"
+            Update_Custom_Settings FW_New_Update_Notification_Vers "$release_version"
+            Update_Custom_Settings FW_New_Update_Notification_Date "$(date +"$FW_UpdateNotificationDateFormat")"
             clear
             return 0
         else
