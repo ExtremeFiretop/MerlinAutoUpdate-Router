@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Sep-02
+# Last Modified: 2024-Sep-07
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.0
+readonly SCRIPT_VERSION=1.3.1
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -5230,7 +5230,7 @@ _GetOfflineFirmwareVersion_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Aug-06] ##
+## Modified by ExtremeFiretop [2024-Sep-07] ##
 ##------------------------------------------##
 _SelectOfflineUpdateFile_()
 {
@@ -5328,6 +5328,8 @@ _SelectOfflineUpdateFile_()
             printf "\nRelease version: ${GRNct}${release_version}${NOct}\n"
             printf "\n---------------------------------------------------\n"
             _WaitForEnterKey_
+			Update_Custom_Settings FW_New_Update_Notification_Vers "$release_version"
+			Update_Custom_Settings FW_New_Update_Notification_Date "$(date +"$FW_UpdateNotificationDateFormat")"
             clear
             return 0
         else
