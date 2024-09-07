@@ -1502,7 +1502,7 @@ _CreateEMailContent_()
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    local fwInstalledVersion  fwNewUpdateVersion
    local savedInstalledVersion  savedNewUpdateVersion
-   local subjectStr  emailBodyTitle=""
+   local subjectStr  emailBodyTitle=""  release_version
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
@@ -1511,7 +1511,12 @@ _CreateEMailContent_()
    else subjectStr="F/W Update Status for $MODEL_ID"
    fi
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
-   fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   if ! "$offlineUpdateTrigger"
+   then
+        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   else
+        fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+   fi
 
    # Remove "_rog" or "_tuf" suffix to avoid version comparison failures #
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_\(rog\|tuf\)$//')"
@@ -6065,7 +6070,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jun-30] ##
+    ## Modified by ExtremeFiretop [2024-Sep-07] ##
     ##------------------------------------------##
 
     curl_response="$(curl -k "${routerURLstr}/login.cgi" \
@@ -6084,10 +6089,8 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
-        if ! "$offlineUpdateTrigger"
-        then
-            _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
-        fi
+
+        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
 
         if [ -f /opt/bin/diversion ]
         then
