@@ -1,10 +1,10 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.2.7
-## 2024-08-08
+## v1.3.0
+## 2024-09-02
 
-![image](https://github.com/user-attachments/assets/2b2b886c-0719-4d0a-861a-7fec94087e1e)
-![image](https://github.com/user-attachments/assets/fffdb79c-6fbb-44ee-ac79-366c7fedc5b7)
-![image](https://github.com/user-attachments/assets/a79e3044-ae49-483a-b9ff-2f081fa81964)
+![image](https://github.com/user-attachments/assets/5b1d932e-7e0f-417c-aa87-a3e391f45c7a)
+![image](https://github.com/user-attachments/assets/7c90d057-fe3e-46e0-8987-40276623ee5a)
+![image](https://github.com/user-attachments/assets/6c5ece0c-4caf-4d3c-91f3-de2298127d71)
 ![image](https://github.com/user-attachments/assets/6d0aad68-5c02-4355-abd3-cd441cdfe108)
 
 ## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
@@ -25,12 +25,26 @@
  - RT-AX86S (Tested)
  - RT-AX68U (Tested)
  - RT-AX58U V1 (Tested)
- - RT-AX56U **(Untested)**
+ - RT-AX56U (Tested)
  - RT-AX3000 V1 (Tested)
  - XT12 (Tested)
 
+## SUPPORTED GNUTON MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
+ - GT-BE98 - **Known issues due to missing from manifest2.txt file in Gnuton**
+ - DSL-AX82U **(Untested)**
+ - TUF-AX3000 V1 **(Untested)**
+ - TUF-AX3000 V2 (Tested)
+ - TUF-AX5400 (Tested)
+ - RT-AX5400 **(Untested)**
+ - RT-AX82U V1 (Tested)
+ - RT-AX82U V2 **(Untested)**
+ - RT-AX58U V2 **(Untested)**
+ - RT-AX92U - (Tested)
+ - RT-AX95Q **(Untested)**
+ - RT-AXE95Q **(Untested)**
+
 ## UNSUPPORTED MERLIN MODELS: (Single image models) - i.e. Any model that uses a .trx file
-Blocked due to low RAM/ROM space and/or have not received updates in several years.
+Blocked due to low RAM/ROM space and/or have reached end-of-life support from ASUS and Merlin.
    
  - RT-AC87U (Blocked)
  - RT-AC56U (Blocked)
@@ -43,6 +57,11 @@ Blocked due to low RAM/ROM space and/or have not received updates in several yea
  - RT-AC68U (Blocked)
  - RT-AC66U_B1 (Blocked)
  - RT-AC1900 (Blocked)
+
+## UNSUPPORTED GNUTON MODELS: (Single image models) - i.e. Any model that uses a .trx file
+Blocked due to low RAM/ROM space and/or have reached end-of-life support from ASUS and Gnuton.
+   
+ - DSL-AC68U (Blocked)
 
 ## Merlin(A)uto(U)pdate
 

@@ -63,6 +63,15 @@ jobs:
           # Update the SCRIPT_VERSION and SCRIPT_BRANCH values in MerlinAU.sh
           sed -i "/^readonly SCRIPT_VERSION=/s/.*/readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}/" MerlinAU.sh
           sed -i "/^SCRIPT_BRANCH=.*$/s/.*/SCRIPT_BRANCH=\"master\"/" MerlinAU.sh
+
+      - name: Stage Changes
+        run: git add MerlinAU.sh
+
+      - name: Commit Changes
+        run: git commit -m "Update SCRIPT_BRANCH to master in MerlinAU.sh and version to ${{ steps.nextver.outputs.tag }}"
+
+      - name: Push Changes
+        run: git push origin main
           
       - name: Create and Push Tag
         run: |
