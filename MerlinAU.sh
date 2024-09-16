@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Sep-07
+# Last Modified: 2024-Sep-15
 ###################################################################
 set -u
 
@@ -76,6 +76,30 @@ readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Sep-15] ##
+##-------------------------------------##
+# For handling 3rd-party add-on cron jobs #
+readonly USB_OPT_DIRPATH1="/opt"
+readonly USB_OPT_DIRPATH2="/tmp/opt"
+readonly USB_MNT_DIRPATH1="/mnt"
+readonly USB_MNT_DIRPATH2="/tmp/mnt"
+
+readonly cronJobsRegEx1="[[:blank:]]+${ADDONS_PATH}/.* "
+readonly cronJobsRegEx2="[[:blank:]]+${SCRIPTS_PATH}/.* "
+readonly cronJobsRegEx3="[[:blank:]]+${USB_OPT_DIRPATH1}/.* "
+readonly cronJobsRegEx4="[[:blank:]]+${USB_OPT_DIRPATH2}/.* "
+readonly cronJobsRegEx5="[[:blank:]]+${USB_MNT_DIRPATH1}/.* "
+readonly cronJobsRegEx6="[[:blank:]]+${USB_MNT_DIRPATH2}/.* "
+readonly addonCronJobList="/home/root/addonCronJobList_$$.txt"
+
+##FOR TESTING/DEBUG ONLY##
+debugAddOnCronJobsList=false
+##Set to 'false' for Production Release ##
+[ "$SCRIPT_BRANCH" = "master" ] && debugAddOnCronJobsList=false
+readonly restoreAddOnCronJobList="${SETTINGS_DIR}/restoreAddOnCronJobs.sh"
+##FOR TESTING/DEBUG ONLY##
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-05] ##
@@ -5094,6 +5118,77 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Sep-15] ##
+##-------------------------------------##
+_RemoveCronJobsFromAddOns_()
+{
+   eval $cronListCmd | grep -E "$cronJobsRegEx1|$cronJobsRegEx2|$cronJobsRegEx3|cronJobsRegEx4|$cronJobsRegEx5|$cronJobsRegEx6" > "$addonCronJobList"
+   if [ ! -s "$addonCronJobList" ]
+   then
+       rm -f "$addonCronJobList"
+       echo "Cron jobs from 3rd-party add-ons were not found."
+       return 1
+   fi
+
+   ##FOR TESTING/DEBUG ONLY##
+   if "$debugAddOnCronJobsList"
+   then
+   {
+     echo "#!/bin/sh"
+     echo "# Created by ${SCRIPT_NAME} #"
+     echo "#"
+   } > "$restoreAddOnCronJobList"
+   fi
+   ##FOR TESTING/DEBUG ONLY##
+
+   local cronJobCount=0  cronJobIDx  cronJobCMD
+
+   while read -r cronJobLINE
+   do
+      if [ -z "$cronJobLINE" ] || echo "$cronJobLINE" | grep -qE "^[[:blank:]]*#"
+      then continue ; fi
+      cronJobCount="$((cronJobCount + 1))"
+      Say "Cron job #${cronJobCount}: [$cronJobLINE]"
+
+      cronJobIDx="$(echo "$cronJobLINE" | awk -F '#' '{print $2}')"
+      cronJobCMD="$(echo "$cronJobLINE" | awk -F '#' '{print $1}' | sed 's/[[:blank:]]*$//')"
+
+      if [ -n "$cronJobIDx" ]
+      then
+          cru d "$cronJobIDx" ; sleep 1
+          if eval $cronListCmd | grep -qE "#${cronJobIDx}#$"
+          then Say "**ERROR**: Failed to remove cron job [$cronJobIDx]."
+          else Say "Cron job [$cronJobIDx] was removed successfully."
+          fi
+      fi
+
+      ##FOR TESTING/DEBUG ONLY##
+      if "$debugAddOnCronJobsList" && [ -n "$cronJobIDx" ]
+      then
+      {
+        printf "cru a $cronJobIDx \"${cronJobCMD}\"\n"
+      } >> "$restoreAddOnCronJobList"
+      fi
+      ##FOR TESTING/DEBUG ONLY##
+
+   done < "$addonCronJobList"
+
+   rm -f "$addonCronJobList"
+   Say "Cron jobs [$cronJobCount] from 3rd-party add-ons were removed."
+
+   ##FOR TESTING/DEBUG ONLY##
+   if "$debugAddOnCronJobsList"
+   then
+      echo "#EOF#" >> "$restoreAddOnCronJobList"
+      chmod 755 "$restoreAddOnCronJobList"
+   fi
+   ##FOR TESTING/DEBUG ONLY##
+
+   sleep 5
+   return 0
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Aug-02] ##
 ##----------------------------------------##
@@ -6089,7 +6184,6 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
-
         _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
 
         if [ -f /opt/bin/diversion ]
@@ -6149,6 +6243,12 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
 
         # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
         _EntwareServicesHandler_ stop -noskip
+
+        ##-------------------------------------##
+        ## Added by Martinski W. [2024-Sep-15] ##
+        ##-------------------------------------##
+        # Remove cron jobs from 3rd-party Add-Ons #
+        _RemoveCronJobsFromAddOns_
 
         # *WARNING*: NO MORE logging at this point & beyond #
         /sbin/ejusb -1 0 -u 1
