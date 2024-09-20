@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Sep-15
+# Last Modified: 2024-Sep-19
 ###################################################################
 set -u
 
@@ -6251,7 +6251,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
         _RemoveCronJobsFromAddOns_
 
         # *WARNING*: NO MORE logging at this point & beyond #
-        /sbin/ejusb -1 0 -u 1
+        /sbin/ejusb -1 0 -u 1 2>/dev/null
 
         nohup curl -k "${routerURLstr}/upgrade.cgi" \
         --referer "${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
