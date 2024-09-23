@@ -94,13 +94,6 @@ readonly cronJobsRegEx5="[[:blank:]]+${USB_MNT_DIRPATH1}/.* "
 readonly cronJobsRegEx6="[[:blank:]]+${USB_MNT_DIRPATH2}/.* "
 readonly addonCronJobList="/home/root/addonCronJobList_$$.txt"
 
-##FOR TESTING/DEBUG ONLY##
-debugAddOnCronJobsList=false
-##Set to 'false' for Production Release ##
-[ "$SCRIPT_BRANCH" = "master" ] && debugAddOnCronJobsList=false
-readonly restoreAddOnCronJobList="${SETTINGS_DIR}/restoreAddOnCronJobs.sh"
-##FOR TESTING/DEBUG ONLY##
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-05] ##
 ##----------------------------------------##
@@ -5131,17 +5124,6 @@ _RemoveCronJobsFromAddOns_()
        return 1
    fi
 
-   ##FOR TESTING/DEBUG ONLY##
-   if "$debugAddOnCronJobsList"
-   then
-   {
-     echo "#!/bin/sh"
-     echo "# Created by ${SCRIPT_NAME} #"
-     echo "#"
-   } > "$restoreAddOnCronJobList"
-   fi
-   ##FOR TESTING/DEBUG ONLY##
-
    local cronJobCount=0  cronJobIDx  cronJobCMD
 
    while read -r cronJobLINE
@@ -5162,28 +5144,10 @@ _RemoveCronJobsFromAddOns_()
           else Say "Cron job [$cronJobIDx] was removed successfully."
           fi
       fi
-
-      ##FOR TESTING/DEBUG ONLY##
-      if "$debugAddOnCronJobsList" && [ -n "$cronJobIDx" ]
-      then
-      {
-        printf "cru a $cronJobIDx \"${cronJobCMD}\"\n"
-      } >> "$restoreAddOnCronJobList"
-      fi
-      ##FOR TESTING/DEBUG ONLY##
-
    done < "$addonCronJobList"
 
    rm -f "$addonCronJobList"
    Say "Cron jobs [$cronJobCount] from 3rd-party add-ons were removed."
-
-   ##FOR TESTING/DEBUG ONLY##
-   if "$debugAddOnCronJobsList"
-   then
-      echo "#EOF#" >> "$restoreAddOnCronJobList"
-      chmod 755 "$restoreAddOnCronJobList"
-   fi
-   ##FOR TESTING/DEBUG ONLY##
 
    sleep 5
    return 0
