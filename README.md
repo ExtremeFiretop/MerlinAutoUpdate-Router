@@ -1,11 +1,11 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.3.0
-## 2024-09-02
+## v1.3.1
+## 2024-10-02
 
-![image](https://github.com/user-attachments/assets/5b1d932e-7e0f-417c-aa87-a3e391f45c7a)
-![image](https://github.com/user-attachments/assets/7c90d057-fe3e-46e0-8987-40276623ee5a)
-![image](https://github.com/user-attachments/assets/6c5ece0c-4caf-4d3c-91f3-de2298127d71)
-![image](https://github.com/user-attachments/assets/6d0aad68-5c02-4355-abd3-cd441cdfe108)
+![image](https://github.com/user-attachments/assets/b033a097-6f05-441a-8430-600ca51c13b4)
+![image](https://github.com/user-attachments/assets/847b6922-b953-4e65-acbb-6843ec08a10c)
+![image](https://github.com/user-attachments/assets/35ed7802-9848-4a09-b9b0-93fc23cfacf8)
+![image](https://github.com/user-attachments/assets/0c22b30b-a7d9-4e2f-b031-3f358e4f4c93)
 
 ## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
@@ -17,6 +17,8 @@
  - GT-AX11000 (Tested)
  - GT-AC2900 **(Untested)**
  - RT-BE96U **(Untested)**
+ - RT-BE88U **(Untested)**
+ - RT-BE86U **(Untested)**
  - RT-AX88U_PRO (Tested)
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
