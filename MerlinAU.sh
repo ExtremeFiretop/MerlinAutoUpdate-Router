@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Sep-19
+# Last Modified: 2024-Oct-02
 ###################################################################
 set -u
 
@@ -40,12 +40,12 @@ readonly high_risk_terms="factory default reset|features are disabled|break back
 DLRepoVersion=""
 scriptUpdateNotify=0
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-29] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Oct-02] ##
+##------------------------------------------##
 # For minimum supported firmware version check #
 MinFirmwareVerCheckFailed=false
-MinSupportedFirmwareVers="3004.386.12.0"
+MinSupportedFirmwareVers="3004.386.12.6"
 
 # For router model check #
 routerModelCheckFailed=false
