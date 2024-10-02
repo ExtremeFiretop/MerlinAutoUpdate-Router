@@ -45,7 +45,7 @@ scriptUpdateNotify=0
 ##----------------------------------------##
 # For minimum supported firmware version check #
 MinFirmwareVerCheckFailed=false
-MinSupportedFirmwareVers="3004.386.12.0"
+MinSupportedFirmwareVers="3004.386.12.6"
 
 # For router model check #
 routerModelCheckFailed=false
