@@ -5137,7 +5137,7 @@ _RemoveCronJobsFromAddOns_()
    if [ ! -s "$addonCronJobList" ]
    then
        rm -f "$addonCronJobList"
-       echo "Cron jobs from 3rd-party add-ons were not found."
+       Say "Cron jobs from 3rd-party add-ons were not found."
        return 1
    fi
 
