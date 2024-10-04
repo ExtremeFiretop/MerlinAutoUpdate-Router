@@ -160,7 +160,7 @@ readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildV
 ##-------------------------------------##
 readonly MinSupportedFW_3004_386_Ver="3004.386.12.6"
 readonly MinSupportedFW_3004_388_Ver="3004.388.6.2"
-readonly MinSupportedFW_3006_102_Ver="3004.388.7.0"
+readonly MinSupportedFW_3006_102_Ver="3004.388.8.0"
 
 case "$fwInstalledBranchVer" in
    "3004.386") MinSupportedFirmwareVers="$MinSupportedFW_3004_386_Ver" ;;
