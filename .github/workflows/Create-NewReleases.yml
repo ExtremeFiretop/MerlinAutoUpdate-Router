@@ -68,7 +68,12 @@ jobs:
         run: git add MerlinAU.sh
 
       - name: Commit Changes
-        run: git commit -m "Update SCRIPT_BRANCH to master in MerlinAU.sh and version to ${{ steps.nextver.outputs.tag }}"
+        run: |
+          if ! git diff-index --quiet HEAD --; then
+            git commit -m "Update SCRIPT_BRANCH to master in MerlinAU.sh and version to ${{ steps.nextver.outputs.tag }}"
+          else
+            echo "No changes to commit"
+          fi
 
       - name: Push Changes
         run: git push origin main
