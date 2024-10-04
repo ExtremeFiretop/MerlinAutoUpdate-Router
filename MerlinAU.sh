@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Sep-02
+# Last Modified: 2024-Oct-03
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.0
+readonly SCRIPT_VERSION=1.3.1
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -40,12 +40,12 @@ readonly high_risk_terms="factory default reset|features are disabled|break back
 DLRepoVersion=""
 scriptUpdateNotify=0
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-29] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Oct-02] ##
+##------------------------------------------##
 # For minimum supported firmware version check #
 MinFirmwareVerCheckFailed=false
-MinSupportedFirmwareVers="3004.386.12.0"
+MinSupportedFirmwareVers="3004.386.12.6"
 
 # For router model check #
 routerModelCheckFailed=false
@@ -76,6 +76,23 @@ readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Sep-15] ##
+##-------------------------------------##
+# For handling 3rd-party add-on cron jobs #
+readonly USB_OPT_DIRPATH1="/opt"
+readonly USB_OPT_DIRPATH2="/tmp/opt"
+readonly USB_MNT_DIRPATH1="/mnt"
+readonly USB_MNT_DIRPATH2="/tmp/mnt"
+
+readonly cronJobsRegEx1="[[:blank:]]+${ADDONS_PATH}/.* "
+readonly cronJobsRegEx2="[[:blank:]]+${SCRIPTS_PATH}/.* "
+readonly cronJobsRegEx3="[[:blank:]]+${USB_OPT_DIRPATH1}/.* "
+readonly cronJobsRegEx4="[[:blank:]]+${USB_OPT_DIRPATH2}/.* "
+readonly cronJobsRegEx5="[[:blank:]]+${USB_MNT_DIRPATH1}/.* "
+readonly cronJobsRegEx6="[[:blank:]]+${USB_MNT_DIRPATH2}/.* "
+readonly addonCronJobList="/home/root/addonCronJobList_$$.txt"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-05] ##
@@ -129,10 +146,27 @@ readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
 readonly IPv4addrs_RegEx="(${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx}"
 readonly IPv4privt_RegEx="(^10\.|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[0-1]\.|^192\.168\.)"
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-Oct-03] ##
+##----------------------------------------##
 readonly fwInstalledBaseVers="$(nvram get firmver | sed 's/\.//g')"
 readonly fwInstalledBuildVers="$(nvram get buildno)"
 readonly fwInstalledExtendNum="$(nvram get extendno)"
 readonly fwInstalledInnerVers="$(nvram get innerver)"
+readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildVers" | awk -F'.' '{print $1}')"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Oct-03] ##
+##-------------------------------------##
+readonly MinSupportedFW_3004_386_Ver="3004.386.12.6"
+readonly MinSupportedFW_3004_388_Ver="3004.388.6.2"
+readonly MinSupportedFW_3006_102_Ver="3004.388.8.0"
+
+case "$fwInstalledBranchVer" in
+   "3004.386") MinSupportedFirmwareVers="$MinSupportedFW_3004_386_Ver" ;;
+   "3004.388") MinSupportedFirmwareVers="$MinSupportedFW_3004_388_Ver" ;;
+   "3006.102") MinSupportedFirmwareVers="$MinSupportedFW_3006_102_Ver" ;;
+esac
 
 if [ "$(nvram get sw_mode)" -eq 1 ]
 then inRouterSWmode=true
@@ -1502,7 +1536,7 @@ _CreateEMailContent_()
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    local fwInstalledVersion  fwNewUpdateVersion
    local savedInstalledVersion  savedNewUpdateVersion
-   local subjectStr  emailBodyTitle=""
+   local subjectStr  emailBodyTitle=""  release_version
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
@@ -1511,7 +1545,12 @@ _CreateEMailContent_()
    else subjectStr="F/W Update Status for $MODEL_ID"
    fi
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
-   fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   if ! "$offlineUpdateTrigger"
+   then
+        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   else
+        fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+   fi
 
    # Remove "_rog" or "_tuf" suffix to avoid version comparison failures #
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_\(rog\|tuf\)$//')"
@@ -5089,6 +5128,48 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Sep-15] ##
+##-------------------------------------##
+_RemoveCronJobsFromAddOns_()
+{
+   eval $cronListCmd | grep -E "$cronJobsRegEx1|$cronJobsRegEx2|$cronJobsRegEx3|cronJobsRegEx4|$cronJobsRegEx5|$cronJobsRegEx6" > "$addonCronJobList"
+   if [ ! -s "$addonCronJobList" ]
+   then
+       rm -f "$addonCronJobList"
+       Say "Cron jobs from 3rd-party add-ons were not found."
+       return 1
+   fi
+
+   local cronJobCount=0  cronJobIDx  cronJobCMD
+
+   while read -r cronJobLINE
+   do
+      if [ -z "$cronJobLINE" ] || echo "$cronJobLINE" | grep -qE "^[[:blank:]]*#"
+      then continue ; fi
+      cronJobCount="$((cronJobCount + 1))"
+      Say "Cron job #${cronJobCount}: [$cronJobLINE]"
+
+      cronJobIDx="$(echo "$cronJobLINE" | awk -F '#' '{print $2}')"
+      cronJobCMD="$(echo "$cronJobLINE" | awk -F '#' '{print $1}' | sed 's/[[:blank:]]*$//')"
+
+      if [ -n "$cronJobIDx" ]
+      then
+          cru d "$cronJobIDx" ; sleep 1
+          if eval $cronListCmd | grep -qE "#${cronJobIDx}#$"
+          then Say "**ERROR**: Failed to remove cron job [$cronJobIDx]."
+          else Say "Cron job [$cronJobIDx] was removed successfully."
+          fi
+      fi
+   done < "$addonCronJobList"
+
+   rm -f "$addonCronJobList"
+   Say "Cron jobs [$cronJobCount] from 3rd-party add-ons were removed."
+
+   sleep 5
+   return 0
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Aug-02] ##
 ##----------------------------------------##
@@ -5230,7 +5311,7 @@ _GetOfflineFirmwareVersion_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Aug-06] ##
+## Modified by ExtremeFiretop [2024-Sep-07] ##
 ##------------------------------------------##
 _SelectOfflineUpdateFile_()
 {
@@ -5328,6 +5409,8 @@ _SelectOfflineUpdateFile_()
             printf "\nRelease version: ${GRNct}${release_version}${NOct}\n"
             printf "\n---------------------------------------------------\n"
             _WaitForEnterKey_
+            Update_Custom_Settings FW_New_Update_Notification_Vers "$release_version"
+            Update_Custom_Settings FW_New_Update_Notification_Date "$(date +"$FW_UpdateNotificationDateFormat")"
             clear
             return 0
         else
@@ -5673,8 +5756,8 @@ _RunFirmwareUpdateNow_()
     fi
     if "$MinFirmwareVerCheckFailed" && ! "$offlineUpdateTrigger"
     then
-        Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
-Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
+        Say "${REDct}*WARNING*:${NOct} The current firmware version is below the minimum supported.
+Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or higher to use this script.\n"
         "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
@@ -6063,7 +6146,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
     ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Jun-30] ##
+    ## Modified by ExtremeFiretop [2024-Sep-07] ##
     ##------------------------------------------##
 
     curl_response="$(curl -k "${routerURLstr}/login.cgi" \
@@ -6082,10 +6165,7 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
-        if ! "$offlineUpdateTrigger"
-        then
-            _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
-        fi
+        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
 
         if [ -f /opt/bin/diversion ]
         then
@@ -6145,8 +6225,14 @@ Please manually update to version $MinSupportedFirmwareVers or higher to use thi
         # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
         _EntwareServicesHandler_ stop -noskip
 
+        ##-------------------------------------##
+        ## Added by Martinski W. [2024-Sep-15] ##
+        ##-------------------------------------##
+        # Remove cron jobs from 3rd-party Add-Ons #
+        _RemoveCronJobsFromAddOns_
+
         # *WARNING*: NO MORE logging at this point & beyond #
-        /sbin/ejusb -1 0 -u 1
+        /sbin/ejusb -1 0 -u 1 2>/dev/null
 
         nohup curl -k "${routerURLstr}/upgrade.cgi" \
         --referer "${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
@@ -7057,24 +7143,24 @@ _ShowMainMenu_()
 
    # New Script Update Notification #
    if [ "$scriptUpdateNotify" != "0" ]; then
-      Say "${REDct}WARNING:${NOct} ${scriptUpdateNotify}${NOct}\n"
+      Say "${REDct}*WARNING*:${NOct} ${scriptUpdateNotify}\n"
    fi
 
    # Unsupported Model Check #
    if "$routerModelCheckFailed"
    then
-      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script.
+      Say "${REDct}*WARNING*:${NOct} The current router model is not supported by this script.
  Please uninstall.\n"
    fi
    if "$MinFirmwareVerCheckFailed"
    then
-      Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
- Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
+      Say "${REDct}*WARNING*:${NOct} The current firmware version is below the minimum supported.
+ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or higher to use this script.\n"
    fi
 
    if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
    then
-      Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB).
+      Say "${REDct}*WARNING*:${NOct} Limited RAM detected (256MB).
  A USB drive is required for F/W updates.\n"
    fi
 

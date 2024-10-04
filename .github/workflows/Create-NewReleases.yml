@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v4.1.7
+        uses: actions/checkout@v4.2.0
         with:
           fetch-depth: 0
           ref: 'main' # Ensure we're tagging the main branch after the merge
@@ -68,7 +68,12 @@ jobs:
         run: git add MerlinAU.sh
 
       - name: Commit Changes
-        run: git commit -m "Update SCRIPT_BRANCH to master in MerlinAU.sh and version to ${{ steps.nextver.outputs.tag }}"
+        run: |
+          if ! git diff-index --quiet HEAD --; then
+            git commit -m "Update SCRIPT_BRANCH to master in MerlinAU.sh and version to ${{ steps.nextver.outputs.tag }}"
+          else
+            echo "No changes to commit"
+          fi
 
       - name: Push Changes
         run: git push origin main
