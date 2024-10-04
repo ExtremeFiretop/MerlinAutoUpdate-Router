@@ -1981,7 +1981,7 @@ _GetCurrentFWInstalledLongVersion_()
 {
 
 ##FOR TESTING/DEBUG ONLY##
-if true ; then echo "3004.388.6.0" ; return 0 ; fi
+if false ; then echo "3004.388.6.0" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
    local theVersionStr  extVersNum
@@ -2274,7 +2274,7 @@ check_memory_and_prompt_reboot()
 ##------------------------------------------##
 check_version_support()
 {
-    local numOfFields current_version numCurrentVers numMinimumVersBranch
+    local numOfFields  current_version  numCurrentVers  numMinimumVersBranch
     current_version="$(_GetCurrentFWInstalledLongVersion_)"
 
     # Extract the number of fields and convert the current version to a number
