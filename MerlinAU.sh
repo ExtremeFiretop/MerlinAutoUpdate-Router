@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Oct-02
+# Last Modified: 2024-Oct-03
 ###################################################################
 set -u
 
@@ -146,10 +146,27 @@ readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
 readonly IPv4addrs_RegEx="(${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx}"
 readonly IPv4privt_RegEx="(^10\.|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[0-1]\.|^192\.168\.)"
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-Oct-03] ##
+##----------------------------------------##
 readonly fwInstalledBaseVers="$(nvram get firmver | sed 's/\.//g')"
 readonly fwInstalledBuildVers="$(nvram get buildno)"
 readonly fwInstalledExtendNum="$(nvram get extendno)"
 readonly fwInstalledInnerVers="$(nvram get innerver)"
+readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildVers" | awk -F'.' '{print $1}')"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Oct-03] ##
+##-------------------------------------##
+readonly MinSupportedFW_3004_386_Ver="3004.386.12.6"
+readonly MinSupportedFW_3004_388_Ver="3004.388.6.2"
+readonly MinSupportedFW_3006_102_Ver="3004.388.7.0"
+
+case "$fwInstalledBranchVer" in
+   "3004.386") MinSupportedFirmwareVers="$MinSupportedFW_3004_386_Ver" ;;
+   "3004.388") MinSupportedFirmwareVers="$MinSupportedFW_3004_388_Ver" ;;
+   "3006.102") MinSupportedFirmwareVers="$MinSupportedFW_3006_102_Ver" ;;
+esac
 
 if [ "$(nvram get sw_mode)" -eq 1 ]
 then inRouterSWmode=true
@@ -5739,8 +5756,8 @@ _RunFirmwareUpdateNow_()
     fi
     if "$MinFirmwareVerCheckFailed" && ! "$offlineUpdateTrigger"
     then
-        Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
-Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
+        Say "${REDct}*WARNING*:${NOct} The current firmware version is below the minimum supported.
+Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or higher to use this script.\n"
         "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
@@ -7126,24 +7143,24 @@ _ShowMainMenu_()
 
    # New Script Update Notification #
    if [ "$scriptUpdateNotify" != "0" ]; then
-      Say "${REDct}WARNING:${NOct} ${scriptUpdateNotify}${NOct}\n"
+      Say "${REDct}*WARNING*:${NOct} ${scriptUpdateNotify}\n"
    fi
 
    # Unsupported Model Check #
    if "$routerModelCheckFailed"
    then
-      Say "${REDct}WARNING:${NOct} The current router model is not supported by this script.
+      Say "${REDct}*WARNING*:${NOct} The current router model is not supported by this script.
  Please uninstall.\n"
    fi
    if "$MinFirmwareVerCheckFailed"
    then
-      Say "${REDct}WARNING:${NOct} The current firmware version is below the minimum supported.
- Please manually update to version $MinSupportedFirmwareVers or higher to use this script.\n"
+      Say "${REDct}*WARNING*:${NOct} The current firmware version is below the minimum supported.
+ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or higher to use this script.\n"
    fi
 
    if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
    then
-      Say "${REDct}WARNING:${NOct} Limited RAM detected (256MB).
+      Say "${REDct}*WARNING*:${NOct} Limited RAM detected (256MB).
  A USB drive is required for F/W updates.\n"
    fi
 
