@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Oct-02
+# Last Modified: 2024-Oct-03
 ###################################################################
 set -u
 
@@ -41,11 +41,13 @@ DLRepoVersion=""
 scriptUpdateNotify=0
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Oct-02] ##
+## Modified by ExtremeFiretop [2024-Oct-03] ##
 ##------------------------------------------##
 # For minimum supported firmware version check #
 MinFirmwareVerCheckFailed=false
-MinSupportedFirmwareVers="3004.386.12.6"
+MinSupportedFirmwareVers_3004_386="3004.386.12.6"
+MinSupportedFirmwareVers_3004_388="3004.388.6.2"
+MinSupportedFirmwareVers_3006_102="3006.102.1.0"
 
 # For router model check #
 routerModelCheckFailed=false
@@ -1979,7 +1981,7 @@ _GetCurrentFWInstalledLongVersion_()
 {
 
 ##FOR TESTING/DEBUG ONLY##
-if false ; then echo "3004.388.6.2" ; return 0 ; fi
+if true ; then echo "3004.388.6.0" ; return 0 ; fi
 ##FOR TESTING/DEBUG ONLY##
 
    local theVersionStr  extVersNum
@@ -2267,21 +2269,46 @@ check_memory_and_prompt_reboot()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Oct-03] ##
+##------------------------------------------##
 check_version_support()
 {
-    local numOfFields  current_version  numCurrentVers  numMinimumVers
+    local numOfFields current_version numCurrentVers numMinimumVersBranch
     current_version="$(_GetCurrentFWInstalledLongVersion_)"
 
+    # Extract the number of fields and convert the current version to a number
     numOfFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
     numCurrentVers="$(_FWVersionStrToNum_ "$current_version" "$numOfFields")"
-    numMinimumVers="$(_FWVersionStrToNum_ "$MinSupportedFirmwareVers" "$numOfFields")"
 
-    # If the current firmware version is lower than the minimum supported firmware version, exit.
-    if [ "$numCurrentVers" -lt "$numMinimumVers" ]
-    then MinFirmwareVerCheckFailed=true ; fi
+    # Extract the branch (first two segments of the version)
+    branch="$(echo "$current_version" | awk -F '.' '{print $1"."$2}')"
+
+    # Assign the minimum supported version variable based on the branch
+    case "$branch" in
+        "3004.386")
+            MinSupportedFirmwareVers="$MinSupportedFirmwareVers_3004_386"
+            ;;
+        "3004.388")
+            MinSupportedFirmwareVers="$MinSupportedFirmwareVers_3004_388"
+            ;;
+        "3006.102")
+            MinSupportedFirmwareVers="$MinSupportedFirmwareVers_3006_102"
+            ;;
+        *)
+            # If the branch is unrecognized, handle accordingly
+            MinFirmwareVerCheckFailed=true
+            return
+            ;;
+    esac
+
+    # Convert the minimum version for the branch to a number
+    numMinimumVersBranch="$(_FWVersionStrToNum_ "$MinSupportedFirmwareVers" "$numOfFields")"
+
+    # Compare the current version with the minimum version for its branch
+    if [ "$numCurrentVers" -lt "$numMinimumVersBranch" ]; then
+        MinFirmwareVerCheckFailed=true
+    fi
 }
 
 check_model_support()
