@@ -1,4 +1,4 @@
-name: Auto Tag and Release on PR Merge
+name: Auto Tag & Release on PR Merge
 on:
   pull_request:
     branches:
