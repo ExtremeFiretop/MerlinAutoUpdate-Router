@@ -69,7 +69,7 @@ jobs:
 
       - name: Commit Changes
         run: |
-          if ! git diff-index --quiet HEAD --; then
+          if ! git diff --cached --quiet; then
             git commit -m "Update SCRIPT_BRANCH to master in MerlinAU.sh and version to ${{ steps.nextver.outputs.tag }}"
           else
             echo "No changes to commit"
