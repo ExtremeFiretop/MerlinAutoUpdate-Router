@@ -8,6 +8,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: write
 
 jobs:
   tag-and-release:
@@ -75,14 +76,11 @@ jobs:
             echo "No changes to commit"
           fi
 
-      # Set up authentication with PAT for pushing to the protected branch
-      - name: Set up authentication with PAT for Push
-        run: |
-          git remote set-url origin https://${{ secrets.PAT_USERNAME }}:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
-
       # Push the changes using the PAT
       - name: Push Changes
         run: git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Push the tag using the PAT
       - name: Create and Push Tag
