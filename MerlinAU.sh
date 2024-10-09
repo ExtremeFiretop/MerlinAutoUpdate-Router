@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Oct-03
+# Last Modified: 2024-Oct-04
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.1
+readonly SCRIPT_VERSION=1.3.2
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -137,6 +137,7 @@ isInteractive=false
 FlashStarted=false
 
 # Main LAN Network Info #
+readonly myLAN_HostName="$(nvram get lan_hostname)"
 readonly mainLAN_IFname="$(nvram get lan_ifname)"
 readonly mainLAN_IPaddr="$(nvram get lan_ipaddr)"
 readonly mainNET_IPaddr="$(ip route show | grep -E "[[:blank:]]+dev[[:blank:]]+${mainLAN_IFname}[[:blank:]]+proto[[:blank:]]+" | awk -F ' ' '{print $1}')"
@@ -496,7 +497,7 @@ _GetRouterURL_()
     urlDomain="$(nvram get lan_domain)"
     if [ -z "$urlDomain" ]
     then urlDomain="$mainLAN_IPaddr"
-    else urlDomain="$(nvram get lan_hostname).$urlDomain"
+    else urlDomain="${myLAN_HostName}.$urlDomain"
     fi
 
     urlPort="$(nvram get "${urlProto}_lanport")"
@@ -702,7 +703,7 @@ _CheckForNewScriptUpdates_()
    then
       scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
-      Say "$(date +'%b %d %Y %X') $(nvram get lan_hostname) ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
+      Say "$(date +'%b %d %Y %X') $myLAN_HostName ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
    else
       scriptUpdateNotify=0
    fi
@@ -5128,9 +5129,9 @@ _Toggle_FW_UpdateCheckSetting_()
    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Sep-15] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Oct-04] ##
+##----------------------------------------##
 _RemoveCronJobsFromAddOns_()
 {
    eval $cronListCmd | grep -E "$cronJobsRegEx1|$cronJobsRegEx2|$cronJobsRegEx3|cronJobsRegEx4|$cronJobsRegEx5|$cronJobsRegEx6" > "$addonCronJobList"
@@ -5148,6 +5149,9 @@ _RemoveCronJobsFromAddOns_()
       if [ -z "$cronJobLINE" ] || echo "$cronJobLINE" | grep -qE "^[[:blank:]]*#"
       then continue ; fi
       cronJobCount="$((cronJobCount + 1))"
+
+      [ "$cronJobCount" -eq 1 ] && \
+      Say "---------------------------------------------------------------"
       Say "Cron job #${cronJobCount}: [$cronJobLINE]"
 
       cronJobIDx="$(echo "$cronJobLINE" | awk -F '#' '{print $2}')"
@@ -5164,7 +5168,8 @@ _RemoveCronJobsFromAddOns_()
    done < "$addonCronJobList"
 
    rm -f "$addonCronJobList"
-   Say "Cron jobs [$cronJobCount] from 3rd-party add-ons were removed."
+   Say "Cron jobs [$cronJobCount] from 3rd-party add-ons were found."
+   Say "---------------------------------------------------------------"
 
    sleep 5
    return 0
@@ -6148,7 +6153,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Sep-07] ##
     ##------------------------------------------##
-
     curl_response="$(curl -k "${routerURLstr}/login.cgi" \
     --referer "${routerURLstr}/Main_Login.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -6159,14 +6163,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsBase64}" \
     --cookie-jar /tmp/cookie.txt)"
 
-    # IMPORTANT: Due to the nature of 'nohup' and the specific behavior of this 'curl' request,
-    # the following 'curl' command MUST always be the last step in this block.
-    # Do NOT insert any operations after it! (unless you understand the implications).
-
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
-        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
-
         if [ -f /opt/bin/diversion ]
         then
             # Extract version number from Diversion
@@ -6207,9 +6205,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
             sleep 5
         fi
 
-        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
-        echo
-
         #-------------------------------------------------------
         # Stop toggling LEDs during the F/W flash to avoid
         # modifying NVRAM during the actual flash process.
@@ -6231,9 +6226,20 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
 
+        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+        echo
+        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
+        echo
+
         # *WARNING*: NO MORE logging at this point & beyond #
         /sbin/ejusb -1 0 -u 1 2>/dev/null
 
+        #----------------------------------------------------------------------------------#
+        # **IMPORTANT NOTE**:
+        # Due to the nature of 'nohup' and the specific behavior of this 'curl' request,
+        # the following 'curl' command MUST always be the last step in this block.
+        # Do NOT insert any commands after it! (unless you understand the implications).
+        #----------------------------------------------------------------------------------#
         nohup curl -k "${routerURLstr}/upgrade.cgi" \
         --referer "${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
