@@ -20,6 +20,7 @@ jobs:
         with:
           fetch-depth: 0
           ref: 'main' # Ensure we're tagging the main branch after the merge
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Configure Git
         run: |
