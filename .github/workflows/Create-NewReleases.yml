@@ -79,6 +79,8 @@ jobs:
       # Push the changes using the PAT
       - name: Push Changes
         run: git push origin main
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       # Push the tag using the PAT
       - name: Create and Push Tag
