@@ -78,7 +78,7 @@ jobs:
 
       - name: Set up authentication with PAT for Push
         run: |
-          git remote set-url origin https://ExtremeFiretop:${{ secrets.BOT_PAT_TOKEN }}@github.com/${{ github.repository }}.git
+          git remote set-url origin https://ExtremeFiretop:${{ secrets.PAT_TEST }}@github.com/${{ github.repository }}.git
 
       - name: Push Changes
         run: git push origin main
