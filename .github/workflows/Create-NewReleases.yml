@@ -23,8 +23,8 @@ jobs:
           
       - name: Configure Git
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "GitHub Actions"
           
       - name: Determine Next Version Tag
         id: nextver
