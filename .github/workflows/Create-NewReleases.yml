@@ -21,11 +21,6 @@ jobs:
           fetch-depth: 0
           ref: 'main' # Ensure we're tagging the main branch after the merge
           
-      - name: Configure Git
-        run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
-          
       - name: Determine Next Version Tag
         id: nextver
         run: |
@@ -76,23 +71,22 @@ jobs:
             echo "No changes to commit"
           fi
 
-      # Push the changes using the PAT
+      - name: Set up authentication with PAT for Push
+        run: |
+          git remote set-url origin https://${{ secrets.PAT_USERNAME }}:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
+
       - name: Push Changes
         run: git push origin main
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Push the tag using the PAT
       - name: Create and Push Tag
         run: |
           git tag ${{ steps.nextver.outputs.tag }}
           git push origin ${{ steps.nextver.outputs.tag }}
 
-      # Use GITHUB_TOKEN to create the release
       - name: Create Release with Automated Release Notes
         uses: softprops/action-gh-release@v2.0.8
         with:
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
           tag_name: ${{ steps.nextver.outputs.tag }}
           name: "Release ${{ steps.nextver.outputs.tag }}"
           prerelease: false
