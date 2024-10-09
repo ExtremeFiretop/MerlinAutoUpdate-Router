@@ -78,7 +78,7 @@ jobs:
       # Set up authentication with PAT for pushing to the protected branch
       - name: Set up authentication with PAT for Push
         run: |
-          git remote set-url origin https://$GITHUB_ACTOR:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
+          git remote set-url origin https://x-access-token:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
 
       # Push the changes using the PAT
       - name: Push Changes
