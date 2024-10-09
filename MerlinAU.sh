@@ -9,10 +9,10 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.2
+readonly SCRIPT_VERSION=1.3.3
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
