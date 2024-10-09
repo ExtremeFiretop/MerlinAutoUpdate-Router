@@ -10,6 +10,9 @@ jobs:
   check-branches:
     runs-on: ubuntu-latest
     steps:
+      - name: Log PR Author
+        run: echo "PR Author: ${{ github.event.pull_request.user.login }}"
+    
       - name: Check branches
         if: ${{ ! contains(['ExtremeFiretop', 'Martinski4Github', 'github-actions[bot]'], github.event.pull_request.user.login) }}
         run: |
