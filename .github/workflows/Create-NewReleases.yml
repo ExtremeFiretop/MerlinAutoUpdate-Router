@@ -23,8 +23,8 @@ jobs:
 
       - name: Configure Git
         run: |
-          git config --local user.email "${{ secrets.PAT_EMAIL }}"
-          git config --local user.name "${{ secrets.PAT_USERNAME }}"
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
           
       - name: Determine Next Version Tag
         id: nextver
@@ -76,10 +76,6 @@ jobs:
             echo "No changes to commit"
           fi
 
-      - name: Set up authentication with PAT for Push
-        run: |
-          git remote set-url origin https://${{ secrets.PAT_USERNAME }}:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
-
       - name: Push Changes
         run: git push origin main
 
@@ -91,7 +87,7 @@ jobs:
       - name: Create Release with Automated Release Notes
         uses: softprops/action-gh-release@v2.0.8
         with:
-          token: ${{ secrets.PAT_TOKEN }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.nextver.outputs.tag }}
           name: "Release ${{ steps.nextver.outputs.tag }}"
           prerelease: false
