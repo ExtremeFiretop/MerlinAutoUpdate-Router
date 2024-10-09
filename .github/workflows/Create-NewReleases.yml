@@ -75,14 +75,22 @@ jobs:
             echo "No changes to commit"
           fi
 
+      # Set up authentication with PAT for pushing to the protected branch
+      - name: Set up authentication with PAT for Push
+        run: |
+          git remote set-url origin https://$GITHUB_ACTOR:${{ secrets.PAT_TOKEN }}@github.com/${{ github.repository }}.git
+
+      # Push the changes using the PAT
       - name: Push Changes
         run: git push origin main
-          
+
+      # Push the tag using the PAT
       - name: Create and Push Tag
         run: |
           git tag ${{ steps.nextver.outputs.tag }}
           git push origin ${{ steps.nextver.outputs.tag }}
-          
+
+      # Use GITHUB_TOKEN to create the release
       - name: Create Release with Automated Release Notes
         uses: softprops/action-gh-release@v2.0.8
         with:
