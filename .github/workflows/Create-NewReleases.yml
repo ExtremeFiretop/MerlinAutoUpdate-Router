@@ -20,7 +20,6 @@ jobs:
         with:
           fetch-depth: 0
           ref: 'main' # Ensure we're tagging the main branch after the merge
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
 
       - name: Configure git
         run: |
@@ -79,7 +78,7 @@ jobs:
 
       - name: Set up authentication with PAT for Push
         run: |
-          git remote set-url origin https://${{ secrets.BOT_USERNAME }}:${{ secrets.BOT_PAT_TOKEN }}@github.com/${{ github.repository }}.git
+          git remote set-url origin https://ExtremeFiretop:${{ secrets.BOT_PAT_TOKEN }}@github.com/${{ github.repository }}.git
 
       - name: Push Changes
         run: git push origin main
