@@ -1,4 +1,4 @@
-name: Auto Tag, Release on PR Merge
+name: Auto Tag and Release on PR Merge
 on:
   pull_request:
     branches:
@@ -19,11 +19,12 @@ jobs:
         with:
           fetch-depth: 0
           ref: 'main' # Ensure we're tagging the main branch after the merge
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
           
       - name: Configure Git
         run: |
-          git config --local user.email "action@github.com"
-          git config --local user.name "GitHub Action"
+          git config --local user.email "github-actions@github.com"
+          git config --local user.name "GitHub Actions"
           
       - name: Determine Next Version Tag
         id: nextver
@@ -69,7 +70,7 @@ jobs:
 
       - name: Commit Changes
         run: |
-          if ! git diff-index --quiet HEAD --; then
+          if ! git diff --cached --quiet; then
             git commit -m "Update SCRIPT_BRANCH to master in MerlinAU.sh and version to ${{ steps.nextver.outputs.tag }}"
           else
             echo "No changes to commit"
