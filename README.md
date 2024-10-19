@@ -82,7 +82,7 @@ It streamlines the firmware update procedure, automatically detects your router 
 
 - Automatic router model detection and Automatic update detection.
 - Automatically install updates to your router with the latest firmware from the Asuswrt-Merlin repository.
-- Logic to manage cron jobs for automated firmware update checks.
+- Logic to customize scheduled cron jobs for automated firmware update checks.
 - Notifications for new script updates and download the latest version of MerlinAU
 - User configurable wait periods. Wait for a set duration after a new firmware release.
 - Menu switch to enable or disable automatic update checking within MerlinAU.
