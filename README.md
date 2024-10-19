@@ -91,7 +91,7 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Includes functions for cleanup tasks pre-flash and post-flash.
 - A visual indicator before starting the firmware update.
 - Checks the changelogs for very obvious red flags and prompts for approval.
-- Menu option to pre-approve the changelog verification if enabled with risks found.
+- Menu option and notifications to pre-approve the changelog verification if enabled with risks before the flash.
 - Ability to download the latest changelog notes for manual review from the logs menu.
 - Functions to check and manage available memory for firmware update operations.
 - Compatible with ROG and non-ROG routers; select ROG or Pure Build for ROG routers.
