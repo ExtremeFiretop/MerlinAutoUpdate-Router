@@ -33,7 +33,7 @@
  - XT12 (Tested)
 
 ## SUPPORTED GNUTON MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
- - GT-BE98 - **Known issues due to missing from manifest2.txt file in Gnuton**
+ - GT-BE98 **Known issues due to missing from manifest2.txt file in Gnuton**
  - DSL-AX82U **(Untested)**
  - TUF-AX3000 V1 **(Untested)**
  - TUF-AX3000 V2 (Tested)
@@ -42,7 +42,7 @@
  - RT-AX82U V1 (Tested)
  - RT-AX82U V2 **(Untested)**
  - RT-AX58U V2 **(Untested)**
- - RT-AX92U - (Tested)
+ - RT-AX92U (Tested)
  - RT-AX95Q **(Untested)**
  - RT-AXE95Q **(Untested)**
 
