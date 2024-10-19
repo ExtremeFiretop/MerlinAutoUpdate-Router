@@ -103,7 +103,7 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Automatically stops diversion, if installed, before the flash.
 - Unmounts any physically attached storage via USB as the last step before the flash.
 - AiMesh Node Update Check from Primary Router. (No Flashing from Primary, MerlinAU needs to be on each node for flashing)
-- Automatically remove any loaded cron jobs from third party scripts
+- Automatically remove any loaded cron jobs from third party scripts.
 - Ability to keep Tailscale or ZeroTier VPN access active while flashing over SSH in the advanced menu.
 
 ## Installation
