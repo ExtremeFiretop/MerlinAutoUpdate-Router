@@ -22,6 +22,7 @@
  - RT-AX88U_PRO (Tested)
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
+ - RT-AC2900 (Tested)
  - RT-AX86U (Tested)
  - RT-AX86U_PRO (Tested)
  - RT-AX86S (Tested)
