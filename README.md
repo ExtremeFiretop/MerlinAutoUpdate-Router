@@ -58,7 +58,10 @@ Blocked due to low RAM/ROM space and/or have reached end-of-life support from AS
  - RT-AC3100 (Blocked)
  - RT-AC68U (Blocked)
  - RT-AC66U_B1 (Blocked)
+ - RT-AC68UF (Blocked)
+ - RT-AC68P (Blocked)
  - RT-AC1900 (Blocked)
+ - RT-AC1900P (Blocked)
 
 ## UNSUPPORTED GNUTON MODELS: (Single image models) - i.e. Any model that uses a .trx file
 Blocked due to low RAM/ROM space and/or have reached end-of-life support from ASUS and Gnuton.
