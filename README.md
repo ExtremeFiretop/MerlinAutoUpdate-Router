@@ -42,7 +42,7 @@
  - RT-AX82U V1 (Tested)
  - RT-AX82U V2 **(Untested)**
  - RT-AX58U V2 **(Untested)**
- - RT-AX92U - (Tested)
+ - RT-AX92U (Tested)
  - RT-AX95Q **(Untested)**
  - RT-AXE95Q **(Untested)**
 
