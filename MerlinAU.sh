@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Oct-04
+# Last Modified: 2024-Oct-13
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.2
+readonly SCRIPT_VERSION=1.3.3
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -5268,14 +5268,14 @@ _EntwareServicesHandler_()
    "$isInteractive" && printf "\nDone.\n"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-29] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Oct-13] ##
+##------------------------------------------##
 _GetOfflineFirmwareVersion_()
 {
     local zip_file="$1"
     local extract_version_regex='[0-9]+_[0-9]+\.[0-9]+_[0-9a-zA-Z]+'
-    local validate_version_regex='[0-9]+\.[0-9]+\.[0-9]+\.[0-9a-zA-Z]+'
+    local validate_version_regex='[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(_[0-9a-zA-Z]+)?'
     local fwVersionFormat
 
     # Extract the version number using regex #
@@ -5283,8 +5283,8 @@ _GetOfflineFirmwareVersion_()
 
     if [ -n "$firmware_version" ]
     then
-        # Replace underscores with dots #
-        formatted_version="$(echo "$firmware_version" | sed 's/_/./g')"
+        # Replace underscores with dots and insert .0 before the suffix #
+        formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+\.[0-9]+)_([0-9a-zA-Z]+)/\1.\2.0_\3/')"
         printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
         printf "\n---------------------------------------------------\n"
     else
@@ -5298,7 +5298,7 @@ _GetOfflineFirmwareVersion_()
             printf "\nFailed to identify firmware version from the ZIP file name."
         fi
         printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
-        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.beta1):  "
+        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.0_beta1):  "
         read -r formatted_version
 
         # Validate user input #
@@ -5306,7 +5306,7 @@ _GetOfflineFirmwareVersion_()
         do
             printf "\n${REDct}**WARNING**${NOct} Invalid format detected!\n"
             printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
-            printf "\n(i.e 3004.388.8.0 or 3004.388.8.beta1):  "
+            printf "\n(i.e 3004.388.8.0 or 3004.388.8.0_beta1):  "
             read -r formatted_version
         done
         printf "\nThe user-provided firmware version: ${GRNct}$formatted_version${NOct}\n"
@@ -5590,9 +5590,9 @@ _RunBackupmon_()
     return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Oct-13] ##
+##------------------------------------------##
 _RunOfflineUpdateNow_()
 {
     local retCode
@@ -5631,7 +5631,8 @@ _RunOfflineUpdateNow_()
     printf "\n2. No support will be offered when flashing firmware offline."
     printf "\n3. This offline feature is excluded from documentation on purpose.\n"
     printf "\nDo you acknowledge the risk and wish to proceed?"
-    printf "\nYou must type '${REDct}YES${NOct}' to continue.\n"
+    printf "\nYou must type '${REDct}YES${NOct}' to continue."
+    printf "\n---------------------------------------------------\n"
 
     read -r response
     if [ "$response" = "YES" ]
