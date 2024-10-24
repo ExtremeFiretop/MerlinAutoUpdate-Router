@@ -1,8 +1,8 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.3.3
-## 2024-10-18
+## v1.3.4
+## 2024-10-23
 
-![image](https://github.com/user-attachments/assets/2c624f12-c245-41da-af4b-c1fe7ae6c16a)
+![image](https://github.com/user-attachments/assets/549c89c6-5f02-470b-b116-c4fcaa192ed6)
 ![image](https://github.com/user-attachments/assets/847b6922-b953-4e65-acbb-6843ec08a10c)
 ![image](https://github.com/user-attachments/assets/35ed7802-9848-4a09-b9b0-93fc23cfacf8)
 ![image](https://github.com/user-attachments/assets/0c22b30b-a7d9-4e2f-b031-3f358e4f4c93)
