@@ -4,15 +4,15 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Oct-13
+# Last Modified: 2024-Oct-19
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.3
+readonly SCRIPT_VERSION=1.3.4
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -2302,10 +2302,13 @@ check_version_support()
     then MinFirmwareVerCheckFailed=true ; fi
 }
 
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Oct-19] ##
+##------------------------------------------##
 check_model_support()
 {
     # List of unsupported models as a space-separated string
-    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-N66U RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC1900 DSL-AC68U"
+    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC68UF RT-AC68P RT-AC1900P RT-AC1900 RT-N66U RT-N16 DSL-AC68U"
 
     # Get the current model
     local current_model="$(_GetRouterProductID_)"
