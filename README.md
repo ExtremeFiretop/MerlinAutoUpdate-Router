@@ -1,8 +1,8 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.3.3
-## 2024-10-18
+## v1.3.4
+## 2024-10-23
 
-![image](https://github.com/user-attachments/assets/2c624f12-c245-41da-af4b-c1fe7ae6c16a)
+![image](https://github.com/user-attachments/assets/549c89c6-5f02-470b-b116-c4fcaa192ed6)
 ![image](https://github.com/user-attachments/assets/847b6922-b953-4e65-acbb-6843ec08a10c)
 ![image](https://github.com/user-attachments/assets/35ed7802-9848-4a09-b9b0-93fc23cfacf8)
 ![image](https://github.com/user-attachments/assets/0c22b30b-a7d9-4e2f-b031-3f358e4f4c93)
@@ -22,6 +22,7 @@
  - RT-AX88U_PRO (Tested)
  - RT-AX88U (Tested)
  - RT-AC86U (Tested)
+ - RT-AC2900 (Tested)
  - RT-AX86U (Tested)
  - RT-AX86U_PRO (Tested)
  - RT-AX86S (Tested)
@@ -32,7 +33,7 @@
  - XT12 (Tested)
 
 ## SUPPORTED GNUTON MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
- - GT-BE98 - **Known issues due to missing from manifest2.txt file in Gnuton**
+ - GT-BE98 **Known issues due to missing from manifest2.txt file in Gnuton**
  - DSL-AX82U **(Untested)**
  - TUF-AX3000 V1 **(Untested)**
  - TUF-AX3000 V2 (Tested)
@@ -41,27 +42,31 @@
  - RT-AX82U V1 (Tested)
  - RT-AX82U V2 **(Untested)**
  - RT-AX58U V2 **(Untested)**
- - RT-AX92U - (Tested)
+ - RT-AX92U (Tested)
  - RT-AX95Q **(Untested)**
  - RT-AXE95Q **(Untested)**
 
 ## UNSUPPORTED MERLIN MODELS: (Single image models) - i.e. Any model that uses a .trx file
-Blocked due to low RAM/ROM space and/or have reached end-of-life support from ASUS and Merlin.
+Blocked due to being single image models.
    
  - RT-AC87U (Blocked)
  - RT-AC56U (Blocked)
  - RT-AC66U (Blocked)
  - RT-AC3200 (Blocked)
- - RT-N66U (Blocked)
  - RT-AC88U (Blocked)
  - RT-AC5300 (Blocked)
  - RT-AC3100 (Blocked)
  - RT-AC68U (Blocked)
  - RT-AC66U_B1 (Blocked)
+ - RT-AC68UF (Blocked)
+ - RT-AC68P (Blocked)
  - RT-AC1900 (Blocked)
+ - RT-AC1900P (Blocked)
+ - RT-N66U (Blocked)
+ - RT-N16 (Blocked)
 
 ## UNSUPPORTED GNUTON MODELS: (Single image models) - i.e. Any model that uses a .trx file
-Blocked due to low RAM/ROM space and/or have reached end-of-life support from ASUS and Gnuton.
+Blocked due to being single image models.
    
  - DSL-AC68U (Blocked)
 
@@ -77,18 +82,21 @@ It streamlines the firmware update procedure, automatically detects your router 
 
 - Automatic router model detection and Automatic update detection.
 - Automatically install updates to your router with the latest firmware from the Asuswrt-Merlin repository.
-- Logic to manage cron jobs for automated firmware update checks.
+- Logic to customize scheduled cron jobs for automated firmware update checks.
 - Notifications for new script updates and download the latest version of MerlinAU
 - User configurable wait periods. Wait for a set duration after a new firmware release.
-- Easy Enable/Disable: A menu switch for automatic update checking.
-- Easy Uninstall: A routine to cleanly uninstall the script, removing all related files and settings.
-- Logging and Cleanup: The script maintains logs for its operations and includes functions for cleanup tasks.
-- Blinking LEDs: A visual indicator before starting the firmware update.
-- Changelog verification check: Checks the changelogs for very obvious red flags and prompts for approval.
-- Checks RAM usage: Functions to check and manage available memory for firmware update operations.
+- Menu switch to enable or disable automatic update checking within MerlinAU.
+- A routine to cleanly uninstall the script, removing all related files and settings.
+- Maintains logs for its update checks and flash operations which can be viewed from the logs menu
+- Includes functions for cleanup tasks pre-flash and post-flash.
+- A visual indicator before starting the firmware update.
+- Checks the changelogs for very obvious red flags and prompts for approval.
+- Menu option and notifications to pre-approve the changelog verification if enabled with risks before the flash.
+- Ability to download the latest changelog notes for manual review from the logs menu.
+- Functions to check and manage available memory for firmware update operations.
 - Compatible with ROG and non-ROG routers; select ROG or Pure Build for ROG routers.
 - Backup the new firmware version to the USB drive. (If USB is selected for storage)
-- Email notifications if you configured email options in AMTM.
+- Email notifications if you configured email options in AMTM. (With format selection in the advanced options)
 - Automatic backup with BACKUPMON if installed.
 - Allow or Block Alpha/Beta upgrades to Production versions of the same cycle.
   (388.6.alpha1 or 388.6.beta1 --> 388.6.0)
@@ -96,6 +104,8 @@ It streamlines the firmware update procedure, automatically detects your router 
 - Automatically stops diversion, if installed, before the flash.
 - Unmounts any physically attached storage via USB as the last step before the flash.
 - AiMesh Node Update Check from Primary Router. (No Flashing from Primary, MerlinAU needs to be on each node for flashing)
+- Automatically remove any loaded cron jobs from third party scripts before flashing.
+- Menu switch to keep Tailscale or ZeroTier VPN access active while flashing over SSH in the advanced menu.
 
 ## Installation
 Before using MerlinAU, ensure the following prerequisites are met:
