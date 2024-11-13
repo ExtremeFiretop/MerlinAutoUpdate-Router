@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-12
+# Last Modified: 2024-Nov-13
 ###################################################################
 set -u
 
@@ -6368,7 +6368,7 @@ _PostUpdateEmailNotification_()
    else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
    fi
 
-   sleep 30  ## Let's wait a bit & proceed ##
+   sleep 60  ## Let's wait a bit & proceed ##
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
@@ -6407,7 +6407,7 @@ _PostRebootRunNow_()
    else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
    fi
 
-   sleep 30  ## Let's wait a bit & proceed ##
+   sleep 60  ## Let's wait a bit & proceed ##
    _RunFirmwareUpdateNow_
 }
 
