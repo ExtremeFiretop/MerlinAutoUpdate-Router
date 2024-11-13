@@ -6264,6 +6264,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
         curlPID=$!
 
+        _ReleaseLock_
+
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
         # some reason & the "curl" cmd never returns, we create
@@ -6287,7 +6289,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # reboot by itself after the process returns, do it now.
         #----------------------------------------------------------#
         sleep 180
-        _ReleaseLock_
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Router Login failed."
