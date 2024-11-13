@@ -1435,7 +1435,7 @@ FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
 ##----------------------------------------------##
 # The built-in F/W hook script file to be used for
 # setting up persistent jobs to run after a reboot.
-readonly hookScriptFName="wan-event"
+readonly hookScriptFName="services-start"
 readonly hookScriptFPath="${SCRIPTS_PATH}/$hookScriptFName"
 readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 
@@ -1905,9 +1905,9 @@ _DelPostUpdateEmailNotifyScriptHook_()
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-12] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _AddPostUpdateEmailNotifyScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
@@ -1920,9 +1920,7 @@ _AddPostUpdateEmailNotifyScriptHook_()
         echo "#!/bin/sh"
         echo "# $hookScriptFName"
         echo "#"
-        echo "if [ "$1" = "0" ] && [ "$2" = "connected" ]; then"
         echo "$POST_UPDATE_EMAIL_SCRIPT_HOOK"
-        echo "fi"
       } > "$hookScriptFile"
    #
    elif ! grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
@@ -1960,9 +1958,9 @@ _DelPostRebootRunScriptHook_()
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-12] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _AddPostRebootRunScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
@@ -1975,9 +1973,7 @@ _AddPostRebootRunScriptHook_()
         echo "#!/bin/sh"
         echo "# $hookScriptFName"
         echo "#"
-        echo "if [ "$1" = "0" ] && [ "$2" = "connected" ]; then"
         echo "$POST_REBOOT_SCRIPT_HOOK"
-        echo "fi"
       } > "$hookScriptFile"
    #
    elif ! grep -qE "$POST_REBOOT_SCRIPT_JOB" "$hookScriptFile"
@@ -6341,23 +6337,8 @@ _PostUpdateEmailNotification_()
       # Check if services are ready
       if [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
-         [ "$(nvram get success_start_service)" -eq 1 ]; then
-
-          # If sendEMailNotificationsFlag is true, check AMTM configuration
-          if "$sendEMailNotificationsFlag" 
-          then
-              if _CheckEMailConfigFileFromAMTM_ 0 
-              then
-                  echo "All services are ready."
-                  sleep 60
-                  break
-              fi
-          else
-              echo "All services are ready."
-              sleep 60
-              break
-          fi
-      fi
+         [ "$(nvram get success_start_service)" -eq 1 ]
+      then sleep 60 ; break; fi
 
       echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
       sleep $theWaitDelaySecs
@@ -6388,23 +6369,8 @@ _PostRebootRunNow_()
       # Check if services are ready
       if [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
-         [ "$(nvram get success_start_service)" -eq 1 ]; then
-
-          # If sendEMailNotificationsFlag is true, check AMTM configuration
-          if "$sendEMailNotificationsFlag" 
-          then
-              if _CheckEMailConfigFileFromAMTM_ 0 
-              then
-                  echo "All services are ready."
-                  sleep 60
-                  break
-              fi
-          else
-              echo "All services are ready."
-              sleep 60
-              break
-          fi
-      fi
+         [ "$(nvram get success_start_service)" -eq 1 ]
+      then sleep 60 ; break; fi
 
       echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
       sleep $theWaitDelaySecs
@@ -6436,9 +6402,9 @@ _DelCronJobRunScriptHook_()
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-12] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
 _AddCronJobRunScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
@@ -6451,9 +6417,7 @@ _AddCronJobRunScriptHook_()
         echo "#!/bin/sh"
         echo "# $hookScriptFName"
         echo "#"
-        echo "if [ "$1" = "0" ] && [ "$2" = "connected" ]; then"
         echo "$CRON_SCRIPT_HOOK"
-        echo "fi"
       } > "$hookScriptFile"
    #
    elif ! grep -qE "$CRON_SCRIPT_JOB" "$hookScriptFile"
