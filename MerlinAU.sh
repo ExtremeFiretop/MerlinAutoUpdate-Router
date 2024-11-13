@@ -6367,7 +6367,8 @@ _PostRebootRunNow_()
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
       # Check if services are ready
-      if [ "$(nvram get ntp_ready)" -eq 1 ] && \
+      if [ -d "$FW_ZIP_BASE_DIR" ] && \
+         [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
       then sleep 60 ; break; fi
