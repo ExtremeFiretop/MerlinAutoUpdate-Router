@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Oct-19
+# Last Modified: 2024-Nov-12
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.4
+readonly SCRIPT_VERSION=1.3.5
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -1435,7 +1435,7 @@ FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
 ##----------------------------------------------##
 # The built-in F/W hook script file to be used for
 # setting up persistent jobs to run after a reboot.
-readonly hookScriptFName="services-start"
+readonly hookScriptFName="wan-event"
 readonly hookScriptFPath="${SCRIPTS_PATH}/$hookScriptFName"
 readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 
@@ -1905,9 +1905,9 @@ _DelPostUpdateEmailNotifyScriptHook_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-17] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-12] ##
+##------------------------------------------##
 _AddPostUpdateEmailNotifyScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
@@ -1920,7 +1920,9 @@ _AddPostUpdateEmailNotifyScriptHook_()
         echo "#!/bin/sh"
         echo "# $hookScriptFName"
         echo "#"
+        echo "if [ "$1" = "0" ] && [ "$2" = "connected" ]; then"
         echo "$POST_UPDATE_EMAIL_SCRIPT_HOOK"
+        echo "fi"
       } > "$hookScriptFile"
    #
    elif ! grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
@@ -1958,9 +1960,9 @@ _DelPostRebootRunScriptHook_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-17] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-12] ##
+##------------------------------------------##
 _AddPostRebootRunScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
@@ -1973,7 +1975,9 @@ _AddPostRebootRunScriptHook_()
         echo "#!/bin/sh"
         echo "# $hookScriptFName"
         echo "#"
+        echo "if [ "$1" = "0" ] && [ "$2" = "connected" ]; then"
         echo "$POST_REBOOT_SCRIPT_HOOK"
+        echo "fi"
       } > "$hookScriptFile"
    #
    elif ! grep -qE "$POST_REBOOT_SCRIPT_JOB" "$hookScriptFile"
@@ -6315,9 +6319,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-12] ##
+##------------------------------------------##
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
@@ -6326,16 +6330,35 @@ _PostUpdateEmailNotification_()
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=360  #6 minutes#
    local curWaitDelaySecs=0
+   local USBMountPoint
    #---------------------------------------------------------
    # Wait until all services are started, including NTP
    # so the system clock is updated with correct time.
    #---------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
+      # Check if services are ready
       if [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
-         [ "$(nvram get success_start_service)" -eq 1 ]
-      then sleep 30 ; break; fi
+         [ "$(nvram get success_start_service)" -eq 1 ]; then
+
+          # If sendEMailNotificationsFlag is true, check USB mount point
+          if "$sendEMailNotificationsFlag" then
+              # Attempt to retrieve the USB mount point
+              USBMountPoint="$(_GetDefaultUSBMountPoint_)"
+              if [ -n "$USBMountPoint" ]; then
+                  echo "All services are ready and USB mount point found: $USBMountPoint"
+                  sleep 30
+                  break
+              else
+                  echo "Waiting for USB mount point..."
+              fi
+          else
+              echo "All services are ready."
+              sleep 30
+              break
+          fi
+      fi
 
       echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
       sleep $theWaitDelaySecs
@@ -6345,9 +6368,9 @@ _PostUpdateEmailNotification_()
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-20] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-12] ##
+##------------------------------------------##
 _PostRebootRunNow_()
 {
    _DelPostRebootRunScriptHook_
@@ -6355,6 +6378,7 @@ _PostRebootRunNow_()
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=360  #6 minutes#
    local curWaitDelaySecs=0
+   local USBMountPoint
    #---------------------------------------------------------
    # Wait until all services are started, including NTP
    # so the system clock is updated with correct time.
@@ -6362,11 +6386,28 @@ _PostRebootRunNow_()
    #---------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
-      if [ -d "$FW_ZIP_BASE_DIR" ] && \
-         [ "$(nvram get ntp_ready)" -eq 1 ] && \
+      # Check if services are ready
+      if [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
-         [ "$(nvram get success_start_service)" -eq 1 ]
-      then sleep 30 ; break; fi
+         [ "$(nvram get success_start_service)" -eq 1 ]; then
+
+          # If sendEMailNotificationsFlag is true, check USB mount point
+          if "$sendEMailNotificationsFlag" then
+              # Attempt to retrieve the USB mount point
+              USBMountPoint="$(_GetDefaultUSBMountPoint_)"
+              if [ -n "$USBMountPoint" ]; then
+                  echo "All services are ready and USB mount point found: $USBMountPoint"
+                  sleep 30
+                  break
+              else
+                  echo "Waiting for USB mount point..."
+              fi
+          else
+              echo "All services are ready."
+              sleep 30
+              break
+          fi
+      fi
 
       echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
       sleep $theWaitDelaySecs
@@ -6398,9 +6439,9 @@ _DelCronJobRunScriptHook_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-17] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-12] ##
+##------------------------------------------##
 _AddCronJobRunScriptHook_()
 {
    local hookScriptFile  jobHookAdded=false
@@ -6413,7 +6454,9 @@ _AddCronJobRunScriptHook_()
         echo "#!/bin/sh"
         echo "# $hookScriptFName"
         echo "#"
+        echo "if [ "$1" = "0" ] && [ "$2" = "connected" ]; then"
         echo "$CRON_SCRIPT_HOOK"
+        echo "fi"
       } > "$hookScriptFile"
    #
    elif ! grep -qE "$CRON_SCRIPT_JOB" "$hookScriptFile"
