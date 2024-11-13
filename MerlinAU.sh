@@ -6327,7 +6327,6 @@ _PostUpdateEmailNotification_()
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
-   local USBMountPoint
    #---------------------------------------------------------
    # Wait until all services are started, including NTP
    # so the system clock is updated with correct time.
@@ -6358,7 +6357,6 @@ _PostRebootRunNow_()
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
-   local USBMountPoint
    #---------------------------------------------------------
    # Wait until all services are started, including NTP
    # so the system clock is updated with correct time.
