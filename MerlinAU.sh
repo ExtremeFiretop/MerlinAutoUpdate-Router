@@ -6342,16 +6342,14 @@ _PostUpdateEmailNotification_()
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]; then
 
-          # If sendEMailNotificationsFlag is true, check USB mount point
-          if "$sendEMailNotificationsFlag" then
-              # Attempt to retrieve the USB mount point
-              USBMountPoint="$(_GetDefaultUSBMountPoint_)"
-              if [ -n "$USBMountPoint" ]; then
-                  echo "All services are ready and USB mount point found: $USBMountPoint"
+          # If sendEMailNotificationsFlag is true, check AMTM configuration
+          if "$sendEMailNotificationsFlag" 
+          then
+              if _CheckEMailConfigFileFromAMTM_ 0 
+              then
+                  echo "All services are ready."
                   sleep 30
                   break
-              else
-                  echo "Waiting for USB mount point..."
               fi
           else
               echo "All services are ready."
@@ -6391,16 +6389,14 @@ _PostRebootRunNow_()
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]; then
 
-          # If sendEMailNotificationsFlag is true, check USB mount point
-          if "$sendEMailNotificationsFlag" then
-              # Attempt to retrieve the USB mount point
-              USBMountPoint="$(_GetDefaultUSBMountPoint_)"
-              if [ -n "$USBMountPoint" ]; then
-                  echo "All services are ready and USB mount point found: $USBMountPoint"
+          # If sendEMailNotificationsFlag is true, check AMTM configuration
+          if "$sendEMailNotificationsFlag" 
+          then
+              if _CheckEMailConfigFileFromAMTM_ 0 
+              then
+                  echo "All services are ready."
                   sleep 30
                   break
-              else
-                  echo "Waiting for USB mount point..."
               fi
           else
               echo "All services are ready."
