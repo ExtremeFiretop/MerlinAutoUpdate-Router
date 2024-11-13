@@ -6328,7 +6328,7 @@ _PostUpdateEmailNotification_()
    Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=360  #6 minutes#
+   local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
    local USBMountPoint
    #---------------------------------------------------------
@@ -6348,12 +6348,12 @@ _PostUpdateEmailNotification_()
               if _CheckEMailConfigFileFromAMTM_ 0 
               then
                   echo "All services are ready."
-                  sleep 30
+                  sleep 60
                   break
               fi
           else
               echo "All services are ready."
-              sleep 30
+              sleep 60
               break
           fi
       fi
@@ -6374,7 +6374,7 @@ _PostRebootRunNow_()
    _DelPostRebootRunScriptHook_
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=360  #6 minutes#
+   local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
    local USBMountPoint
    #---------------------------------------------------------
@@ -6395,12 +6395,12 @@ _PostRebootRunNow_()
               if _CheckEMailConfigFileFromAMTM_ 0 
               then
                   echo "All services are ready."
-                  sleep 30
+                  sleep 60
                   break
               fi
           else
               echo "All services are ready."
-              sleep 30
+              sleep 60
               break
           fi
       fi
