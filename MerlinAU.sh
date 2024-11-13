@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Oct-19
+# Last Modified: 2024-Nov-12
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.4
+readonly SCRIPT_VERSION=1.3.5
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -898,9 +898,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-27] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-12] ##
+##----------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -925,6 +925,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
       } > "$SETTINGSFILE"
+      chmod 0664 "$SETTINGSFILE"
       return 1
    fi
    local retCode=0  prefPath
@@ -1000,6 +1001,9 @@ _Init_Custom_Settings_Config_()
        sed -i "13 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
        retCode=1
    fi
+   dos2unix "$SETTINGSFILE"
+   chmod 0664 "$SETTINGSFILE"
+
    return "$retCode"
 }
 
@@ -6316,63 +6320,94 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
+## Added by Martinski W. [2024-Nov-12] ##
 ##-------------------------------------##
+_WAN_IsConnected_()
+{
+   local retCode=1
+   for iFaceNum in 0 1
+   do
+       if [ "$(nvram get wan${iFaceNum}_primary)" -eq 1 ] && \
+          [ "$(nvram get wan${iFaceNum}_state_t)" -eq 2 ]
+       then retCode=0 ; break ; fi
+   done
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-12] ##
+##----------------------------------------##
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
    Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=360  #6 minutes#
+   local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
-   #---------------------------------------------------------
-   # Wait until all services are started, including NTP
-   # so the system clock is updated with correct time.
-   #---------------------------------------------------------
+   local logMsg="Post-Reboot Update Email Notification Wait Timeout"
+   #--------------------------------------------------------------
+   # Wait until all services are started, including WAN & NTP
+   # so the system clock is updated/synced with correct time.
+   #--------------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
-      if [ "$(nvram get ntp_ready)" -eq 1 ] && \
+      if _WAN_IsConnected_ && \
+         [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
-      then sleep 30 ; break; fi
+      then break ; fi
 
-      echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
+      echo "Waiting for all services to be started and for WAN connection [$theWaitDelaySecs secs.]..."
       sleep $theWaitDelaySecs
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
 
+   if [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   then Say "$logMsg was successful."
+   else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
+   fi
+
+   sleep 30  ## Let's wait a bit & proceed ##
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-20] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-12] ##
+##----------------------------------------##
 _PostRebootRunNow_()
 {
    _DelPostRebootRunScriptHook_
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=360  #6 minutes#
+   local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
-   #---------------------------------------------------------
-   # Wait until all services are started, including NTP
-   # so the system clock is updated with correct time.
-   # By this time the USB drive should be mounted as well.
-   #---------------------------------------------------------
+   local logMsg="Post-Reboot F/W Update Run Wait Timeout"
+   #--------------------------------------------------------------
+   # Wait until all services are started, including WAN & NTP
+   # so the system clock is updated/synced with correct time.
+   # Wait for "F/W ZIP BASE" directory to be mounted as well.
+   #--------------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
-      if [ -d "$FW_ZIP_BASE_DIR" ] && \
+      if _WAN_IsConnected_ && \
+         [ -d "$FW_ZIP_BASE_DIR" ] && \
          [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
-      then sleep 30 ; break; fi
+      then break ; fi
 
-      echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
+      echo "Waiting for all services to be started and for WAN connection [$theWaitDelaySecs secs.]..."
       sleep $theWaitDelaySecs
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
 
+   if [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   then Say "$logMsg was successful."
+   else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
+   fi
+
+   sleep 30  ## Let's wait a bit & proceed ##
    _RunFirmwareUpdateNow_
 }
 
