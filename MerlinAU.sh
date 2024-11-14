@@ -205,6 +205,23 @@ userDebugFile="${SETTINGS_DIR}/${ScriptFNameTag}_Debug.LOG"
 LOGdateFormat="%Y-%m-%d %H:%M:%S"
 _LogMsgNoTime_() { _UserLogMsg_ "_NOTIME_" "$@" ; }
 
+_UserTraceLog_()
+{
+   local logTime="$(date +"$LOGdateFormat")"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       echo >> "$userTraceFile"
+   elif [ $# -eq 1 ]
+   then
+       echo "$logTime" "$1" >> "$userTraceFile"
+   elif [ "$1" = "_NOTIME_" ]
+   then
+       echo "$2" >> "$userTraceFile"
+   else
+       echo "$logTime" "${1}: $2" >> "$userTraceFile"
+   fi
+}
+
 _UserLogMsg_()
 {
    if [ -z "$userLOGFile" ] || [ ! -f "$userLOGFile" ]
@@ -459,7 +476,7 @@ _Reset_LEDs_()
    if "$doTrace"
    then
        Say "START _Reset_LEDs_"
-       echo "$(date +"$LOGdateFormat") START _Reset_LEDs_" >> "$userTraceFile"
+       _UserTraceLog_ "START _Reset_LEDs_"
    fi
 
    # Check if the process with that PID is still running #
@@ -478,7 +495,7 @@ _Reset_LEDs_()
    if "$doTrace"
    then
        Say "EXIT _Reset_LEDs_"
-       echo "$(date +"$LOGdateFormat") EXIT _Reset_LEDs_" >> "$userTraceFile"
+       _UserTraceLog_ "EXIT _Reset_LEDs_"
    fi
 }
 
@@ -1842,7 +1859,7 @@ _SendEMailNotification_()
        printf "\nPlease wait...\n"
    fi
 
-   date +"$LOGdateFormat" > "$userTraceFile"
+   _UserTraceLog_ "SENDING email notification..."
 
    curl -Lv --retry 4 --retry-delay 5 --url "${PROTOCOL}://${SMTP}:${PORT}" \
    --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" $CC_ADDRESS_ARG \
@@ -2141,7 +2158,7 @@ _DoCleanUp_()
    if "$doTrace"
    then
        Say "START _DoCleanUp_"
-       echo "$(date +"$LOGdateFormat") START _DoCleanUp_" >> "$userTraceFile"
+       _UserTraceLog_ "START _DoCleanUp_"
    fi
 
    [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
@@ -2175,7 +2192,7 @@ _DoCleanUp_()
    if "$doTrace"
    then
        Say "EXIT _DoCleanUp_"
-       echo "$(date +"$LOGdateFormat") EXIT _DoCleanUp_" >> "$userTraceFile"
+       _UserTraceLog_ "EXIT _DoCleanUp_"
    fi
 }
 
@@ -6335,7 +6352,7 @@ _WAN_IsConnected_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-12] ##
+## Modified by Martinski W. [2024-Nov-13] ##
 ##----------------------------------------##
 _PostUpdateEmailNotification_()
 {
@@ -6346,6 +6363,8 @@ _PostUpdateEmailNotification_()
    local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot Update Email Notification Wait Timeout"
+   _UserTraceLog_ "START of $logMsg ..."
+
    #--------------------------------------------------------------
    # Wait until all services are started, including WAN & NTP
    # so the system clock is updated/synced with correct time.
@@ -6364,16 +6383,17 @@ _PostUpdateEmailNotification_()
    done
 
    if [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
-   then Say "$logMsg was successful."
+   then Say "$logMsg [$curWaitDelaySecs sec.] succeeded."
    else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
    fi
 
+   _UserTraceLog_ "END of $logMsg [$$curWaitDelaySecs sec.]"
    sleep 60  ## Let's wait a bit & proceed ##
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-12] ##
+## Modified by Martinski W. [2024-Nov-13] ##
 ##----------------------------------------##
 _PostRebootRunNow_()
 {
@@ -6383,6 +6403,8 @@ _PostRebootRunNow_()
    local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot F/W Update Run Wait Timeout"
+   _UserTraceLog_ "START of $logMsg ..."
+
    #--------------------------------------------------------------
    # Wait until all services are started, including WAN & NTP
    # so the system clock is updated/synced with correct time.
@@ -6403,10 +6425,11 @@ _PostRebootRunNow_()
    done
 
    if [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
-   then Say "$logMsg was successful."
+   then Say "$logMsg [$curWaitDelaySecs sec.] succeeded."
    else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
    fi
 
+   _UserTraceLog_ "END of $logMsg [$$curWaitDelaySecs sec.]"
    sleep 60  ## Let's wait a bit & proceed ##
    _RunFirmwareUpdateNow_
 }
