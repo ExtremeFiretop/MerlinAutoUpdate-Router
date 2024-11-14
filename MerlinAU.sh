@@ -6359,6 +6359,7 @@ _WAN_IsConnected_()
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
+   _AddCronJobRunScriptHook_
    Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 
    local theWaitDelaySecs=10
