@@ -6251,7 +6251,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         ##-------------------------------------##
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
-        _DelCronJobEntry_
+        _DelCronJobRunScriptHook_
 
         _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
         echo
