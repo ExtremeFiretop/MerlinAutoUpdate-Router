@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-14
+# Last Modified: 2024-Nov-13
 ###################################################################
 set -u
 
@@ -4288,6 +4288,7 @@ _AddCronJobEntry_()
        "$newSetting" && \
        Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$newSchedule"
    fi
+   _ReleaseLock_
    return "$retCode"
 }
 
@@ -6245,9 +6246,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
         _EntwareServicesHandler_ stop -noskip
 
-        ##---------------------------------------##
-        ## Added by ExtremeFiretop [2024-Nov-14] ##
-        ##---------------------------------------##
+        ##-------------------------------------##
+        ## Added by Martinski W. [2024-Sep-15] ##
+        ##-------------------------------------##
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
 
@@ -6255,8 +6256,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         echo
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
-
-        _ReleaseLock_
 
         # *WARNING*: NO MORE logging at this point & beyond #
         /sbin/ejusb -1 0 -u 1 2>/dev/null
@@ -6306,6 +6305,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # reboot by itself after the process returns, do it now.
         #----------------------------------------------------------#
         sleep 180
+        _ReleaseLock_
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Router Login failed."
