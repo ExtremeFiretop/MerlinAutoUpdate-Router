@@ -6256,6 +6256,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
+        _ReleaseLock_
+
         # *WARNING*: NO MORE logging at this point & beyond #
         /sbin/ejusb -1 0 -u 1 2>/dev/null
 
@@ -6280,8 +6282,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         -F "file=@${firmware_file}" \
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
         curlPID=$!
-
-        _ReleaseLock_
 
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
