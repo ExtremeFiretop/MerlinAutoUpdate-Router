@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-13
+# Last Modified: 2024-Nov-14
 ###################################################################
 set -u
 
@@ -6245,9 +6245,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
         _EntwareServicesHandler_ stop -noskip
 
-        ##-------------------------------------##
-        ## Added by Martinski W. [2024-Sep-15] ##
-        ##-------------------------------------##
+        ##---------------------------------------##
+        ## Added by ExtremeFiretop [2024-Nov-14] ##
+        ##---------------------------------------##
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
 
@@ -6281,6 +6281,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
         curlPID=$!
 
+        _ReleaseLock_
+
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
         # some reason & the "curl" cmd never returns, we create
@@ -6304,7 +6306,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # reboot by itself after the process returns, do it now.
         #----------------------------------------------------------#
         sleep 180
-        _ReleaseLock_
         /sbin/service reboot
     else
         Say "${REDct}**ERROR**${NOct}: Router Login failed."
