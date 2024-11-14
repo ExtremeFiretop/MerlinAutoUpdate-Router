@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-13
+# Last Modified: 2024-Nov-14
 ###################################################################
 set -u
 
@@ -4262,7 +4262,7 @@ _Calculate_NextRunTime_()
 }
 
 ##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-19] ##
+## Modified by ExtremeFiretop [2024-Nov-14] ##
 ##----------------------------------------------##
 _AddCronJobEntry_()
 {
