@@ -4288,7 +4288,6 @@ _AddCronJobEntry_()
        "$newSetting" && \
        Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$newSchedule"
    fi
-   _ReleaseLock_
    return "$retCode"
 }
 
