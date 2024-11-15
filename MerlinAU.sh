@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-14
+# Last Modified: 2024-Nov-15
 ###################################################################
 set -u
 
@@ -6361,7 +6361,7 @@ _PostUpdateEmailNotification_()
    Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=360 #6 minutes#
+   local maxWaitDelaySecs=720 #12 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot Update Email Notification Wait Timeout"
    _UserTraceLog_ "START of $logMsg ..."
@@ -6401,7 +6401,7 @@ _PostRebootRunNow_()
    _DelPostRebootRunScriptHook_
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=360 #6 minutes#
+   local maxWaitDelaySecs=720 #12 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot F/W Update Run Wait Timeout"
    _UserTraceLog_ "START of $logMsg ..."
