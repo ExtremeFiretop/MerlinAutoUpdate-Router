@@ -5294,20 +5294,29 @@ _EntwareServicesHandler_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Oct-13] ##
 ##------------------------------------------##
-_GetOfflineFirmwareVersion_()
-{
+_GetOfflineFirmwareVersion_() {
     local zip_file="$1"
-    local extract_version_regex='[0-9]+_[0-9]+\.[0-9]+_[0-9a-zA-Z]+'
+    local extract_version_regex='[0-9]+_[0-9]+\.[0-9]+_[0-9]+(-[0-9a-f]+)?'
     local validate_version_regex='[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(_[0-9a-zA-Z]+)?'
     local fwVersionFormat
+    local firmware_version
+    local formatted_version
 
     # Extract the version number using regex #
     firmware_version="$(echo "$zip_file" | grep -oE "$extract_version_regex")"
 
-    if [ -n "$firmware_version" ]
-    then
-        # Replace underscores with dots and insert .0 before the suffix #
-        formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+\.[0-9]+)_([0-9a-zA-Z]+)/\1.\2.0_\3/')"
+    if [ -n "$firmware_version" ]; then
+        # Replace underscores with dots and handle optional suffix #
+        formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)(-[0-9a-f]+)?/\1.\2.\3.\4/')"
+
+        # Append suffix if present or add '_0' if not #
+        if [[ "$firmware_version" =~ -[0-9a-f]+$ ]]; then
+            suffix="$(echo "$firmware_version" | grep -oE '-[0-9a-f]+$')"
+            formatted_version="${formatted_version}${suffix}"
+        else
+            formatted_version="${formatted_version}_0"
+        fi
+
         printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
         printf "\n---------------------------------------------------\n"
     else
