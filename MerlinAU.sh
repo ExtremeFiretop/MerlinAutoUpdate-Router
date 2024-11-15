@@ -6383,6 +6383,15 @@ _PostUpdateEmailNotification_()
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot Update Email Notification Wait Timeout"
    _UserTraceLog_ "START of $logMsg ..."
+   #--------------------------------------------------------------
+   # Check if unbound_manager.sh exists, and if so, set checkUnbound to true
+   #--------------------------------------------------------------
+   if [ -f /jffs/addons/unbound/unbound_manager.sh ]; then
+      checkUnbound=true
+      Say "unbound_manager.sh found. Will wait for unbound service to start."
+   else
+      Say "unbound_manager.sh not found. Skipping unbound service check."
+   fi
 
    #--------------------------------------------------------------
    # Wait until all services are started, including WAN & NTP
@@ -6394,7 +6403,23 @@ _PostUpdateEmailNotification_()
          [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
-      then break ; fi
+      then
+         # Only check for unbound if checkUnbound is true
+         if $checkUnbound; then
+            # Check if unbound service is running
+            if ps | grep -w "unbound" | grep -v "grep" > /dev/null; then
+               Say "All required services, including unbound, are up and running."
+               break
+            else
+               Say "Unbound service not running yet. Waiting..."
+            fi
+         else
+            Say "All required services are up and running (unbound check skipped)."
+            break
+         fi
+      else
+         Say "System services not fully ready. Waiting..."
+      fi
 
       echo "Waiting for all services to be started and for WAN connection [$theWaitDelaySecs secs.]..."
       sleep $theWaitDelaySecs
