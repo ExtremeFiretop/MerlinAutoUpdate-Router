@@ -1687,8 +1687,7 @@ _CreateEMailContent_()
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [Saved info is empty]."
                return 1
            fi
-           if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ] && \
-              [ "$savedInstalledVersion" != "$fwInstalledVersion" ]
+           if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ]
            then
               emailBodyTitle="Successful Firmware Update"
               {
@@ -6362,7 +6361,7 @@ _PostUpdateEmailNotification_()
    Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=600  #10 minutes#
+   local maxWaitDelaySecs=360 #6 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot Update Email Notification Wait Timeout"
    _UserTraceLog_ "START of $logMsg ..."
@@ -6390,7 +6389,7 @@ _PostUpdateEmailNotification_()
    fi
 
    _UserTraceLog_ "END of $logMsg [$$curWaitDelaySecs sec.]"
-   sleep 60  ## Let's wait a bit & proceed ##
+   sleep 30  ## Let's wait a bit & proceed ##
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
@@ -6402,7 +6401,7 @@ _PostRebootRunNow_()
    _DelPostRebootRunScriptHook_
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=600  #10 minutes#
+   local maxWaitDelaySecs=360 #6 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot F/W Update Run Wait Timeout"
    _UserTraceLog_ "START of $logMsg ..."
@@ -6432,7 +6431,7 @@ _PostRebootRunNow_()
    fi
 
    _UserTraceLog_ "END of $logMsg [$$curWaitDelaySecs sec.]"
-   sleep 60  ## Let's wait a bit & proceed ##
+   sleep 30  ## Let's wait a bit & proceed ##
    _RunFirmwareUpdateNow_
 }
 
