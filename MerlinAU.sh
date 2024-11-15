@@ -5300,6 +5300,8 @@ _GetOfflineFirmwareVersion_()
     local extract_version_regex='[0-9]+_[0-9]+\.[0-9]+_[0-9a-zA-Z]+'
     local validate_version_regex='[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(_[0-9a-zA-Z]+)?'
     local fwVersionFormat
+    local firmware_version
+    local formatted_version
 
     # Extract the version number using regex #
     firmware_version="$(echo "$zip_file" | grep -oE "$extract_version_regex")"
@@ -5313,21 +5315,21 @@ _GetOfflineFirmwareVersion_()
             formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)/\1.\2.\3.0_\4/')"
         else
             printf "\nFailed to parse firmware version from the ZIP file name.\n"
-            exit 1
+            firmware_version=""
         fi
         printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
         printf "\n---------------------------------------------------\n"
 
         # Ask the user to confirm the detected firmware version
         if _WaitForYESorNO_ "\nIs this firmware version correct?"; then
+            printf "\n---------------------------------------------------\n"
+        else
             # Set firmware_version to empty to trigger manual entry
             firmware_version=""
-        else
-            printf "\n---------------------------------------------------\n"
         fi
     fi
 
-    if [ -n "$firmware_version" ]; then
+    if [ -z "$firmware_version" ]; then
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
@@ -5441,7 +5443,7 @@ _SelectOfflineUpdateFile_()
     done
 
     # Extract or prompt for firmware version #
-    if ! _GetOfflineFirmwareVersion_ "$selected_file" 
+    if ! _GetOfflineFirmwareVersion_ "$selected_file"
     then
         printf "Operation was cancelled by user. Exiting.\n"
         return 1
