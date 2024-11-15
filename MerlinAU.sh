@@ -5317,7 +5317,17 @@ _GetOfflineFirmwareVersion_()
         fi
         printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
         printf "\n---------------------------------------------------\n"
-    else
+
+        # Ask the user to confirm the detected firmware version
+        if _WaitForYESorNO_ "\nIs this firmware version correct?"; then
+            # Set firmware_version to empty to trigger manual entry
+            firmware_version=""
+        else
+            printf "\n---------------------------------------------------\n"
+        fi
+    fi
+
+    if [ -n "$firmware_version" ]; then
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
@@ -5328,15 +5338,18 @@ _GetOfflineFirmwareVersion_()
             printf "\nFailed to identify firmware version from the ZIP file name."
         fi
         printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
-        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.0_beta1):  "
+        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.0_beta1). Enter 'e' to exit:  "
         read -r formatted_version
 
         # Validate user input #
         while ! echo "$formatted_version" | grep -qE "^${validate_version_regex}$"
         do
+            if echo "$formatted_version" | grep -qE "^(e|E|exit|Exit)$"; then
+                return 1
+            fi
             printf "\n${REDct}**WARNING**${NOct} Invalid format detected!\n"
             printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
-            printf "\n(i.e 3004.388.8.0 or 3004.388.8.0_beta1):  "
+            printf "\n(i.e 3004.388.8.0 or 3004.388.8.0_beta1). Enter 'e' to exit:  "
             read -r formatted_version
         done
         printf "\nThe user-provided firmware version: ${GRNct}$formatted_version${NOct}\n"
@@ -5428,7 +5441,11 @@ _SelectOfflineUpdateFile_()
     done
 
     # Extract or prompt for firmware version #
-    _GetOfflineFirmwareVersion_ "$selected_file"
+    if ! _GetOfflineFirmwareVersion_ "$selected_file" 
+    then
+        printf "Operation was cancelled by user. Exiting.\n"
+        return 1
+    fi
 
     # Confirm the selection
     if _WaitForYESorNO_ "\nDo you want to continue with the selected file?"
