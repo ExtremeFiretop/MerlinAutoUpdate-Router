@@ -4261,7 +4261,7 @@ _Calculate_NextRunTime_()
 }
 
 ##----------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-14] ##
+## Added/Modified by Martinski W. [2023-Nov-19] ##
 ##----------------------------------------------##
 _AddCronJobEntry_()
 {
@@ -6244,9 +6244,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
         _EntwareServicesHandler_ stop -noskip
 
-        ##-------------------------------------##
-        ## Added by Martinski W. [2024-Sep-15] ##
-        ##-------------------------------------##
+        ##------------------------------------------##
+        ## Modified by ExtremeFiretop [2024-Nov-15] ##
+        ##------------------------------------------##
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
         _DelCronJobRunScriptHook_
