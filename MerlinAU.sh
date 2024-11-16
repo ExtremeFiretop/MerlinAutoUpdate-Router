@@ -6417,9 +6417,9 @@ _WAN_IsConnected_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-15] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-13] ##
+##----------------------------------------##
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
