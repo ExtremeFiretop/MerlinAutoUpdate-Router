@@ -291,28 +291,13 @@ _WaitForYESorNO_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-14] ##
-##----------------------------------------##
-readonly LockFilePath="/tmp/var/${ScriptFNameTag}.LOCK"
-LockFileMaxAgeSecs=600  #10-minutes#
-LockWaitTimeoutSecs=120
-
+##-------------------------------------##
+## Added by Martinski W. [2023-Dec-26] ##
+##-------------------------------------##
+LockFilePath="/tmp/var/${ScriptFNameTag}.LOCK"
+LockFileMaxSecs=600  #10-min "hold"#
 _ReleaseLock_() { rm -f "$LockFilePath" ; }
 
-if [ $# -eq 0 ] || [ -z "$1" ]
-then  #Interactive Mode#
-    LockFileMaxAgeSecs=1200
-    LockWaitTimeoutSecs=10
-elif [ "$1" = "addCronJob" ]
-then  #Special Case#
-    LockFileMaxAgeSecs=1200
-    LockWaitTimeoutSecs=600
-fi
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-15] ##
-##----------------------------------------##
 _AcquireLock_()
 {
    if [ ! -f "$LockFilePath" ]
@@ -320,50 +305,24 @@ _AcquireLock_()
        echo "$$" > "$LockFilePath"
        return 0
    fi
-   local lockFileSecs  ageOfLockSecs  oldPID  retCode  waitTimeoutSecs
 
-   retCode=1
-   waitTimeoutSecs=0
-
-   while true
-   do
-      if [ -f "$LockFilePath" ]
-      then
-          oldPID="$(cat "$LockFilePath")"
-          lockFileSecs="$(date +%s -r "$LockFilePath")"
-      else
-          echo "$$" > "$LockFilePath"
-          retCode=0
-          break
-      fi
-
-      ageOfLockSecs="$(($(date +%s) - lockFileSecs))"
-      if [ "$ageOfLockSecs" -gt "$LockFileMaxAgeSecs" ]
-      then
-          Say "Stale Lock Found (older than $LockFileMaxAgeSecs secs.) Resetting lock file..."
-          if [ -n "$oldPID" ] && kill -EXIT "$oldPID" 2>/dev/null && \
-              pidof "$ScriptFileName" | grep -qow "$oldPID"
-          then
-              kill -TERM "$oldPID" ; wait "$oldPID"
-          fi
-          echo "$$" > "$LockFilePath"
-          retCode=0
-          break
-      elif [ "$waitTimeoutSecs" -le "$LockWaitTimeoutSecs" ]
-      then
-          if [ "$waitTimeoutSecs" -eq 0 ] || [ "$((waitTimeoutSecs % 10))" -eq 0 ]
-		  then
-              Say "Lock Found [Age: $ageOfLockSecs secs.] Waiting for script [PID=$oldPID] to exit [Timer: $waitTimeoutSecs secs.]"
-          fi
-          sleep 2
-          waitTimeoutSecs="$((waitTimeoutSecs + 2))"
-      else
-          Say "${REDct}**ERROR**${NOct}: The shell script ${ScriptFileName} [PID=$oldPID] is already running [Lock Age: $ageOfLockSecs secs.]"
-          retCode=1
-          break
-      fi
-   done
-   return "$retCode"
+   ageOfLockSecs="$(($(date +%s) - $(date +%s -r "$LockFilePath")))"
+   if [ "$ageOfLockSecs" -gt "$LockFileMaxSecs" ]
+   then
+       Say "Stale lock found (older than $LockFileMaxSecs secs.) Reset lock file."
+       oldPID="$(cat "$LockFilePath")"
+       if [ -n "$oldPID" ] && kill -EXIT "$oldPID" 2>/dev/null && \
+          pidof "$ScriptFileName" | grep -qow "$oldPID"
+       then
+           kill -TERM "$oldPID" ; wait "$oldPID"
+       fi
+       rm -f "$LockFilePath"
+       echo "$$" > "$LockFilePath"
+       return 0
+   else
+       Say "${REDct}**ERROR**${NOct}: The shell script '${ScriptFileName}' is already running [Lock file: $ageOfLockSecs secs.]"
+       return 1
+   fi
 }
 
 ##-------------------------------------##
@@ -893,7 +852,7 @@ _ChangeToStable_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-15] ##
+## Modified by Martinski W. [2024-Mar-14] ##
 ##----------------------------------------##
 #-------------------------------------------------------------#
 # Since a list of current mount points can have a different
@@ -915,7 +874,7 @@ _ValidateUSBMountPoint_()
    [ -z "$mounPointPaths" ] && return 1
 
    expectedPath="$1"
-   if echo "$1" | grep -qE "^(/opt/|/tmp/opt/)" && [ -d /tmp/opt ]
+   if echo "$1" | grep -qE "^(/opt/|/tmp/opt/)"
    then
        realPath1="$(readlink -f /tmp/opt)"
        realPath2="$(ls -l /tmp/opt | awk -F ' ' '{print $11}')"
@@ -1562,7 +1521,7 @@ fi
 
 UserPreferredLogPath="$(Get_Custom_Setting FW_New_Update_LOG_Preferred_Path)"
 if echo "$UserPreferredLogPath" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
-   _ValidateUSBMountPoint_ "$UserPreferredLogPath" && \
+   _ValidateUSBMountPoint_ "$UserPreferredLogPath" &&
    [ "$UserPreferredLogPath" != "$FW_LOG_BASE_DIR" ]
 then
    mv -f "${FW_LOG_DIR}"/*.log "${UserPreferredLogPath}/$FW_LOG_SUBDIR" 2>/dev/null
@@ -6450,23 +6409,7 @@ _PostUpdateEmailNotification_()
          [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
-      then
-         # Only check for unbound if checkUnbound is true
-         if $checkUnbound; then
-            # Check if unbound service is running
-            if ps | grep -w "unbound" | grep -v "grep" > /dev/null; then
-               Say "All required services, including unbound, are up and running."
-               break
-            else
-               Say "Unbound service not running yet. Waiting..."
-            fi
-         else
-            Say "All required services are up and running (unbound check skipped)."
-            break
-         fi
-      else
-         Say "System services not fully ready. Waiting..."
-      fi
+      then break ; fi
 
       echo "Waiting for all services to be started and for WAN connection [$theWaitDelaySecs secs.]..."
       sleep $theWaitDelaySecs
@@ -6479,7 +6422,7 @@ _PostUpdateEmailNotification_()
    fi
 
    _UserTraceLog_ "END of $logMsg [$$curWaitDelaySecs sec.]"
-   sleep 20  ## Let's wait a bit & proceed ##
+   sleep 30  ## Let's wait a bit & proceed ##
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
