@@ -5361,7 +5361,7 @@ _GetOfflineFirmwareVersion_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Sep-07] ##
+## Modified by ExtremeFiretop [2024-Nov-15] ##
 ##------------------------------------------##
 _SelectOfflineUpdateFile_()
 {
@@ -6270,9 +6270,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
         _EntwareServicesHandler_ stop -noskip
 
-        ##------------------------------------------##
-        ## Modified by ExtremeFiretop [2024-Nov-15] ##
-        ##------------------------------------------##
+        ##-------------------------------------##
+        ## Added by Martinski W. [2024-Sep-15] ##
+        ##-------------------------------------##
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
 
