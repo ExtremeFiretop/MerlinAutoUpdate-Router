@@ -6426,7 +6426,7 @@ _PostUpdateEmailNotification_()
    Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=10 #10 minutes#
+   local maxWaitDelaySecs=600 #10 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot Update Email Notification Wait Timeout"
    _UserTraceLog_ "START of $logMsg ..."
@@ -6466,7 +6466,7 @@ _PostRebootRunNow_()
    _DelPostRebootRunScriptHook_
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=10 #10 minutes#
+   local maxWaitDelaySecs=600 #10 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot F/W Update Run Wait Timeout"
    _UserTraceLog_ "START of $logMsg ..."
