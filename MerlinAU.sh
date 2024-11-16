@@ -6275,7 +6275,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         ##------------------------------------------##
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
-        _DelCronJobRunScriptHook_
 
         _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
         echo
@@ -6383,25 +6382,6 @@ _WAN_IsConnected_()
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
-   FW_UpdateCheckState="$(nvram get firmware_check_enable)"
-   [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
-   if [ "$FW_UpdateCheckState" -eq 1 ] && [ "$sendEMailNotificationsFlag" ]
-   then
-       # Check if the CRON job already exists #
-       if ! eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
-       then
-           if _AddCronJobEntry_
-           then
-               printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
-               _AddCronJobRunScriptHook_
-           else
-              printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
-           fi
-       else
-           printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
-           _AddCronJobRunScriptHook_
-       fi
-   fi
    Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 
    local theWaitDelaySecs=10
