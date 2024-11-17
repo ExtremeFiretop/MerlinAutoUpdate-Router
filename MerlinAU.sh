@@ -6402,21 +6402,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Nov-12] ##
-##-------------------------------------##
-_WAN_IsConnected_()
-{
-   local retCode=1
-   for iFaceNum in 0 1
-   do
-       if [ "$(nvram get wan${iFaceNum}_primary)" -eq 1 ] && \
-          [ "$(nvram get wan${iFaceNum}_state_t)" -eq 2 ]
-       then retCode=0 ; break ; fi
-   done
-   return "$retCode"
-}
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Nov-13] ##
 ##----------------------------------------##
@@ -6437,8 +6422,7 @@ _PostUpdateEmailNotification_()
    #--------------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
-      if _WAN_IsConnected_ && \
-         [ "$(nvram get ntp_ready)" -eq 1 ] && \
+      if [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
       then break ; fi
