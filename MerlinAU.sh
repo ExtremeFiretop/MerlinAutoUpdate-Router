@@ -1615,8 +1615,8 @@ _CreateEMailContent_()
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
 
-   # Remove "_rog" or "_tuf" suffix to avoid version comparison failures #
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_\(rog\|tuf\)$//')"
+   # Remove "_rog" or "_tuf" or -gHASHVALUES suffix to avoid version comparison failures #
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10})$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
