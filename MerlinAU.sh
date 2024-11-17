@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-15
+# Last Modified: 2024-Nov-16
 ###################################################################
 set -u
 
@@ -6402,9 +6402,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-13] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-16] ##
+##------------------------------------------##
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
