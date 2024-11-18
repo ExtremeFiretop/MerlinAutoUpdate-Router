@@ -4,15 +4,15 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Oct-19
+# Last Modified: 2024-Nov-17
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.4
+readonly SCRIPT_VERSION=1.3.5
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -205,6 +205,23 @@ userDebugFile="${SETTINGS_DIR}/${ScriptFNameTag}_Debug.LOG"
 LOGdateFormat="%Y-%m-%d %H:%M:%S"
 _LogMsgNoTime_() { _UserLogMsg_ "_NOTIME_" "$@" ; }
 
+_UserTraceLog_()
+{
+   local logTime="$(date +"$LOGdateFormat")"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       echo >> "$userTraceFile"
+   elif [ $# -eq 1 ]
+   then
+       echo "$logTime" "$1" >> "$userTraceFile"
+   elif [ "$1" = "_NOTIME_" ]
+   then
+       echo "$2" >> "$userTraceFile"
+   else
+       echo "$logTime" "${1}: $2" >> "$userTraceFile"
+   fi
+}
+
 _UserLogMsg_()
 {
    if [ -z "$userLOGFile" ] || [ ! -f "$userLOGFile" ]
@@ -274,13 +291,28 @@ _WaitForYESorNO_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Dec-26] ##
-##-------------------------------------##
-LockFilePath="/tmp/var/${ScriptFNameTag}.LOCK"
-LockFileMaxSecs=600  #10-min "hold"#
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-14] ##
+##----------------------------------------##
+readonly LockFilePath="/tmp/var/${ScriptFNameTag}.LOCK"
+LockFileMaxAgeSecs=600  #10-minutes#
+LockWaitTimeoutSecs=120
+
 _ReleaseLock_() { rm -f "$LockFilePath" ; }
 
+if [ $# -eq 0 ] || [ -z "$1" ]
+then  #Interactive Mode#
+    LockFileMaxAgeSecs=1200
+    LockWaitTimeoutSecs=10
+elif [ "$1" = "addCronJob" ]
+then  #Special Case#
+    LockFileMaxAgeSecs=1200
+    LockWaitTimeoutSecs=600
+fi
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-17] ##
+##----------------------------------------##
 _AcquireLock_()
 {
    if [ ! -f "$LockFilePath" ]
@@ -288,24 +320,50 @@ _AcquireLock_()
        echo "$$" > "$LockFilePath"
        return 0
    fi
+   local lockFileSecs  ageOfLockSecs  oldPID  retCode  waitTimeoutSecs
 
-   ageOfLockSecs="$(($(date +%s) - $(date +%s -r "$LockFilePath")))"
-   if [ "$ageOfLockSecs" -gt "$LockFileMaxSecs" ]
-   then
-       Say "Stale lock found (older than $LockFileMaxSecs secs.) Reset lock file."
-       oldPID="$(cat "$LockFilePath")"
-       if [ -n "$oldPID" ] && kill -EXIT "$oldPID" 2>/dev/null && \
-          pidof "$ScriptFileName" | grep -qow "$oldPID"
-       then
-           kill -TERM "$oldPID" ; wait "$oldPID"
-       fi
-       rm -f "$LockFilePath"
-       echo "$$" > "$LockFilePath"
-       return 0
-   else
-       Say "${REDct}**ERROR**${NOct}: The shell script '${ScriptFileName}' is already running [Lock file: $ageOfLockSecs secs.]"
-       return 1
-   fi
+   retCode=1
+   waitTimeoutSecs=0
+
+   while true
+   do
+      if [ -f "$LockFilePath" ]
+      then
+          oldPID="$(cat "$LockFilePath")"
+          lockFileSecs="$(date +%s -r "$LockFilePath")"
+      else
+          echo "$$" > "$LockFilePath"
+          retCode=0
+          break
+      fi
+
+      ageOfLockSecs="$(($(date +%s) - lockFileSecs))"
+      if [ "$ageOfLockSecs" -gt "$LockFileMaxAgeSecs" ]
+      then
+          Say "Stale Lock Found (older than $LockFileMaxAgeSecs secs.) Resetting lock file..."
+          if [ -n "$oldPID" ] && kill -EXIT "$oldPID" 2>/dev/null && \
+              pidof "$ScriptFileName" | grep -qow "$oldPID"
+          then
+              kill -TERM "$oldPID" ; wait "$oldPID"
+          fi
+          echo "$$" > "$LockFilePath"
+          retCode=0
+          break
+      elif [ "$waitTimeoutSecs" -le "$LockWaitTimeoutSecs" ]
+      then
+          if [ "$((waitTimeoutSecs % 10))" -eq 0 ]
+		  then
+              Say "Lock Found [Age: $ageOfLockSecs secs.] Waiting for script [PID=$oldPID] to exit [Timer: $waitTimeoutSecs secs.]"
+          fi
+          sleep 2
+          waitTimeoutSecs="$((waitTimeoutSecs + 2))"
+      else
+          Say "${REDct}**ERROR**${NOct}: The shell script ${ScriptFileName} [PID=$oldPID] is already running [Lock Age: $ageOfLockSecs secs.]"
+          retCode=1
+          break
+      fi
+   done
+   return "$retCode"
 }
 
 ##-------------------------------------##
@@ -459,7 +517,7 @@ _Reset_LEDs_()
    if "$doTrace"
    then
        Say "START _Reset_LEDs_"
-       echo "$(date +"$LOGdateFormat") START _Reset_LEDs_" >> "$userTraceFile"
+       _UserTraceLog_ "START _Reset_LEDs_"
    fi
 
    # Check if the process with that PID is still running #
@@ -478,7 +536,7 @@ _Reset_LEDs_()
    if "$doTrace"
    then
        Say "EXIT _Reset_LEDs_"
-       echo "$(date +"$LOGdateFormat") EXIT _Reset_LEDs_" >> "$userTraceFile"
+       _UserTraceLog_ "EXIT _Reset_LEDs_"
    fi
 }
 
@@ -835,7 +893,7 @@ _ChangeToStable_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-14] ##
+## Modified by Martinski W. [2024-Nov-15] ##
 ##----------------------------------------##
 #-------------------------------------------------------------#
 # Since a list of current mount points can have a different
@@ -857,7 +915,7 @@ _ValidateUSBMountPoint_()
    [ -z "$mounPointPaths" ] && return 1
 
    expectedPath="$1"
-   if echo "$1" | grep -qE "^(/opt/|/tmp/opt/)"
+   if echo "$1" | grep -qE "^(/opt/|/tmp/opt/)" && [ -d /tmp/opt ]
    then
        realPath1="$(readlink -f /tmp/opt)"
        realPath2="$(ls -l /tmp/opt | awk -F ' ' '{print $11}')"
@@ -898,9 +956,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-27] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-12] ##
+##----------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -925,6 +983,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
       } > "$SETTINGSFILE"
+      chmod 0664 "$SETTINGSFILE"
       return 1
    fi
    local retCode=0  prefPath
@@ -1000,6 +1059,9 @@ _Init_Custom_Settings_Config_()
        sed -i "13 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
        retCode=1
    fi
+   dos2unix "$SETTINGSFILE"
+   chmod 0664 "$SETTINGSFILE"
+
    return "$retCode"
 }
 
@@ -1500,7 +1562,7 @@ fi
 
 UserPreferredLogPath="$(Get_Custom_Setting FW_New_Update_LOG_Preferred_Path)"
 if echo "$UserPreferredLogPath" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
-   _ValidateUSBMountPoint_ "$UserPreferredLogPath" &&
+   _ValidateUSBMountPoint_ "$UserPreferredLogPath" && \
    [ "$UserPreferredLogPath" != "$FW_LOG_BASE_DIR" ]
 then
    mv -f "${FW_LOG_DIR}"/*.log "${UserPreferredLogPath}/$FW_LOG_SUBDIR" 2>/dev/null
@@ -1529,9 +1591,9 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-04] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-16] ##
+##------------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -1553,8 +1615,8 @@ _CreateEMailContent_()
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
 
-   # Remove "_rog" or "_tuf" suffix to avoid version comparison failures #
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_\(rog\|tuf\)$//')"
+   # Remove "_rog" or "_tuf" or -gHASHVALUES suffix to avoid version comparison failures #
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10})$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -1666,8 +1728,7 @@ _CreateEMailContent_()
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [Saved info is empty]."
                return 1
            fi
-           if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ] && \
-              [ "$savedInstalledVersion" != "$fwInstalledVersion" ]
+           if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ]
            then
               emailBodyTitle="Successful Firmware Update"
               {
@@ -1838,7 +1899,7 @@ _SendEMailNotification_()
        printf "\nPlease wait...\n"
    fi
 
-   date +"$LOGdateFormat" > "$userTraceFile"
+   _UserTraceLog_ "SENDING email notification..."
 
    curl -Lv --retry 4 --retry-delay 5 --url "${PROTOCOL}://${SMTP}:${PORT}" \
    --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" $CC_ADDRESS_ARG \
@@ -2137,7 +2198,7 @@ _DoCleanUp_()
    if "$doTrace"
    then
        Say "START _DoCleanUp_"
-       echo "$(date +"$LOGdateFormat") START _DoCleanUp_" >> "$userTraceFile"
+       _UserTraceLog_ "START _DoCleanUp_"
    fi
 
    [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
@@ -2171,7 +2232,7 @@ _DoCleanUp_()
    if "$doTrace"
    then
        Say "EXIT _DoCleanUp_"
-       echo "$(date +"$LOGdateFormat") EXIT _DoCleanUp_" >> "$userTraceFile"
+       _UserTraceLog_ "EXIT _DoCleanUp_"
    fi
 }
 
@@ -5272,25 +5333,46 @@ _EntwareServicesHandler_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Oct-13] ##
+## Modified by ExtremeFiretop [2024-Nov-15] ##
 ##------------------------------------------##
 _GetOfflineFirmwareVersion_()
 {
     local zip_file="$1"
     local extract_version_regex='[0-9]+_[0-9]+\.[0-9]+_[0-9a-zA-Z]+'
     local validate_version_regex='[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(_[0-9a-zA-Z]+)?'
-    local fwVersionFormat
+    local fwVersionFormat  firmware_version  formatted_version
 
     # Extract the version number using regex #
     firmware_version="$(echo "$zip_file" | grep -oE "$extract_version_regex")"
 
     if [ -n "$firmware_version" ]
     then
-        # Replace underscores with dots and insert .0 before the suffix #
-        formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+\.[0-9]+)_([0-9a-zA-Z]+)/\1.\2.0_\3/')"
+        if echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)$'
+        then
+            # Numeric patch version
+            formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)/\1.\2.\3.\4/')"
+        elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)$'
+        then
+            # Alphanumeric suffix
+            formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)/\1.\2.\3.0_\4/')"
+        else
+            printf "\nFailed to parse firmware version from the ZIP file name.\n"
+            firmware_version=""
+        fi
         printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
         printf "\n---------------------------------------------------\n"
-    else
+
+        # Ask the user to confirm the detected firmware version
+        if _WaitForYESorNO_ "\nIs this firmware version correct?"; then
+            printf "\n---------------------------------------------------\n"
+        else
+            # Set firmware_version to empty to trigger manual entry
+            firmware_version=""
+        fi
+    fi
+
+    if [ -z "$firmware_version" ]
+    then
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
@@ -5301,15 +5383,18 @@ _GetOfflineFirmwareVersion_()
             printf "\nFailed to identify firmware version from the ZIP file name."
         fi
         printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
-        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.0_beta1):  "
+        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.0_beta1). Enter 'e' to exit:  "
         read -r formatted_version
 
         # Validate user input #
         while ! echo "$formatted_version" | grep -qE "^${validate_version_regex}$"
         do
+            if echo "$formatted_version" | grep -qE "^(e|E|exit|Exit)$"; then
+                return 1
+            fi
             printf "\n${REDct}**WARNING**${NOct} Invalid format detected!\n"
             printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
-            printf "\n(i.e 3004.388.8.0 or 3004.388.8.0_beta1):  "
+            printf "\n(i.e 3004.388.8.0 or 3004.388.8.0_beta1). Enter 'e' to exit:  "
             read -r formatted_version
         done
         printf "\nThe user-provided firmware version: ${GRNct}$formatted_version${NOct}\n"
@@ -5319,7 +5404,7 @@ _GetOfflineFirmwareVersion_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Sep-07] ##
+## Modified by ExtremeFiretop [2024-Nov-15] ##
 ##------------------------------------------##
 _SelectOfflineUpdateFile_()
 {
@@ -5401,7 +5486,11 @@ _SelectOfflineUpdateFile_()
     done
 
     # Extract or prompt for firmware version #
-    _GetOfflineFirmwareVersion_ "$selected_file"
+    if ! _GetOfflineFirmwareVersion_ "$selected_file"
+    then
+        printf "Operation was cancelled by user. Exiting.\n"
+        return 1
+    fi
 
     # Confirm the selection
     if _WaitForYESorNO_ "\nDo you want to continue with the selected file?"
@@ -6315,64 +6404,90 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Jan-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-17] ##
+##----------------------------------------##
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
    Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=360  #6 minutes#
+   local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
-   #---------------------------------------------------------
-   # Wait until all services are started, including NTP
-   # so the system clock is updated with correct time.
-   #---------------------------------------------------------
+   local logMsg="Post-Reboot Update Email Notification Wait Timeout"
+   Say "START of ${logMsg}."
+
+   #--------------------------------------------------------------
+   # Wait until all services are started, including WAN & NTP
+   # so the system clock is updated/synced with correct time.
+   #--------------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
       if [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
-      then sleep 30 ; break; fi
+      then break ; fi
 
-      echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
+      if [ "$curWaitDelaySecs" -gt 0 ] && \
+         [ "$((curWaitDelaySecs % 60))" -eq 0 ]
+      then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
+
       sleep $theWaitDelaySecs
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
 
+   if [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   then Say "$logMsg [$curWaitDelaySecs sec.] succeeded."
+   else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
+   fi
+
+   Say "END of $logMsg [$$curWaitDelaySecs sec.]"
+   sleep 20  ## Let's wait a bit & proceed ##
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2023-Nov-20] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-17] ##
+##----------------------------------------##
 _PostRebootRunNow_()
 {
    _DelPostRebootRunScriptHook_
 
    local theWaitDelaySecs=10
-   local maxWaitDelaySecs=360  #6 minutes#
+   local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
-   #---------------------------------------------------------
-   # Wait until all services are started, including NTP
-   # so the system clock is updated with correct time.
-   # By this time the USB drive should be mounted as well.
-   #---------------------------------------------------------
+   local logMsg="Post-Reboot F/W Update Run Wait Timeout"
+   Say "START of ${logMsg}."
+
+   #--------------------------------------------------------------
+   # Wait until all services are started, including WAN & NTP
+   # so the system clock is updated/synced with correct time.
+   # Wait for "F/W ZIP BASE" directory to be mounted as well.
+   #--------------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
       if [ -d "$FW_ZIP_BASE_DIR" ] && \
          [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
-      then sleep 30 ; break; fi
+      then break ; fi
 
-      echo "Waiting for all services to be started [$theWaitDelaySecs secs.]..."
+      if [ "$curWaitDelaySecs" -gt 0 ] && \
+         [ "$((curWaitDelaySecs % 60))" -eq 0 ]
+      then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
+
       sleep $theWaitDelaySecs
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
 
+   if [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   then Say "$logMsg [$curWaitDelaySecs sec.] succeeded."
+   else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
+   fi
+
+   Say "END of $logMsg [$$curWaitDelaySecs sec.]"
+   sleep 30  ## Let's wait a bit & proceed ##
    _RunFirmwareUpdateNow_
 }
 
