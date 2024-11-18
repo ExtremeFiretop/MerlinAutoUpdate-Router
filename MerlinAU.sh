@@ -4,15 +4,15 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-17
+# Last Modified: 2024-Nov-18
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.5
+readonly SCRIPT_VERSION=1.3.6
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -3231,9 +3231,9 @@ GetLatestChangelogUrl()
     fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-18] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-18] ##
+##----------------------------------------##
 _DownloadForGnuton_()
 {
     # Follow redirects and capture the effective URL
@@ -3254,21 +3254,21 @@ _DownloadForGnuton_()
     FW_Changelog_GITHUB="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
 
     # Download the firmware using the release link #
-    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+    wget --tries=5 --waitretry=5 --retry-connrefused \
          -O "$FW_DL_FPATH" "$release_link"
     if [ ! -s "$FW_DL_FPATH" ]
     then return 1 ; fi
 
     # Download the latest MD5 checksum #
     Say "Downloading latest MD5 checksum ${GRNct}${md5_url}${NOct}"
-    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+    wget --tries=5 --waitretry=5 --retry-connrefused \
          -O "$FW_MD5_GITHUB" "$md5_url"
     if [ ! -s "$FW_MD5_GITHUB" ]
     then return 1 ; fi
 
     # Download the latest changelog #
     Say "Downloading latest Changelog ${GRNct}${Gnuton_changelogurl}${NOct}"
-    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+    wget --tries=5 --waitretry=5 --retry-connrefused \
          -O "$FW_Changelog_GITHUB" "$Gnuton_changelogurl"
     if [ ! -s "$FW_Changelog_GITHUB" ]
     then return 1
@@ -3276,12 +3276,12 @@ _DownloadForGnuton_()
     fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-18] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-18] ##
+##----------------------------------------##
 _DownloadForMerlin_()
 {
-    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+    wget --tries=5 --waitretry=5 --retry-connrefused \
          -O "$FW_ZIP_FPATH" "$release_link"
 
     # Check if the file was downloaded successfully #
@@ -4755,7 +4755,7 @@ _ChangelogVerificationCheck_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
+## Modified by Martinski W. [2024-Nov-18] ##
 ##----------------------------------------##
 _ManageChangelogMerlin_()
 {
@@ -4807,7 +4807,7 @@ _ManageChangelogMerlin_()
         printf "\nRetrieving ${GRNct}Changelog-${changeLogTag}.txt${NOct} ...\n"
     fi
 
-    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+    wget --tries=5 --waitretry=5 --retry-connrefused \
          -O "$changeLogFile" -o "$wgetLogFile" "${changeLogURL}"
 
     if [ ! -s "$changeLogFile" ]
@@ -4833,9 +4833,9 @@ _ManageChangelogMerlin_()
     return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Sep-02] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-18] ##
+##----------------------------------------##
 _ManageChangelogGnuton_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]
@@ -4867,7 +4867,7 @@ _ManageChangelogGnuton_()
         printf "\nRetrieving ${GRNct}${FW_Changelog_GITHUB}${NOct} ...\n"
     fi
 
-    wget --timeout=5 --tries=4 --waitretry=5 --retry-connrefused \
+    wget --tries=5 --waitretry=5 --retry-connrefused \
          -O "$FW_Changelog_GITHUB" -o "$wgetLogFile" "${Gnuton_changelogurl}"
 
     if [ ! -s "$FW_Changelog_GITHUB" ]
