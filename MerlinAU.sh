@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-15
+# Last Modified: 2024-Nov-16
 ###################################################################
 set -u
 
@@ -1591,9 +1591,9 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-04] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-16] ##
+##------------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -1615,8 +1615,8 @@ _CreateEMailContent_()
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
 
-   # Remove "_rog" or "_tuf" suffix to avoid version comparison failures #
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed 's/_\(rog\|tuf\)$//')"
+   # Remove "_rog" or "_tuf" or -gHASHVALUES suffix to avoid version comparison failures #
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10})$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -1728,8 +1728,7 @@ _CreateEMailContent_()
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [Saved info is empty]."
                return 1
            fi
-           if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ] && \
-              [ "$savedInstalledVersion" != "$fwInstalledVersion" ]
+           if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ]
            then
               emailBodyTitle="Successful Firmware Update"
               {
@@ -5334,7 +5333,7 @@ _EntwareServicesHandler_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Oct-13] ##
+## Modified by ExtremeFiretop [2024-Nov-15] ##
 ##------------------------------------------##
 _GetOfflineFirmwareVersion_()
 {
@@ -5342,17 +5341,36 @@ _GetOfflineFirmwareVersion_()
     local extract_version_regex='[0-9]+_[0-9]+\.[0-9]+_[0-9a-zA-Z]+'
     local validate_version_regex='[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(_[0-9a-zA-Z]+)?'
     local fwVersionFormat
+    local firmware_version
+    local formatted_version
 
     # Extract the version number using regex #
     firmware_version="$(echo "$zip_file" | grep -oE "$extract_version_regex")"
 
-    if [ -n "$firmware_version" ]
-    then
-        # Replace underscores with dots and insert .0 before the suffix #
-        formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+\.[0-9]+)_([0-9a-zA-Z]+)/\1.\2.0_\3/')"
+    if [ -n "$firmware_version" ]; then
+        if echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)$'; then
+            # Numeric patch version
+            formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)/\1.\2.\3.\4/')"
+        elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)$'; then
+            # Alphanumeric suffix
+            formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)/\1.\2.\3.0_\4/')"
+        else
+            printf "\nFailed to parse firmware version from the ZIP file name.\n"
+            firmware_version=""
+        fi
         printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
         printf "\n---------------------------------------------------\n"
-    else
+
+        # Ask the user to confirm the detected firmware version
+        if _WaitForYESorNO_ "\nIs this firmware version correct?"; then
+            printf "\n---------------------------------------------------\n"
+        else
+            # Set firmware_version to empty to trigger manual entry
+            firmware_version=""
+        fi
+    fi
+
+    if [ -z "$firmware_version" ]; then
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
@@ -5363,15 +5381,18 @@ _GetOfflineFirmwareVersion_()
             printf "\nFailed to identify firmware version from the ZIP file name."
         fi
         printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
-        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.0_beta1):  "
+        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.0_beta1). Enter 'e' to exit:  "
         read -r formatted_version
 
         # Validate user input #
         while ! echo "$formatted_version" | grep -qE "^${validate_version_regex}$"
         do
+            if echo "$formatted_version" | grep -qE "^(e|E|exit|Exit)$"; then
+                return 1
+            fi
             printf "\n${REDct}**WARNING**${NOct} Invalid format detected!\n"
             printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
-            printf "\n(i.e 3004.388.8.0 or 3004.388.8.0_beta1):  "
+            printf "\n(i.e 3004.388.8.0 or 3004.388.8.0_beta1). Enter 'e' to exit:  "
             read -r formatted_version
         done
         printf "\nThe user-provided firmware version: ${GRNct}$formatted_version${NOct}\n"
@@ -5381,7 +5402,7 @@ _GetOfflineFirmwareVersion_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Sep-07] ##
+## Modified by ExtremeFiretop [2024-Nov-15] ##
 ##------------------------------------------##
 _SelectOfflineUpdateFile_()
 {
@@ -5463,7 +5484,11 @@ _SelectOfflineUpdateFile_()
     done
 
     # Extract or prompt for firmware version #
-    _GetOfflineFirmwareVersion_ "$selected_file"
+    if ! _GetOfflineFirmwareVersion_ "$selected_file"
+    then
+        printf "Operation was cancelled by user. Exiting.\n"
+        return 1
+    fi
 
     # Confirm the selection
     if _WaitForYESorNO_ "\nDo you want to continue with the selected file?"
@@ -6377,24 +6402,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Nov-12] ##
-##-------------------------------------##
-_WAN_IsConnected_()
-{
-   local retCode=1
-   for iFaceNum in 0 1
-   do
-       if [ "$(nvram get wan${iFaceNum}_primary)" -eq 1 ] && \
-          [ "$(nvram get wan${iFaceNum}_state_t)" -eq 2 ]
-       then retCode=0 ; break ; fi
-   done
-   return "$retCode"
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-13] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-16] ##
+##------------------------------------------##
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
@@ -6412,8 +6422,7 @@ _PostUpdateEmailNotification_()
    #--------------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
-      if _WAN_IsConnected_ && \
-         [ "$(nvram get ntp_ready)" -eq 1 ] && \
+      if [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
       then break ; fi
@@ -6434,7 +6443,7 @@ _PostUpdateEmailNotification_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-13] ##
+## Modified by Martinski W. [2024-Nov-16] ##
 ##----------------------------------------##
 _PostRebootRunNow_()
 {
