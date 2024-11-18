@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-16
+# Last Modified: 2024-Nov-17
 ###################################################################
 set -u
 
@@ -311,7 +311,7 @@ then  #Special Case#
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-15] ##
+## Modified by Martinski W. [2024-Nov-17] ##
 ##----------------------------------------##
 _AcquireLock_()
 {
@@ -351,7 +351,7 @@ _AcquireLock_()
           break
       elif [ "$waitTimeoutSecs" -le "$LockWaitTimeoutSecs" ]
       then
-          if [ "$waitTimeoutSecs" -eq 0 ] || [ "$((waitTimeoutSecs % 10))" -eq 0 ]
+          if [ "$((waitTimeoutSecs % 10))" -eq 0 ]
 		  then
               Say "Lock Found [Age: $ageOfLockSecs secs.] Waiting for script [PID=$oldPID] to exit [Timer: $waitTimeoutSecs secs.]"
           fi
@@ -5340,18 +5340,19 @@ _GetOfflineFirmwareVersion_()
     local zip_file="$1"
     local extract_version_regex='[0-9]+_[0-9]+\.[0-9]+_[0-9a-zA-Z]+'
     local validate_version_regex='[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(_[0-9a-zA-Z]+)?'
-    local fwVersionFormat
-    local firmware_version
-    local formatted_version
+    local fwVersionFormat  firmware_version  formatted_version
 
     # Extract the version number using regex #
     firmware_version="$(echo "$zip_file" | grep -oE "$extract_version_regex")"
 
-    if [ -n "$firmware_version" ]; then
-        if echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)$'; then
+    if [ -n "$firmware_version" ]
+    then
+        if echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)$'
+        then
             # Numeric patch version
             formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)/\1.\2.\3.\4/')"
-        elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)$'; then
+        elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)$'
+        then
             # Alphanumeric suffix
             formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)/\1.\2.\3.0_\4/')"
         else
@@ -5370,7 +5371,8 @@ _GetOfflineFirmwareVersion_()
         fi
     fi
 
-    if [ -z "$firmware_version" ]; then
+    if [ -z "$firmware_version" ]
+    then
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
@@ -6402,9 +6404,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-16] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-17] ##
+##----------------------------------------##
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
@@ -6414,7 +6416,7 @@ _PostUpdateEmailNotification_()
    local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot Update Email Notification Wait Timeout"
-   _UserTraceLog_ "START of $logMsg ..."
+   Say "START of ${logMsg}."
 
    #--------------------------------------------------------------
    # Wait until all services are started, including WAN & NTP
@@ -6427,7 +6429,10 @@ _PostUpdateEmailNotification_()
          [ "$(nvram get success_start_service)" -eq 1 ]
       then break ; fi
 
-      echo "Waiting for all services to be started and for WAN connection [$theWaitDelaySecs secs.]..."
+      if [ "$curWaitDelaySecs" -gt 0 ] && \
+         [ "$((curWaitDelaySecs % 60))" -eq 0 ]
+      then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
+
       sleep $theWaitDelaySecs
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
@@ -6437,13 +6442,13 @@ _PostUpdateEmailNotification_()
    else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
    fi
 
-   _UserTraceLog_ "END of $logMsg [$$curWaitDelaySecs sec.]"
+   Say "END of $logMsg [$$curWaitDelaySecs sec.]"
    sleep 20  ## Let's wait a bit & proceed ##
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-16] ##
+## Modified by Martinski W. [2024-Nov-17] ##
 ##----------------------------------------##
 _PostRebootRunNow_()
 {
@@ -6453,7 +6458,7 @@ _PostRebootRunNow_()
    local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot F/W Update Run Wait Timeout"
-   _UserTraceLog_ "START of $logMsg ..."
+   Say "START of ${logMsg}."
 
    #--------------------------------------------------------------
    # Wait until all services are started, including WAN & NTP
@@ -6462,14 +6467,16 @@ _PostRebootRunNow_()
    #--------------------------------------------------------------
    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
    do
-      if _WAN_IsConnected_ && \
-         [ -d "$FW_ZIP_BASE_DIR" ] && \
+      if [ -d "$FW_ZIP_BASE_DIR" ] && \
          [ "$(nvram get ntp_ready)" -eq 1 ] && \
          [ "$(nvram get start_service_ready)" -eq 1 ] && \
          [ "$(nvram get success_start_service)" -eq 1 ]
       then break ; fi
 
-      echo "Waiting for all services to be started and for WAN connection [$theWaitDelaySecs secs.]..."
+      if [ "$curWaitDelaySecs" -gt 0 ] && \
+         [ "$((curWaitDelaySecs % 60))" -eq 0 ]
+      then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
+
       sleep $theWaitDelaySecs
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
@@ -6479,7 +6486,7 @@ _PostRebootRunNow_()
    else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
    fi
 
-   _UserTraceLog_ "END of $logMsg [$$curWaitDelaySecs sec.]"
+   Say "END of $logMsg [$$curWaitDelaySecs sec.]"
    sleep 30  ## Let's wait a bit & proceed ##
    _RunFirmwareUpdateNow_
 }
