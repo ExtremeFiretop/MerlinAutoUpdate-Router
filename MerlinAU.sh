@@ -5799,17 +5799,7 @@ _RunBackupmon_()
                     echo ""
                     _SendEMailNotification_ NEW_BM_BACKUP_FAILED
                     _DoCleanUp_ 1
-                    if "$isInteractive"
-                    then
-                        printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
-                        printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
-                        printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
-                        printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
-                        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                        return 1
-                    else
-                        _DoExit_ 1
-                    fi
+                    return 1
                 fi
             else
                 # BACKUPMON version is not sufficient
@@ -6168,7 +6158,10 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     if [ "$retCode" -ne 0 ]
     then
-        Say "${REDct}**ERROR**${NOct}: Firmware files were not downloaded successfully."
+        Say "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+        Say "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+        Say "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+        Say "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         _Reset_LEDs_
         return 1
