@@ -9,7 +9,7 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.6
+readonly SCRIPT_VERSION=1.3.7
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -416,9 +416,9 @@ EOF
     _DoExit_ 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-23] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
 _ShowHelp_()
 {
     clear
@@ -427,6 +427,7 @@ _ShowHelp_()
 Available commands:
   ${SCRIPT_NAME}.sh about              explains functionality
   ${SCRIPT_NAME}.sh help               display available commands
+  ${SCRIPT_NAME}.sh checkupdates       Checks for available MerlinAU script updates
   ${SCRIPT_NAME}.sh forceupdate        updates to latest version (force update)
   ${SCRIPT_NAME}.sh run_now            run update process on router
   ${SCRIPT_NAME}.sh processNodes       run update check on nodes
@@ -686,7 +687,7 @@ _FWVersionStrToNum_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-03] ##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
 ##------------------------------------------##
 if "$inRouterSWmode" 
 then
@@ -727,148 +728,6 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 readonly isGNUtonFW="$(_GetFirmwareVariantFromRouter_)"
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-05] ##
-##----------------------------------------##
-_CheckForNewScriptUpdates_()
-{
-   local DLRepoVersionNum  ScriptVersionNum
-
-   echo ""
-   [ -s "$SCRIPTVERPATH" ] && DLRepoVersion="$(cat "$SCRIPTVERPATH")"
-   rm -f "$SCRIPTVERPATH"
-
-   # Download the latest version file from the source repository
-   curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
-
-   if [ $? -ne 0 ] || [ ! -s "$SCRIPTVERPATH" ]
-   then scriptUpdateNotify=0 ; return 1 ; fi
-
-   # Read in its contents for the current version file
-   DLRepoVersion="$(cat "$SCRIPTVERPATH")"
-   if [ -z "$DLRepoVersion" ]; then
-       echo "Variable for downloaded version is empty."
-       scriptUpdateNotify=0
-       return 1
-   fi
-
-   DLRepoVersionNum="$(_ScriptVersionStrToNum_ "$DLRepoVersion")"
-   ScriptVersionNum="$(_ScriptVersionStrToNum_ "$SCRIPT_VERSION")"
-
-   # Version comparison
-   if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
-   then
-      scriptUpdateNotify="New script update available.
-${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
-      Say "$(date +'%b %d %Y %X') $myLAN_HostName ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
-   else
-      scriptUpdateNotify=0
-   fi
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-03] ##
-##----------------------------------------##
-_SCRIPTUPDATE_()
-{
-   local scriptVers  ScriptFileDL="${ScriptFilePath}.DL"
-
-   _CheckForNewScriptUpdates_
-
-   _DownloadScriptFiles_()
-   {
-      local retCode
-
-      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
-      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
-
-      if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
-      then
-          mv -f "$ScriptFileDL" "$ScriptFilePath"
-          chmod 755 "$ScriptFilePath"
-          retCode=0
-      else
-          rm -f "$ScriptFileDL"
-          printf "\n${REDct}Download failed.${NOct}\n"
-          retCode=1
-      fi
-      return "$retCode"
-   }
-
-   if [ $# -gt 0 ] && [ "$1" = "force" ]
-   then
-       echo -e "${CYANct}Force downloading latest version...${NOct}"
-       scriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
-       echo -e "${CYANct}Downloading latest version ($scriptVers) of ${SCRIPT_NAME}${NOct}"
-
-       if _DownloadScriptFiles_
-       then
-           echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
-           _ReleaseLock_
-           exec "$ScriptFilePath"
-       fi
-       return
-   fi
-
-   clear
-   logo
-   printf "\n${YLWct}Script Update Utility${NOct}\n\n"
-   printf "${CYANct}Version Currently Installed:  ${YLWct}${SCRIPT_VERSION}${NOct}\n"
-   printf "${CYANct}Update Version Available Now: ${YLWct}${DLRepoVersion}${NOct}\n\n"
-
-   if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ]
-   then
-      echo -e "${CYANct}You are on the latest version! Would you like to download anyways?${NOct}"
-      echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
-      if _WaitForYESorNO_
-      then
-          printf "\n\n"
-          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
-
-          if _DownloadScriptFiles_
-          then
-              echo
-              echo -e "${CYANct}Download successful!${NOct}"
-              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-              echo
-          fi
-          _WaitForEnterKey_
-          return
-      else
-          printf "\n\n"
-          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
-          sleep 1
-          return
-      fi
-   elif [ "$scriptUpdateNotify" != "0" ]
-   then
-      echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
-      if _WaitForYESorNO_
-      then
-          printf "\n\n"
-          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
-
-          if _DownloadScriptFiles_
-          then
-              echo
-              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-              echo -e "${CYANct}Update successful! Restarting script...${NOct}"
-              _ReleaseLock_
-              exec "$ScriptFilePath"  # Re-execute the updated script #
-              exit 0  # This line will not be executed due to above exec #
-          else
-              _WaitForEnterKey_
-              return
-          fi
-      else
-          printf "\n\n"
-          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
-          sleep 1
-          return
-      fi
-   fi
-}
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -956,9 +815,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-12] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -982,6 +841,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Changelog_Approval=TBD"
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
+         echo "Allow_Script_Auto_Up DISABLED"
       } > "$SETTINGSFILE"
       chmod 0664 "$SETTINGSFILE"
       return 1
@@ -1054,9 +914,14 @@ _Init_Custom_Settings_Config_()
        sed -i "12 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
+   if ! grep -q "^Allow_Script_Auto_Up " "$SETTINGSFILE"
+   then
+       sed -i "13 i Allow_Script_Auto_Up DISABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
    if ! grep -q "^FW_New_Update_Changelog_Approval=" "$SETTINGSFILE"
    then
-       sed -i "13 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
+       sed -i "14 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
        retCode=1
    fi
    dos2unix "$SETTINGSFILE"
@@ -1066,7 +931,7 @@ _Init_Custom_Settings_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-27] ##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
 ##------------------------------------------##
 Get_Custom_Setting()
 {
@@ -1084,6 +949,7 @@ Get_Custom_Setting()
             "Allow_Updates_OverVPN" | \
             "FW_Allow_Beta_Production_Up" | \
             "FW_Auto_Backupmon" | \
+            "Allow_Script_Auto_Up" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -1139,9 +1005,9 @@ _GetAllNodeSettings_()
     echo "$setting_value"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-04] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -1159,6 +1025,7 @@ Update_Custom_Settings()
         "Allow_Updates_OverVPN" | \
         "FW_Allow_Beta_Production_Up" | \
         "FW_Auto_Backupmon" | \
+        "Allow_Script_Auto_Up" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]
@@ -1505,9 +1372,9 @@ readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 FW_UpdateExpectedRunDate="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------##
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2024-Feb-18] ##
+##----------------------------------------------##
 # F/W Update Email Notifications #
 isEMailFormatHTML=true
 isEMailConfigEnabledInAMTM=false
@@ -1517,6 +1384,14 @@ sendEMail_CC_Name="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
 sendEMail_CC_Address="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
 [ "$sendEMailFormaType" = "HTML" ] && \
 isEMailFormatHTML=true || isEMailFormatHTML=false
+
+##------------------------------------------------##
+## Added/Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------------##
+# Define the CRON job command to execute #
+# Define the hook script file to be used #
+ScriptAUSetting="$(Get_Custom_Setting "Allow_Script_Auto_Up")"
+CronJobTriggered=false
 
 # Define the CRON job command to execute #
 FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
@@ -1569,6 +1444,159 @@ then
    rm -fr "${FW_LOG_DIR:?}"
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
+_SCRIPTUPDATE_()
+{
+   local scriptVers  ScriptFileDL="${ScriptFilePath}.DL"
+
+   _DownloadScriptFiles_()
+   {
+      local retCode
+
+      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
+      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+
+      if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
+      then
+          mv -f "$ScriptFileDL" "$ScriptFilePath"
+          chmod 755 "$ScriptFilePath"
+          retCode=0
+      else
+          rm -f "$ScriptFileDL"
+          printf "\n${REDct}Download failed.${NOct}\n"
+          retCode=1
+      fi
+      return "$retCode"
+   }
+
+   if [ $# -gt 0 ] && [ "$1" = "force" ]
+   then
+       echo -e "${CYANct}Force downloading latest version...${NOct}"
+       scriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
+       echo -e "${CYANct}Downloading latest version ($scriptVers) of ${SCRIPT_NAME}${NOct}"
+
+       if _DownloadScriptFiles_
+       then
+           echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
+           _ReleaseLock_
+           chmod 755 "$ScriptFilePath"
+           if "$CronJobTriggered"
+           then
+               exec "$ScriptFilePath" run_now
+           else
+               exec "$ScriptFilePath"
+           fi
+       else return 1 ; fi
+   fi
+
+   _CheckForNewScriptUpdates_
+
+   clear
+   logo
+   printf "\n${YLWct}Script Update Utility${NOct}\n\n"
+   printf "${CYANct}Version Currently Installed:  ${YLWct}${SCRIPT_VERSION}${NOct}\n"
+   printf "${CYANct}Update Version Available Now: ${YLWct}${DLRepoVersion}${NOct}\n\n"
+
+   if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ]
+   then
+      echo -e "${CYANct}You are on the latest version! Would you like to download anyways?${NOct}"
+      echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
+      if _WaitForYESorNO_
+      then
+          printf "\n\n"
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
+
+          if _DownloadScriptFiles_
+          then
+              echo
+              echo -e "${CYANct}Download successful!${NOct}"
+              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+              echo
+          fi
+          _WaitForEnterKey_
+          return 0
+      else
+          printf "\n\n"
+          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
+          sleep 1
+          return 0
+      fi
+   elif [ "$scriptUpdateNotify" != "0" ]
+   then
+      echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
+      if _WaitForYESorNO_
+      then
+          printf "\n\n"
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
+
+          if _DownloadScriptFiles_
+          then
+              echo
+              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+              echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+              _ReleaseLock_
+              chmod 755 "$ScriptFilePath"
+              exec "$ScriptFilePath"  # Re-execute the updated script #
+              exit 0  # This line will not be executed due to above exec #
+          else
+              _WaitForEnterKey_
+              return 1
+          fi
+      else
+          printf "\n\n"
+          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
+          sleep 1
+          return 0
+      fi
+   fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
+_CheckForNewScriptUpdates_()
+{
+   local DLRepoVersionNum  ScriptVersionNum
+
+   echo ""
+   [ -s "$SCRIPTVERPATH" ] && DLRepoVersion="$(cat "$SCRIPTVERPATH")"
+   rm -f "$SCRIPTVERPATH"
+
+   # Download the latest version file from the source repository
+   curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
+
+   if [ $? -ne 0 ] || [ ! -s "$SCRIPTVERPATH" ]
+   then scriptUpdateNotify=0 ; return 1 ; fi
+
+   # Read in its contents for the current version file
+   DLRepoVersion="$(cat "$SCRIPTVERPATH")"
+   if [ -z "$DLRepoVersion" ]; then
+       echo "Variable for downloaded version is empty."
+       scriptUpdateNotify=0
+       return 1
+   fi
+
+   DLRepoVersionNum="$(_ScriptVersionStrToNum_ "$DLRepoVersion")"
+   ScriptVersionNum="$(_ScriptVersionStrToNum_ "$SCRIPT_VERSION")"
+
+   # Version comparison
+   if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
+   then
+      scriptUpdateNotify="New script update available.
+${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
+      Say "$(date +'%b %d %Y %X') $myLAN_HostName ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
+      if [ "$ScriptAUSetting" = "ENABLED" ]
+      then
+         _SCRIPTUPDATE_ force
+      fi
+      return 0
+   else
+      scriptUpdateNotify=0
+   fi
+}
 
 ##----------------------------------------------##
 ## Added/Modified by Martinski W. [2023-Nov-22] ##
@@ -4570,6 +4598,40 @@ _Set_FW_UpdateCronSchedule_()
     return "$retCode"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Nov-18] ##
+##---------------------------------------##
+_Toggle_ScriptAU_Config_()
+{
+    local currentSetting="$(Get_Custom_Setting "Allow_Script_Auto_Up")"
+
+    if [ "$currentSetting" = "DISABLED" ]; then
+        printf "\n${REDct}*WARNING*${NOct}\n"
+        printf "Enabling this feature allows MerlinAU to self-update automatically without user action when a newer version becomes available.\n"
+        printf "Proceed at your own risk. This means both the script and the firmware become fully automatic.\n"
+        printf "The recommendation is always to read the changelogs on SNBForums or Github.\n"
+
+        if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"; then
+            Update_Custom_Settings "Allow_Script_Auto_Up" "ENABLED"
+            printf "MerlinAU automatic script updates are now ${REDct}ENABLED.${NOct}\n"
+        else
+            printf "MerlinAU automatic script updates remain ${GRNct}DISABLED.${NOct}\n"
+        fi
+    else
+        printf "\n${REDct}*NOTICE*${NOct}\n"
+        printf "Disabling this feature will require user action to update the MerlinAU script during updates.\n"
+        printf "This is the default setting.\n"
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"; then
+            Update_Custom_Settings "Allow_Script_Auto_Up" "DISABLED"
+            printf "MerlinAU automatic script updates are now ${GRNct}DISABLED.${NOct}\n"
+        else
+            printf "MerlinAU automatic script updates remain ${REDct}ENABLED.${NOct}\n"
+        fi
+    fi
+    _WaitForEnterKey_
+}
+
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
 ##----------------------------------------##
@@ -5602,7 +5664,7 @@ _GnutonBuildSelection_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-23] ##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
 ##------------------------------------------##
 _RunBackupmon_()
 {
@@ -5650,17 +5712,7 @@ _RunBackupmon_()
                     echo ""
                     _SendEMailNotification_ NEW_BM_BACKUP_FAILED
                     _DoCleanUp_ 1
-                    if "$isInteractive"
-                    then
-                        printf "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
-                        printf "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
-                        printf "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
-                        printf "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
-                        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-                        return 1
-                    else
-                        _DoExit_ 1
-                    fi
+                    return 1
                 fi
             else
                 # BACKUPMON version is not sufficient
@@ -6015,6 +6067,19 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     ## Modified by Martinski W. [2024-Jul-29] ##
     ##----------------------------------------##
     _RunBackupmon_
+    retCode="$?"
+
+    if [ "$retCode" -ne 0 ]
+    then
+        Say "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+        Say "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+        Say "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+        Say "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        _Reset_LEDs_
+        return 1
+    fi
+
     # Background function to create a blinking LED effect #
     _Toggle_LEDs_ 2 & Toggle_LEDs_PID=$!
 
@@ -6852,14 +6917,14 @@ check_version_support
 ##-------------------------------------##
 _CheckEMailConfigFileFromAMTM_ 0
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
 if [ $# -gt 0 ]
 then
    inMenuMode=false
    case $1 in
-       run_now) _RunFirmwareUpdateNow_
+       run_now) CronJobTriggered=true && _CheckForNewScriptUpdates_ && _RunFirmwareUpdateNow_
            ;;
        processNodes) _ProcessMeshNodes_ 0
            ;;
@@ -6872,6 +6937,8 @@ then
        about) _ShowAbout_
            ;;
        help) _ShowHelp_
+           ;;
+       checkupdates) _CheckForNewScriptUpdates_
            ;;
        forceupdate) _SCRIPTUPDATE_ force
            ;;
@@ -7388,7 +7455,7 @@ _ShowMainMenu_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-23] ##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
 ##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -7431,6 +7498,15 @@ _ShowAdvancedOptionsMenu_()
        then printf "\n${padStr}[Currently ${REDct}${current_backup_settings}${NOct}]\n"
        else printf "\n${padStr}[Currently ${GRNct}${current_backup_settings}${NOct}]\n"
        fi
+   fi
+
+   ScriptAUSetting="$(Get_Custom_Setting "Allow_Script_Auto_Up")"
+   printf "\n ${GRNct}au${NOct}.  Toggle Auto-Updates for MerlinAU Script"
+   if [ "$ScriptAUSetting" = "DISABLED" ]
+   then
+       printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
+   else
+       printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
    fi
 
    if "$isGNUtonFW"
@@ -7673,9 +7749,9 @@ _AdvancedLogsOptions_()
     done
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
 _AdvancedOptionsMenu_()
 {
     local theUserInputStr=""
@@ -7698,6 +7774,8 @@ _AdvancedOptionsMenu_()
                then _Toggle_Auto_Backups_
                else _InvalidMenuSelection_
                fi
+               ;;
+           au) _Toggle_ScriptAU_Config_
                ;;
            bt) if echo "$PRODUCT_ID" | grep -q "^TUF-"
                then _ChangeBuildType_TUF_
