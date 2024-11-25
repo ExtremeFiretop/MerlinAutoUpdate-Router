@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-24
+# Last Modified: 2024-Nov-25
 ###################################################################
 set -u
 
@@ -5415,62 +5415,66 @@ _Set_FW_AutoUpdateCronSchedule_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-24] ##
+## Modified by Martinski W. [2024-Nov-25] ##
 ##----------------------------------------##
 _Toggle_ScriptAutoUpdate_Config_()
 {
-    local currentSetting  retCode=1
-    local scriptUpdateCronSched  cronSchedStrHR
+    local currentSetting  scriptUpdateCronSched  cronSchedStrHR
+    local keepOptionDisabled=false  retCode=1
 
     currentSetting="$(Get_Custom_Setting "Allow_Script_Auto_Up")"
 
     if [ "$currentSetting" = "DISABLED" ]
     then
-        printf "\n${REDct}*WARNING*${NOct}\n"
-        printf "Enabling this feature allows MerlinAU to self-update automatically without\n"
-        printf "user action when a newer version becomes available. This means both the\n"
-        printf "script and the firmware become fully automatic. Proceed with caution.\n"
+        printf "\n${REDct}*NOTICE*${NOct}\n"
+        printf "Enabling this feature allows the MerlinAU script to self-update automatically\n"
+        printf "without user action when a newer version becomes available. This means both the\n"
+        printf "script and the firmware updates become fully automatic. Proceed with caution.\n"
         printf "The recommendation is to always read the changelogs on SNBForums or Github.\n"
 
-        if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
+        if _WaitForYESorNO_ "\nProceed to ${MAGENTAct}ENABLE${NOct}?"
         then
-            Update_Custom_Settings "Allow_Script_Auto_Up" "ENABLED"
-            printf "MerlinAU automatic script updates are now ${REDct}ENABLED.${NOct}\n"
-
             scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
-            if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
+            cronSchedStrHR="$(_TranslateCronSchedHR_ "$scriptUpdateCronSched")"
+            printf "\nCurrent Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}\n"
+            printf "[${GRNct}${cronSchedStrHR}${NOct}]\n"
+
+            if _WaitForYESorNO_ "\nConfirm daily check for automatic script updates?"
             then
-                # Add the cron job for automatic script updates #
-                printf "Adding '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for script updates...\n"
-                if _AddScriptAutoUpdateCronJob_
+                if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
                 then
-                    retCode=0
-                    printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' was added successfully.\n"
-                    cronSchedStrHR="$(_TranslateCronSchedHR_ "$scriptUpdateCronSched")"
-                    printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
-                    _AddScriptAutoUpdateHook_
+                    Update_Custom_Settings "Allow_Script_Auto_Up" "ENABLED"
+                    printf "MerlinAU automatic script updates are now ${MAGENTAct}ENABLED${NOct}.\n"
+                    printf "Adding '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for automatic script updates...\n"
+                    if _AddScriptAutoUpdateCronJob_
+                    then
+                        retCode=0
+                        printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                        printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+                        _AddScriptAutoUpdateHook_
+                    else
+                        retCode=1
+                        printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${SCRIPT_UP_CRON_JOB_TAG}].\n"
+                    fi
                 else
-                    retCode=1
-                    printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${SCRIPT_UP_CRON_JOB_TAG}].\n"
+                    retCode=1 ; keepOptionDisabled=true
+                    printf "${REDct}**ERROR**${NOct}: Invalid cron schedule for automatic script updates.\n"
                 fi
             else
-                retCode=1
-                printf "${REDct}**ERROR**${NOct}: Invalid cron schedule for script updates.\n"
+                retCode=1 ; keepOptionDisabled=true
             fi
         else
-            printf "MerlinAU automatic script updates remain ${GRNct}DISABLED.${NOct}\n"
+            retCode=1 ; keepOptionDisabled=true
         fi
     else
         printf "\n${REDct}*NOTICE*${NOct}\n"
-        printf "Disabling this feature will require user action to update the MerlinAU script during updates.\n"
-        printf "This is the default setting.\n"
+        printf "Disabling this feature will require user action to update the MerlinAU script\n"
+        printf "when a newer version becomes available. This is the default setting.\n"
         if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
         then
             Update_Custom_Settings "Allow_Script_Auto_Up" "DISABLED"
-            printf "MerlinAU automatic script updates are now ${GRNct}DISABLED.${NOct}\n"
-
-            # Remove the cron job for automatic script updates #
-            printf "Removing '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for script updates...\n"
+            printf "MerlinAU automatic script updates are now ${GRNct}DISABLED${NOct}.\n"
+            printf "Removing '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for automatic script updates...\n"
             _DelScriptAutoUpdateHook_
             if _DelScriptAutoUpdateCronJob_
             then
@@ -5481,8 +5485,13 @@ _Toggle_ScriptAutoUpdate_Config_()
                 # Error message is printed within function call #
             fi
         else
-            printf "MerlinAU automatic script updates remain ${REDct}ENABLED.${NOct}\n"
+            printf "MerlinAU automatic script updates remain ${MAGENTAct}ENABLED${NOct}.\n"
         fi
+    fi
+
+    if "$keepOptionDisabled"
+    then
+        printf "MerlinAU automatic script updates remain ${GRNct}DISABLED.${NOct}\n"
     fi
     _WaitForEnterKey_
     return "$retCode"
@@ -8381,11 +8390,14 @@ _ShowMainMenu_()
    printf "${SEPstr}\n"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-25] ##
+##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
+   local BetaProductionSetting  VPNAccess  currentBackupOption
+   local scriptUpdateCronSched  current_build_type
+
    clear
    logo
    printf "================== Advanced Options Menu =================\n"
@@ -8397,7 +8409,7 @@ _ShowAdvancedOptionsMenu_()
    printf "\n  ${GRNct}2${NOct}.  Set F/W Update Cron Schedule"
    printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
-   local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+   BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
@@ -8406,7 +8418,7 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
-   local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+   VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
    printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale/ZeroTier Access During Updates"
    if [ "$VPNAccess" = "DISABLED" ]
    then
@@ -8417,13 +8429,13 @@ _ShowAdvancedOptionsMenu_()
 
    if [ -f "/jffs/scripts/backupmon.sh" ]
    then
-       # Retrieve the current backup settings
-       local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+       # Retrieve the current backup setting #
+       currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
        printf "\n ${GRNct}ab${NOct}.  Toggle Automatic Backups"
-       if [ "$current_backup_settings" = "DISABLED" ]
-       then printf "\n${padStr}[Currently ${REDct}${current_backup_settings}${NOct}]\n"
-       else printf "\n${padStr}[Currently ${GRNct}${current_backup_settings}${NOct}]\n"
+       if [ "$currentBackupOption" = "DISABLED" ]
+       then printf "\n${padStr}[Currently ${REDct}${currentBackupOption}${NOct}]\n"
+       else printf "\n${padStr}[Currently ${GRNct}${currentBackupOption}${NOct}]\n"
        fi
    fi
 
@@ -8433,7 +8445,9 @@ _ShowAdvancedOptionsMenu_()
    then
        printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
    else
-       printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
+       printf "\n${padStr}[Currently ${MAGENTAct}ENABLED${NOct}]\n"
+       scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
+       printf "${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]\n"
    fi
 
    if "$isGNUtonFW"
@@ -8441,7 +8455,7 @@ _ShowAdvancedOptionsMenu_()
       if [ "$fwInstalledBaseVers" -le 3004 ]
       then
          # Retrieve the current build type setting
-         local current_build_type="$(Get_Custom_Setting "TUFBuild")"
+         current_build_type="$(Get_Custom_Setting "TUFBuild")"
 
          # Convert the setting to a descriptive text
          if [ "$current_build_type" = "y" ]; then
@@ -8508,7 +8522,7 @@ _ShowAdvancedOptionsMenu_()
       if [ "$fwInstalledBaseVers" -le 3004 ]
       then
           # Retrieve the current build type setting
-          local current_build_type="$(Get_Custom_Setting "ROGBuild")"
+          current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
           # Convert the setting to a descriptive text
           if [ "$current_build_type" = "y" ]; then
