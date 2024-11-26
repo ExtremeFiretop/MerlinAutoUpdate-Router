@@ -3060,6 +3060,7 @@ _GetNodeInfo_()
     node_build_name="Unreachable"
     node_lan_hostname="Unreachable"
     node_label_mac="Unreachable"
+    NodeGNUtonFW=false
 
     ## Check for Login Credentials ##
     credsBase64="$(Get_Custom_Setting credentials_base64)"
@@ -3122,6 +3123,9 @@ _GetNodeInfo_()
     node_lan_hostname="$(echo "$htmlContent" | grep -o '"lan_hostname":"[^"]*' | sed 's/"lan_hostname":"//')"
     node_label_mac="$(echo "$htmlContent" | grep -o '"label_mac":"[^"]*' | sed 's/"label_mac":"//')"
 
+    # Check if installed F/W NVRAM vars contain "gnuton" #
+    if echo "$node_extendno" | grep -iq "gnuton"
+    then NodeGNUtonFW=true ; fi
     # Combine extracted information into one string #
     Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
 
@@ -5992,6 +5996,23 @@ _CheckNodeFWUpdateNotification_()
              echo ""
              echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
              echo "(<b>${1}</b> --> <b>${2}</b>)"
+             echo "Please click here to review the latest changelog:"
+             if "$NodeGNUtonFW"
+             then
+                 Gnuton_changelogurl="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+                 echo "$Gnuton_changelogurl"
+             else
+                 if [ "$node_firmver" -eq 3006 ]
+                 then
+                     changeLogURL="${CL_URL_3006}"
+                 elif echo "$node_firmver" | grep -qE "^386[.]"
+                 then
+                     changeLogURL="${CL_URL_386}"
+                 else
+                     changeLogURL="${CL_URL_NG}"
+                 fi
+                 echo "$changeLogURL"
+             fi
              echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
            } > "$tempNodeEMailList"
        fi
@@ -6007,6 +6028,23 @@ _CheckNodeFWUpdateNotification_()
          echo ""
          echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
          echo "(<b>${1}</b> --> <b>${2}</b>)"
+             echo "Please click here to review the latest changelog:"
+             if "$NodeGNUtonFW"
+             then
+                 Gnuton_changelogurl="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+                 echo "$Gnuton_changelogurl"
+             else
+                 if [ "$node_firmver" -eq 3006 ]
+                 then
+                     changeLogURL="${CL_URL_3006}"
+                 elif echo "$node_firmver" | grep -qE "^386[.]"
+                 then
+                     changeLogURL="${CL_URL_386}"
+                 else
+                     changeLogURL="${CL_URL_NG}"
+                 fi
+                 echo "$changeLogURL"
+             fi
          echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
        } > "$tempNodeEMailList"
    fi
