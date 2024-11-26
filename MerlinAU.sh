@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-18
+# Last Modified: 2024-Nov-26
 ###################################################################
 set -u
 
@@ -178,12 +178,19 @@ readonly mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
 readonly advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Options Menu..."
 readonly logsMenuReturnPromptStr="Press <Enter> to return to the Log Options Menu..."
 theMenuReturnPromptMsg="$mainMenuReturnPromptStr"
+readonly SEPstr="----------------------------------------------------------"
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
 # menu setup variables #
-theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
-theMUExitStr="${GRNct}e${NOct}=Exit"
-theADExitStr="${GRNct}e${NOct}=Exit to Advanced Options Menu"
-theLGExitStr="${GRNct}e${NOct}=Exit to Log Options Menu"
+readonly theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
+readonly theMUExitStr="${GRNct}e${NOct}=Exit"
+readonly theADExitStr="${GRNct}e${NOct}=Exit to Advanced Options Menu"
+readonly theLGExitStr="${GRNct}e${NOct}=Exit to Log Options Menu"
+readonly menuCancelAndExitStr="${GRNct}e${NOct}=Exit Menu"
+readonly menuSavedThenExitStr="${GRNct}s${NOct}=Save&Exit"
+readonly menuReturnToBeginStr="${GRNct}b${NOct}=Back to Top"
 
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Aug-15] ##
@@ -292,7 +299,7 @@ _WaitForYESorNO_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-14] ##
+## Modified by Martinski W. [2024-Nov-24] ##
 ##----------------------------------------##
 readonly LockFilePath="/tmp/var/${ScriptFNameTag}.LOCK"
 LockFileMaxAgeSecs=600  #10-minutes#
@@ -300,10 +307,11 @@ LockWaitTimeoutSecs=120
 
 _ReleaseLock_() { rm -f "$LockFilePath" ; }
 
-if [ $# -eq 0 ] || [ -z "$1" ]
+if [ $# -eq 0 ] || [ -z "$1" ] || \
+   [ "$1" = "resetLockFile" ]
 then  #Interactive Mode#
     LockFileMaxAgeSecs=1200
-    LockWaitTimeoutSecs=10
+    LockWaitTimeoutSecs=2
 elif [ "$1" = "addCronJob" ]
 then  #Special Case#
     LockFileMaxAgeSecs=1200
@@ -352,7 +360,7 @@ _AcquireLock_()
       elif [ "$waitTimeoutSecs" -le "$LockWaitTimeoutSecs" ]
       then
           if [ "$((waitTimeoutSecs % 10))" -eq 0 ]
-		  then
+          then
               Say "Lock Found [Age: $ageOfLockSecs secs.] Waiting for script [PID=$oldPID] to exit [Timer: $waitTimeoutSecs secs.]"
           fi
           sleep 2
@@ -427,7 +435,7 @@ _ShowHelp_()
 Available commands:
   ${SCRIPT_NAME}.sh about              explains functionality
   ${SCRIPT_NAME}.sh help               display available commands
-  ${SCRIPT_NAME}.sh checkupdates       Checks for available MerlinAU script updates
+  ${SCRIPT_NAME}.sh checkupdates       check for available MerlinAU script updates
   ${SCRIPT_NAME}.sh forceupdate        updates to latest version (force update)
   ${SCRIPT_NAME}.sh run_now            run update process on router
   ${SCRIPT_NAME}.sh processNodes       run update check on nodes
@@ -686,24 +694,33 @@ _FWVersionStrToNum_()
     echo "$verNum" ; return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-24] ##
+##----------------------------------------##
 if "$inRouterSWmode" 
 then
     readonly FW_Update_CRON_DefaultSchedule="0 0 * * *"
 else
-    readonly FW_Update_CRON_DefaultSchedule="15 0 * * *"
+    ## Recommended 20 minutes AFTER for AiMesh Nodes ##
+    readonly FW_Update_CRON_DefaultSchedule="20 0 * * *"
 fi
 
+## Recommended 15 minutes BEFORE the F/W Update ##
 readonly ScriptAU_CRON_DefaultSchedule="45 11 * * *"
 
-readonly CRON_MINS_RegEx="([*0-9]|[1-5][0-9])([\/,-]([0-9]|[1-5][0-9]))*"
-readonly CRON_HOUR_RegEx="([*0-9]|1[0-9]|2[0-3])([\/,-]([0-9]|1[0-9]|2[0-3]))*"
-readonly CRON_DAYofMONTH_RegEx="([*1-9]|[1-2][0-9]|3[0-1])([\/,-]([1-9]|[1-2][0-9]|3[0-1]))*"
+readonly CRON_MINS_RegEx="([0-9]|[1-5][0-9])"
+readonly CRON_HOUR_RegEx="([0-9]|1[0-9]|2[0-3])"
 
-readonly CRON_DAYofWEEK_NAMES="(Sun|Mon|Tue|Wed|Thu|Fri|Sat)"
-readonly CRON_DAYofWEEK_RegEx="$CRON_DAYofWEEK_NAMES([\/,-]$CRON_DAYofWEEK_NAMES)*|[*0-6]([\/,-][0-6])*"
+readonly CRON_DAYofMONTH_rexp1="([1-9]|[1-2][0-9]|3[0-1])"
+readonly CRON_DAYofMONTH_rexp2="${CRON_DAYofMONTH_rexp1}[-]${CRON_DAYofMONTH_rexp1}"
+readonly CRON_DAYofMONTH_rexp3="${CRON_DAYofMONTH_rexp1}([,]${CRON_DAYofMONTH_rexp1})+"
+readonly CRON_DAYofMONTH_RegEx="($CRON_DAYofMONTH_rexp1|$CRON_DAYofMONTH_rexp2|$CRON_DAYofMONTH_rexp3)"
+
+readonly CRON_DAYofWEEK_NAME="([S|s]un|[M|m]on|[T|t]ue|[W|w]ed|[T|t]hu|[F|f]ri|[S|s]at)"
+readonly CRON_DAYofWEEK_rexp1="${CRON_DAYofWEEK_NAME}|[0-6]"
+readonly CRON_DAYofWEEK_rexp2="${CRON_DAYofWEEK_NAME}[-]${CRON_DAYofWEEK_NAME}|[0-6][-][0-6]"
+readonly CRON_DAYofWEEK_rexp3="${CRON_DAYofWEEK_NAME}([,]${CRON_DAYofWEEK_NAME})+|[0-6]([,][0-6])+"
+readonly CRON_DAYofWEEK_RegEx="($CRON_DAYofWEEK_rexp1|$CRON_DAYofWEEK_rexp2|$CRON_DAYofWEEK_rexp3)"
 
 readonly CRON_MONTH_NAMES="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
 readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1[0-2])([\/,-]([1-9]|1[0-2]))*"
@@ -1395,13 +1412,14 @@ isEMailFormatHTML=true || isEMailFormatHTML=false
 ScriptAUSetting="$(Get_Custom_Setting "Allow_Script_Auto_Up")"
 readonly SCRIPT_UP_CRON_JOB_RUN="sh $ScriptFilePath checkupdates"
 readonly SCRIPT_UP_CRON_JOB_TAG="${ScriptFNameTag}_ScriptUpdate"
-readonly DAILY_SCRIPT_UPDATE_CHECK_JOB="sh $ScriptFilePath ScriptAUCronJob &  $hookScriptTagStr"
+readonly DAILY_SCRIPT_UPDATE_CHECK_JOB="sh $ScriptFilePath scriptAUCronJob &  $hookScriptTagStr"
 readonly DAILY_SCRIPT_UPDATE_CHECK_HOOK="[ -f $ScriptFilePath ] && $DAILY_SCRIPT_UPDATE_CHECK_JOB"
 
 # Define the CRON job command to execute #
 FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
 readonly CRON_JOB_RUN="sh $ScriptFilePath run_now"
-readonly CRON_JOB_TAG="$ScriptFNameTag"
+readonly CRON_JOB_TAG_OLD="$ScriptFNameTag"
+readonly CRON_JOB_TAG="${ScriptFNameTag}_FWUpdate"
 readonly CRON_SCRIPT_JOB="sh $ScriptFilePath addCronJob &  $hookScriptTagStr"
 readonly CRON_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $CRON_SCRIPT_JOB"
 
@@ -1574,7 +1592,8 @@ _CheckForNewScriptUpdates_()
 
    # Read in its contents for the current version file
    DLRepoVersion="$(cat "$SCRIPTVERPATH")"
-   if [ -z "$DLRepoVersion" ]; then
+   if [ -z "$DLRepoVersion" ]
+   then
        echo "Variable for downloaded version is empty."
        scriptUpdateNotify=0
        return 1
@@ -4329,10 +4348,10 @@ _Calculate_NextRunTime_()
     fi
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-19] ##
-##----------------------------------------------##
-_AddCronJobEntry_()
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-19] ##
+##----------------------------------------##
+_AddFWAutoUpdateCronJob_()
 {
    local newSchedule  newSetting  retCode=1
    if [ $# -gt 0 ] && [ -n "$1" ]
@@ -4362,7 +4381,7 @@ _AddCronJobEntry_()
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Nov-19] ##
 ##-------------------------------------##
-_DelCronJobEntry_()
+_DelFWAutoUpdateCronJob_()
 {
    local retCode
    if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
@@ -4383,10 +4402,49 @@ _DelCronJobEntry_()
    return "$retCode"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Nov-18] ##
-##---------------------------------------##
-_AddScriptAUCronJob_()
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_GetScriptAutoUpdateCronSchedule_()
+{
+   local cronSched  cronMINS  cronHOUR  tempMINS  tempHOUR=0
+
+   cronSched="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   if [ -z "$cronSched" ] || [ "$cronSched" = "TBD" ]
+   then
+       echo "$ScriptAU_CRON_DefaultSchedule"
+       return 1
+   fi
+   cronMINS="$(echo "$cronSched" | awk -F ' ' '{print $1}')"
+   cronHOUR="$(echo "$cronSched" | awk -F ' ' '{print $2}')"
+
+   if echo "$cronHOUR" | grep -qE "^${CRON_HOUR_RegEx}$"
+   then tempHOUR="$cronHOUR"
+   fi
+   if echo "$cronMINS" | grep -qE "^${CRON_MINS_RegEx}$"
+   then
+       if  [ "$cronMINS" -ge 15 ]
+       then
+           tempMINS="$((cronMINS - 15))"
+       else
+           tempMINS="$((45 + cronMINS))"
+           if [ "$tempHOUR" -eq 0 ]
+           then tempHOUR=23
+           else tempHOUR="$((tempHOUR - 1))"
+           fi
+       fi
+   else
+       tempMINS=12
+   fi
+
+   echo "$tempMINS $tempHOUR * * *"
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-24] ##
+##----------------------------------------##
+_AddScriptAutoUpdateCronJob_()
 {
    local newSchedule  newSetting  retCode=1
    if [ $# -gt 0 ] && [ -n "$1" ]
@@ -4395,7 +4453,7 @@ _AddScriptAUCronJob_()
        newSchedule="$1"
    else
        newSetting=false
-       newSchedule="$ScriptAU_CRON_DefaultSchedule"
+       newSchedule="$(_GetScriptAutoUpdateCronSchedule_)"
    fi
    if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD" ]
    then
@@ -4407,7 +4465,6 @@ _AddScriptAUCronJob_()
    if eval $cronListCmd | grep -qE "$SCRIPT_UP_CRON_JOB_RUN #${SCRIPT_UP_CRON_JOB_TAG}#$"
    then
        retCode=0
-       "$newSetting"
    fi
    return "$retCode"
 }
@@ -4415,7 +4472,7 @@ _AddScriptAUCronJob_()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Nov-18] ##
 ##---------------------------------------##
-_DelScriptAUCronJobEntry_()
+_DelScriptAutoUpdateCronJob_()
 {
    local retCode
    if eval $cronListCmd | grep -qE "$SCRIPT_UP_CRON_JOB_RUN #${SCRIPT_UP_CRON_JOB_TAG}#$"
@@ -4498,6 +4555,138 @@ _Set_FW_UpdatePostponementDays_()
 }
 
 ##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_TranslateCronSchedHR_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then echo "ERROR" ; return 1 ; fi
+
+   local theCronMINS  theCronHOUR  theCronDAYW  theCronDAYM
+   local freqNumMINS  freqNumHOUR  freqNumDAYW  freqNumDAYM
+   local hasFreqMINS  hasFreqHOUR  hasFreqDAYW  hasFreqDAYM
+   local infoStrDAYS  schedInfoStr
+
+   _IsValidNumber_()
+   {
+      if echo "$1" | grep -qE "^[0-9]+$"
+      then return 0 ; else return 1 ; fi
+   }
+
+   _Get12HourAmPm_()
+   {
+      if [ $# -eq 0 ] || [ -z "$1" ]
+      then echo ; return 1 ; fi
+      local theHour  theMins=""  ampmTag="AM"
+      theHour="$1"
+      if [ $# -eq 2 ] && [ -n "$2" ]
+      then theMins="$2"
+      fi
+      if [ "$theHour" -eq 0 ]
+      then theHour=12
+      elif [ "$theHour" -eq 12 ]
+      then ampmTag="PM"
+      elif [ "$theHour" -gt 12 ]
+      then
+          ampmTag="PM" ; theHour="$((theHour - 12))"
+      fi
+      if [ -z "$theMins" ]
+      then printf "%d $ampmTag" "$theHour"
+      else printf "%d:%02d $ampmTag" "$theHour" "$theMins"
+      fi
+   }
+
+   theCronMINS="$(echo "$1" | awk -F ' ' '{print $1}')"
+   theCronHOUR="$(echo "$1" | awk -F ' ' '{print $2}')"
+   theCronDAYM="$(echo "$1" | awk -F ' ' '{print $3}')"
+   theCronDAYW="$(echo "$1" | awk -F ' ' '{print $5}')"
+
+   if [ "$theCronDAYW" = "*" ] && [ "$theCronDAYM" = "*" ]
+   then
+       infoStrDAYS="every day, in every month"
+   elif [ "$theCronDAYW" != "*" ]
+   then
+       if echo "$theCronDAYW" | grep -qE "^[*]/"
+       then
+           freqNumDAYW="$(echo "$theCronDAYW" | cut -f2 -d'/')"
+           infoStrDAYS="every $freqNumDAYW days of the week, in every month"
+       else
+           infoStrDAYS="days $theCronDAYW of the week, in every month"
+       fi
+   elif [ "$theCronDAYM" != "*" ]
+   then
+       if echo "$theCronDAYM" | grep -qE "^[*]/"
+       then
+           freqNumDAYM="$(echo "$theCronDAYM" | cut -f2 -d'/')"
+           infoStrDAYS="every $freqNumDAYM days of the month, in every month"
+       else
+           infoStrDAYS="days ${theCronDAYM} of the month, in every month"
+       fi
+   fi
+
+   if echo "$theCronHOUR" | grep -qE "^[*]/"
+   then
+       hasFreqHOUR=true
+       freqNumHOUR="$(echo "$theCronHOUR" | cut -f2 -d'/')"
+   else
+       hasFreqHOUR=false ; freqNumHOUR=""
+   fi
+   if echo "$theCronMINS" | grep -qE "^[*]/"
+   then
+       hasFreqMINS=true
+       freqNumMINS="$(echo "$theCronMINS" | cut -f2 -d'/')"
+   else
+       hasFreqMINS=false ; freqNumMINS=""
+   fi
+   if [ "$theCronHOUR" = "*" ] && [ "$theCronMINS" -eq 0 ]
+   then
+       schedInfoStr="Every hour"
+   elif [ "$theCronHOUR" = "*" ] && [ "$theCronMINS" = "*" ]
+   then
+       schedInfoStr="Every minute"
+   elif [ "$theCronHOUR" = "*" ] && _IsValidNumber_ "$theCronMINS"
+   then
+       schedInfoStr="Every hour at minute $theCronMINS"
+   elif "$hasFreqHOUR" && [ "$theCronMINS" -eq 0 ]
+   then
+       schedInfoStr="Every $freqNumHOUR hours"
+   elif "$hasFreqHOUR" && [ "$theCronMINS" = "*" ]
+   then
+       schedInfoStr="Every minute, every $freqNumHOUR hours"
+   elif "$hasFreqHOUR" && _IsValidNumber_ "$theCronMINS"
+   then
+       schedInfoStr="Every $freqNumHOUR hours at minute $theCronMINS"
+   elif "$hasFreqMINS" && [ "$theCronHOUR" = "*" ]
+   then
+       schedInfoStr="Every $freqNumMINS minutes"
+   elif "$hasFreqHOUR" && "$hasFreqMINS"
+   then
+       schedInfoStr="Every $freqNumMINS minutes, every $freqNumHOUR hours"
+   elif "$hasFreqMINS" && _IsValidNumber_ "$theCronHOUR"
+   then
+       schedInfoStr="$(_Get12HourAmPm_ "$theCronHOUR"), every $freqNumMINS minutes"
+   elif _IsValidNumber_ "$theCronHOUR" && _IsValidNumber_ "$theCronMINS"
+   then
+       schedInfoStr="$(_Get12HourAmPm_ "$theCronHOUR" "$theCronMINS")"
+   elif "$hasFreqHOUR"
+   then
+       schedInfoStr="Every $freqNumHOUR hours, Minutes: $theCronMINS"
+   elif "$hasFreqMINS"
+   then
+       schedInfoStr="$theCronHOUR, every $freqNumMINS minutes"
+   elif [ "$theCronHOUR" = "*" ]
+   then
+       schedInfoStr="Every hour,  Minutes: $theCronMINS"
+   elif [ "$theCronMINS" = "*" ]
+   then
+       schedInfoStr="$theCronHOUR, every minute"
+   else
+       schedInfoStr="$theCronHOUR,  Minutes: $theCronMINS"
+   fi
+   echo "${schedInfoStr}, $infoStrDAYS"
+}
+
+##-------------------------------------##
 ## Added by Martinski W. [2024-Feb-22] ##
 ##-------------------------------------##
 _CapitalizeFirstChar_()
@@ -4523,63 +4712,208 @@ _CapitalizeFirstChar_()
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2024-Feb-22] ##
+## Added by Martinski W. [2024-Nov-24] ##
 ##-------------------------------------##
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-59].
+# All intervals, lists and ranges are INVALID for
+# the purposes of checking for F/W Updates.
+#---------------------------------------------------#
+_ValidateCronScheduleMINS_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   if echo "$1" | grep -qE "^${CRON_MINS_RegEx}$" && \
+      [ "$1" -ge 0 ] && [ "$1" -lt 60 ]
+   then return 0
+   fi
+   printf "\n${REDct}INVALID cron value for 'MINUTE' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [0-59] are valid.\n"
+   printf "All other intervals, lists, and ranges are INVALID.\n"
+   return 1
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-23]
+# and specific intervals [ */4  */6  */8  */12]
+# for the purposes of doing F/W Updates.
+# All other intervals, lists & ranges are INVALID.
+#---------------------------------------------------#
+_ValidateCronScheduleHOUR_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   if echo "$1" | grep -qE "^[*]/(4|6|8|12)$"
+   then return 0 ; fi
+   if echo "$1" | grep -qE "^${CRON_HOUR_RegEx}$" && \
+      [ "$1" -ge 0 ] && [ "$1" -lt 24 ]
+   then return 0
+   fi
+   printf "\n${REDct}INVALID cron value for 'HOUR' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [0-23] and\n"
+   printf "specific intervals (*/4 */6 */8 */12) are valid.\n"
+   printf "All other intervals, lists and ranges are INVALID.\n"
+   return 1
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-23] ##
+##-------------------------------------##
+_ConvertDAYW_NumToName_()
+{
+   if [ $# -eq 0 ] && [ -z "$1" ] ; then echo ; return 1; fi
+   echo "$1" | sed 's/0/Sun/g;s/1/Mon/g;s/2/Tue/g;s/3/Wed/g;s/4/Thu/g;s/5/Fri/g;s/6/Sat/g'
+   return 0
+}
+
+_ConvertDAYW_NameToNum_()
+{
+   if [ $# -eq 0 ] && [ -z "$1" ] ; then echo ; return 1; fi
+   echo "$1" | sed 's/[Ss]un/0/g;s/[Mm]on/1/g;s/[Tt]ue/2/g;s/[Ww]ed/3/g;s/[Tt]hu/4/g;s/[Ff]ri/5/g;s/[Ss]at/6/g'
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_ValidateCronNumOrderDAYW_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local numDAYS  numDays1  numDays2
+   if ! echo "$1" | grep -qE "[a-zA-Z]"
+   then numDAYS="$1"
+   else numDAYS="$(_ConvertDAYW_NameToNum_ "$1")"
+   fi
+   numDays1="$(echo "$numDAYS" | awk -F '-' '{print $1}')"
+   numDays2="$(echo "$numDAYS" | awk -F '-' '{print $2}')"
+   if [ "$numDays1" -lt "$numDays2" ]
+   then return 0
+   else return 1
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-6]
+# specific intervals [ *  */2  */3 ], lists and
+# ranges for the purposes of doing F/W Updates.
+#---------------------------------------------------#
+_ValidateCronScheduleDAYofWEEK_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   if [ "$1" = "*" ] || echo "$1" | grep -qE "^[*]/(2|3)$"
+   then return 0 ; fi
+   if echo "$1" | grep -qE "^${CRON_DAYofWEEK_RegEx}$"
+   then
+       if echo "$1" | grep -q '-'
+       then
+           if _ValidateCronNumOrderDAYW_ "$1"
+           then return 0 ; fi
+       else
+           return 0
+       fi
+   fi
+   printf "\n${REDct}INVALID cron value for 'DAY of WEEK' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [0-6], some\n"
+   printf "specific intervals (* */2 */3), day abbreviations,\n"
+   printf "some lists and ranges are valid.\n"
+   return 1
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#----------------------------------------------------------#
+# Allow ONLY full numbers within the range [1-31]
+# some intervals [ *  */[2-9]  */10  */12  */15 ],
+# lists and ranges for the purposes of doing F/W Updates.
+#----------------------------------------------------------#
+_ValidateCronScheduleDAYofMONTH_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   if [ "$1" = "*" ] || \
+      echo "$1" | grep -qE "^[*]/([2-9]|10|12|15)$"
+   then return 0 ; fi
+   if echo "$1" | grep -qE "^${CRON_DAYofMONTH_RegEx}$"
+   then
+       if echo "$1" | grep -q '-'
+       then
+           local numDays1  numDays2
+           numDays1="$(echo "$1" | awk -F '-' '{print $1}')"
+           numDays2="$(echo "$1" | awk -F '-' '{print $2}')"
+           if [ "$numDays1" -lt "$numDays2" ]
+           then return 0 ; fi
+       else
+           return 0
+       fi
+   fi
+   printf "\n${REDct}INVALID cron value for 'DAY of MONTH' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [1-31],\n"
+   printf "specific intervals (* */[2-9] */10 */12 */15),\n"
+   printf "some lists and ranges are valid.\n"
+   return 1
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-26] ##
+##----------------------------------------##
 _ValidateCronJobSchedule_()
 {
-   local cronSchedsStr
+   local cronSchedStr  cronSchedDAYW  cronSchedDAYM  cronSchedMNTH
+
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
        printf "${REDct}INVALID cron schedule string: [EMPTY].${NOct}\n"
        return 1
    fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print NF}')"
-   if [ "$cronSchedsStr" -ne 5 ]
+   cronSchedStr="$(echo "$1" | awk -F ' ' '{print NF}')"
+   if [ "$cronSchedStr" -ne 5 ]
    then
        printf "${REDct}INVALID cron schedule string [$1]. Incorrect number of parameters.${NOct}\n"
        return 1
    fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $1}')"
-   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_MINS_RegEx})$"
+   cronSchedStr="$(echo "$1" | awk -F ' ' '{print $1}')"
+   if ! _ValidateCronScheduleMINS_ "$cronSchedStr"
+   then return 1
+   fi
+   cronSchedStr="$(echo "$1" | awk -F ' ' '{print $2}')"
+   if ! _ValidateCronScheduleHOUR_ "$cronSchedStr"
+   then return 1
+   fi
+   cronSchedDAYM="$(echo "$1" | awk -F ' ' '{print $3}')"
+   if ! _ValidateCronScheduleDAYofMONTH_ "$cronSchedDAYM"
+   then return 1
+   fi
+   cronSchedMNTH="$(echo "$1" | awk -F ' ' '{print $4}')"
+   if ! echo "$cronSchedMNTH" | grep -qiE "^(${CRON_MONTH_RegEx})$"
    then
-       printf "${REDct}INVALID 'minute' cron value: [$cronSchedsStr].${NOct}\n"
+       printf "${REDct}INVALID cron value for 'MONTH' [$cronSchedMNTH].${NOct}\n"
        return 1
    fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $2}')"
-   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_HOUR_RegEx})$"
-   then
-       printf "${REDct}INVALID 'hour' cron value: [$cronSchedsStr].${NOct}\n"
-       return 1
+   cronSchedDAYW="$(echo "$1" | awk -F ' ' '{print $5}')"
+   if ! _ValidateCronScheduleDAYofWEEK_ "$cronSchedDAYW"
+   then return 1
    fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $3}')"
-   if ! echo "$cronSchedsStr" | grep -qE "^(${CRON_DAYofMONTH_RegEx})$"
+   if [ "$cronSchedDAYW" != "*" ] && [ "$cronSchedDAYM" != "*" ]
    then
-       printf "${REDct}INVALID 'day of month' cron value: [$cronSchedsStr].${NOct}\n"
-       return 1
-   fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $4}')"
-   if ! echo "$cronSchedsStr" | grep -qiE "^(${CRON_MONTH_RegEx})$"
-   then
-       printf "${REDct}INVALID 'month' cron value: [$cronSchedsStr].${NOct}\n"
-       return 1
-   fi
-   cronSchedsStr="$(echo "$1" | awk -F ' ' '{print $5}')"
-   if ! echo "$cronSchedsStr" | grep -qiE "^(${CRON_DAYofWEEK_RegEx})$"
-   then
-       printf "${REDct}INVALID 'day of week' cron value: [$cronSchedsStr].${NOct}\n"
+       printf "${REDct}INVALID cron value for 'DAY of WEEK' [$cronSchedDAYW] or 'DAY of MONTH' [$cronSchedDAYM].${NOct}\n"
+       printf "${REDct}One of them MUST be set to a 'daily' value [*=daily].${NOct}\n"
        return 1
    fi
    return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-06] ##
-##------------------------------------------##
-_Set_FW_UpdateCronSchedule_()
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-24] ##
+##----------------------------------------##
+_Set_FW_UpdateCronScheduleCustom_()
 {
-    printf "Changing Firmware Update Schedule...\n"
+    printf "\nChanging Firmware Auto Update Schedule...\n"
 
-    local retCode=1  currCronSchedule  nextCronSchedule  userInput
+    local currCronSchedule  nextCronSchedule  userInput  retCode=1
 
     currCronSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
     if [ -z "$currCronSchedule" ] || [ "$currCronSchedule" = "TBD" ]
@@ -4597,8 +4931,8 @@ _Set_FW_UpdateCronSchedule_()
     do
         printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * Sun${NOct}' for every Sunday at midnight)"
         if [ -z "$currCronSchedule" ]
-        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${nextCronSchedule}${NOct}]:  "
-        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${currCronSchedule}${NOct}]:  "
+        then printf "\n[${theADExitStr}]\n[Default Schedule: ${GRNct}${nextCronSchedule}${NOct}]:  "
+        else printf "\n[${theADExitStr}]\n[Current Schedule: ${GRNct}${currCronSchedule}${NOct}]:  "
         fi
         read -r userInput
 
@@ -4622,7 +4956,7 @@ _Set_FW_UpdateCronSchedule_()
         fi
     done
 
-    [ "$nextCronSchedule" = "$currCronSchedule" ] && return 0
+    [ "$nextCronSchedule" = "$currCronSchedule" ] && return 1
 
     FW_UpdateCheckState="$(nvram get firmware_check_enable)"
     [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
@@ -4630,7 +4964,7 @@ _Set_FW_UpdateCronSchedule_()
     then
         # Add/Update cron job ONLY if "F/W Update Check" is enabled #
         printf "Updating '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
-        if _AddCronJobEntry_ "$nextCronSchedule"
+        if _AddFWAutoUpdateCronJob_ "$nextCronSchedule"
         then
             retCode=0
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
@@ -4642,82 +4976,521 @@ _Set_FW_UpdateCronSchedule_()
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
         fi
     else
+        retCode=0
         Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$nextCronSchedule"
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was configured but not added.\n"
         printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
+    fi
+
+    if [ "$ScriptAUSetting" = "ENABLED" ]
+    then
+        _AddScriptAutoUpdateCronJob_
     fi
 
     _WaitForEnterKey_ "$advnMenuReturnPromptStr"
     return "$retCode"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Nov-18] ##
-##---------------------------------------##
-_Toggle_ScriptAU_Config_()
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_CheckForSavedThenExitMenu_()
+{ if echo "$1" | grep -qE "^([Ss]|se|save)$" ; then return 0 ; else return 1 ; fi ; }
+   
+_CheckForCancelAndExitMenu_()
+{ if echo "$1" | grep -qE "^([Ee]|ce|exit)$" ; then return 0 ; else return 1 ; fi ; }
+
+_CheckForReturnToBeginMenu_()
+{ if echo "$1" | grep -qE "^([Bb]|be|begin)$" ; then return 0 ; else return 1 ; fi ; }
+
+_ShowCronMenuHeader_()
 {
-    local currentSetting retCode=1
-    local SCRIPT_UpdateCronJobSchedule
+   clear
+   logo
+   printf "================ F/W Update Check Schedule ===============\n"
+   printf "${SEPstr}\n"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_GetCronScheduleInputDAYofMONTH_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local oldSchedDAYM="$1"  newSchedDAYM
+
+   newSchedDAYM=""
+   while true
+   do
+       _ShowCronMenuHeader_
+       printf "\nCurrent Schedule: ${GRNct}\"${cronSchedTmpStr}\"${NOct}"
+       printf "\n[${GRNct}${cronSchedStrHR}${NOct}]\n"
+       printf "\nThe DAYS of the MONTH when to run the cron job for Automatic F/W Updates.\n"
+       printf "\nExamples:\n"
+       printf "   ${GRNct}*${NOct}=Every day   ${GRNct}*/3${NOct}=Every 3 days   ${GRNct}*/5${NOct}=Every 5 days\n"
+       printf "   ${GRNct}*/7${NOct}=Every 7 days   ${GRNct}*/10${NOct}=Every 10 days  ${GRNct}*/15${NOct}=Every 15 days\n"
+
+       printf "\n[${menuCancelAndExitStr}]\n"
+       printf "\nEnter ${GRNct}DAYS of the MONTH${NOct} [1-31] ${GRNct}${oldSchedDAYM}${NOct}?: "
+       read -r newSchedDAYM
+       if [ -z "$newSchedDAYM" ]
+       then
+           newSchedDAYM="$oldSchedDAYM"
+           if _ValidateCronScheduleDAYofMONTH_ "$oldSchedDAYM"
+           then break  #Keep Current Value#
+           fi
+       elif _CheckForCancelAndExitMenu_ "$newSchedDAYM" || \
+            _ValidateCronScheduleDAYofMONTH_ "$newSchedDAYM"
+       then break
+       fi
+       _WaitForEnterKey_
+   done
+   nextSchedDAYM="$newSchedDAYM"
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_GetCronScheduleInputDAYofWEEK_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local oldSchedDAYW="$1"  newSchedDAYW
+
+   newSchedDAYW=""
+   while true
+   do
+       _ShowCronMenuHeader_
+       printf "\nCurrent Schedule: ${GRNct}\"${cronSchedTmpStr}\"${NOct}"
+       printf "\n[${GRNct}${cronSchedStrHR}${NOct}]\n"
+       printf "\nThe DAYS of the WEEK when to run the cron job for Automatic F/W Updates.\n"
+       printf "\nExamples:\n"
+       printf "   ${GRNct}*${NOct}=Every day   ${GRNct}*/2${NOct}=Every 2 days   ${GRNct}*/3${NOct}=Every 3 days\n"
+       printf "   ${GRNct}0${NOct}=Sun, ${GRNct}1${NOct}=Mon, ${GRNct}2${NOct}=Tue, "
+       printf "${GRNct}3${NOct}=Wed, ${GRNct}4${NOct}=Thu, ${GRNct}5${NOct}=Fri, ${GRNct}6${NOct}=Sat\n"
+       printf "   ${GRNct}6,0${NOct}=Sat,Sun   ${GRNct}1,3,5${NOct}=Mon,Wed,Fri\n"
+
+       printf "\n[${menuCancelAndExitStr}] [${menuSavedThenExitStr}] [${menuReturnToBeginStr}]\n"
+       printf "\nEnter ${GRNct}DAYS of the WEEK${NOct} [0-6] ${GRNct}${oldSchedDAYW}${NOct}?: "
+       read -r newSchedDAYW
+       if [ -z "$newSchedDAYW" ]
+       then
+           newSchedDAYW="$oldSchedDAYW"
+           if _ValidateCronScheduleDAYofWEEK_ "$oldSchedDAYW"
+           then break  #Keep Current Value#
+           fi
+       elif _CheckForCancelAndExitMenu_ "$newSchedDAYW" || \
+            _CheckForReturnToBeginMenu_ "$newSchedDAYW" || \
+            _CheckForSavedThenExitMenu_ "$newSchedDAYW"
+       then break
+       elif _ValidateCronScheduleDAYofWEEK_ "$newSchedDAYW"
+       then
+           if echo "$newSchedDAYW" | grep -qE "[fmstw]"
+           then
+               newSchedDAYW="$(_CapitalizeFirstChar_ "$newSchedDAYW")"
+           elif ! echo "$newSchedDAYW" | grep -q '[*]' && \
+                echo "$newSchedDAYW" | grep -q "[0-6]"
+           then
+               newSchedDAYW="$(_ConvertDAYW_NumToName_ "$newSchedDAYW")"
+           fi
+           break
+       fi
+       _WaitForEnterKey_
+   done
+   nextSchedDAYW="$newSchedDAYW"
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range: [0-23]
+# and specific intervals [ */4  */6  */8  */12 ]
+# for the purposes of doing F/W Updates.
+# All other intervals, lists & ranges are INVALID.
+#---------------------------------------------------#
+_GetCronScheduleInputHOUR_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local oldSchedHOUR="$1"  newSchedHOUR
+
+   newSchedHOUR=""
+   while true
+   do
+       _ShowCronMenuHeader_
+       printf "\nCurrent Schedule: ${GRNct}\"${cronSchedTmpStr}\"${NOct}"
+       printf "\n[${GRNct}${cronSchedStrHR}${NOct}]\n"
+       printf "\nThe HOUR when to run the cron job for Automatic F/W Updates.\n"
+       printf "\nExamples:\n"
+       printf "   ${GRNct}0${NOct}=12:00AM   ${GRNct}23${NOct}=11:00PM"
+       printf "   ${GRNct}*/8${NOct}=Every 8 hours   ${GRNct}*/12${NOct}=Every 12 hours\n"
+
+       printf "\n[${menuCancelAndExitStr}] [${menuSavedThenExitStr}] [${menuReturnToBeginStr}]\n"
+       printf "\nEnter ${GRNct}HOUR${NOct} [0-23] ${GRNct}${oldSchedHOUR}${NOct}?: "
+       read -r newSchedHOUR
+       if [ -z "$newSchedHOUR" ]
+       then
+           newSchedHOUR="$oldSchedHOUR"
+           if _ValidateCronScheduleHOUR_ "$oldSchedHOUR"
+           then break  #Keep Current Value#
+           fi
+       elif _CheckForCancelAndExitMenu_ "$newSchedHOUR" || \
+            _CheckForReturnToBeginMenu_ "$newSchedHOUR" || \
+            _CheckForSavedThenExitMenu_ "$newSchedHOUR" || \
+            _ValidateCronScheduleHOUR_  "$newSchedHOUR"
+       then break
+       fi
+       _WaitForEnterKey_
+   done
+   nextSchedHOUR="$newSchedHOUR"
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-59].
+# All intervals, lists and ranges are INVALID for
+# the purposes of checking for F/W Updates.
+#---------------------------------------------------#
+_GetCronScheduleInputMINS_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local oldSchedMINS="$1"  newSchedMINS
+
+   newSchedMINS=""
+   while true
+   do
+       _ShowCronMenuHeader_
+       printf "\nCurrent Schedule: ${GRNct}\"${cronSchedTmpStr}\"${NOct}"
+       printf "\n[${GRNct}${cronSchedStrHR}${NOct}]\n"
+       printf "\nThe MINUTE when to run the cron job for Automatic F/W Updates.\n"
+
+       printf "\n[${menuCancelAndExitStr}] [${menuSavedThenExitStr}] [${menuReturnToBeginStr}]\n"
+       printf "\nEnter ${GRNct}MINUTE${NOct} [0-59] ${GRNct}${oldSchedMINS}${NOct}?: "
+       read -r newSchedMINS
+       if [ -z "$newSchedMINS" ]
+       then
+           newSchedMINS="$oldSchedMINS"
+           if _ValidateCronScheduleMINS_ "$oldSchedMINS"
+           then break  #Keep Current Value#
+           fi
+       elif _CheckForCancelAndExitMenu_ "$newSchedMINS" || \
+            _CheckForReturnToBeginMenu_ "$newSchedMINS" || \
+            _CheckForSavedThenExitMenu_ "$newSchedMINS" || \
+            _ValidateCronScheduleMINS_  "$newSchedMINS"
+       then break
+       fi
+       _WaitForEnterKey_
+   done
+   nextSchedMINS="$newSchedMINS"
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_Set_FW_UpdateCronScheduleGuided_()
+{
+   local cronSchedInfo  currCronSched  nextCronSched
+   local cronSchedMINS  cronSchedHOUR  cronSchedDAYW  cronSchedDAYM  cronSchedMNTH
+   local nextSchedMINS  nextSchedHOUR  nextSchedDAYW  nextSchedDAYM  nextSchedMNTH
+   local savedThenExit  cronSchedStrHR  cronSchedTmpStr  retCode=1
+
+   currCronSched="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   if [ -z "$currCronSched" ] || [ "$currCronSched" = "TBD" ]
+   then
+       currCronSched="$FW_UpdateCronJobSchedule"
+   fi
+
+   cronSchedMINS="$(echo "$currCronSched" | awk -F ' ' '{print $1}')"
+   cronSchedHOUR="$(echo "$currCronSched" | awk -F ' ' '{print $2}')"
+   cronSchedDAYM="$(echo "$currCronSched" | awk -F ' ' '{print $3}')"
+   cronSchedDAYW="$(echo "$currCronSched" | awk -F ' ' '{print $5}')"
+
+   ## MONTH is FIXED to "every month" for F/W Update Purposes ##
+   cronSchedMNTH="*" ; nextSchedMNTH="*"
+
+   _ClearCronSchedValues_()
+   {
+      nextSchedMINS=""
+      nextSchedHOUR=""
+      nextSchedDAYM=""
+      nextSchedDAYW=""
+   }
+
+   _ResetCronSchedValues_()
+   {
+      nextSchedMINS="$cronSchedMINS"
+      nextSchedHOUR="$cronSchedHOUR"
+      nextSchedDAYM="$cronSchedDAYM"
+      nextSchedDAYW="$cronSchedDAYW"
+   }
+
+   nextCronSched=""
+   savedThenExit=false
+   _ResetCronSchedValues_
+
+   while true
+   do
+       cronSchedTmpStr="$nextSchedMINS $nextSchedHOUR $nextSchedDAYM $nextSchedMNTH $nextSchedDAYW"
+       cronSchedStrHR="$(_TranslateCronSchedHR_ "$cronSchedTmpStr")"
+       _GetCronScheduleInputDAYofMONTH_ "$cronSchedDAYM"
+       if _CheckForCancelAndExitMenu_ "$nextSchedDAYM"
+       then _ClearCronSchedValues_ ; break
+       fi
+
+       if [ "$nextSchedDAYM" = "*" ]
+       then
+           cronSchedTmpStr="$nextSchedMINS $nextSchedHOUR $nextSchedDAYM $nextSchedMNTH $nextSchedDAYW"
+           cronSchedStrHR="$(_TranslateCronSchedHR_ "$cronSchedTmpStr")"
+           _GetCronScheduleInputDAYofWEEK_ "$cronSchedDAYW"
+           if _CheckForCancelAndExitMenu_ "$nextSchedDAYW"
+           then _ClearCronSchedValues_ ; break
+           fi
+           if _CheckForReturnToBeginMenu_ "$nextSchedDAYW"
+           then _ResetCronSchedValues_ ; continue
+           fi
+           if _CheckForSavedThenExitMenu_ "$nextSchedDAYW"
+           then
+               savedThenExit=true
+               nextSchedDAYW="$cronSchedDAYW"
+               break
+           fi
+       else
+           nextSchedDAYW="*"
+       fi
+
+       cronSchedTmpStr="$nextSchedMINS $nextSchedHOUR $nextSchedDAYM $nextSchedMNTH $nextSchedDAYW"
+       cronSchedStrHR="$(_TranslateCronSchedHR_ "$cronSchedTmpStr")"
+       _GetCronScheduleInputHOUR_ "$cronSchedHOUR"
+       if _CheckForCancelAndExitMenu_ "$nextSchedHOUR"
+       then _ClearCronSchedValues_ ; break
+       fi
+       if _CheckForReturnToBeginMenu_ "$nextSchedHOUR"
+       then _ResetCronSchedValues_ ; continue
+       fi
+       if _CheckForSavedThenExitMenu_ "$nextSchedHOUR"
+       then
+           savedThenExit=true
+           nextSchedHOUR="$cronSchedHOUR"
+           break
+       fi
+
+       cronSchedTmpStr="$nextSchedMINS $nextSchedHOUR $nextSchedDAYM $nextSchedMNTH $nextSchedDAYW"
+       cronSchedStrHR="$(_TranslateCronSchedHR_ "$cronSchedTmpStr")"
+       _GetCronScheduleInputMINS_ "$cronSchedMINS"
+       if _CheckForCancelAndExitMenu_ "$nextSchedMINS"
+       then _ClearCronSchedValues_ ; break
+       fi
+       if _CheckForReturnToBeginMenu_ "$nextSchedMINS"
+       then _ResetCronSchedValues_ ; continue
+       fi
+       if _CheckForSavedThenExitMenu_ "$nextSchedMINS"
+       then
+           savedThenExit=true
+           nextSchedMINS="$cronSchedMINS"
+           break
+       fi
+
+       if [ -n "$nextSchedMINS" ] || \
+          [ -n "$nextSchedHOUR" ] || \
+          [ -n "$nextSchedDAYM" ] || \
+          [ -n "$nextSchedDAYW" ]
+       then savedThenExit=true
+       else savedThenExit=false
+       fi
+       break
+   done
+
+   if "$savedThenExit" && \
+      { [ "$nextSchedMINS" != "$cronSchedMINS" ] || \
+        [ "$nextSchedHOUR" != "$cronSchedHOUR" ] || \
+        [ "$nextSchedDAYM" != "$cronSchedDAYM" ] || \
+        [ "$nextSchedDAYW" != "$cronSchedDAYW" ]
+      }
+   then
+       if [ -n "$nextSchedMINS" ]
+       then nextCronSched="$nextSchedMINS"
+       else nextCronSched="$cronSchedMINS"
+       fi
+       if [ -n "$nextSchedHOUR" ]
+       then nextCronSched="$nextCronSched $nextSchedHOUR"
+       else nextCronSched="$nextCronSched $cronSchedHOUR"
+       fi
+       if [ -n "$nextSchedDAYM" ]
+       then nextCronSched="$nextCronSched $nextSchedDAYM"
+       else nextCronSched="$nextCronSched $cronSchedDAYM"
+       fi
+       ## MONTH is FIXED for F/W Update Purposes ##
+       nextCronSched="$nextCronSched $nextSchedMNTH"
+       ##
+       if [ -n "$nextSchedDAYW" ]
+       then nextCronSched="$nextCronSched $nextSchedDAYW"
+       else nextCronSched="$nextCronSched $cronSchedDAYW"
+       fi
+       cronSchedStrHR="$(_TranslateCronSchedHR_ "$nextCronSched")"
+       printf "\nNew Schedule: ${GRNct}\"${nextCronSched}\"${NOct}"
+       printf "\n[${GRNct}${cronSchedStrHR}${NOct}]\n"
+       _WaitForEnterKey_
+   else
+       nextCronSched="$currCronSched"
+   fi
+
+   [ "$nextCronSched" = "$currCronSched" ] && return 1
+
+   FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+   [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
+   if [ "$FW_UpdateCheckState" -eq 1 ]
+   then
+       # Add/Update cron job ONLY if "F/W Update Check" is enabled #
+       printf "Updating '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+       if _AddFWAutoUpdateCronJob_ "$nextCronSched"
+       then
+            retCode=0
+            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
+            cronSchedStrHR="$(_TranslateCronSchedHR_ "$nextCronSched")"
+            printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+            _Calculate_NextRunTime_
+       else
+            retCode=1
+            printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
+       fi
+   else
+       retCode=0
+       Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$nextCronSched"
+       printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was configured but not added.\n"
+       printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
+   fi
+
+   if [ "$ScriptAUSetting" = "ENABLED" ]
+   then
+       _AddScriptAutoUpdateCronJob_
+   fi
+
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_Set_FW_AutoUpdateCronSchedule_()
+{
+   local doReturnToMenu=false
+
+   while true
+   do
+       printf "\n${SEPstr}"
+       printf "\nChoose the method to input the cron schedule for F/W Updates:\n"
+       printf "\n  ${GRNct}1${NOct}. Menu-Guided Entry\n"
+       printf "\n  ${GRNct}2${NOct}. Custom Input/Entry\n"
+       printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
+       printf "${SEPstr}\n"
+       printf "Enter selection:  " ; read -r userInput
+       if [ -z "$userInput" ] || \
+          echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then break ; fi
+
+       case $userInput in
+           1) if _Set_FW_UpdateCronScheduleGuided_
+              then break ; fi
+              ;;
+           2) if _Set_FW_UpdateCronScheduleCustom_
+              then break ; fi
+              ;;
+           *) echo ; _InvalidMenuSelection_
+           ;;
+       esac
+
+       "$doReturnToMenu" && break
+   done
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-26] ##
+##----------------------------------------##
+_Toggle_ScriptAutoUpdate_Config_()
+{
+    local currentSetting  scriptUpdateCronSched  cronSchedStrHR
+    local keepOptionDisabled=false  retCode=1
 
     currentSetting="$(Get_Custom_Setting "Allow_Script_Auto_Up")"
 
-    if [ "$currentSetting" = "DISABLED" ]; then
-        printf "\n${REDct}*WARNING*${NOct}\n"
-        printf "Enabling this feature allows MerlinAU to self-update automatically without user action when a newer version becomes available.\n"
-        printf "Proceed at your own risk. This means both the script and the firmware become fully automatic.\n"
-        printf "The recommendation is always to read the changelogs on SNBForums or Github.\n"
+    if [ "$currentSetting" = "DISABLED" ]
+    then
+        printf "\n${REDct}*NOTICE*${NOct}\n"
+        printf "Enabling this feature allows the MerlinAU script to self-update automatically\n"
+        printf "without user action when a newer version becomes available. This means both the\n"
+        printf "script and the firmware updates become fully automatic. Proceed with caution.\n"
+        printf "The recommendation is to always read the changelogs on SNBForums or Github.\n"
 
-        if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"; then
-            Update_Custom_Settings "Allow_Script_Auto_Up" "ENABLED"
-            printf "MerlinAU automatic script updates are now ${REDct}ENABLED.${NOct}\n"
+        if _WaitForYESorNO_ "\nProceed to ${MAGENTAct}ENABLE${NOct}?"
+        then
+            scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
+            cronSchedStrHR="$(_TranslateCronSchedHR_ "$scriptUpdateCronSched")"
+            printf "\nCurrent Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}\n"
+            printf "[${GRNct}${cronSchedStrHR}${NOct}]\n"
 
-            # Validate the cron schedule
-            if _ValidateCronJobSchedule_ "$ScriptAU_CRON_DefaultSchedule"; then
-                # Add the cron job for automatic script updates
-                printf "Adding '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for script updates...\n"
-                if _AddScriptAUCronJob_ ; then
-                    retCode=0
-                    printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' was added successfully.\n"
-                    current_schedule_english="$(translate_schedule "$ScriptAU_CRON_DefaultSchedule")"
-                    printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-                    _AddScriptAutoUpdateHook_
+            if _WaitForYESorNO_ "\nConfirm the above schedule to check for automatic script updates?"
+            then
+                if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
+                then
+                    Update_Custom_Settings "Allow_Script_Auto_Up" "ENABLED"
+                    printf "MerlinAU automatic script updates are now ${MAGENTAct}ENABLED${NOct}.\n"
+                    printf "Adding '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for automatic script updates...\n"
+                    if _AddScriptAutoUpdateCronJob_
+                    then
+                        retCode=0
+                        printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                        printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+                        _AddScriptAutoUpdateHook_
+                    else
+                        retCode=1
+                        printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${SCRIPT_UP_CRON_JOB_TAG}].\n"
+                    fi
                 else
-                    retCode=1
-                    printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${SCRIPT_UP_CRON_JOB_TAG}].\n"
+                    retCode=1 ; keepOptionDisabled=true
+                    printf "${REDct}**ERROR**${NOct}: Invalid cron schedule for automatic script updates.\n"
                 fi
             else
-                retCode=1
-                printf "${REDct}**ERROR**${NOct}: Invalid cron schedule for script updates.\n"
+                retCode=1 ; keepOptionDisabled=true
             fi
         else
-            printf "MerlinAU automatic script updates remain ${GRNct}DISABLED.${NOct}\n"
+            retCode=1 ; keepOptionDisabled=true
         fi
     else
         printf "\n${REDct}*NOTICE*${NOct}\n"
-        printf "Disabling this feature will require user action to update the MerlinAU script during updates.\n"
-        printf "This is the default setting.\n"
-        if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"; then
+        printf "Disabling this feature will require user action to update the MerlinAU script\n"
+        printf "when a newer version becomes available. This is the default setting.\n"
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
+        then
             Update_Custom_Settings "Allow_Script_Auto_Up" "DISABLED"
-            printf "MerlinAU automatic script updates are now ${GRNct}DISABLED.${NOct}\n"
-
-            # Remove the cron job for automatic script updates
-            printf "Removing '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for script updates...\n"
-            if _DelScriptAUCronJobEntry_ ; then
+            printf "MerlinAU automatic script updates are now ${GRNct}DISABLED${NOct}.\n"
+            printf "Removing '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for automatic script updates...\n"
+            _DelScriptAutoUpdateHook_
+            if _DelScriptAutoUpdateCronJob_
+            then
                 retCode=0
-                _DelScriptAutoUpdateHook_
-                # Successful removal message is printed within _DelCronJobEntry_
+                # Successful removal message is printed within function #
             else
                 retCode=1
-                # Error message is printed within _DelCronJobEntry_
+                # Error message is printed within function call #
             fi
         else
-            printf "MerlinAU automatic script updates remain ${REDct}ENABLED.${NOct}\n"
+            printf "MerlinAU automatic script updates remain ${MAGENTAct}ENABLED${NOct}.\n"
         fi
+    fi
+
+    if "$keepOptionDisabled"
+    then
+        printf "MerlinAU automatic script updates remain ${GRNct}DISABLED.${NOct}\n"
     fi
     _WaitForEnterKey_
     return "$retCode"
 }
-
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
@@ -5315,16 +6088,16 @@ _Toggle_FW_UpdateCheckSetting_()
        runfwUpdateCheck=false
        FW_UpdateCheckState=0
        fwUpdateCheckNewStateStr="${REDct}DISABLED${NOct}"
-       _DelCronJobEntry_
-       _DelCronJobRunScriptHook_
+       _DelFWAutoUpdateHook_
+       _DelFWAutoUpdateCronJob_
    else
        [ -x "$FW_UpdateCheckScript" ] && runfwUpdateCheck=true
        FW_UpdateCheckState=1
        fwUpdateCheckNewStateStr="${GRNct}ENABLED${NOct}"
-       if _AddCronJobEntry_
+       if _AddFWAutoUpdateCronJob_
        then
            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
-           _AddCronJobRunScriptHook_
+           _AddFWAutoUpdateHook_
        else
            printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
        fi
@@ -6646,7 +7419,7 @@ _PostRebootRunNow_()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-17] ##
 ##----------------------------------------##
-_DelCronJobRunScriptHook_()
+_DelFWAutoUpdateHook_()
 {
    local hookScriptFile
 
@@ -6668,7 +7441,7 @@ _DelCronJobRunScriptHook_()
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-17] ##
 ##----------------------------------------##
-_AddCronJobRunScriptHook_()
+_AddFWAutoUpdateHook_()
 {
    local hookScriptFile  jobHookAdded=false
 
@@ -6739,7 +7512,7 @@ _DelScriptAutoUpdateHook_()
 
    if grep -qE "$DAILY_SCRIPT_UPDATE_CHECK_JOB" "$hookScriptFile"
    then
-       sed -i -e '/\/'"$ScriptFileName"' ScriptAUCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       sed -i -e '/\/'"$ScriptFileName"' scriptAUCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
        if [ $? -eq 0 ]
        then
            Say "Cron job hook was deleted successfully from '$hookScriptFile' script."
@@ -6750,15 +7523,17 @@ _DelScriptAutoUpdateHook_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-05] ##
+## Modified by Martinski W. [2024-Nov-24] ##
 ##----------------------------------------##
 _DoUninstall_()
 {
    printf "Are you sure you want to uninstall $ScriptFileName script now"
    ! _WaitForYESorNO_ && return 0
 
-   _DelCronJobEntry_
-   _DelCronJobRunScriptHook_
+   _DelFWAutoUpdateHook_
+   _DelFWAutoUpdateCronJob_
+   _DelScriptAutoUpdateHook_
+   _DelScriptAutoUpdateCronJob_
    _DelPostRebootRunScriptHook_
    _DelPostUpdateEmailNotifyScriptHook_
 
@@ -7068,9 +7843,9 @@ then
            ;;
        processNodes) _ProcessMeshNodes_ 0
            ;;
-       addCronJob) _AddCronJobEntry_
+       addCronJob) _AddFWAutoUpdateCronJob_
            ;;
-       ScriptAUCronJob) _AddScriptAUCronJob_
+       scriptAUCronJob) _AddScriptAutoUpdateCronJob_
            ;;
        postRebootRun) _PostRebootRunNow_
            ;;
@@ -7100,15 +7875,30 @@ fi
 # to check if there's a new version update to notify the user #
 _CheckForNewScriptUpdates_
 
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+if [ "$ScriptAUSetting" = "ENABLED" ]
+then
+    _AddScriptAutoUpdateCronJob_
+fi
+
+# Check if the PREVIOUS Cron Job ID already exists #
+if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
+then  #If it exists, delete the OLD one & create a NEW one#
+    cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
+fi
+
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-21] ##
+## Modified by Martinski W. [2024-Nov-24] ##
 ##----------------------------------------##
 FW_UpdateCheckState="$(nvram get firmware_check_enable)"
 [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 if [ "$FW_UpdateCheckState" -eq 1 ]
 then
     runfwUpdateCheck=true
-    # Check if the CRON job already exists #
+
+    # Check if the F/W Update CRON job already exists #
     if ! eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
     then
         logo
@@ -7120,15 +7910,15 @@ then
         then
             # Add the cron job since it doesn't exist and user consented
             printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
-            if _AddCronJobEntry_
+            if _AddFWAutoUpdateCronJob_
             then
                 printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
-                current_schedule_english="$(translate_schedule "$FW_UpdateCronJobSchedule")"
-                printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+                cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
+                printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
             else
                 printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
             fi
-            _AddCronJobRunScriptHook_
+            _AddFWAutoUpdateHook_
         else
             printf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
             printf "You can enable this feature later via the main menu.\n"
@@ -7139,7 +7929,7 @@ then
         fi
     else
         printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
-        _AddCronJobRunScriptHook_
+        _AddFWAutoUpdateHook_
     fi
 
     # Check if there's a new F/W update available #
@@ -7148,7 +7938,6 @@ then
 fi
 
 padStr="      "
-SEPstr="----------------------------------------------------------"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jun-05] ##
@@ -7596,11 +8385,14 @@ _ShowMainMenu_()
    printf "${SEPstr}\n"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-25] ##
+##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
+   local BetaProductionSetting  VPNAccess  currentBackupOption
+   local scriptUpdateCronSched  current_build_type
+
    clear
    logo
    printf "================== Advanced Options Menu =================\n"
@@ -7612,7 +8404,7 @@ _ShowAdvancedOptionsMenu_()
    printf "\n  ${GRNct}2${NOct}.  Set F/W Update Cron Schedule"
    printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
 
-   local BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+   BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
    if [ "$BetaProductionSetting" = "DISABLED" ]
    then
@@ -7621,7 +8413,7 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
-   local VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+   VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
    printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale/ZeroTier Access During Updates"
    if [ "$VPNAccess" = "DISABLED" ]
    then
@@ -7632,13 +8424,13 @@ _ShowAdvancedOptionsMenu_()
 
    if [ -f "/jffs/scripts/backupmon.sh" ]
    then
-       # Retrieve the current backup settings
-       local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+       # Retrieve the current backup setting #
+       currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
        printf "\n ${GRNct}ab${NOct}.  Toggle Automatic Backups"
-       if [ "$current_backup_settings" = "DISABLED" ]
-       then printf "\n${padStr}[Currently ${REDct}${current_backup_settings}${NOct}]\n"
-       else printf "\n${padStr}[Currently ${GRNct}${current_backup_settings}${NOct}]\n"
+       if [ "$currentBackupOption" = "DISABLED" ]
+       then printf "\n${padStr}[Currently ${REDct}${currentBackupOption}${NOct}]\n"
+       else printf "\n${padStr}[Currently ${GRNct}${currentBackupOption}${NOct}]\n"
        fi
    fi
 
@@ -7648,7 +8440,9 @@ _ShowAdvancedOptionsMenu_()
    then
        printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
    else
-       printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
+       printf "\n${padStr}[Currently ${MAGENTAct}ENABLED${NOct}]\n"
+       scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
+       printf "${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]\n"
    fi
 
    if "$isGNUtonFW"
@@ -7656,7 +8450,7 @@ _ShowAdvancedOptionsMenu_()
       if [ "$fwInstalledBaseVers" -le 3004 ]
       then
          # Retrieve the current build type setting
-         local current_build_type="$(Get_Custom_Setting "TUFBuild")"
+         current_build_type="$(Get_Custom_Setting "TUFBuild")"
 
          # Convert the setting to a descriptive text
          if [ "$current_build_type" = "y" ]; then
@@ -7723,7 +8517,7 @@ _ShowAdvancedOptionsMenu_()
       if [ "$fwInstalledBaseVers" -le 3004 ]
       then
           # Retrieve the current build type setting
-          local current_build_type="$(Get_Custom_Setting "ROGBuild")"
+          current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
           # Convert the setting to a descriptive text
           if [ "$current_build_type" = "y" ]; then
@@ -7906,7 +8700,7 @@ _AdvancedOptionsMenu_()
         case "$theUserInputStr" in
             1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
-            2) _Set_FW_UpdateCronSchedule_
+            2) _Set_FW_AutoUpdateCronSchedule_
                ;;
             3) _Toggle_FW_UpdatesFromBeta_
                ;;
@@ -7917,7 +8711,7 @@ _AdvancedOptionsMenu_()
                else _InvalidMenuSelection_
                fi
                ;;
-           au) _Toggle_ScriptAU_Config_
+           au) _Toggle_ScriptAutoUpdate_Config_
                ;;
            bt) if echo "$PRODUCT_ID" | grep -q "^TUF-"
                then _ChangeBuildType_TUF_
