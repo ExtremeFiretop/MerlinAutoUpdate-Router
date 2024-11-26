@@ -4609,7 +4609,7 @@ _TranslateCronSchedHR_()
        if echo "$theCronDAYW" | grep -qE "^[*]/"
        then
            freqNumDAYW="$(echo "$theCronDAYW" | cut -f2 -d'/')"
-           infoStrDAYS="every $freqNumDAYW days, in every month"
+           infoStrDAYS="every $freqNumDAYW days of the week, in every month"
        else
            infoStrDAYS="$theCronDAYW, in every month"
        fi
@@ -4618,7 +4618,7 @@ _TranslateCronSchedHR_()
        if echo "$theCronDAYM" | grep -qE "^[*]/"
        then
            freqNumDAYM="$(echo "$theCronDAYM" | cut -f2 -d'/')"
-           infoStrDAYS="every $freqNumDAYM days, in every month"
+           infoStrDAYS="every $freqNumDAYM days of the month, in every month"
        else
            infoStrDAYS="${theCronDAYM}, in every month"
        fi
@@ -4923,8 +4923,8 @@ _Set_FW_UpdateCronScheduleCustom_()
     do
         printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * Sun${NOct}' for every Sunday at midnight)"
         if [ -z "$currCronSchedule" ]
-        then printf "\n[${theADExitStr}] [Default Schedule: ${GRNct}${nextCronSchedule}${NOct}]:  "
-        else printf "\n[${theADExitStr}] [Current Schedule: ${GRNct}${currCronSchedule}${NOct}]:  "
+        then printf "\n[${theADExitStr}]\n[Default Schedule: ${GRNct}${nextCronSchedule}${NOct}]:  "
+        else printf "\n[${theADExitStr}]\n[Current Schedule: ${GRNct}${currCronSchedule}${NOct}]:  "
         fi
         read -r userInput
 
@@ -5070,7 +5070,7 @@ _GetCronScheduleInputDAYofWEEK_()
        printf "\nExamples:\n"
        printf "   ${GRNct}*${NOct}=Every day   ${GRNct}*/2${NOct}=Every 2 days   ${GRNct}*/3${NOct}=Every 3 days\n"
        printf "   ${GRNct}0${NOct}=Sun, ${GRNct}1${NOct}=Mon, ${GRNct}2${NOct}=Tue, "
-       printf "${GRNct}3${NOct}=Wed, ${GRNct}4${NOct}=Thu, ${GRNct}5${NOct}=Fri, ${GRNct}6=Sat${NOct}\n"
+       printf "${GRNct}3${NOct}=Wed, ${GRNct}4${NOct}=Thu, ${GRNct}5${NOct}=Fri, ${GRNct}6${NOct}=Sat\n"
        printf "   ${GRNct}6,0${NOct}=Sat,Sun   ${GRNct}1,3,5${NOct}=Mon,Wed,Fri\n"
 
        printf "\n[${menuCancelAndExitStr}] [${menuSavedThenExitStr}] [${menuReturnToBeginStr}]\n"
