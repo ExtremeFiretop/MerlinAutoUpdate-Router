@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-25
+# Last Modified: 2024-Nov-26
 ###################################################################
 set -u
 
@@ -4611,7 +4611,7 @@ _TranslateCronSchedHR_()
            freqNumDAYW="$(echo "$theCronDAYW" | cut -f2 -d'/')"
            infoStrDAYS="every $freqNumDAYW days of the week, in every month"
        else
-           infoStrDAYS="$theCronDAYW, in every month"
+           infoStrDAYS="days $theCronDAYW of the week, in every month"
        fi
    elif [ "$theCronDAYM" != "*" ]
    then
@@ -4620,7 +4620,7 @@ _TranslateCronSchedHR_()
            freqNumDAYM="$(echo "$theCronDAYM" | cut -f2 -d'/')"
            infoStrDAYS="every $freqNumDAYM days of the month, in every month"
        else
-           infoStrDAYS="${theCronDAYM}, in every month"
+           infoStrDAYS="days ${theCronDAYM} of the month, in every month"
        fi
    fi
 
@@ -4714,39 +4714,47 @@ _CapitalizeFirstChar_()
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Nov-24] ##
 ##-------------------------------------##
-#-----------------------------------------------#
-# Allow ONLY the valid range [0-59] and all
-# intervals & sequence lists are INVALID for
-# the purposes of doing F/W Updates.
-#-----------------------------------------------#
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-59].
+# All intervals, lists and ranges are INVALID for
+# the purposes of checking for F/W Updates.
+#---------------------------------------------------#
 _ValidateCronScheduleMINS_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    if echo "$1" | grep -qE "^${CRON_MINS_RegEx}$" && \
       [ "$1" -ge 0 ] && [ "$1" -lt 60 ]
    then return 0
-   else return 1
    fi
+   printf "\n${REDct}INVALID cron value for 'MINUTE' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [0-59] are valid.\n"
+   printf "All other intervals, lists, and ranges are INVALID.\n"
+   return 1
 }
 
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Nov-24] ##
 ##-------------------------------------##
-#-----------------------------------------------#
-# Allow ONLY the valid range [0-23] and some
-# specific intervals [ */6  */8  */12 ] for
-# the purposes of doing F/W Updates.
-#-----------------------------------------------#
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-23]
+# and specific intervals [ */4  */6  */8  */12]
+# for the purposes of doing F/W Updates.
+# All other intervals, lists & ranges are INVALID.
+#---------------------------------------------------#
 _ValidateCronScheduleHOUR_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
-   if echo "$1" | grep -qE "^[*]/(6|8|12)$"
+   if echo "$1" | grep -qE "^[*]/(4|6|8|12)$"
    then return 0 ; fi
    if echo "$1" | grep -qE "^${CRON_HOUR_RegEx}$" && \
       [ "$1" -ge 0 ] && [ "$1" -lt 24 ]
    then return 0
-   else return 1
    fi
+   printf "\n${REDct}INVALID cron value for 'HOUR' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [0-23] and\n"
+   printf "specific intervals (*/4 */6 */8 */12) are valid.\n"
+   printf "All other intervals, lists and ranges are INVALID.\n"
+   return 1
 }
 
 ##-------------------------------------##
@@ -4788,11 +4796,11 @@ _ValidateCronNumOrderDAYW_()
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Nov-24] ##
 ##-------------------------------------##
-#-----------------------------------------------#
-# Allow ONLY the valid range [0-6] and some
-# specific intervals [ *  */2  */3 ] for the
-# the purposes of doing F/W Updates.
-#-----------------------------------------------#
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-6]
+# specific intervals [ *  */2  */3 ], lists and
+# ranges for the purposes of doing F/W Updates.
+#---------------------------------------------------#
 _ValidateCronScheduleDAYofWEEK_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -4803,21 +4811,26 @@ _ValidateCronScheduleDAYofWEEK_()
        if echo "$1" | grep -q '-'
        then
            if _ValidateCronNumOrderDAYW_ "$1"
-           then return 0 ; else return 1 ; fi
+           then return 0 ; fi
+       else
+           return 0
        fi
-       return 0
    fi
+   printf "\n${REDct}INVALID cron value for 'DAY of WEEK' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [0-6], some\n"
+   printf "specific intervals (* */2 */3), day abbreviations,\n"
+   printf "some lists and ranges are valid.\n"
    return 1
 }
 
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Nov-24] ##
 ##-------------------------------------##
-#--------------------------------------------------#
-# Allow ONLY the valid range [1-31] and some
-# intervals [ *  */[2-9]  */10  */12  */15 ]
-# for the purposes of doing F/W Updates.
-#--------------------------------------------------#
+#----------------------------------------------------------#
+# Allow ONLY full numbers within the range [1-31]
+# some intervals [ *  */[2-9]  */10  */12  */15 ],
+# lists and ranges for the purposes of doing F/W Updates.
+#----------------------------------------------------------#
 _ValidateCronScheduleDAYofMONTH_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -4832,17 +4845,20 @@ _ValidateCronScheduleDAYofMONTH_()
            numDays1="$(echo "$1" | awk -F '-' '{print $1}')"
            numDays2="$(echo "$1" | awk -F '-' '{print $2}')"
            if [ "$numDays1" -lt "$numDays2" ]
-           then return 0
-           else return 1
-           fi
+           then return 0 ; fi
+       else
+           return 0
        fi
-       return 0
    fi
+   printf "\n${REDct}INVALID cron value for 'DAY of MONTH' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [1-31],\n"
+   printf "specific intervals (* */[2-9] */10 */12 */15),\n"
+   printf "some lists and ranges are valid.\n"
    return 1
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-24] ##
+## Modified by Martinski W. [2024-Nov-26] ##
 ##----------------------------------------##
 _ValidateCronJobSchedule_()
 {
@@ -4861,21 +4877,15 @@ _ValidateCronJobSchedule_()
    fi
    cronSchedStr="$(echo "$1" | awk -F ' ' '{print $1}')"
    if ! _ValidateCronScheduleMINS_ "$cronSchedStr"
-   then
-       printf "${REDct}INVALID cron value for 'MINUTE' [$cronSchedStr].${NOct}\n"
-       return 1
+   then return 1
    fi
    cronSchedStr="$(echo "$1" | awk -F ' ' '{print $2}')"
    if ! _ValidateCronScheduleHOUR_ "$cronSchedStr"
-   then
-       printf "${REDct}INVALID cron value for 'HOUR' [$cronSchedStr].${NOct}\n"
-       return 1
+   then return 1
    fi
    cronSchedDAYM="$(echo "$1" | awk -F ' ' '{print $3}')"
    if ! _ValidateCronScheduleDAYofMONTH_ "$cronSchedDAYM"
-   then
-       printf "${REDct}INVALID cron value for 'DAY of MONTH' [$cronSchedDAYM].${NOct}\n"
-       return 1
+   then return 1
    fi
    cronSchedMNTH="$(echo "$1" | awk -F ' ' '{print $4}')"
    if ! echo "$cronSchedMNTH" | grep -qiE "^(${CRON_MONTH_RegEx})$"
@@ -4885,14 +4895,12 @@ _ValidateCronJobSchedule_()
    fi
    cronSchedDAYW="$(echo "$1" | awk -F ' ' '{print $5}')"
    if ! _ValidateCronScheduleDAYofWEEK_ "$cronSchedDAYW"
-   then
-       printf "${REDct}INVALID cron value for 'DAY of WEEK' [$cronSchedDAYW].${NOct}\n"
-       return 1
+   then return 1
    fi
    if [ "$cronSchedDAYW" != "*" ] && [ "$cronSchedDAYM" != "*" ]
    then
        printf "${REDct}INVALID cron value for 'DAY of WEEK' [$cronSchedDAYW] or 'DAY of MONTH' [$cronSchedDAYM].${NOct}\n"
-       printf "${REDct}One of them MUST be set to a 'Daily' value [*=Daily].${NOct}\n"
+       printf "${REDct}One of them MUST be set to a 'daily' value [*=daily].${NOct}\n"
        return 1
    fi
    return 0
@@ -5006,11 +5014,6 @@ _ShowCronMenuHeader_()
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Nov-24] ##
 ##-------------------------------------##
-#--------------------------------------------------#
-# Allow ONLY the valid range [1-31] and some
-# intervals [ *  */[2-9]  */10  */12  */15 ]
-# for the purposes of doing F/W Updates.
-#--------------------------------------------------#
 _GetCronScheduleInputDAYofMONTH_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -5040,7 +5043,6 @@ _GetCronScheduleInputDAYofMONTH_()
             _ValidateCronScheduleDAYofMONTH_ "$newSchedDAYM"
        then break
        fi
-       printf "\n${REDct}INVALID cron value for 'DAY of MONTH' [$newSchedDAYM]${NOct}\n"
        _WaitForEnterKey_
    done
    nextSchedDAYM="$newSchedDAYM"
@@ -5050,11 +5052,6 @@ _GetCronScheduleInputDAYofMONTH_()
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Nov-24] ##
 ##-------------------------------------##
-#-----------------------------------------------#
-# Allow ONLY the valid range [0-6] and some
-# specific intervals [ *  */2  */3 ] for the
-# the purposes of doing F/W Updates.
-#-----------------------------------------------#
 _GetCronScheduleInputDAYofWEEK_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -5098,7 +5095,6 @@ _GetCronScheduleInputDAYofWEEK_()
            fi
            break
        fi
-       printf "\n${REDct}INVALID cron value for 'DAY of WEEK' [$newSchedDAYW]${NOct}\n"
        _WaitForEnterKey_
    done
    nextSchedDAYW="$newSchedDAYW"
@@ -5108,11 +5104,12 @@ _GetCronScheduleInputDAYofWEEK_()
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Nov-24] ##
 ##-------------------------------------##
-#-----------------------------------------------#
-# Allow ONLY the valid range [0-23] and some
-# specific intervals [ */6  */8  */12 ] for
-# the purposes of doing F/W Updates.
-#-----------------------------------------------#
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range: [0-23]
+# and specific intervals [ */4  */6  */8  */12 ]
+# for the purposes of doing F/W Updates.
+# All other intervals, lists & ranges are INVALID.
+#---------------------------------------------------#
 _GetCronScheduleInputHOUR_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -5138,13 +5135,12 @@ _GetCronScheduleInputHOUR_()
            if _ValidateCronScheduleHOUR_ "$oldSchedHOUR"
            then break  #Keep Current Value#
            fi
-       elif _ValidateCronScheduleHOUR_  "$newSchedHOUR" || \
-            _CheckForCancelAndExitMenu_ "$newSchedHOUR" || \
+       elif _CheckForCancelAndExitMenu_ "$newSchedHOUR" || \
             _CheckForReturnToBeginMenu_ "$newSchedHOUR" || \
-            _CheckForSavedThenExitMenu_ "$newSchedHOUR"
+            _CheckForSavedThenExitMenu_ "$newSchedHOUR" || \
+            _ValidateCronScheduleHOUR_  "$newSchedHOUR"
        then break
        fi
-       printf "\n${REDct}INVALID cron value for 'HOUR' [$newSchedHOUR]${NOct}\n"
        _WaitForEnterKey_
    done
    nextSchedHOUR="$newSchedHOUR"
@@ -5154,11 +5150,11 @@ _GetCronScheduleInputHOUR_()
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Nov-24] ##
 ##-------------------------------------##
-#-----------------------------------------------#
-# Allow ONLY the valid range [0-59] and all
-# intervals & sequence lists are INVALID for
-# the purposes of doing F/W Updates.
-#-----------------------------------------------#
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-59].
+# All intervals, lists and ranges are INVALID for
+# the purposes of checking for F/W Updates.
+#---------------------------------------------------#
 _GetCronScheduleInputMINS_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -5181,13 +5177,12 @@ _GetCronScheduleInputMINS_()
            if _ValidateCronScheduleMINS_ "$oldSchedMINS"
            then break  #Keep Current Value#
            fi
-       elif _ValidateCronScheduleMINS_  "$newSchedMINS" || \
-            _CheckForCancelAndExitMenu_ "$newSchedMINS" || \
+       elif _CheckForCancelAndExitMenu_ "$newSchedMINS" || \
             _CheckForReturnToBeginMenu_ "$newSchedMINS" || \
-            _CheckForSavedThenExitMenu_ "$newSchedMINS"
+            _CheckForSavedThenExitMenu_ "$newSchedMINS" || \
+            _ValidateCronScheduleMINS_  "$newSchedMINS"
        then break
        fi
-       printf "\n${REDct}INVALID cron value for 'MINUTE' [$newSchedMINS]${NOct}\n"
        _WaitForEnterKey_
    done
    nextSchedMINS="$newSchedMINS"
@@ -5415,7 +5410,7 @@ _Set_FW_AutoUpdateCronSchedule_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-25] ##
+## Modified by Martinski W. [2024-Nov-26] ##
 ##----------------------------------------##
 _Toggle_ScriptAutoUpdate_Config_()
 {
@@ -5439,7 +5434,7 @@ _Toggle_ScriptAutoUpdate_Config_()
             printf "\nCurrent Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}\n"
             printf "[${GRNct}${cronSchedStrHR}${NOct}]\n"
 
-            if _WaitForYESorNO_ "\nConfirm daily check for automatic script updates?"
+            if _WaitForYESorNO_ "\nConfirm the above schedule to check for automatic script updates?"
             then
                 if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
                 then
