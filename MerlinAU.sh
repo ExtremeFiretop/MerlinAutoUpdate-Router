@@ -1639,7 +1639,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-16] ##
+## Modified by ExtremeFiretop [2024-Nov-26] ##
 ##------------------------------------------##
 _CreateEMailContent_()
 {
@@ -1662,8 +1662,8 @@ _CreateEMailContent_()
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
 
-   # Remove "_rog" or "_tuf" or -gHASHVALUES suffix to avoid version comparison failures #
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10})$//')"
+   # Remove any suffix starting with "-" or "_" to avoid version comparison failures
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/[-_].*$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -1679,6 +1679,13 @@ _CreateEMailContent_()
              echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
              printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n"
+             printf "\nPlease click here to review the changelog:\n"
+             if "$isGNUtonFW"
+             then
+                 printf "${Gnuton_changelogurl}\n"
+             else
+                 printf "${changeLogURL}\n"
+             fi
              [ "$FW_UpdateExpectedRunDate" != "TBD" ] && \
              printf "\nThe firmware update is expected to occur on: <b>${FW_UpdateExpectedRunDate}</b>\n"
            } > "$tempEMailBodyMsg"
@@ -1713,8 +1720,30 @@ _CreateEMailContent_()
                # Highlight high-risk terms using HTML with a yellow background #
                highlighted_changelog_contents="$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/<span style='background-color:yellow;'>\1<\/span>/gi")"
            else
-               # Highlight high-risk terms in plain text using asterisks #
-               highlighted_changelog_contents="$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/*\1*/gi")"
+               # Step 1: Enclose matched terms with unique markers that don't conflict with '>' and '<'
+               highlighted_changelog_contents="$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/\[\[UPPER\]\]\1\[\[ENDUPPER\]\]/gi")"
+
+               # Step 2: Modify the awk script with correct marker lengths
+               highlighted_changelog_contents="$(echo "$highlighted_changelog_contents" | awk '
+               BEGIN {
+                   upper_marker = "[[UPPER]]"
+                   endupper_marker = "[[ENDUPPER]]"
+                   upper_marker_length = length(upper_marker)
+                   endupper_marker_length = length(endupper_marker)
+               }
+               {
+                 while (match($0, /\[\[UPPER\]\][^\[]*\[\[ENDUPPER\]\]/)) {
+                   prefix = substr($0, 1, RSTART - 1)
+                   match_text_start = RSTART + upper_marker_length
+                   match_text_length = RLENGTH - upper_marker_length - endupper_marker_length
+                   match_text = substr($0, match_text_start, match_text_length)
+                   suffix = substr($0, RSTART + RLENGTH)
+                   match_text_upper = toupper(match_text)
+                   $0 = prefix ">" match_text_upper "<" suffix
+                 }
+                 print
+               }
+               ')"
            fi
            {
                echo "Found high-risk phrases in the changelog file while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
@@ -3985,18 +4014,29 @@ _IncrementDay_()
     echo "$day $month $year"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-26] ##
+##------------------------------------------##
 matches_day_of_month()
 {
     local curr_dom="$1"
     local dom_expr="$2"
-    local domStart  domEnd
+    local domStart domEnd expanded_days
 
     if [ "$dom_expr" = "*" ]
     then  # Matches any day of the month #
         return 0
+    elif echo "$dom_expr" | grep -q '/'
+    then
+        # Handle step values like */5 or 1-15/3
+        expanded_days=$(expand_cron_field "$dom_expr" 1 31)
+        for day in $expanded_days
+        do
+            if [ "$day" -eq "$curr_dom" ]
+            then  # Current day matches one in the expanded list #
+                return 0
+            fi
+        done
     elif echo "$dom_expr" | grep -q '-'
     then
         domStart="$(echo "$dom_expr" | cut -d'-' -f1)"
@@ -4081,14 +4121,14 @@ matches_month()
     return 1  # No match #
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-26] ##
+##------------------------------------------##
 matches_day_of_week()
 {
     local curr_dow="$1"
     local dow_expr="$2"
-    local dowStart  dowEnd  dowStartNum  dowEndNum
+    local dowStart dowEnd expanded_dows
 
     _DayOfWeekNameToNumber_()
     {
@@ -4112,12 +4152,24 @@ matches_day_of_week()
     if [ "$dow_expr" = "*" ]
     then  # Matches any day of the week #
         return 0
+    elif echo "$dow_expr" | grep -q '/'
+    then
+        # Handle step values like */2 or 1-5/2
+        expanded_dows=$(expand_cron_field "$dow_expr" 0 6)
+        for dow in $expanded_dows
+        do
+            if [ "$dow" -eq "$curr_dow" ]
+            then  # Current day of the week matches one in the expanded list #
+                return 0
+            fi
+        done
     elif echo "$dow_expr" | grep -q '-'
     then
         dowStart="$(echo "$dow_expr" | cut -d'-' -f1)"
         dowEnd="$(echo "$dow_expr" | cut -d'-' -f2)"
         dowStartNum="$(_DayOfWeekNameToNumber_ "$dowStart")"
         dowEndNum="$(_DayOfWeekNameToNumber_ "$dowEnd")"
+
         if [ "$dowStartNum" -gt "$dowEndNum" ]
         then
             dow_expr="$dowStartNum"
@@ -5565,9 +5617,9 @@ _high_risk_phrases_nointeractive_()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-11] ##
-##----------------------------------------##
+##-------------------------------------==---##
+## Modified by ExtremeFiretop [2024-Nov-24] ##
+##-------------------------------------==---##
 _ChangelogVerificationCheck_()
 {
     local mode="$1"  # Mode should be 'auto' or 'interactive' #
@@ -5606,23 +5658,6 @@ _ChangelogVerificationCheck_()
             _DoCleanUp_
             return 1
         else
-            # Use awk to format the version based on the number of initial digits
-            formatted_current_version=$(echo "$current_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4 && $4 == "0") {
-                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                    } else if (NF == 4) {
-                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
             formatted_release_version=$(echo "$release_version" | awk -F. '{
                 if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
                     if (NF == 4 && $4 == "0") {
@@ -5640,8 +5675,30 @@ _ChangelogVerificationCheck_()
             }')
 
             # Define regex patterns for both versions
-            release_version_regex="$formatted_release_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
-            current_version_regex="$formatted_current_version \([0-9]{1,2}-[A-Za-z]{3}-[0-9]{4}\)"
+            release_version_regex="[0-9]{4}\.${formatted_release_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
+
+            # Use awk to format the version based on the number of initial digits
+            formatted_current_version=$(echo "$current_version" | awk -F. '{
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4) {
+                        # Remove any non-digit characters from the fourth field
+                        sub(/[^0-9].*/, "", $4)
+                        if ($4 == "0") {
+                            printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                        } else {
+                            printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                        }
+                    }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
+                }
+            }')
+
+            current_version_regex="[0-9]{4}\.${formatted_current_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
 
             if "$isGNUtonFW"
             then
@@ -5686,7 +5743,7 @@ _ManageChangelogMerlin_()
 
     local mode="$1"  # Mode should be 'download' or 'view' #
     local newUpdateVerStr=""
-    local wgetLogFile  changeLogFile  changeLogTag  changeLogURL
+    local wgetLogFile  changeLogFile  changeLogTag
 
     # Create directory to download changelog if missing
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
