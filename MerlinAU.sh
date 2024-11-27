@@ -5700,8 +5700,8 @@ _ChangelogVerificationCheck_()
             }')
 
             # Define regex patterns for both versions
-            release_version_regex="[0-9]{4}\.${formatted_release_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
-            current_version_regex="[0-9]{4}\.${formatted_current_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
+            release_version_regex="${formatted_release_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
+            current_version_regex="${formatted_current_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
 
             if "$isGNUtonFW"
             then
