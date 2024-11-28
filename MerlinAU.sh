@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-26
+# Last Modified: 2024-Nov-27
 ###################################################################
 set -u
 
@@ -130,11 +130,13 @@ else cronListCmd="crontab -l"
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-17] ##
+## Modified by Martinski W. [2024-Nov-27] ##
 ##----------------------------------------##
 inMenuMode=true
 isInteractive=false
 FlashStarted=false
+MerlinChangeLogURL=""
+GnutonChangeLogURL=""
 
 # Main LAN Network Info #
 readonly myLAN_HostName="$(nvram get lan_hostname)"
@@ -695,7 +697,7 @@ _FWVersionStrToNum_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-24] ##
+## Modified by Martinski W. [2024-Nov-27] ##
 ##----------------------------------------##
 if "$inRouterSWmode" 
 then
@@ -706,21 +708,26 @@ else
 fi
 
 ## Recommended 15 minutes BEFORE the F/W Update ##
-readonly ScriptAU_CRON_DefaultSchedule="45 11 * * *"
+readonly ScriptAU_CRON_DefaultSchedule="45 23 * * *"
+
+## For Automatic Script Updates Cron Schedule ##
+readonly SW_Update_CRON_DefaultSchedDays="* x *"
 
 readonly CRON_MINS_RegEx="([0-9]|[1-5][0-9])"
 readonly CRON_HOUR_RegEx="([0-9]|1[0-9]|2[0-3])"
 
 readonly CRON_DAYofMONTH_rexp1="([1-9]|[1-2][0-9]|3[0-1])"
 readonly CRON_DAYofMONTH_rexp2="${CRON_DAYofMONTH_rexp1}[-]${CRON_DAYofMONTH_rexp1}"
-readonly CRON_DAYofMONTH_rexp3="${CRON_DAYofMONTH_rexp1}([,]${CRON_DAYofMONTH_rexp1})+"
-readonly CRON_DAYofMONTH_RegEx="($CRON_DAYofMONTH_rexp1|$CRON_DAYofMONTH_rexp2|$CRON_DAYofMONTH_rexp3)"
+readonly CRON_DAYofMONTH_rexp3="${CRON_DAYofMONTH_rexp2}[/][2-9]"
+readonly CRON_DAYofMONTH_rexp4="${CRON_DAYofMONTH_rexp1}([,]${CRON_DAYofMONTH_rexp1})+"
+readonly CRON_DAYofMONTH_RegEx="($CRON_DAYofMONTH_rexp1|$CRON_DAYofMONTH_rexp2|$CRON_DAYofMONTH_rexp3|$CRON_DAYofMONTH_rexp4)"
 
-readonly CRON_DAYofWEEK_NAME="([S|s]un|[M|m]on|[T|t]ue|[W|w]ed|[T|t]hu|[F|f]ri|[S|s]at)"
-readonly CRON_DAYofWEEK_rexp1="${CRON_DAYofWEEK_NAME}|[0-6]"
-readonly CRON_DAYofWEEK_rexp2="${CRON_DAYofWEEK_NAME}[-]${CRON_DAYofWEEK_NAME}|[0-6][-][0-6]"
-readonly CRON_DAYofWEEK_rexp3="${CRON_DAYofWEEK_NAME}([,]${CRON_DAYofWEEK_NAME})+|[0-6]([,][0-6])+"
-readonly CRON_DAYofWEEK_RegEx="($CRON_DAYofWEEK_rexp1|$CRON_DAYofWEEK_rexp2|$CRON_DAYofWEEK_rexp3)"
+readonly CRON_DAYofWEEK_Names="([S|s]un|[M|m]on|[T|t]ue|[W|w]ed|[T|t]hu|[F|f]ri|[S|s]at)"
+readonly CRON_DAYofWEEK_rexp1="[0-6][-][0-6][/][2-3]"
+readonly CRON_DAYofWEEK_rexp2="${CRON_DAYofWEEK_Names}|[0-6]"
+readonly CRON_DAYofWEEK_rexp3="${CRON_DAYofWEEK_Names}[-]${CRON_DAYofWEEK_Names}|[0-6][-][0-6]"
+readonly CRON_DAYofWEEK_rexp4="${CRON_DAYofWEEK_Names}([,]${CRON_DAYofWEEK_Names})+|[0-6]([,][0-6])+"
+readonly CRON_DAYofWEEK_RegEx="($CRON_DAYofWEEK_rexp1|$CRON_DAYofWEEK_rexp2|$CRON_DAYofWEEK_rexp3|$CRON_DAYofWEEK_rexp4)"
 
 readonly CRON_MONTH_NAMES="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
 readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1[0-2])([\/,-]([1-9]|1[0-2]))*"
@@ -834,9 +841,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -860,12 +867,13 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Changelog_Approval=TBD"
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "FW_Auto_Backupmon ENABLED"
-         echo "Allow_Script_Auto_Up DISABLED"
+         echo "Allow_Script_Auto_Update DISABLED"
+         echo "Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\""
       } > "$SETTINGSFILE"
       chmod 0664 "$SETTINGSFILE"
       return 1
    fi
-   local retCode=0  prefPath
+   local retCode=0  preferredPath
 
    if ! grep -q "^FW_New_Update_Notification_Date " "$SETTINGSFILE"
    then
@@ -920,27 +928,32 @@ _Init_Custom_Settings_Config_()
    fi
    if ! grep -q "^Allow_Updates_OverVPN " "$SETTINGSFILE"
    then
-       sed -i "10 i Allow_Updates_OverVPN DISABLED" "$SETTINGSFILE"
+       sed -i "11 i Allow_Updates_OverVPN DISABLED" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_Allow_Beta_Production_Up " "$SETTINGSFILE"
    then
-       sed -i "11 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
+       sed -i "12 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_Auto_Backupmon " "$SETTINGSFILE"
    then
-       sed -i "12 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
+       sed -i "13 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
-   if ! grep -q "^Allow_Script_Auto_Up " "$SETTINGSFILE"
+   if ! grep -q "^Allow_Script_Auto_Update " "$SETTINGSFILE"
    then
-       sed -i "13 i Allow_Script_Auto_Up DISABLED" "$SETTINGSFILE"
+       sed -i "14 i Allow_Script_Auto_Update DISABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^Script_Update_Cron_Job_SchedDays=" "$SETTINGSFILE"
+   then
+       sed -i "15 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_Changelog_Approval=" "$SETTINGSFILE"
    then
-       sed -i "14 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
+       sed -i "16 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
        retCode=1
    fi
    dos2unix "$SETTINGSFILE"
@@ -949,9 +962,9 @@ _Init_Custom_Settings_Config_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
 Get_Custom_Setting()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
@@ -968,7 +981,7 @@ Get_Custom_Setting()
             "Allow_Updates_OverVPN" | \
             "FW_Allow_Beta_Production_Up" | \
             "FW_Auto_Backupmon" | \
-            "Allow_Script_Auto_Up" | \
+            "Allow_Script_Auto_Update" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -977,6 +990,7 @@ Get_Custom_Setting()
             "FW_New_Update_Changelog_Approval" | \
             "FW_New_Update_Expected_Run_Date"  | \
             "FW_New_Update_Cron_Job_Schedule"  | \
+            "Script_Update_Cron_Job_SchedDays" | \
             "FW_New_Update_ZIP_Directory_Path" | \
             "FW_New_Update_LOG_Directory_Path" | \
             "FW_New_Update_LOG_Preferred_Path" | \
@@ -1024,9 +1038,9 @@ _GetAllNodeSettings_()
     echo "$setting_value"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -1044,7 +1058,7 @@ Update_Custom_Settings()
         "Allow_Updates_OverVPN" | \
         "FW_Allow_Beta_Production_Up" | \
         "FW_Auto_Backupmon" | \
-        "Allow_Script_Auto_Up" | \
+        "Allow_Script_Auto_Update" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]
@@ -1065,6 +1079,7 @@ Update_Custom_Settings()
         "FW_New_Update_Changelog_Approval" | \
         "FW_New_Update_Expected_Run_Date"  | \
         "FW_New_Update_Cron_Job_Schedule"  | \
+        "Script_Update_Cron_Job_SchedDays" | \
         "FW_New_Update_ZIP_Directory_Path" | \
         "FW_New_Update_LOG_Directory_Path" | \
         "FW_New_Update_LOG_Preferred_Path" | \
@@ -1117,6 +1132,10 @@ Update_Custom_Settings()
             elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
             then
                 FW_UpdateCronJobSchedule="$setting_value"
+            #
+            elif [ "$setting_type" = "Script_Update_Cron_Job_SchedDays" ]
+            then
+                ScriptUpdateCronSchedDays="$setting_value"
             #
             elif [ "$setting_type" = "FW_New_Update_ZIP_Directory_Path" ]
             then
@@ -1391,9 +1410,9 @@ readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 FW_UpdateExpectedRunDate="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2024-Feb-18] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-18] ##
+##----------------------------------------##
 # F/W Update Email Notifications #
 isEMailFormatHTML=true
 isEMailConfigEnabledInAMTM=false
@@ -1404,12 +1423,14 @@ sendEMail_CC_Address="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
 [ "$sendEMailFormaType" = "HTML" ] && \
 isEMailFormatHTML=true || isEMailFormatHTML=false
 
-##------------------------------------------------##
-## Added/Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
 # Define the CRON job command to execute #
 # Define the hook script file to be used #
-ScriptAUSetting="$(Get_Custom_Setting "Allow_Script_Auto_Up")"
+ScriptAutoUpdateSetting="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+ScriptUpdateCronSchedDays="$(Get_Custom_Setting Script_Update_Cron_Job_SchedDays)"
+
 readonly SCRIPT_UP_CRON_JOB_RUN="sh $ScriptFilePath checkupdates"
 readonly SCRIPT_UP_CRON_JOB_TAG="${ScriptFNameTag}_ScriptUpdate"
 readonly DAILY_SCRIPT_UPDATE_CHECK_JOB="sh $ScriptFilePath scriptAUCronJob &  $hookScriptTagStr"
@@ -1608,7 +1629,7 @@ _CheckForNewScriptUpdates_()
       scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
       Say "$(date +'%b %d %Y %X') $myLAN_HostName ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
-      if [ "$ScriptAUSetting" = "ENABLED" ]
+      if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
       then
          _SCRIPTUPDATE_ force
       fi
@@ -1662,7 +1683,7 @@ _CreateEMailContent_()
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
 
-   # Remove any suffix starting with "-" or "_" to avoid version comparison failures
+   #Remove any suffix starting with "-" or "_" to avoid version comparison failures#
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/[-_].*$//')"
 
    case "$1" in
@@ -1682,9 +1703,9 @@ _CreateEMailContent_()
              printf "\nPlease click here to review the changelog:\n"
              if "$isGNUtonFW"
              then
-                 printf "${Gnuton_changelogurl}\n"
+                 printf "${GnutonChangeLogURL}\n"
              else
-                 printf "${changeLogURL}\n"
+                 printf "${MerlinChangeLogURL}\n"
              fi
              [ "$FW_UpdateExpectedRunDate" != "TBD" ] && \
              printf "\nThe firmware update is expected to occur on: <b>${FW_UpdateExpectedRunDate}</b>\n"
@@ -3347,9 +3368,9 @@ _DownloadForGnuton_()
     then return 1 ; fi
 
     # Download the latest changelog #
-    Say "Downloading latest Changelog ${GRNct}${Gnuton_changelogurl}${NOct}"
+    Say "Downloading latest Changelog ${GRNct}${GnutonChangeLogURL}${NOct}"
     wget --tries=5 --waitretry=5 --retry-connrefused \
-         -O "$FW_Changelog_GITHUB" "$Gnuton_changelogurl"
+         -O "$FW_Changelog_GITHUB" "$GnutonChangeLogURL"
     if [ ! -s "$FW_Changelog_GITHUB" ]
     then return 1
     else return 0
@@ -4025,15 +4046,15 @@ matches_day_of_month()
 {
     local curr_dom="$1"
     local dom_expr="$2"
-    local domStart domEnd expanded_days
+    local domStart  domEnd  expanded_days
 
     if [ "$dom_expr" = "*" ]
     then  # Matches any day of the month #
         return 0
     elif echo "$dom_expr" | grep -q '/'
     then
-        # Handle step values like */5 or 1-15/3
-        expanded_days=$(expand_cron_field "$dom_expr" 1 31)
+        # Handle step values like '*/5' or '1-15/3' #
+        expanded_days="$(expand_cron_field "$dom_expr" 1 31)"
         for day in $expanded_days
         do
             if [ "$day" -eq "$curr_dom" ]
@@ -4132,7 +4153,7 @@ matches_day_of_week()
 {
     local curr_dow="$1"
     local dow_expr="$2"
-    local dowStart dowEnd expanded_dows
+    local dowStart  dowEnd  dowStartNum  dowEndNum  expanded_dows
 
     _DayOfWeekNameToNumber_()
     {
@@ -4158,8 +4179,8 @@ matches_day_of_week()
         return 0
     elif echo "$dow_expr" | grep -q '/'
     then
-        # Handle step values like */2 or 1-5/2
-        expanded_dows=$(expand_cron_field "$dow_expr" 0 6)
+        # Handle step values like '*/2' or '1-5/2' #
+        expanded_dows="$(expand_cron_field "$dow_expr" 0 6)"
         for dow in $expanded_dows
         do
             if [ "$dow" -eq "$curr_dow" ]
@@ -4173,7 +4194,6 @@ matches_day_of_week()
         dowEnd="$(echo "$dow_expr" | cut -d'-' -f2)"
         dowStartNum="$(_DayOfWeekNameToNumber_ "$dowStart")"
         dowEndNum="$(_DayOfWeekNameToNumber_ "$dowEnd")"
-
         if [ "$dowStartNum" -gt "$dowEndNum" ]
         then
             dow_expr="$dowStartNum"
@@ -4458,42 +4478,55 @@ _DelFWAutoUpdateCronJob_()
    return "$retCode"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Nov-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
 _GetScriptAutoUpdateCronSchedule_()
 {
-   local cronSched  cronMINS  cronHOUR  tempMINS  tempHOUR=0
+   local fwCronSchedule  scriptSchedDays
+   local cronMINS  cronHOUR  updtMINS  updtHOUR  cronDAYM  cronDAYW
 
-   cronSched="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
-   if [ -z "$cronSched" ] || [ "$cronSched" = "TBD" ]
+   fwCronSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   scriptSchedDays="$(Get_Custom_Setting Script_Update_Cron_Job_SchedDays)"
+
+   if [ -z "$fwCronSchedule" ] || [ "$fwCronSchedule" = "TBD" ]
    then
        echo "$ScriptAU_CRON_DefaultSchedule"
        return 1
    fi
-   cronMINS="$(echo "$cronSched" | awk -F ' ' '{print $1}')"
-   cronHOUR="$(echo "$cronSched" | awk -F ' ' '{print $2}')"
+   if [ -z "$scriptSchedDays" ] || [ "$scriptSchedDays" = "TBD" ]
+   then scriptSchedDays="$SW_Update_CRON_DefaultSchedDays" ; fi
+
+   updtHOUR=0 ; updtMINS=45
+   cronMINS="$(echo "$fwCronSchedule" | awk -F ' ' '{print $1}')"
+   cronHOUR="$(echo "$fwCronSchedule" | awk -F ' ' '{print $2}')"
+   cronDAYM="$(echo "$scriptSchedDays" | awk -F ' ' '{print $1}')"
+   cronDAYW="$(echo "$scriptSchedDays" | awk -F ' ' '{print $3}')"
+
+   if [ "$cronDAYM" != "*" ] && [ "$cronDAYW" != "*" ]
+   then
+       cronDAYM="*" ; cronDAYW="*"
+       Update_Custom_Settings Script_Update_Cron_Job_SchedDays "$SW_Update_CRON_DefaultSchedDays"
+   fi
 
    if echo "$cronHOUR" | grep -qE "^${CRON_HOUR_RegEx}$"
-   then tempHOUR="$cronHOUR"
+   then updtHOUR="$cronHOUR"
    fi
    if echo "$cronMINS" | grep -qE "^${CRON_MINS_RegEx}$"
    then
        if  [ "$cronMINS" -ge 15 ]
        then
-           tempMINS="$((cronMINS - 15))"
+           updtMINS="$((cronMINS - 15))"
        else
-           tempMINS="$((45 + cronMINS))"
-           if [ "$tempHOUR" -eq 0 ]
-           then tempHOUR=23
-           else tempHOUR="$((tempHOUR - 1))"
+           updtMINS="$((45 + cronMINS))"
+           if [ "$updtHOUR" -eq 0 ]
+           then updtHOUR=23
+           else updtHOUR="$((updtHOUR - 1))"
            fi
        fi
-   else
-       tempMINS=12
    fi
 
-   echo "$tempMINS $tempHOUR * * *"
+   echo "$updtMINS $updtHOUR $cronDAYM * $cronDAYW"
    return 0
 }
 
@@ -4662,32 +4695,38 @@ _TranslateCronSchedHR_()
        infoStrDAYS="every day, in every month"
    elif [ "$theCronDAYW" != "*" ]
    then
-       if echo "$theCronDAYW" | grep -qE "^[*]/"
+       if echo "$theCronDAYW" | grep -qE "^[*]/.*"
        then
            freqNumDAYW="$(echo "$theCronDAYW" | cut -f2 -d'/')"
            infoStrDAYS="every $freqNumDAYW days of the week, in every month"
-       else
+       elif echo "$theCronDAYW" | grep -qE "[,-]"
+       then
            infoStrDAYS="days $theCronDAYW of the week, in every month"
+       else
+           infoStrDAYS="day $theCronDAYW of the week, in every month"
        fi
    elif [ "$theCronDAYM" != "*" ]
    then
-       if echo "$theCronDAYM" | grep -qE "^[*]/"
+       if echo "$theCronDAYM" | grep -qE "^[*]/.*"
        then
            freqNumDAYM="$(echo "$theCronDAYM" | cut -f2 -d'/')"
            infoStrDAYS="every $freqNumDAYM days of the month, in every month"
-       else
+       elif echo "$theCronDAYM" | grep -qE "[,-]"
+       then
            infoStrDAYS="days ${theCronDAYM} of the month, in every month"
+       else
+           infoStrDAYS="day ${theCronDAYM} of the month, in every month"
        fi
    fi
 
-   if echo "$theCronHOUR" | grep -qE "^[*]/"
+   if echo "$theCronHOUR" | grep -qE "^[*]/.*"
    then
        hasFreqHOUR=true
        freqNumHOUR="$(echo "$theCronHOUR" | cut -f2 -d'/')"
    else
        hasFreqHOUR=false ; freqNumHOUR=""
    fi
-   if echo "$theCronMINS" | grep -qE "^[*]/"
+   if echo "$theCronMINS" | grep -qE "^[*]/.*"
    then
        hasFreqMINS=true
        freqNumMINS="$(echo "$theCronMINS" | cut -f2 -d'/')"
@@ -4809,7 +4848,7 @@ _ValidateCronScheduleHOUR_()
    printf "\n${REDct}INVALID cron value for 'HOUR' [$1]${NOct}\n"
    printf "${REDct}NOTE${NOct}: Only numbers within the range [0-23] and\n"
    printf "specific intervals (*/4 */6 */8 */12) are valid.\n"
-   printf "All other intervals, lists and ranges are INVALID.\n"
+   printf "All other intervals, lists, and ranges are INVALID.\n"
    return 1
 }
 
@@ -4819,7 +4858,14 @@ _ValidateCronScheduleHOUR_()
 _ConvertDAYW_NumToName_()
 {
    if [ $# -eq 0 ] && [ -z "$1" ] ; then echo ; return 1; fi
-   echo "$1" | sed 's/0/Sun/g;s/1/Mon/g;s/2/Tue/g;s/3/Wed/g;s/4/Thu/g;s/5/Fri/g;s/6/Sat/g'
+   local rangeDays  rangeFreq
+   rangeDays="$(echo "$1" | awk -F '/' '{print $1}')"
+   rangeFreq="$(echo "$1" | awk -F '/' '{print $2}')"
+   rangeDays="$(echo "$rangeDays" | sed 's/0/Sun/g;s/1/Mon/g;s/2/Tue/g;s/3/Wed/g;s/4/Thu/g;s/5/Fri/g;s/6/Sat/g')"
+   if [ -z "$rangeFreq" ]
+   then echo "$rangeDays"
+   else echo "${rangeDays}/$rangeFreq"
+   fi
    return 0
 }
 
@@ -4841,8 +4887,8 @@ _ValidateCronNumOrderDAYW_()
    then numDAYS="$1"
    else numDAYS="$(_ConvertDAYW_NameToNum_ "$1")"
    fi
-   numDays1="$(echo "$numDAYS" | awk -F '-' '{print $1}')"
-   numDays2="$(echo "$numDAYS" | awk -F '-' '{print $2}')"
+   numDays1="$(echo "$numDAYS" | awk -F '[-/]' '{print $1}')"
+   numDays2="$(echo "$numDAYS" | awk -F '[-/]' '{print $2}')"
    if [ "$numDays1" -lt "$numDays2" ]
    then return 0
    else return 1
@@ -4875,7 +4921,7 @@ _ValidateCronScheduleDAYofWEEK_()
    printf "\n${REDct}INVALID cron value for 'DAY of WEEK' [$1]${NOct}\n"
    printf "${REDct}NOTE${NOct}: Only numbers within the range [0-6], some\n"
    printf "specific intervals (* */2 */3), day abbreviations,\n"
-   printf "some lists and ranges are valid.\n"
+   printf "lists of days, and single ranges are valid.\n"
    return 1
 }
 
@@ -4898,8 +4944,8 @@ _ValidateCronScheduleDAYofMONTH_()
        if echo "$1" | grep -q '-'
        then
            local numDays1  numDays2
-           numDays1="$(echo "$1" | awk -F '-' '{print $1}')"
-           numDays2="$(echo "$1" | awk -F '-' '{print $2}')"
+           numDays1="$(echo "$1" | awk -F '[-/]' '{print $1}')"
+           numDays2="$(echo "$1" | awk -F '[-/]' '{print $2}')"
            if [ "$numDays1" -lt "$numDays2" ]
            then return 0 ; fi
        else
@@ -4909,7 +4955,7 @@ _ValidateCronScheduleDAYofMONTH_()
    printf "\n${REDct}INVALID cron value for 'DAY of MONTH' [$1]${NOct}\n"
    printf "${REDct}NOTE${NOct}: Only numbers within the range [1-31],\n"
    printf "specific intervals (* */[2-9] */10 */12 */15),\n"
-   printf "some lists and ranges are valid.\n"
+   printf "lists of numbers, and single ranges are valid.\n"
    return 1
 }
 
@@ -4946,7 +4992,7 @@ _ValidateCronJobSchedule_()
    cronSchedMNTH="$(echo "$1" | awk -F ' ' '{print $4}')"
    if ! echo "$cronSchedMNTH" | grep -qiE "^(${CRON_MONTH_RegEx})$"
    then
-       printf "${REDct}INVALID cron value for 'MONTH' [$cronSchedMNTH].${NOct}\n"
+       printf "\n${REDct}INVALID cron value for 'MONTH' [$cronSchedMNTH]${NOct}\n"
        return 1
    fi
    cronSchedDAYW="$(echo "$1" | awk -F ' ' '{print $5}')"
@@ -4955,8 +5001,8 @@ _ValidateCronJobSchedule_()
    fi
    if [ "$cronSchedDAYW" != "*" ] && [ "$cronSchedDAYM" != "*" ]
    then
-       printf "${REDct}INVALID cron value for 'DAY of WEEK' [$cronSchedDAYW] or 'DAY of MONTH' [$cronSchedDAYM].${NOct}\n"
-       printf "${REDct}One of them MUST be set to a 'daily' value [*=daily].${NOct}\n"
+       printf "\n${REDct}INVALID cron value for 'DAY of WEEK' [$cronSchedDAYW] or 'DAY of MONTH' [$cronSchedDAYM]${NOct}\n"
+       printf "One of them MUST be set to a 'daily' value [${GRNct}*${NOct}=daily].\n"
        return 1
    fi
    return 0
@@ -5038,7 +5084,7 @@ _Set_FW_UpdateCronScheduleCustom_()
         printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
     fi
 
-    if [ "$ScriptAUSetting" = "ENABLED" ]
+    if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
     then
         _AddScriptAutoUpdateCronJob_
     fi
@@ -5124,7 +5170,7 @@ _GetCronScheduleInputDAYofWEEK_()
        printf "   ${GRNct}*${NOct}=Every day   ${GRNct}*/2${NOct}=Every 2 days   ${GRNct}*/3${NOct}=Every 3 days\n"
        printf "   ${GRNct}0${NOct}=Sun, ${GRNct}1${NOct}=Mon, ${GRNct}2${NOct}=Tue, "
        printf "${GRNct}3${NOct}=Wed, ${GRNct}4${NOct}=Thu, ${GRNct}5${NOct}=Fri, ${GRNct}6${NOct}=Sat\n"
-       printf "   ${GRNct}6,0${NOct}=Sat,Sun   ${GRNct}1,3,5${NOct}=Mon,Wed,Fri\n"
+       printf "   ${GRNct}6,0${NOct}=Sat,Sun   ${GRNct}1,3,5${NOct}=Mon,Wed,Fri   ${GRNct}2,4${NOct}=Tue,Thu\n"
 
        printf "\n[${menuCancelAndExitStr}] [${menuSavedThenExitStr}] [${menuReturnToBeginStr}]\n"
        printf "\nEnter ${GRNct}DAYS of the WEEK${NOct} [0-6] ${GRNct}${oldSchedDAYW}${NOct}?: "
@@ -5144,7 +5190,7 @@ _GetCronScheduleInputDAYofWEEK_()
            if echo "$newSchedDAYW" | grep -qE "[fmstw]"
            then
                newSchedDAYW="$(_CapitalizeFirstChar_ "$newSchedDAYW")"
-           elif ! echo "$newSchedDAYW" | grep -q '[*]' && \
+           elif ! echo "$newSchedDAYW" | grep -q '[*/]' && \
                 echo "$newSchedDAYW" | grep -q "[0-6]"
            then
                newSchedDAYW="$(_ConvertDAYW_NumToName_ "$newSchedDAYW")"
@@ -5421,7 +5467,7 @@ _Set_FW_UpdateCronScheduleGuided_()
        printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
    fi
 
-   if [ "$ScriptAUSetting" = "ENABLED" ]
+   if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
    then
        _AddScriptAutoUpdateCronJob_
    fi
@@ -5473,7 +5519,7 @@ _Toggle_ScriptAutoUpdate_Config_()
     local currentSetting  scriptUpdateCronSched  cronSchedStrHR
     local keepOptionDisabled=false  retCode=1
 
-    currentSetting="$(Get_Custom_Setting "Allow_Script_Auto_Up")"
+    currentSetting="$(Get_Custom_Setting "Allow_Script_Auto_Update")"
 
     if [ "$currentSetting" = "DISABLED" ]
     then
@@ -5494,7 +5540,7 @@ _Toggle_ScriptAutoUpdate_Config_()
             then
                 if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
                 then
-                    Update_Custom_Settings "Allow_Script_Auto_Up" "ENABLED"
+                    Update_Custom_Settings "Allow_Script_Auto_Update" "ENABLED"
                     printf "MerlinAU automatic script updates are now ${MAGENTAct}ENABLED${NOct}.\n"
                     printf "Adding '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for automatic script updates...\n"
                     if _AddScriptAutoUpdateCronJob_
@@ -5523,7 +5569,7 @@ _Toggle_ScriptAutoUpdate_Config_()
         printf "when a newer version becomes available. This is the default setting.\n"
         if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
         then
-            Update_Custom_Settings "Allow_Script_Auto_Up" "DISABLED"
+            Update_Custom_Settings "Allow_Script_Auto_Update" "DISABLED"
             printf "MerlinAU automatic script updates are now ${GRNct}DISABLED${NOct}.\n"
             printf "Removing '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for automatic script updates...\n"
             _DelScriptAutoUpdateHook_
@@ -5662,7 +5708,7 @@ _ChangelogVerificationCheck_()
             _DoCleanUp_
             return 1
         else
-            # Use awk to format the version based on the number of initial digits
+            # Use awk to format the version based on the number of initial digits #
             formatted_current_version=$(echo "$current_version" | awk -F. '{
                 if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
                     if (NF == 4) {
@@ -5699,7 +5745,7 @@ _ChangelogVerificationCheck_()
                 }
             }')
 
-            # Define regex patterns for both versions
+            # Define regex patterns for both versions #
             release_version_regex="${formatted_release_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
             current_version_regex="${formatted_current_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
 
@@ -5748,7 +5794,7 @@ _ManageChangelogMerlin_()
     local newUpdateVerStr=""
     local wgetLogFile  changeLogFile  changeLogTag
 
-    # Create directory to download changelog if missing
+    # Create directory to download changelog if missing #
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
     if [ "$mode" = "view" ]
@@ -5756,14 +5802,14 @@ _ManageChangelogMerlin_()
         if [ "$fwInstalledBaseVers" -eq 3006 ]
         then
             changeLogTag="3006"
-            changeLogURL="${CL_URL_3006}"
+            MerlinChangeLogURL="${CL_URL_3006}"
         elif echo "$fwInstalledBuildVers" | grep -qE "^386[.]"
         then
             changeLogTag="386"
-            changeLogURL="${CL_URL_386}"
+            MerlinChangeLogURL="${CL_URL_386}"
         else
             changeLogTag="NG"
-            changeLogURL="${CL_URL_NG}"
+            MerlinChangeLogURL="${CL_URL_NG}"
         fi
     elif [ "$mode" = "download" ]
     then
@@ -5771,14 +5817,14 @@ _ManageChangelogMerlin_()
         if echo "$newUpdateVerStr" | grep -qE "^3006[.]"
         then
             changeLogTag="3006"
-            changeLogURL="${CL_URL_3006}"
+            MerlinChangeLogURL="${CL_URL_3006}"
         elif echo "$newUpdateVerStr" | grep -q "386[.]"
         then
             changeLogTag="386"
-            changeLogURL="${CL_URL_386}"
+            MerlinChangeLogURL="${CL_URL_386}"
         else
             changeLogTag="NG"
-            changeLogURL="${CL_URL_NG}"
+            MerlinChangeLogURL="${CL_URL_NG}"
         fi 
     fi
 
@@ -5790,7 +5836,7 @@ _ManageChangelogMerlin_()
     fi
 
     wget --tries=5 --waitretry=5 --retry-connrefused \
-         -O "$changeLogFile" -o "$wgetLogFile" "${changeLogURL}"
+         -O "$changeLogFile" -o "$wgetLogFile" "${MerlinChangeLogURL}"
 
     if [ ! -s "$changeLogFile" ]
     then
@@ -5825,15 +5871,15 @@ _ManageChangelogGnuton_()
 
     local mode="$1"  # Mode should be 'download' or 'view' #
     local newUpdateVerStr=""
-    local wgetLogFile  changeLogFile  changeLogTag  changeLogURL
+    local wgetLogFile  changeLogFile  changeLogTag
 
     # Create directory to download changelog if missing
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
-    Gnuton_changelogurl="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+    GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
 
     # Follow redirects and capture the effective URL
-    local effective_url="$(curl -Ls -o /dev/null -w %{url_effective} "$Gnuton_changelogurl")"
+    local effective_url="$(curl -Ls -o /dev/null -w %{url_effective} "$GnutonChangeLogURL")"
 
     # Use the effective URL to capture the Content-Disposition header
     local original_filename="$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')"
@@ -5850,7 +5896,7 @@ _ManageChangelogGnuton_()
     fi
 
     wget --tries=5 --waitretry=5 --retry-connrefused \
-         -O "$FW_Changelog_GITHUB" -o "$wgetLogFile" "${Gnuton_changelogurl}"
+         -O "$FW_Changelog_GITHUB" -o "$wgetLogFile" "${GnutonChangeLogURL}"
 
     if [ ! -s "$FW_Changelog_GITHUB" ]
     then
@@ -5958,7 +6004,7 @@ _CheckNewUpdateFirmwareNotification_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-04] ##
+## Modified by Martinski W. [2024-Nov-27] ##
 ##----------------------------------------##
 _CheckNodeFWUpdateNotification_()
 {
@@ -5999,19 +6045,19 @@ _CheckNodeFWUpdateNotification_()
              echo "Please click here to review the latest changelog:"
              if "$NodeGNUtonFW"
              then
-                 Gnuton_changelogurl="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
-                 echo "$Gnuton_changelogurl"
+                 GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+                 echo "$GnutonChangeLogURL"
              else
                  if [ "$node_firmver" -eq 3006 ]
                  then
-                     changeLogURL="${CL_URL_3006}"
-                 elif echo "$node_firmver" | grep -qE "^386[.]"
+                     MerlinChangeLogURL="${CL_URL_3006}"
+                 elif echo "$node_buildno" | grep -qE "^386[.]"
                  then
-                     changeLogURL="${CL_URL_386}"
+                     MerlinChangeLogURL="${CL_URL_386}"
                  else
-                     changeLogURL="${CL_URL_NG}"
+                     MerlinChangeLogURL="${CL_URL_NG}"
                  fi
-                 echo "$changeLogURL"
+                 echo "$MerlinChangeLogURL"
              fi
              echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
            } > "$tempNodeEMailList"
@@ -6028,23 +6074,23 @@ _CheckNodeFWUpdateNotification_()
          echo ""
          echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
          echo "(<b>${1}</b> --> <b>${2}</b>)"
-             echo "Please click here to review the latest changelog:"
-             if "$NodeGNUtonFW"
+         echo "Please click here to review the latest changelog:"
+         if "$NodeGNUtonFW"
+         then
+             GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+             echo "$GnutonChangeLogURL"
+         else
+             if [ "$node_firmver" -eq 3006 ]
              then
-                 Gnuton_changelogurl="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
-                 echo "$Gnuton_changelogurl"
+                 MerlinChangeLogURL="${CL_URL_3006}"
+             elif echo "$node_buildno" | grep -qE "^386[.]"
+             then
+                 MerlinChangeLogURL="${CL_URL_386}"
              else
-                 if [ "$node_firmver" -eq 3006 ]
-                 then
-                     changeLogURL="${CL_URL_3006}"
-                 elif echo "$node_firmver" | grep -qE "^386[.]"
-                 then
-                     changeLogURL="${CL_URL_386}"
-                 else
-                     changeLogURL="${CL_URL_NG}"
-                 fi
-                 echo "$changeLogURL"
+                 MerlinChangeLogURL="${CL_URL_NG}"
              fi
+             echo "$MerlinChangeLogURL"
+         fi
          echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
        } > "$tempNodeEMailList"
    fi
@@ -6957,7 +7003,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
            Say "Using release information for Gnuton Firmware."
            _GnutonBuildSelection_
            md5_url="$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE" "$firmware_choice")"
-           Gnuton_changelogurl="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+           GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
            set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
            retCode="$?"
         else
@@ -7972,7 +8018,7 @@ _CheckForNewScriptUpdates_
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Nov-24] ##
 ##-------------------------------------##
-if [ "$ScriptAUSetting" = "ENABLED" ]
+if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
 then
     _AddScriptAutoUpdateCronJob_
 fi
@@ -8528,9 +8574,9 @@ _ShowAdvancedOptionsMenu_()
        fi
    fi
 
-   ScriptAUSetting="$(Get_Custom_Setting "Allow_Script_Auto_Up")"
+   ScriptAutoUpdateSetting="$(Get_Custom_Setting "Allow_Script_Auto_Update")"
    printf "\n ${GRNct}au${NOct}.  Toggle Auto-Updates for MerlinAU Script"
-   if [ "$ScriptAUSetting" = "DISABLED" ]
+   if [ "$ScriptAutoUpdateSetting" = "DISABLED" ]
    then
        printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
    else
