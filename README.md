@@ -1,11 +1,11 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.3.6
-## 2024-Nov-18
+## v1.3.7
+## 2024-Nov-30
 
-![image](https://github.com/user-attachments/assets/4a69f267-bc03-4e8f-af90-03286312fe37)
-![image](https://github.com/user-attachments/assets/7f9903ff-d6c4-42ac-9aeb-59909f634d95)
-![image](https://github.com/user-attachments/assets/5345801c-abc5-4c97-9427-1541b10555e0)
-![image](https://github.com/user-attachments/assets/6b73f307-9422-44fe-bd16-8c357ed8b2a0)
+![image](https://github.com/user-attachments/assets/185f9fe4-acdb-419a-8154-ab6fa6e0fd46)
+![image](https://github.com/user-attachments/assets/8f22818d-2118-4c47-a54a-e54fb147fd6b)
+![image](https://github.com/user-attachments/assets/bd2f41b6-230d-4ef8-ad41-e7a2d8a77746)
+![image](https://github.com/user-attachments/assets/a064e3d1-e615-4021-a5de-127cdb6cb8e4)
 
 ## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
