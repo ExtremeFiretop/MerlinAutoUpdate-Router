@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Nov-27
+# Last Modified: 2024-Dec-01
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.7
+readonly SCRIPT_VERSION=1.3.8
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -68,14 +68,17 @@ readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 readonly ScriptDirNameD="${ScriptFNameTag}.d"
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-21] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-01] ##
+##----------------------------------------##
 readonly ADDONS_PATH="/jffs/addons"
 readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+
+# Give FIRST priority to built-in binaries over any other #
+export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
 
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Sep-15] ##
