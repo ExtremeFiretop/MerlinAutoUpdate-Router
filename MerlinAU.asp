@@ -69,6 +69,10 @@
             document.getElementById('fwUpdateSchedule').value = custom_settings.fwUpdateSchedule;
         }
 
+        // Set F/W Version Installed from hidden input
+        var installedfirm = document.getElementById('installedfirm').value;
+        document.getElementById('fwVersion').textContent = installedfirm;
+
         // Initialize collapsible sections
         // Add other fields as needed
         initializeCollapsibleSections();
@@ -141,7 +145,8 @@
         <input type="hidden" name="first_time" value="" />
         <input type="hidden" name="SystemCmd" value="" />
         <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get('preferred_lang'); %>" />
-        <input type="hidden" name="firmver" value="<% nvram_get('firmver'); %>" />
+        <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>" />
+        <input type="hidden" name="installedfirm" value="<% nvram_get("innerver"); %>" />
         <input type="hidden" name="amng_custom" id="amng_custom" value="" />
 
         <table class="content" cellpadding="0" cellspacing="0" style="margin:0 auto;">
@@ -181,7 +186,7 @@
                                                         <td>
                                                             <p><strong>F/W Product/Model ID:</strong> GT-AXE11000</p>
                                                             <p><strong>F/W Update Available:</strong> NONE FOUND</p>
-                                                            <p><strong>F/W Version Installed:</strong> 3004.388.6.3_rog</p>
+                                                            <p><strong>F/W Version Installed:</strong> <% nvram_get("innerver"); %></p>
                                                             <p><strong>USB Storage Connected:</strong> True</p>
                                                             <p><strong>Auto-Backup Enabled:</strong> False</p>
                                                             <p><strong>Email Notifications Filter:</strong> Normal</p>
