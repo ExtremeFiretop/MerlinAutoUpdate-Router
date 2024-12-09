@@ -23,6 +23,51 @@
     function initial() {
         SetCurrentPage();
         show_menu();
+
+        // Populate form fields with existing settings or set default values
+        if (custom_settings.routerPassword === undefined) {
+            document.getElementById('routerPassword').value = "";
+        } else {
+            document.getElementById('routerPassword').value = custom_settings.routerPassword;
+        }
+
+        if (custom_settings.fwUpdatePostponementDays === undefined) {
+            document.getElementById('fwUpdatePostponementDays').value = "0";
+        } else {
+            document.getElementById('fwUpdatePostponementDays').value = custom_settings.fwUpdatePostponementDays;
+        }
+
+        if (custom_settings.secondaryEmailAddress === undefined) {
+            document.getElementById('secondaryEmailAddress').value = "";
+        } else {
+            document.getElementById('secondaryEmailAddress').value = custom_settings.secondaryEmailAddress;
+        }
+
+        if (custom_settings.emailFormatType === undefined) {
+            document.getElementById('emailFormatType').value = "HTML";
+        } else {
+            document.getElementById('emailFormatType').value = custom_settings.emailFormatType;
+        }
+
+        if (custom_settings.rogFWBuildType === undefined) {
+            document.getElementById('rogFWBuildType').value = "ROG";
+        } else {
+            document.getElementById('rogFWBuildType').value = custom_settings.rogFWBuildType;
+        }
+
+        if (custom_settings.emailNotificationsFilter === undefined) {
+            document.getElementById('emailNotificationsFilter').value = "Normal";
+        } else {
+            document.getElementById('emailNotificationsFilter').value = custom_settings.emailNotificationsFilter;
+        }
+
+        if (custom_settings.fwUpdateSchedule === undefined) {
+            document.getElementById('fwUpdateSchedule').value = "";
+        } else {
+            document.getElementById('fwUpdateSchedule').value = custom_settings.fwUpdateSchedule;
+        }
+
+        // Add other fields as needed
     }
 
     function SetCurrentPage() {
@@ -32,6 +77,16 @@
     }
 
     function applySettings() {
+        /* Retrieve value from input fields and store in object */
+        custom_settings.routerPassword = document.getElementById('routerPassword').value;
+        custom_settings.fwUpdatePostponementDays = document.getElementById('fwUpdatePostponementDays').value;
+        custom_settings.secondaryEmailAddress = document.getElementById('secondaryEmailAddress').value;
+        custom_settings.emailFormatType = document.getElementById('emailFormatType').value;
+        custom_settings.rogFWBuildType = document.getElementById('rogFWBuildType').value;
+        custom_settings.emailNotificationsFilter = document.getElementById('emailNotificationsFilter').value;
+        custom_settings.fwUpdateSchedule = document.getElementById('fwUpdateSchedule').value;
+        // Add other settings as needed
+
         /* Store object as a string in the amng_custom hidden input field */
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
 
@@ -124,12 +179,12 @@
                                                                 <h3>Configure Router Login Credentials</h3>
                                                                 <label for="routerPassword">Password:</label>
                                                                 <input type="password" id="routerPassword" name="routerPassword" />
-                                                                <button type="button" onclick="applyRouterCredentials()">Apply</button>
+                                                                <button type="button" onclick="applySettings()">Apply</button>
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Set F/W Update Postponement Days (0-60)</h3>
                                                                 <input type="number" id="fwUpdatePostponementDays" name="fwUpdatePostponementDays" min="0" max="60" />
-                                                                <button type="button" onclick="applyUpdatePostponementDays()">Apply</button>
+                                                                <button type="button" onclick="applySettings()">Apply</button>
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Enable/Disable Automatic Backups</h3>
@@ -153,12 +208,12 @@
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Set F/W Update Check Schedule</h3>
                                                                 <input type="text" id="fwUpdateSchedule" name="fwUpdateSchedule" />
-                                                                <button type="button" onclick="applyUpdateCheckSchedule()">Apply</button>
+                                                                <button type="button" onclick="applySettings()">Apply</button>
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Set a Secondary Email Address for Notifications:</h3>
                                                                 <input type="email" id="secondaryEmailAddress" name="secondaryEmailAddress" />
-                                                                <button type="button" onclick="applySecondaryEmailAddress()">Apply</button>
+                                                                <button type="button" onclick="applySettings()">Apply</button>
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Set Email Format Type:</h3>
@@ -166,7 +221,7 @@
                                                                     <option value="HTML">HTML</option>
                                                                     <option value="PlainText">Plain Text</option>
                                                                 </select>
-                                                                <button type="button" onclick="applyEmailFormatType()">Apply</button>
+                                                                <button type="button" onclick="applySettings()">Apply</button>
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Change ROG F/W Build Type:</h3>
@@ -174,7 +229,7 @@
                                                                     <option value="ROG">ROG</option>
                                                                     <option value="Pure">Pure</option>
                                                                 </select>
-                                                                <button type="button" onclick="applyROGFWBuildType()">Apply</button>
+                                                                <button type="button" onclick="applySettings()">Apply</button>
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Set Email Notifications Filter:</h3>
@@ -183,7 +238,7 @@
                                                                     <option value="Normal" selected="selected">Normal</option>
                                                                     <option value="Verbose">Verbose</option>
                                                                 </select>
-                                                                <button type="button" onclick="applyEmailNotificationsFilter()">Apply</button>
+                                                                <button type="button" onclick="applySettings()">Apply</button>
                                                             </div>
                                                         </td>
                                                     </tr>
