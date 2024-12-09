@@ -9,9 +9,11 @@
     <meta http-equiv="Expires" content="-1" />
     <link rel="shortcut icon" href="images/favicon.png" />
     <link rel="icon" href="images/favicon.png" />
-    <title>Test page</title>
     <link rel="stylesheet" type="text/css" href="index_style.css" />
     <link rel="stylesheet" type="text/css" href="form_style.css" />
+    <!-- Other meta tags and links -->
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <!-- Existing scripts -->
     <script type="text/javascript" src="/state.js"></script>
     <script type="text/javascript" src="/general.js"></script>
     <script type="text/javascript" src="/popup.js"></script>
@@ -67,6 +69,10 @@
             document.getElementById('fwUpdateSchedule').value = custom_settings.fwUpdateSchedule;
         }
 
+        // Initialize collapsible sections
+        // Add other fields as needed
+        initializeCollapsibleSections();
+
         // Add other fields as needed
     }
 
@@ -93,6 +99,30 @@
         /* Apply */
         showLoading();
         document.form.submit();
+    }
+
+    function initializeCollapsibleSections() {
+        // Check if jQuery is loaded
+        if (typeof jQuery !== 'undefined') {
+            $('.collapsible-jquery').each(function() {
+                // Remove or comment out the line that hides the tbody
+                // $(this).next('tbody').hide();
+
+                // Optionally, add an 'active' class to indicate expanded state
+                $(this).addClass('active');
+
+                // Add a cursor pointer to indicate it's clickable
+                $(this).css('cursor', 'pointer');
+
+                // Bind click event to toggle the tbody
+                $(this).click(function() {
+                    $(this).toggleClass('active');
+                    $(this).next('tbody').slideToggle();
+                });
+            });
+        } else {
+            console.error("jQuery is not loaded. Collapsible sections will not work.");
+        }
     }
     </script>
 </head>
@@ -146,6 +176,7 @@
                                                             <td>Firmware Status (click to expand/collapse)</td>
                                                         </tr>
                                                     </thead>
+                                                    <tbody>
                                                     <tr>
                                                         <td>
                                                             <p><strong>F/W Product/Model ID:</strong> GT-AXE11000</p>
@@ -156,6 +187,7 @@
                                                             <p><strong>Email Notifications Filter:</strong> Normal</p>
                                                         </td>
                                                     </tr>
+                                                    </tbody>
                                                 </table>
 
                                                 <div style="line-height:10px;">&nbsp;</div>
@@ -167,6 +199,7 @@
                                                             <td>Actions (click to expand/collapse)</td>
                                                         </tr>
                                                     </thead>
+                                                    <tbody>
                                                     <tr>
                                                         <td>
                                                             <div style="margin-bottom:10px;">
@@ -192,6 +225,7 @@
                                                             </div>
                                                         </td>
                                                     </tr>
+                                                    </tbody>
                                                 </table>
 
                                                 <div style="line-height:10px;">&nbsp;</div>
@@ -203,6 +237,7 @@
                                                             <td>Advanced Options (click to expand/collapse)</td>
                                                         </tr>
                                                     </thead>
+                                                    <tbody>
                                                     <tr>
                                                         <td>
                                                             <div style="margin-bottom:10px;">
@@ -242,6 +277,7 @@
                                                             </div>
                                                         </td>
                                                     </tr>
+                                                    </tbody>
                                                 </table>
 
                                                 <div style="margin-top:10px;text-align:center;">
