@@ -69,13 +69,13 @@
             document.getElementById('fwUpdateSchedule').value = custom_settings.fwUpdateSchedule;
         }
 
-        // Set F/W Version Installed from hidden input
-        var installedfirm = document.getElementById('installedfirm').value;
-        document.getElementById('fwVersion').textContent = installedfirm;
-
         // Initialize collapsible sections
         // Add other fields as needed
         initializeCollapsibleSections();
+
+        // Set F/W Version Installed from hidden input
+        var installedfirm = document.getElementById('installedfirm').value;
+        document.getElementById('fwVersion').textContent = installedfirm;
 
         // Add other fields as needed
     }
