@@ -209,7 +209,7 @@
                                                 <div class="formfonttitle" style="text-align:center;">MerlinAU Dashboard v1.3.8</div>
                                                 <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
                                                 <div class="formfontdesc">
-                                                    This is the MerlinAU Dashboard integrated into the router UI.
+                                                    This is the MerlinAU Dashboard integrated into the router WebUI.
                                                 </div>
                                                 <div style="line-height:10px;">&nbsp;</div>
 
@@ -217,13 +217,15 @@
                                                 <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
                                                     <thead class="collapsible-jquery" id="firmwareStatusSection">
                                                         <tr>
-                                                            <td>Firmware Status (click to expand/collapse)</td>
+                                                            <!-- Adjust colspan to match the number of internal tables -->
+                                                            <td colspan="2">Firmware Status (click to expand/collapse)</td>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         <tr>
-                                                            <td>
-                                                                <table style="margin: 0 auto; text-align: left;">
+                                                            <!-- First internal table in the first column -->
+                                                            <td style="vertical-align: top; width: 50%;">
+                                                                <table style="margin: 0 auto; text-align: left; width: 100%;">
                                                                     <tr>
                                                                         <td style="padding: 4px;"><strong>F/W Product/Model ID:</strong></td>
                                                                         <td style="padding: 4px;">GT-AXE11000</td>
@@ -245,7 +247,36 @@
                                                                         <td style="padding: 4px;">False</td>
                                                                     </tr>
                                                                     <tr>
+                                                                        <td style="padding: 4px;"><strong>F/W Update Check:</strong></td>
+                                                                        <td style="padding: 4px;">False</td>
+                                                                    </tr>
+                                                                </table>
+                                                            </td>
+                                                            <!-- Second internal table in the second column -->
+                                                            <td style="vertical-align: top; width: 50%;">
+                                                                <table style="margin: 0 auto; text-align: left; width: 100%;">
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>Changelog Check:</strong></td>
+                                                                        <td style="padding: 4px;">False</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>Beta-to-Release Updates:</strong></td>
+                                                                        <td style="padding: 4px;">False</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>Tailscale VPN Access:</strong></td>
+                                                                        <td style="padding: 4px;">False</td>
+                                                                    </tr>
+                                                                    <tr>
                                                                         <td style="padding: 4px;"><strong>Auto-Backup Enabled:</strong></td>
+                                                                        <td style="padding: 4px;">False</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>Auto-Updates for Script:</strong></td>
+                                                                        <td style="padding: 4px;">False</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>Email-Notifications:</strong></td>
                                                                         <td style="padding: 4px;">False</td>
                                                                     </tr>
                                                                 </table>
@@ -253,6 +284,7 @@
                                                         </tr>
                                                     </tbody>
                                                 </table>
+
 
                                                 <div style="line-height:10px;">&nbsp;</div>
 
