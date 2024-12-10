@@ -41,15 +41,25 @@
     function initializeFields() {
         console.log("Initializing fields...");
         let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
-        let changelogCheckEnabled = document.getElementById('changelogCheckEnabled');
-        let routerp = document.getElementById('routerp');
+        let changelogCheckEnabled = document.getElementById('ChangelogCheckEnabled');
+        let routerPassword = document.getElementById('routerPassword');
         let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
-
+        let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
+        let autobackupEnabled = document.getElementById('AutobackupEnabled');
+        let secondaryEmail = document.getElementById('secondaryEmail');
+        let emailFormat = document.getElementById('emailFormat');
+        let rogFWBuildType = document.getElementById('rogFWBuildType');
+        // Safe value assignments
         if (custom_settings) {
-            if (routerp) routerp.value = custom_settings.routerp || '';
+            if (routerPassword) routerPassword.value = custom_settings.routerPassword || '';
             if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.fwUpdatePostponement || '0';
+            if (secondaryEmail) secondaryEmail.value = custom_settings.secondaryEmail || '';
+            if (emailFormat) emailFormat.value = custom_settings.emailFormatType || 'HTML';
+            if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
             if (fwUpdateEnabled) fwUpdateEnabled.checked = !!custom_settings.fwUpdateEnabled;
             if (changelogCheckEnabled) changelogCheckEnabled.checked = !!custom_settings.changelogCheckEnabled;
+            if (emailNotificationsEnabled) emailNotificationsEnabled.checked = !!custom_settings.emailNotificationsEnabled;
+            if (autobackupEnabled) autobackupEnabled.checked = !!custom_settings.autobackupEnabled;
         } else {
             console.error("Custom settings not loaded.");
         }
