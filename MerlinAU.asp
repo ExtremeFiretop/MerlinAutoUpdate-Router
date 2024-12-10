@@ -57,12 +57,6 @@
             document.getElementById('rogFWBuildType').value = custom_settings.rogFWBuildType;
         }
 
-        if (custom_settings.emailNotificationsFilter === undefined) {
-            document.getElementById('emailNotificationsFilter').value = "Normal";
-        } else {
-            document.getElementById('emailNotificationsFilter').value = custom_settings.emailNotificationsFilter;
-        }
-
         if (custom_settings.fwUpdateSchedule === undefined) {
             document.getElementById('fwUpdateSchedule').value = "";
         } else {
@@ -93,7 +87,6 @@
         custom_settings.secondaryEmailAddress = document.getElementById('secondaryEmailAddress').value;
         custom_settings.emailFormatType = document.getElementById('emailFormatType').value;
         custom_settings.rogFWBuildType = document.getElementById('rogFWBuildType').value;
-        custom_settings.emailNotificationsFilter = document.getElementById('emailNotificationsFilter').value;
         custom_settings.fwUpdateSchedule = document.getElementById('fwUpdateSchedule').value;
         // Add other settings as needed
 
@@ -189,7 +182,6 @@
                                                             <p><strong>F/W Version Installed:</strong> <% nvram_get("innerver"); %></p>
                                                             <p><strong>USB Storage Connected:</strong> True</p>
                                                             <p><strong>Auto-Backup Enabled:</strong> False</p>
-                                                            <p><strong>Email Notifications Filter:</strong> Normal</p>
                                                         </td>
                                                     </tr>
                                                     </tbody>
@@ -268,15 +260,6 @@
                                                                 <select id="rogFWBuildType" name="rogFWBuildType">
                                                                     <option value="ROG">ROG</option>
                                                                     <option value="Pure">Pure</option>
-                                                                </select>
-                                                                <button type="button" onclick="applySettings()">Apply</button>
-                                                            </div>
-                                                            <div style="margin-bottom:10px;">
-                                                                <h3>Set Email Notifications Filter:</h3>
-                                                                <select id="emailNotificationsFilter" name="emailNotificationsFilter">
-                                                                    <option value="Minimal">Minimal</option>
-                                                                    <option value="Normal" selected="selected">Normal</option>
-                                                                    <option value="Verbose">Verbose</option>
                                                                 </select>
                                                                 <button type="button" onclick="applySettings()">Apply</button>
                                                             </div>
