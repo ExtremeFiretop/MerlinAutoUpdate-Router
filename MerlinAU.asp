@@ -39,6 +39,14 @@
         document.form.current_page.value = window.location.pathname.substring(1);
     }
 
+    function parseBoolean(value) {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') {
+            return value.toLowerCase() === 'true';
+        }
+        return false;
+    }
+
     function initializeFields() {
         console.log("Initializing fields...");
         let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
@@ -46,10 +54,11 @@
         let routerPassword = document.getElementById('routerPassword');
         let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
         let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
-        let autobackupEnabled = document.getElementById('AutobackupEnabled');
+        let autobackupEnabled = document.getElementById('autobackupEnabled');
         let secondaryEmail = document.getElementById('secondaryEmail');
         let emailFormat = document.getElementById('emailFormat');
         let rogFWBuildType = document.getElementById('rogFWBuildType');
+
         // Safe value assignments
         if (custom_settings) {
             if (routerPassword) routerPassword.value = custom_settings.routerPassword || '';
@@ -57,10 +66,11 @@
             if (secondaryEmail) secondaryEmail.value = custom_settings.secondaryEmail || '';
             if (emailFormat) emailFormat.value = custom_settings.emailFormatType || 'HTML';
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
-            if (fwUpdateEnabled) fwUpdateEnabled.checked = !!custom_settings.fwUpdateEnabled;
-            if (changelogCheckEnabled) changelogCheckEnabled.checked = !!custom_settings.changelogCheckEnabled;
-            if (emailNotificationsEnabled) emailNotificationsEnabled.checked = !!custom_settings.emailNotificationsEnabled;
-            if (autobackupEnabled) autobackupEnabled.checked = !!custom_settings.autobackupEnabled;
+
+            if (fwUpdateEnabled) fwUpdateEnabled.checked = parseBoolean(custom_settings.fwUpdateEnabled);
+            if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
+            if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.emailNotificationsEnabled);
+            if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.autobackupEnabled);
         } else {
             console.error("Custom settings not loaded.");
         }
@@ -255,7 +265,7 @@
                                                                     </tr>
                                                                     <tr>
                                                                         <td><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
-                                                                        <td><input type="checkbox" id="changelogCheckEnabled" name="ChangelogCheckEnabled" /></td>
+                                                                        <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
                                                                     </tr>
                                                                     <tr>
                                                                         <td><label for="routerPassword">Router Login Password</label></td>
