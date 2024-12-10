@@ -32,51 +32,42 @@
 	    }
     }
 
+    function SetCurrentPage() {
+        /* Set the proper return pages */
+        document.form.next_page.value = window.location.pathname.substring(1);
+        document.form.current_page.value = window.location.pathname.substring(1);
+    }
+
+    function initializeFields() {
+        console.log("Initializing fields...");
+        let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
+        let changelogCheckEnabled = document.getElementById('changelogCheckEnabled');
+        let routerp = document.getElementById('routerp');
+        let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
+
+        if (custom_settings) {
+            if (routerp) routerp.value = custom_settings.routerp || '';
+            if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.fwUpdatePostponement || '0';
+            if (fwUpdateEnabled) fwUpdateEnabled.checked = !!custom_settings.fwUpdateEnabled;
+            if (changelogCheckEnabled) changelogCheckEnabled.checked = !!custom_settings.changelogCheckEnabled;
+        } else {
+            console.error("Custom settings not loaded.");
+        }
+    }
+
     function initial() {
         SetCurrentPage();
         LoadCustomSettings();
         show_menu();
 
-        // Safely set values with null checks
-        let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
-        let changelogCheckEnabled = document.getElementById('ChangelogCheckEnabled');
-        let routerPassword = document.getElementById('routerPassword');
-        let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
-        let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
-        let autobackupEnabled = document.getElementById('AutobackupEnabled');
-        let secondaryEmail = document.getElementById('secondaryEmail');
-        let emailFormat = document.getElementById('emailFormat');
-        let rogFWBuildType = document.getElementById('rogFWBuildType');
+        // Debugging iframe behavior
+        document.getElementById('hidden_frame').onload = function () {
+            console.log("Hidden frame loaded with server response.");
+            hideLoading();
+        };
 
-        // Safe value assignments
-        if (custom_settings) {
-            if (routerPassword) routerPassword.value = custom_settings.routerPassword || '';
-            if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.fwUpdatePostponement || '0';
-            if (secondaryEmail) secondaryEmail.value = custom_settings.secondaryEmail || '';
-            if (emailFormat) emailFormat.value = custom_settings.emailFormatType || 'HTML';
-            if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
-            if (fwUpdateEnabled) fwUpdateEnabled.checked = !!custom_settings.fwUpdateEnabled;
-            if (changelogCheckEnabled) changelogCheckEnabled.checked = !!custom_settings.changelogCheckEnabled;
-            if (emailNotificationsEnabled) emailNotificationsEnabled.checked = !!custom_settings.emailNotificationsEnabled;
-            if (autobackupEnabled) autobackupEnabled.checked = !!custom_settings.autobackupEnabled;
-        } else {
-            console.error("Custom settings not loaded.");
-        }
-
-        // Fix for installed firmware reference
-        let installedFirm = document.getElementById('installedfirm');
-        let fwVersionDisplay = document.getElementById('fwVersion'); // Ensure this element exists
-        if (installedFirm && fwVersionDisplay) {
-            fwVersionDisplay.textContent = installedFirm.value || "N/A";
-        }
-
+        initializeFields();
         initializeCollapsibleSections();
-    }
-
-    function SetCurrentPage() {
-        /* Set the proper return pages */
-        document.form.next_page.value = window.location.pathname.substring(1);
-        document.form.current_page.value = window.location.pathname.substring(1);
     }
 
     function SaveActionsConfig() {
@@ -88,9 +79,16 @@
         // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
 
+        // Add a timeout fallback
+        setTimeout(() => {
+            console.warn("Server response timed out.");
+            hideLoading();
+        }, 10000);
+
         // Apply the settings
         showLoading();
         document.form.submit();
+        console.log("Form submitted.");
     }
 
     function SaveAdvancedConfig() {
@@ -103,9 +101,16 @@
         // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
 
+        // Add a timeout fallback
+        setTimeout(() => {
+            console.warn("Server response timed out.");
+            hideLoading();
+        }, 10000);
+
         // Apply the settings
         showLoading();
         document.form.submit();
+        console.log("Form submitted.");
     }
 
 
