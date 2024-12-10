@@ -117,7 +117,7 @@
         custom_settings.emailFormatType = document.getElementById('emailFormat')?.value || 'HTML';
         custom_settings.rogFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
         custom_settings.emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled').checked;
-        custom_settings.autobackupEnabled = document.getElementById('AutobackupEnabled').checked;
+        custom_settings.autobackupEnabled = document.getElementById('autobackupEnabled').checked;
 
         // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
@@ -307,8 +307,8 @@
                                                                             <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="AutobackupEnabled">Enable Auto-Backups</label></td>
-                                                                            <td><input type="checkbox" id="AutobackupEnabled" name="AutobackupEnabled" /></td>
+                                                                            <td><label for="autobackupEnabled">Enable Auto-Backups</label></td>
+                                                                            <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td><label for="secondaryEmail">Secondary Email for Notifications</label></td>
