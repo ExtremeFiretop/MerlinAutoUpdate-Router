@@ -213,78 +213,103 @@
                                                 </div>
                                                 <div style="line-height:10px;">&nbsp;</div>
 
-                                                <!-- Firmware Status Section -->
-                                                <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-                                                    <thead class="collapsible-jquery" id="firmwareStatusSection">
-                                                        <tr>
-                                                            <!-- Adjust colspan to match the number of internal tables -->
-                                                            <td colspan="2">Firmware Status (click to expand/collapse)</td>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr>
-                                                            <!-- First internal table in the first column -->
-                                                            <td style="vertical-align: top; width: 50%;">
-                                                                <table style="margin: 0 auto; text-align: left; width: 100%;">
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>F/W Product/Model ID:</strong></td>
-                                                                        <td style="padding: 4px;">GT-AXE11000</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>USB Storage Connected:</strong></td>
-                                                                        <td style="padding: 4px;">True</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>F/W Version Installed:</strong></td>
-                                                                        <td style="padding: 4px;"><% nvram_get("innerver"); %></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>F/W Update Available:</strong></td>
-                                                                        <td id="fwVersion" style="padding: 4px;">NONE FOUND</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>F/W Update Estimated Run Date:</strong></td>
-                                                                        <td style="padding: 4px;">False</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>F/W Update Check:</strong></td>
-                                                                        <td style="padding: 4px;">False</td>
-                                                                    </tr>
-                                                                </table>
-                                                            </td>
-                                                            <!-- Second internal table in the second column -->
-                                                            <td style="vertical-align: top; width: 50%;">
-                                                                <table style="margin: 0 auto; text-align: left; width: 100%;">
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>Changelog Check:</strong></td>
-                                                                        <td style="padding: 4px;">False</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>Beta-to-Release Updates:</strong></td>
-                                                                        <td style="padding: 4px;">False</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>Tailscale VPN Access:</strong></td>
-                                                                        <td style="padding: 4px;">False</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>Auto-Backup Enabled:</strong></td>
-                                                                        <td style="padding: 4px;">False</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>Auto-Updates for Script:</strong></td>
-                                                                        <td style="padding: 4px;">False</td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="padding: 4px;"><strong>Email-Notifications:</strong></td>
-                                                                        <td style="padding: 4px;">False</td>
-                                                                    </tr>
-                                                                </table>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
 
+                                                <!-- Parent Table to Arrange Firmware and Settings Status Side by Side -->
+                                                <table width="100%" cellpadding="0" cellspacing="0" style="border: none; background-color: transparent;">
+                                                    <tr>
+                                                        <!-- Firmware Status Column -->
+                                                        <td valign="top" width="50%" style="padding-right: 5px;">
+                                                            <!-- Firmware Status Section -->
+                                                            <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
+                                                                <thead class="collapsible-jquery" id="firmwareStatusSection">
+                                                                    <tr>
+                                                                        <!-- Adjust colspan to match the number of internal tables -->
+                                                                        <td colspan="2">Firmware Status (click to expand/collapse)</td>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <tr>
+                                                                        <!-- First internal table in the first column -->
+                                                                        <td style="vertical-align: top; width: 50%;">
+                                                                            <table style="margin: 0; text-align: left; width: 100%; border: none;">
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>F/W Product/Model ID:</strong></td>
+                                                                                    <td style="padding: 4px;">GT-AXE11000</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>USB Storage Connected:</strong></td>
+                                                                                    <td style="padding: 4px;">True</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>F/W Version Installed:</strong></td>
+                                                                                    <td style="padding: 4px;"><% nvram_get("innerver"); %></td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>F/W Update Available:</strong></td>
+                                                                                    <td id="fwVersion" style="padding: 4px;">NONE FOUND</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>F/W Update Estimated Run Date:</strong></td>
+                                                                                    <td style="padding: 4px;">False</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>F/W Update Check:</strong></td>
+                                                                                    <td style="padding: 4px;">False</td>
+                                                                                </tr>
+                                                                            </table>
+                                                                        </td>
+                                                                    </tr>
+                                                                </tbody>
+                                                            </table>
+                                                        </td>
+
+                                                        <!-- Settings Status Column -->
+                                                        <td valign="top" width="50%" style="padding-left: 5px;">
+                                                            <!-- Settings Status Section -->
+                                                            <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
+                                                                <thead class="collapsible-jquery" id="settingsStatusSection">
+                                                                    <tr>
+                                                                        <!-- Adjust colspan to match the number of internal tables -->
+                                                                        <td colspan="2">Settings Status (click to expand/collapse)</td>
+                                                                    </tr>
+                                                                </thead>
+                                                                <tbody>
+                                                                    <tr>
+                                                                        <!-- Second internal table in the second column -->
+                                                                        <td style="vertical-align: top; width: 50%;">
+                                                                            <table style="margin: 0; text-align: left; width: 100%; border: none;">
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>Changelog Check:</strong></td>
+                                                                                    <td style="padding: 4px;">False</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>Beta-to-Release Updates:</strong></td>
+                                                                                    <td style="padding: 4px;">False</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>Tailscale VPN Access:</strong></td>
+                                                                                    <td style="padding: 4px;">False</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>Auto-Backup Enabled:</strong></td>
+                                                                                    <td style="padding: 4px;">False</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>Auto-Updates for Script:</strong></td>
+                                                                                    <td style="padding: 4px;">False</td>
+                                                                                </tr>
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>Email-Notifications:</strong></td>
+                                                                                    <td style="padding: 4px;">False</td>
+                                                                                </tr>
+                                                                            </table>
+                                                                        </td>
+                                                                    </tr>
+                                                                </tbody>
+                                                            </table>
+                                                        </td>
+                                                    </tr>
+                                                </table>
 
                                                 <div style="line-height:10px;">&nbsp;</div>
 
