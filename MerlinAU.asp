@@ -22,14 +22,15 @@
     <script type="text/javascript">
     var custom_settings;
     function LoadCustomSettings(){
-	    custom_settings = <% get_custom_settings(); %>;
-	    for(var prop in custom_settings) {
-		    if(Object.prototype.hasOwnProperty.call(custom_settings, prop)) {
-			    if(prop.indexOf('MerlinAU') != -1 && prop.indexOf('MerlinAU_version') == -1){
-				    eval('delete custom_settings.'+prop)
-			    }
-		    }
-	    }
+        custom_settings = <% get_custom_settings(); %>;
+        console.log("Custom Settings Loaded:", custom_settings);
+        for(var prop in custom_settings) {
+            if(Object.prototype.hasOwnProperty.call(custom_settings, prop)) {
+                if(prop.indexOf('MerlinAU') != -1 && prop.indexOf('MerlinAU_version') == -1){
+                    delete custom_settings[prop];
+                }
+            }
+        }
     }
 
     function SetCurrentPage() {
@@ -41,7 +42,7 @@
     function initializeFields() {
         console.log("Initializing fields...");
         let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
-        let changelogCheckEnabled = document.getElementById('ChangelogCheckEnabled');
+        let changelogCheckEnabled = document.getElementById('changelogCheckEnabled');
         let routerPassword = document.getElementById('routerPassword');
         let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
         let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
@@ -83,8 +84,8 @@
     function SaveActionsConfig() {
         custom_settings.routerPassword = document.getElementById('routerPassword')?.value || '';
         custom_settings.fwUpdatePostponement = document.getElementById('fwUpdatePostponement')?.value || '0';
-        custom_settings.fwUpdateEnabled = document.getElementById('fwUpdateEnabled')?.value || '';
-        custom_settings.changelogCheckEnabled = document.getElementById('changelogCheckEnabled')?.value || '';
+        custom_settings.fwUpdateEnabled = document.getElementById('fwUpdateEnabled').checked;
+        custom_settings.changelogCheckEnabled = document.getElementById('changelogCheckEnabled').checked;
 
         // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
@@ -105,8 +106,8 @@
         custom_settings.secondaryEmail = document.getElementById('secondaryEmail')?.value || '';
         custom_settings.emailFormatType = document.getElementById('emailFormat')?.value || 'HTML';
         custom_settings.rogFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
-        custom_settings.emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled')?.value || '';
-        custom_settings.autobackupEnabled = document.getElementById('autobackupEnabled')?.value || '';
+        custom_settings.emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled').checked;
+        custom_settings.autobackupEnabled = document.getElementById('AutobackupEnabled').checked;
 
         // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
@@ -253,8 +254,8 @@
                                                                         <td><input type="checkbox" id="fwUpdateEnabled" name="fwUpdateEnabled" /></td>
                                                                     </tr>
                                                                     <tr>
-                                                                        <td><label for="ChangelogCheckEnabled">Enable Changelog Check</label></td>
-                                                                        <td><input type="checkbox" id="ChangelogCheckEnabled" name="ChangelogCheckEnabled" /></td>
+                                                                        <td><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
+                                                                        <td><input type="checkbox" id="changelogCheckEnabled" name="ChangelogCheckEnabled" /></td>
                                                                     </tr>
                                                                     <tr>
                                                                         <td><label for="routerPassword">Router Login Password</label></td>
@@ -266,7 +267,7 @@
                                                                     </tr>
                                                                 </table>
                                                                 <div style="text-align: center; margin-top: 10px;">
-                                                                    <input type="submit" onclick="SaveActionsConfig();" value="Save" class="button_gen savebutton" name="button">
+                                                                    <input type="submit" onclick="SaveActionsConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
                                                                 </div>
                                                             </form>
                                                         </td>
@@ -323,7 +324,7 @@
                                                                         </tr>
                                                                     </table>
                                                                     <div style="text-align: center; margin-top: 10px;">
-                                                                        <input type="submit" onclick="SaveAdvancedConfig();" value="Save" class="button_gen savebutton" name="button">
+                                                                        <input type="submit" onclick="SaveAdvancedConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
                                                                     </div>
                                                                 </form>
                                                             </td>
