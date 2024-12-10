@@ -21,6 +21,10 @@
     <script type="text/javascript" src="/validator.js"></script>
     <script type="text/javascript">
     var custom_settings;
+    // Define color formatting
+    var GRNct = "<span style='color:green;'>";
+    var NOct = "</span>";
+    var REDct = "<span style='color:red;'>";
     function LoadCustomSettings(){
         custom_settings = <% get_custom_settings(); %>;
         console.log("Custom Settings Loaded:", custom_settings);
@@ -29,6 +33,18 @@
                 if(prop.indexOf('MerlinAU') != -1 && prop.indexOf('MerlinAU_version') == -1){
                     delete custom_settings[prop];
                 }
+            }
+        }
+    }
+
+    // Helper function to set status with color
+    function setStatus(elementId, isEnabled) {
+        var element = document.getElementById(elementId);
+        if (element) {
+            if (isEnabled) {
+                element.innerHTML = GRNct + "Enabled" + NOct;
+            } else {
+                element.innerHTML = REDct + "Disabled" + NOct;
             }
         }
     }
@@ -81,32 +97,17 @@
             if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.fwUpdateDirectory || '';
 
 
-            if (document.getElementById('fwUpdateEstimatedRunDate')) {
-                document.getElementById('fwUpdateEstimatedRunDate').textContent = custom_settings.fwUpdateEstimatedRunDate ? "Enabled" : "Disabled";
-            }
-            if (document.getElementById('fwUpdateCheckStatus')) {
-                document.getElementById('fwUpdateCheckStatus').textContent = parseBoolean(custom_settings.fwUpdateEnabled) ? "Enabled" : "Disabled";
-            }
+            // Update Firmware Status
+            setStatus('fwUpdateEstimatedRunDate', custom_settings.fwUpdateEstimatedRunDate);
+            setStatus('fwUpdateCheckStatus', parseBoolean(custom_settings.fwUpdateEnabled));
 
             // Update Settings Status Table
-            if (document.getElementById('changelogCheckStatus')) {
-                document.getElementById('changelogCheckStatus').textContent = parseBoolean(custom_settings.changelogCheckEnabled) ? "Enabled" : "Disabled";
-            }
-            if (document.getElementById('betaToReleaseUpdatesStatus')) {
-                document.getElementById('betaToReleaseUpdatesStatus').textContent = parseBoolean(custom_settings.betaToReleaseUpdatesEnabled) ? "Enabled" : "Disabled";
-            }
-            if (document.getElementById('tailscaleVPNAccessStatus')) {
-                document.getElementById('tailscaleVPNAccessStatus').textContent = parseBoolean(custom_settings.tailscaleVPNEnabled) ? "Enabled" : "Disabled";
-            }
-            if (document.getElementById('autobackupEnabledStatus')) {
-                document.getElementById('autobackupEnabledStatus').textContent = parseBoolean(custom_settings.autobackupEnabled) ? "Enabled" : "Disabled";
-            }
-            if (document.getElementById('autoUpdatesScriptEnabledStatus')) {
-                document.getElementById('autoUpdatesScriptEnabledStatus').textContent = parseBoolean(custom_settings.autoUpdatesScriptEnabled) ? "Enabled" : "Disabled";
-            }
-            if (document.getElementById('emailNotificationsStatus')) {
-                document.getElementById('emailNotificationsStatus').textContent = parseBoolean(custom_settings.emailNotificationsEnabled) ? "Enabled" : "Disabled";
-            }
+            setStatus('changelogCheckStatus', parseBoolean(custom_settings.changelogCheckEnabled));
+            setStatus('betaToReleaseUpdatesStatus', parseBoolean(custom_settings.betaToReleaseUpdatesEnabled));
+            setStatus('tailscaleVPNAccessStatus', parseBoolean(custom_settings.tailscaleVPNEnabled));
+            setStatus('autobackupEnabledStatus', parseBoolean(custom_settings.autobackupEnabled));
+            setStatus('autoUpdatesScriptEnabledStatus', parseBoolean(custom_settings.autoUpdatesScriptEnabled));
+            setStatus('emailNotificationsStatus', parseBoolean(custom_settings.emailNotificationsEnabled));
 
         } else {
             console.error("Custom settings not loaded.");
@@ -176,6 +177,69 @@
         console.log("Form submitted.");
     }
 
+    // Function to get the first non-empty value from a list of element IDs
+    function getFirstNonEmptyValue(ids) {
+        for (var i = 0; i < ids.length; i++) {
+            var elem = document.getElementById(ids[i]);
+            if (elem) {
+                var value = elem.value.trim();
+                if (value.length > 0) {
+                    return value;
+                }
+            }
+        }
+        return "";
+    }
+
+    // Function to format and display the Router IDs
+    function formatRouterIDs() {
+        // Define the order of NVRAM keys to search for Model ID and Product ID
+        var modelKeys = ["nvram_odmpid", "nvram_wps_modelnum", "nvram_model", "nvram_build_name"];
+        var productKeys = ["nvram_productid", "nvram_build_name", "nvram_odmpid"];
+
+        // Retrieve the first non-empty values
+        var MODEL_ID = getFirstNonEmptyValue(modelKeys);
+        var PRODUCT_ID = getFirstNonEmptyValue(productKeys);
+
+        // Construct FW_RouterProductID with formatting
+        var FW_RouterProductID = GRNct + PRODUCT_ID + NOct;
+
+        // Convert MODEL_ID to uppercase for comparison
+        var MODEL_ID_UPPER = MODEL_ID.toUpperCase();
+
+        // Determine FW_RouterModelID based on comparison
+        var FW_RouterModelID = "";
+        if (PRODUCT_ID === MODEL_ID_UPPER) {
+            FW_RouterModelID = FW_RouterProductID;
+        } else {
+            FW_RouterModelID = FW_RouterProductID + "/" + GRNct + MODEL_ID + NOct;
+        }
+
+        // Update the HTML table cells
+        var productModelCell = document.getElementById('firmwareProductModelID');
+        if (productModelCell) {
+            productModelCell.innerHTML = FW_RouterProductID;
+        }
+
+        // Update the consolidated 'firmver' hidden input
+        var firmverInput = document.getElementById('firmver');
+        if (firmverInput) {
+            firmverInput.value = stripHTML(FW_RouterModelID); // Optionally strip HTML tags
+        }
+    }
+
+    // Optional: Function to strip HTML tags from a string (to store plain text in hidden input)
+    function stripHTML(html) {
+        var tmp = document.createElement("DIV");
+        tmp.innerHTML = html;
+        return tmp.textContent || tmp.innerText || "";
+    }
+
+    // Initialize the formatting after the DOM is fully loaded
+    document.addEventListener("DOMContentLoaded", function() {
+        formatRouterIDs();
+    });
+
     function initializeCollapsibleSections() {
         if (typeof jQuery !== 'undefined') {
             $('.collapsible-jquery').each(function() {
@@ -214,6 +278,14 @@
         <input type="hidden" name="SystemCmd" value="" />
         <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get('preferred_lang'); %>" />
         <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>" />
+        <input type="hidden" name="firmver" value="<% nvram_get("buildno"); %>" />
+        <input type="hidden" name="firmver" value="<% nvram_get("extendno"); %>" />
+        <input type="hidden" name="firmver" id="firmver" value="" />
+        <input type="hidden" id="nvram_odmpid" value="<% nvram_get("odmpid"); %>" />
+        <input type="hidden" id="nvram_wps_modelnum" value="<% nvram_get("wps_modelnum"); %>" />
+        <input type="hidden" id="nvram_model" value="<% nvram_get("model"); %>" />
+        <input type="hidden" id="nvram_build_name" value="<% nvram_get("build_name"); %>" />
+        <input type="hidden" id="nvram_productid" value="<% nvram_get("productid"); %>" />
         <input type="hidden" name="installedfirm" value="<% nvram_get("innerver"); %>" />
         <input type="hidden" name="amng_custom" id="amng_custom" value="" />
 
@@ -238,7 +310,7 @@
                                                 <div class="formfonttitle" style="text-align:center;">MerlinAU Dashboard v1.3.8</div>
                                                 <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
                                                 <div class="formfontdesc">
-                                                    This is the MerlinAU Dashboard integrated into the router WebUI.
+                                                    This is the MerlinAU AMTM add-on integrated into the router WebUI.
                                                 </div>
                                                 <div style="line-height:10px;">&nbsp;</div>
 
@@ -263,7 +335,7 @@
                                                                             <table style="margin: 0; text-align: left; width: 100%; border: none;">
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Product/Model ID:</strong></td>
-                                                                                    <td style="padding: 4px;">GT-AXE11000</td>
+                                                                                    <td style="padding: 4px;" id="firmwareProductModelID"></td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>USB Storage Connected:</strong></td>
@@ -271,7 +343,9 @@
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Version Installed:</strong></td>
-                                                                                    <td style="padding: 4px;"><% nvram_get("innerver"); %></td>
+                                                                                    <td style="padding: 4px;">
+                                                                                        <% nvram_get("firmver"); %>.<% nvram_get("buildno"); %>.<% nvram_get("extendno"); %>
+                                                                                    </td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Update Available:</strong></td>
