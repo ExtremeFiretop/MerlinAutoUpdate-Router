@@ -231,7 +231,7 @@
                                                         <div style="text-align: center; margin-top: 10px;">
                                                             <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
                                                         </div>
-                                                            <form id="actionsForm" onsubmit="applySettings(); return false;">
+                                                            <form id="actionsForm">
                                                                 <table width="100%" border="0" cellpadding="5" cellspacing="5">
                                                                     <tr>
                                                                         <td><label for="fwUpdateEnabled">Enable F/W Update Check</label></td>
@@ -274,7 +274,7 @@
                                                             <div style="text-align: center; margin-top: 10px;">
                                                                 <button type="button" onclick="Uninstall()">Uninstall Now</button>
                                                             </div>
-                                                                <form id="advancedOptionsForm" onsubmit="applyAdvancedOptions(); return false;">
+                                                                <form id="advancedOptionsForm">
                                                                     <table width="100%" border="0" cellpadding="5" cellspacing="5">
                                                                         <tr>
                                                                             <td><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
