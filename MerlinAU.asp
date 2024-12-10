@@ -58,6 +58,10 @@
         let secondaryEmail = document.getElementById('secondaryEmail');
         let emailFormat = document.getElementById('emailFormat');
         let rogFWBuildType = document.getElementById('rogFWBuildType');
+        let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
+        let autoUpdatesScriptEnabled = document.getElementById('autoUpdatesScriptEnabled');
+        let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
+        let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
 
         // Safe value assignments
         if (custom_settings) {
@@ -71,6 +75,11 @@
             if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
             if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.emailNotificationsEnabled);
             if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.autobackupEnabled);
+            if (tailscaleVPNEnabled) tailscaleVPNEnabled.checked = parseBoolean(custom_settings.tailscaleVPNEnabled);
+            if (autoUpdatesScriptEnabled) autoUpdatesScriptEnabled.checked = parseBoolean(custom_settings.autoUpdatesScriptEnabled);
+            if (betaToReleaseUpdatesEnabled) betaToReleaseUpdatesEnabled.checked = parseBoolean(custom_settings.betaToReleaseUpdatesEnabled);
+            if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.fwUpdateDirectory || '';
+
         } else {
             console.error("Custom settings not loaded.");
         }
@@ -118,6 +127,10 @@
         custom_settings.rogFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
         custom_settings.emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled').checked;
         custom_settings.autobackupEnabled = document.getElementById('autobackupEnabled').checked;
+        custom_settings.tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled').checked;
+        custom_settings.autoUpdatesScriptEnabled = document.getElementById('autoUpdatesScriptEnabled').checked;
+        custom_settings.betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled').checked;
+        custom_settings.fwUpdateDirectory = document.getElementById('fwUpdateDirectory')?.value || '';
 
         // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
@@ -133,7 +146,6 @@
         document.form.submit();
         console.log("Form submitted.");
     }
-
 
     function initializeCollapsibleSections() {
         if (typeof jQuery !== 'undefined') {
@@ -256,24 +268,25 @@
                                                         <td>
                                                         <div style="text-align: center; margin-top: 10px;">
                                                             <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
+                                                            <button type="button" onclick="Uninstall()">Uninstall Now</button>
                                                         </div>
                                                             <form id="actionsForm">
                                                                 <table width="100%" border="0" cellpadding="5" cellspacing="5">
-                                                                    <tr>
-                                                                        <td><label for="fwUpdateEnabled">Enable F/W Update Check</label></td>
-                                                                        <td><input type="checkbox" id="fwUpdateEnabled" name="fwUpdateEnabled" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
-                                                                        <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
-                                                                    </tr>
                                                                     <tr>
                                                                         <td><label for="routerPassword">Router Login Password</label></td>
                                                                         <td><input type="password" id="routerPassword" name="routerPassword" /></td>
                                                                     </tr>
                                                                     <tr>
-                                                                        <td><label for="fwUpdatePostponement">F/W Update Postponement (0-60 days)</label></td>
-                                                                        <td><input type="number" id="fwUpdatePostponement" name="fwUpdatePostponement" min="0" max="60" /></td>
+                                                                        <td><label for="fwUpdateEnabled">Enable F/W Update Check</label></td>
+                                                                        <td><input type="checkbox" id="fwUpdateEnabled" name="fwUpdateEnabled" /></td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td><label for="fwUpdatePostponement">F/W Update Postponement (0-199 days)</label></td>
+                                                                        <td><input type="number" id="fwUpdatePostponement" name="fwUpdatePostponement" min="0" max="199" /></td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
+                                                                        <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
                                                                     </tr>
                                                                 </table>
                                                                 <div style="text-align: center; margin-top: 10px;">
@@ -297,31 +310,31 @@
                                                     <tbody>
                                                         <tr>
                                                             <td>
-                                                            <div style="text-align: center; margin-top: 10px;">
-                                                                <button type="button" onclick="Uninstall()">Uninstall Now</button>
-                                                            </div>
                                                                 <form id="advancedOptionsForm">
                                                                     <table width="100%" border="0" cellpadding="5" cellspacing="5">
                                                                         <tr>
-                                                                            <td><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
-                                                                            <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled" /></td>
+                                                                           <td><label for="fwUpdateDirectory">Set Directory for F/W Updates</label></td>
+                                                                           <td><input type="text" id="fwUpdateDirectory" name="fwUpdateDirectory" /></td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="autobackupEnabled">Enable Auto-Backups</label></td>
-                                                                            <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
+                                                                            <td><label for="betaToReleaseUpdatesEnabled">Beta-to-Release Updates</label></td>
+                                                                            <td><input type="checkbox" id="betaToReleaseUpdatesEnabled" name="betaToReleaseUpdatesEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td><label for="secondaryEmail">Secondary Email for Notifications</label></td>
                                                                             <td><input type="email" id="secondaryEmail" name="secondaryEmail" /></td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="emailFormat">Email Format</label></td>
-                                                                            <td>
-                                                                                <select id="emailFormat" name="emailFormat">
-                                                                                    <option value="HTML">HTML</option>
-                                                                                    <option value="PlainText">Plain Text</option>
-                                                                                </select>
-                                                                            </td>
+                                                                            <td><label for="tailscaleVPNEnabled">Tailscale VPN Access</label></td>
+                                                                            <td><input type="checkbox" id="tailscaleVPNEnabled" name="tailscaleVPNEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td><label for="autobackupEnabled">Enable Auto-Backups</label></td>
+                                                                            <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td><label for="autoUpdatesScriptEnabled">Auto-Updates for Script</label></td>
+                                                                            <td><input type="checkbox" id="autoUpdatesScriptEnabled" name="autoUpdatesScriptEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td><label for="rogFWBuildType">ROG F/W Build Type</label></td>
@@ -329,6 +342,19 @@
                                                                                 <select id="rogFWBuildType" name="rogFWBuildType">
                                                                                     <option value="ROG">ROG</option>
                                                                                     <option value="Pure">Pure</option>
+                                                                                </select>
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
+                                                                            <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td><label for="emailFormat">Email Format</label></td>
+                                                                            <td>
+                                                                                <select id="emailFormat" name="emailFormat">
+                                                                                    <option value="HTML">HTML</option>
+                                                                                    <option value="PlainText">Plain Text</option>
                                                                                 </select>
                                                                             </td>
                                                                         </tr>
