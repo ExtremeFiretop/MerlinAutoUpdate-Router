@@ -37,52 +37,40 @@
         LoadCustomSettings();
         show_menu();
 
-        // Populate form fields with existing settings or set default values
-        if (custom_settings.routerPassword === undefined) {
-            document.getElementById('routerPassword').value = "";
+        // Safely set values with null checks
+        let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
+        let changelogCheckEnabled = document.getElementById('ChangelogCheckEnabled');
+        let routerPassword = document.getElementById('routerPassword');
+        let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
+        let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
+        let autobackupEnabled = document.getElementById('AutobackupEnabled');
+        let secondaryEmail = document.getElementById('secondaryEmail');
+        let emailFormat = document.getElementById('emailFormat');
+        let rogFWBuildType = document.getElementById('rogFWBuildType');
+
+        // Safe value assignments
+        if (custom_settings) {
+            if (routerPassword) routerPassword.value = custom_settings.routerPassword || '';
+            if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.fwUpdatePostponement || '0';
+            if (secondaryEmail) secondaryEmail.value = custom_settings.secondaryEmail || '';
+            if (emailFormat) emailFormat.value = custom_settings.emailFormatType || 'HTML';
+            if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
+            if (fwUpdateEnabled) fwUpdateEnabled.checked = !!custom_settings.fwUpdateEnabled;
+            if (changelogCheckEnabled) changelogCheckEnabled.checked = !!custom_settings.changelogCheckEnabled;
+            if (emailNotificationsEnabled) emailNotificationsEnabled.checked = !!custom_settings.emailNotificationsEnabled;
+            if (autobackupEnabled) autobackupEnabled.checked = !!custom_settings.autobackupEnabled;
         } else {
-            document.getElementById('routerPassword').value = custom_settings.routerPassword;
+            console.error("Custom settings not loaded.");
         }
 
-        if (custom_settings.fwUpdatePostponementDays === undefined) {
-            document.getElementById('fwUpdatePostponementDays').value = "0";
-        } else {
-            document.getElementById('fwUpdatePostponementDays').value = custom_settings.fwUpdatePostponementDays;
+        // Fix for installed firmware reference
+        let installedFirm = document.getElementById('installedfirm');
+        let fwVersionDisplay = document.getElementById('fwVersion'); // Ensure this element exists
+        if (installedFirm && fwVersionDisplay) {
+            fwVersionDisplay.textContent = installedFirm.value || "N/A";
         }
 
-        if (custom_settings.secondaryEmailAddress === undefined) {
-            document.getElementById('secondaryEmailAddress').value = "";
-        } else {
-            document.getElementById('secondaryEmailAddress').value = custom_settings.secondaryEmailAddress;
-        }
-
-        if (custom_settings.emailFormatType === undefined) {
-            document.getElementById('emailFormatType').value = "HTML";
-        } else {
-            document.getElementById('emailFormatType').value = custom_settings.emailFormatType;
-        }
-
-        if (custom_settings.rogFWBuildType === undefined) {
-            document.getElementById('rogFWBuildType').value = "ROG";
-        } else {
-            document.getElementById('rogFWBuildType').value = custom_settings.rogFWBuildType;
-        }
-
-        if (custom_settings.fwUpdateSchedule === undefined) {
-            document.getElementById('fwUpdateSchedule').value = "";
-        } else {
-            document.getElementById('fwUpdateSchedule').value = custom_settings.fwUpdateSchedule;
-        }
-
-        // Initialize collapsible sections
-        // Add other fields as needed
         initializeCollapsibleSections();
-
-        // Set F/W Version Installed from hidden input
-        var installedfirm = document.getElementById('installedfirm').value;
-        document.getElementById('fwVersion').textContent = installedfirm;
-
-        // Add other fields as needed
     }
 
     function SetCurrentPage() {
@@ -91,39 +79,48 @@
         document.form.current_page.value = window.location.pathname.substring(1);
     }
 
-    function applySettings() {
-        /* Retrieve value from input fields and store in object */
-        custom_settings.routerPassword = document.getElementById('routerPassword').value;
-        custom_settings.fwUpdatePostponementDays = document.getElementById('fwUpdatePostponementDays').value;
-        custom_settings.secondaryEmailAddress = document.getElementById('secondaryEmailAddress').value;
-        custom_settings.emailFormatType = document.getElementById('emailFormatType').value;
-        custom_settings.rogFWBuildType = document.getElementById('rogFWBuildType').value;
-        custom_settings.fwUpdateSchedule = document.getElementById('fwUpdateSchedule').value;
-        // Add other settings as needed
+    function SaveActionsConfig() {
+        custom_settings.routerPassword = document.getElementById('routerPassword')?.value || '';
+        custom_settings.fwUpdatePostponement = document.getElementById('fwUpdatePostponement')?.value || '0';
+        custom_settings.fwUpdateEnabled = document.getElementById('fwUpdateEnabled')?.value || '';
+        custom_settings.changelogCheckEnabled = document.getElementById('changelogCheckEnabled')?.value || '';
 
-        /* Store object as a string in the amng_custom hidden input field */
+        // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
 
-        /* Apply */
+        // Apply the settings
         showLoading();
         document.form.submit();
     }
 
+    function SaveAdvancedConfig() {
+        custom_settings.secondaryEmail = document.getElementById('secondaryEmail')?.value || '';
+        custom_settings.emailFormatType = document.getElementById('emailFormat')?.value || 'HTML';
+        custom_settings.rogFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
+        custom_settings.emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled')?.value || '';
+        custom_settings.autobackupEnabled = document.getElementById('autobackupEnabled')?.value || '';
+
+        // Save to hidden input field
+        document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
+
+        // Apply the settings
+        showLoading();
+        document.form.submit();
+    }
+
+
     function initializeCollapsibleSections() {
-        // Check if jQuery is loaded
         if (typeof jQuery !== 'undefined') {
             $('.collapsible-jquery').each(function() {
-                // Remove or comment out the line that hides the tbody
-                // $(this).next('tbody').hide();
+                // Ensure sections are expanded by default
+                $(this).addClass('active');  // Add 'active' class to indicate expanded state
+                $(this).next('tbody').show();  // Make sure content is visible
 
-                // Optionally, add an 'active' class to indicate expanded state
-                $(this).addClass('active');
-
-                // Add a cursor pointer to indicate it's clickable
+                // Add a cursor pointer for better UX
                 $(this).css('cursor', 'pointer');
 
-                // Bind click event to toggle the tbody
-                $(this).click(function() {
+                // Toggle logic on click
+                $(this).on('click', function() {
                     $(this).toggleClass('active');
                     $(this).next('tbody').slideToggle();
                 });
@@ -186,16 +183,36 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                    <tr>
-                                                        <td>
-                                                            <p><strong>F/W Product/Model ID:</strong> GT-AXE11000</p>
-                                                            <p><strong>USB Storage Connected:</strong> True</p>
-                                                            <p><strong>F/W Version Installed:</strong> <% nvram_get("innerver"); %></p>
-                                                            <p><strong>F/W Update Available:</strong> NONE FOUND</p>
-                                                            <p><strong>F/W Update Estimated Run Date:</strong> False</p>
-                                                            <p><strong>Auto-Backup Enabled:</strong> False</p>
-                                                        </td>
-                                                    </tr>
+                                                        <tr>
+                                                            <td>
+                                                                <table style="margin: 0 auto; text-align: left;">
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>F/W Product/Model ID:</strong></td>
+                                                                        <td style="padding: 4px;">GT-AXE11000</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>USB Storage Connected:</strong></td>
+                                                                        <td style="padding: 4px;">True</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>F/W Version Installed:</strong></td>
+                                                                        <td style="padding: 4px;"><% nvram_get("innerver"); %></td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>F/W Update Available:</strong></td>
+                                                                        <td id="fwVersion" style="padding: 4px;">NONE FOUND</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>F/W Update Estimated Run Date:</strong></td>
+                                                                        <td style="padding: 4px;">False</td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td style="padding: 4px;"><strong>Auto-Backup Enabled:</strong></td>
+                                                                        <td style="padding: 4px;">False</td>
+                                                                    </tr>
+                                                                </table>
+                                                            </td>
+                                                        </tr>
                                                     </tbody>
                                                 </table>
 
@@ -211,22 +228,32 @@
                                                     <tbody>
                                                     <tr>
                                                         <td>
-                                                            <div style="margin-bottom:10px;">
-                                                                <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
-                                                                <button type="button" onclick="toggleFirmwareUpdateCheck()">Toggle F/W Update Check</button>
-                                                                <button type="button" onclick="toggleChangelogCheck()">Toggle Changelog Check</button>
-                                                            </div>
-                                                            <div style="margin-bottom:10px;">
-                                                                <h3>Configure Router Login Credentials</h3>
-                                                                <label for="routerPassword">Password:</label>
-                                                                <input type="password" id="routerPassword" name="routerPassword" />
-                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
-                                                            </div>
-                                                            <div style="margin-bottom:10px;">
-                                                                <h3>Set F/W Update Postponement Days (0-60)</h3>
-                                                                <input type="number" id="fwUpdatePostponementDays" name="fwUpdatePostponementDays" min="0" max="60" />
-                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
-                                                            </div>
+                                                        <div style="text-align: center; margin-top: 10px;">
+                                                            <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
+                                                        </div>
+                                                            <form id="actionsForm" onsubmit="applySettings(); return false;">
+                                                                <table width="100%" border="0" cellpadding="5" cellspacing="5">
+                                                                    <tr>
+                                                                        <td><label for="fwUpdateEnabled">Enable F/W Update Check</label></td>
+                                                                        <td><input type="checkbox" id="fwUpdateEnabled" name="fwUpdateEnabled" /></td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td><label for="ChangelogCheckEnabled">Enable Changelog Check</label></td>
+                                                                        <td><input type="checkbox" id="ChangelogCheckEnabled" name="ChangelogCheckEnabled" /></td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td><label for="routerPassword">Router Login Password</label></td>
+                                                                        <td><input type="password" id="routerPassword" name="routerPassword" /></td>
+                                                                    </tr>
+                                                                    <tr>
+                                                                        <td><label for="fwUpdatePostponement">F/W Update Postponement (0-60 days)</label></td>
+                                                                        <td><input type="number" id="fwUpdatePostponement" name="fwUpdatePostponement" min="0" max="60" /></td>
+                                                                    </tr>
+                                                                </table>
+                                                                <div style="text-align: center; margin-top: 10px;">
+                                                                    <input type="submit" onclick="SaveActionsConfig();" value="Save" class="button_gen savebutton" name="button">
+                                                                </div>
+                                                            </form>
                                                         </td>
                                                     </tr>
                                                     </tbody>
@@ -242,44 +269,52 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                    <tr>
-                                                        <td>
-                                                            <div style="margin-bottom:10px;">
-                                                                <button type="button" onclick="toggleEmailNotifications()">Toggle F/W Update Email Notifications</button>
-                                                                <button type="button" onclick="toggleAutomaticBackups()">Toggle Auto-Backup</button>
-                                                                <button type="button" onclick="uninstallMerlinAU()">Uninstall</button>
+                                                        <tr>
+                                                            <td>
+                                                            <div style="text-align: center; margin-top: 10px;">
+                                                                <button type="button" onclick="Uninstall()">Uninstall Now</button>
                                                             </div>
-                                                            <div style="margin-bottom:10px;">
-                                                                <h3>Set F/W Update Check Schedule</h3>
-                                                                <input type="text" id="fwUpdateSchedule" name="fwUpdateSchedule" />
-                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
-                                                            </div>
-                                                            <div style="margin-bottom:10px;">
-                                                                <h3>Set a Secondary Email Address for Notifications:</h3>
-                                                                <input type="email" id="secondaryEmailAddress" name="secondaryEmailAddress" />
-                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
-                                                            </div>
-                                                            <div style="margin-bottom:10px;">
-                                                                <h3>Set Email Format Type:</h3>
-                                                                <select id="emailFormatType" name="emailFormatType">
-                                                                    <option value="HTML">HTML</option>
-                                                                    <option value="PlainText">Plain Text</option>
-                                                                </select>
-                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
-                                                            </div>
-                                                            <div style="margin-bottom:10px;">
-                                                                <h3>Change ROG F/W Build Type:</h3>
-                                                                <select id="rogFWBuildType" name="rogFWBuildType">
-                                                                    <option value="ROG">ROG</option>
-                                                                    <option value="Pure">Pure</option>
-                                                                </select>
-                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
-                                                            </div>
-                                                        </td>
-                                                    </tr>
+                                                                <form id="advancedOptionsForm" onsubmit="applyAdvancedOptions(); return false;">
+                                                                    <table width="100%" border="0" cellpadding="5" cellspacing="5">
+                                                                        <tr>
+                                                                            <td><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
+                                                                            <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td><label for="AutobackupEnabled">Enable Auto-Backups</label></td>
+                                                                            <td><input type="checkbox" id="AutobackupEnabled" name="AutobackupEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td><label for="secondaryEmail">Secondary Email for Notifications</label></td>
+                                                                            <td><input type="email" id="secondaryEmail" name="secondaryEmail" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td><label for="emailFormat">Email Format</label></td>
+                                                                            <td>
+                                                                                <select id="emailFormat" name="emailFormat">
+                                                                                    <option value="HTML">HTML</option>
+                                                                                    <option value="PlainText">Plain Text</option>
+                                                                                </select>
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td><label for="rogFWBuildType">ROG F/W Build Type</label></td>
+                                                                            <td>
+                                                                                <select id="rogFWBuildType" name="rogFWBuildType">
+                                                                                    <option value="ROG">ROG</option>
+                                                                                    <option value="Pure">Pure</option>
+                                                                                </select>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </table>
+                                                                    <div style="text-align: center; margin-top: 10px;">
+                                                                        <input type="submit" onclick="SaveAdvancedConfig();" value="Save" class="button_gen savebutton" name="button">
+                                                                    </div>
+                                                                </form>
+                                                            </td>
+                                                        </tr>
                                                     </tbody>
                                                 </table>
-
                                                 <div style="margin-top:10px;text-align:center;">
                                                     MerlinAU v1.3.8 by ExtremeFiretop &amp; Martinski W.
                                                 </div>
