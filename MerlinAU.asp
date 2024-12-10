@@ -378,11 +378,7 @@
                                                                             <td><input type="checkbox" id="betaToReleaseUpdatesEnabled" name="betaToReleaseUpdatesEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="secondaryEmail">Secondary Email for Notifications</label></td>
-                                                                            <td><input type="email" id="secondaryEmail" name="secondaryEmail" /></td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td><label for="tailscaleVPNEnabled">Tailscale VPN Access</label></td>
+                                                                            <td><label for="tailscaleVPNEnabled">Tailscale/ZeroTier VPN Access</label></td>
                                                                             <td><input type="checkbox" id="tailscaleVPNEnabled" name="tailscaleVPNEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
@@ -414,6 +410,10 @@
                                                                                     <option value="PlainText">Plain Text</option>
                                                                                 </select>
                                                                             </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td><label for="secondaryEmail">Secondary Email for Notifications</label></td>
+                                                                            <td><input type="email" id="secondaryEmail" name="secondaryEmail" /></td>
                                                                         </tr>
                                                                     </table>
                                                                     <div style="text-align: center; margin-top: 10px;">
