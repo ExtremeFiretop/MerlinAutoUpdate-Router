@@ -420,41 +420,57 @@
                                                 <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
                                                     <thead class="collapsible-jquery" id="actionsSection">
                                                         <tr>
-                                                            <td>Actions (click to expand/collapse)</td>
+                                                            <td colspan="2">Actions (click to expand/collapse)</td>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
-                                                    <tr>
-                                                        <td>
-                                                        <div style="text-align: center; margin-top: 10px;">
-                                                                <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
-                                                                <button type="button" onclick="Uninstall()">Uninstall Now</button>
-                                                        </div>
-                                                            <form id="actionsForm">
-                                                                <table width="100%" border="0" cellpadding="5" cellspacing="5">
-                                                                    <tr>
-                                                                        <td><label for="routerPassword">Router Login Password</label></td>
-                                                                        <td><input type="password" id="routerPassword" name="routerPassword" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td><label for="fwUpdateEnabled">Enable F/W Update Check</label></td>
-                                                                        <td><input type="checkbox" id="fwUpdateEnabled" name="fwUpdateEnabled" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td><label for="fwUpdatePostponement">F/W Update Postponement (0-199 days)</label></td>
-                                                                        <td><input type="number" id="fwUpdatePostponement" name="fwUpdatePostponement" min="0" max="199" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
-                                                                        <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
-                                                                    </tr>
-                                                                </table>
+                                                        <tr>
+                                                            <td colspan="2">
                                                                 <div style="text-align: center; margin-top: 10px;">
-                                                                        <input type="submit" onclick="SaveActionsConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
+                                                                    <table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; border-collapse: collapse; background-color: transparent;">
+                                                                        <colgroup>
+                                                                            <col style="width: 50%;" />
+                                                                            <col style="width: 50%;" />
+                                                                        </colgroup>
+                                                                        <tr>
+                                                                            <td style="text-align: right; border: none;">
+                                                                                <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
+                                                                            </td>
+                                                                            <td style="text-align: left; border: none;">
+                                                                                <button type="button" onclick="Uninstall()">Uninstall Now</button>
+                                                                            </td>
+                                                                        </tr>
+                                                                    </table>
                                                                 </div>
-                                                            </form>
-                                                        </td>
-                                                    </tr>
+                                                                <form id="actionsForm">
+                                                                    <table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
+                                                                        <colgroup>
+                                                                            <col style="width: 50%;" />
+                                                                            <col style="width: 50%;" />
+                                                                        </colgroup>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="routerPassword">Router Login Password</label></td>
+                                                                            <td><input type="password" id="routerPassword" name="routerPassword" style="width: 50%;" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="fwUpdateEnabled">Enable F/W Update Check</label></td>
+                                                                            <td><input type="checkbox" id="fwUpdateEnabled" name="fwUpdateEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="fwUpdatePostponement">F/W Update Postponement (0-199 days)</label></td>
+                                                                            <td><input type="number" id="fwUpdatePostponement" name="fwUpdatePostponement" min="0" max="199" style="width: 10%;" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
+                                                                            <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
+                                                                        </tr>
+                                                                    </table>
+                                                                    <div style="text-align: center; margin-top: 10px;">
+                                                                        <input type="submit" onclick="SaveActionsConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
+                                                                    </div>
+                                                                </form>
+                                                            </td>
+                                                        </tr>
                                                     </tbody>
                                                 </table>
 
@@ -464,59 +480,63 @@
                                                 <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
                                                     <thead class="collapsible-jquery" id="advancedOptionsSection">
                                                         <tr>
-                                                            <td>Advanced Options (click to expand/collapse)</td>
+                                                            <td colspan="2">Advanced Options (click to expand/collapse)</td>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
                                                         <tr>
-                                                            <td>
+                                                            <td colspan="2">
                                                                 <form id="advancedOptionsForm">
-                                                                    <table width="100%" border="0" cellpadding="5" cellspacing="5">
+                                                                    <table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
+                                                                        <colgroup>
+                                                                            <col style="width: 50%;" />
+                                                                            <col style="width: 50%;" />
+                                                                        </colgroup>
                                                                         <tr>
-                                                                           <td><label for="fwUpdateDirectory">Set Directory for F/W Updates</label></td>
-                                                                           <td><input type="text" id="fwUpdateDirectory" name="fwUpdateDirectory" /></td>
+                                                                            <td style="text-align: left;"><label for="fwUpdateDirectory">Set Directory for F/W Updates</label></td>
+                                                                            <td><input type="text" id="fwUpdateDirectory" name="fwUpdateDirectory" style="width: 50%;" /></td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="betaToReleaseUpdatesEnabled">Beta-to-Release Updates</label></td>
+                                                                            <td style="text-align: left;"><label for="betaToReleaseUpdatesEnabled">Beta-to-Release Updates</label></td>
                                                                             <td><input type="checkbox" id="betaToReleaseUpdatesEnabled" name="betaToReleaseUpdatesEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="tailscaleVPNEnabled">Tailscale/ZeroTier VPN Access</label></td>
+                                                                            <td style="text-align: left;"><label for="tailscaleVPNEnabled">Tailscale/ZeroTier VPN Access</label></td>
                                                                             <td><input type="checkbox" id="tailscaleVPNEnabled" name="tailscaleVPNEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="autobackupEnabled">Enable Auto-Backups</label></td>
+                                                                            <td style="text-align: left;"><label for="autobackupEnabled">Enable Auto-Backups</label></td>
                                                                             <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="autoUpdatesScriptEnabled">Auto-Updates for Script</label></td>
+                                                                            <td style="text-align: left;"><label for="autoUpdatesScriptEnabled">Auto-Updates for Script</label></td>
                                                                             <td><input type="checkbox" id="autoUpdatesScriptEnabled" name="autoUpdatesScriptEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="rogFWBuildType">ROG F/W Build Type</label></td>
+                                                                            <td style="text-align: left;"><label for="rogFWBuildType">ROG F/W Build Type</label></td>
                                                                             <td>
-                                                                                <select id="rogFWBuildType" name="rogFWBuildType">
+                                                                                <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;">
                                                                                     <option value="ROG">ROG</option>
                                                                                     <option value="Pure">Pure</option>
                                                                                 </select>
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
+                                                                            <td style="text-align: left;"><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
                                                                             <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled" /></td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="emailFormat">Email Format</label></td>
+                                                                            <td style="text-align: left;"><label for="emailFormat">Email Format</label></td>
                                                                             <td>
-                                                                                <select id="emailFormat" name="emailFormat">
+                                                                                <select id="emailFormat" name="emailFormat" style="width: 20%;">
                                                                                     <option value="HTML">HTML</option>
                                                                                     <option value="PlainText">Plain Text</option>
                                                                                 </select>
                                                                             </td>
                                                                         </tr>
                                                                         <tr>
-                                                                            <td><label for="secondaryEmail">Secondary Email for Notifications</label></td>
-                                                                            <td><input type="email" id="secondaryEmail" name="secondaryEmail" /></td>
+                                                                            <td style="text-align: left;"><label for="secondaryEmail">Secondary Email for Notifications</label></td>
+                                                                            <td><input type="email" id="secondaryEmail" name="secondaryEmail" style="width: 50%;" /></td>
                                                                         </tr>
                                                                     </table>
                                                                     <div style="text-align: center; margin-top: 10px;">
