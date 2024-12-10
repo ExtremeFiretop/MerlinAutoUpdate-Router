@@ -20,10 +20,21 @@
     <script type="text/javascript" src="/help.js"></script>
     <script type="text/javascript" src="/validator.js"></script>
     <script type="text/javascript">
-    var custom_settings = <% get_custom_settings(); %>;
+    var custom_settings;
+    function LoadCustomSettings(){
+	    custom_settings = <% get_custom_settings(); %>;
+	    for(var prop in custom_settings) {
+		    if(Object.prototype.hasOwnProperty.call(custom_settings, prop)) {
+			    if(prop.indexOf('MerlinAU') != -1 && prop.indexOf('MerlinAU_version') == -1){
+				    eval('delete custom_settings.'+prop)
+			    }
+		    }
+	    }
+    }
 
     function initial() {
         SetCurrentPage();
+        LoadCustomSettings();
         show_menu();
 
         // Populate form fields with existing settings or set default values
@@ -178,9 +189,10 @@
                                                     <tr>
                                                         <td>
                                                             <p><strong>F/W Product/Model ID:</strong> GT-AXE11000</p>
-                                                            <p><strong>F/W Update Available:</strong> NONE FOUND</p>
-                                                            <p><strong>F/W Version Installed:</strong> <% nvram_get("innerver"); %></p>
                                                             <p><strong>USB Storage Connected:</strong> True</p>
+                                                            <p><strong>F/W Version Installed:</strong> <% nvram_get("innerver"); %></p>
+                                                            <p><strong>F/W Update Available:</strong> NONE FOUND</p>
+                                                            <p><strong>F/W Update Estimated Run Date:</strong> False</p>
                                                             <p><strong>Auto-Backup Enabled:</strong> False</p>
                                                         </td>
                                                     </tr>
@@ -202,23 +214,18 @@
                                                             <div style="margin-bottom:10px;">
                                                                 <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
                                                                 <button type="button" onclick="toggleFirmwareUpdateCheck()">Toggle F/W Update Check</button>
-                                                                <button type="button" onclick="toggleEmailNotifications()">Toggle F/W Update Email Notifications</button>
-                                                                <button type="button" onclick="uninstallMerlinAU()">Uninstall</button>
+                                                                <button type="button" onclick="toggleChangelogCheck()">Toggle Changelog Check</button>
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Configure Router Login Credentials</h3>
                                                                 <label for="routerPassword">Password:</label>
                                                                 <input type="password" id="routerPassword" name="routerPassword" />
-                                                                <button type="button" onclick="applySettings()">Apply</button>
+                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Set F/W Update Postponement Days (0-60)</h3>
                                                                 <input type="number" id="fwUpdatePostponementDays" name="fwUpdatePostponementDays" min="0" max="60" />
-                                                                <button type="button" onclick="applySettings()">Apply</button>
-                                                            </div>
-                                                            <div style="margin-bottom:10px;">
-                                                                <h3>Enable/Disable Automatic Backups</h3>
-                                                                <button type="button" onclick="toggleAutomaticBackups()">Toggle Auto-Backup</button>
+                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -238,14 +245,19 @@
                                                     <tr>
                                                         <td>
                                                             <div style="margin-bottom:10px;">
+                                                                <button type="button" onclick="toggleEmailNotifications()">Toggle F/W Update Email Notifications</button>
+                                                                <button type="button" onclick="toggleAutomaticBackups()">Toggle Auto-Backup</button>
+                                                                <button type="button" onclick="uninstallMerlinAU()">Uninstall</button>
+                                                            </div>
+                                                            <div style="margin-bottom:10px;">
                                                                 <h3>Set F/W Update Check Schedule</h3>
                                                                 <input type="text" id="fwUpdateSchedule" name="fwUpdateSchedule" />
-                                                                <button type="button" onclick="applySettings()">Apply</button>
+                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Set a Secondary Email Address for Notifications:</h3>
                                                                 <input type="email" id="secondaryEmailAddress" name="secondaryEmailAddress" />
-                                                                <button type="button" onclick="applySettings()">Apply</button>
+                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Set Email Format Type:</h3>
@@ -253,7 +265,7 @@
                                                                     <option value="HTML">HTML</option>
                                                                     <option value="PlainText">Plain Text</option>
                                                                 </select>
-                                                                <button type="button" onclick="applySettings()">Apply</button>
+                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
                                                             </div>
                                                             <div style="margin-bottom:10px;">
                                                                 <h3>Change ROG F/W Build Type:</h3>
@@ -261,7 +273,7 @@
                                                                     <option value="ROG">ROG</option>
                                                                     <option value="Pure">Pure</option>
                                                                 </select>
-                                                                <button type="button" onclick="applySettings()">Apply</button>
+                                                                <input class="button_gen" onclick="applySettings" type="button" value="Apply">
                                                             </div>
                                                         </td>
                                                     </tr>
