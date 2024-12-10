@@ -162,10 +162,10 @@
                     <table width="98%" border="0" cellpadding="0" cellspacing="0">
                         <tr>
                             <td valign="top">
-                                <table width="760px" cellpadding="4" cellspacing="0" class="FormTitle">
+                                <table width="760px" cellpadding="4" cellspacing="0" class="FormTitle" style="height: 1169px;">
                                     <tbody>
                                         <tr style="background-color:#4D595D;">
-                                            <td>
+                                            <td valign="top">
                                                 <div>&nbsp;</div>
                                                 <div class="formfonttitle" style="text-align:center;">MerlinAU Dashboard v1.3.8</div>
                                                 <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
