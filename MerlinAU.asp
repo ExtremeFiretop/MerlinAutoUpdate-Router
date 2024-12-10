@@ -80,6 +80,34 @@
             if (betaToReleaseUpdatesEnabled) betaToReleaseUpdatesEnabled.checked = parseBoolean(custom_settings.betaToReleaseUpdatesEnabled);
             if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.fwUpdateDirectory || '';
 
+
+            if (document.getElementById('fwUpdateEstimatedRunDate')) {
+                document.getElementById('fwUpdateEstimatedRunDate').textContent = custom_settings.fwUpdateEstimatedRunDate ? "Enabled" : "Disabled";
+            }
+            if (document.getElementById('fwUpdateCheckStatus')) {
+                document.getElementById('fwUpdateCheckStatus').textContent = parseBoolean(custom_settings.fwUpdateEnabled) ? "Enabled" : "Disabled";
+            }
+
+            // Update Settings Status Table
+            if (document.getElementById('changelogCheckStatus')) {
+                document.getElementById('changelogCheckStatus').textContent = parseBoolean(custom_settings.changelogCheckEnabled) ? "Enabled" : "Disabled";
+            }
+            if (document.getElementById('betaToReleaseUpdatesStatus')) {
+                document.getElementById('betaToReleaseUpdatesStatus').textContent = parseBoolean(custom_settings.betaToReleaseUpdatesEnabled) ? "Enabled" : "Disabled";
+            }
+            if (document.getElementById('tailscaleVPNAccessStatus')) {
+                document.getElementById('tailscaleVPNAccessStatus').textContent = parseBoolean(custom_settings.tailscaleVPNEnabled) ? "Enabled" : "Disabled";
+            }
+            if (document.getElementById('autobackupEnabledStatus')) {
+                document.getElementById('autobackupEnabledStatus').textContent = parseBoolean(custom_settings.autobackupEnabled) ? "Enabled" : "Disabled";
+            }
+            if (document.getElementById('autoUpdatesScriptEnabledStatus')) {
+                document.getElementById('autoUpdatesScriptEnabledStatus').textContent = parseBoolean(custom_settings.autoUpdatesScriptEnabled) ? "Enabled" : "Disabled";
+            }
+            if (document.getElementById('emailNotificationsStatus')) {
+                document.getElementById('emailNotificationsStatus').textContent = parseBoolean(custom_settings.emailNotificationsEnabled) ? "Enabled" : "Disabled";
+            }
+
         } else {
             console.error("Custom settings not loaded.");
         }
@@ -94,6 +122,7 @@
         document.getElementById('hidden_frame').onload = function () {
             console.log("Hidden frame loaded with server response.");
             hideLoading();
+            window.location.reload(); // Automatically reload the page to reflect changes
         };
 
         initializeFields();
@@ -246,15 +275,15 @@
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Update Available:</strong></td>
-                                                                                    <td id="fwVersion" style="padding: 4px;">NONE FOUND</td>
+                                                                                    <td id="fwUpdateAvailable" style="padding: 4px;">NONE FOUND</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Update Estimated Run Date:</strong></td>
-                                                                                    <td style="padding: 4px;">False</td>
+                                                                                    <td id="fwUpdateEstimatedRunDate" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Update Check:</strong></td>
-                                                                                    <td style="padding: 4px;">False</td>
+                                                                                    <td id="fwUpdateCheckStatus" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
                                                                             </table>
                                                                         </td>
@@ -280,27 +309,27 @@
                                                                             <table style="margin: 0; text-align: left; width: 100%; border: none;">
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Changelog Check:</strong></td>
-                                                                                    <td style="padding: 4px;">False</td>
+                                                                                    <td id="changelogCheckStatus" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Beta-to-Release Updates:</strong></td>
-                                                                                    <td style="padding: 4px;">False</td>
+                                                                                    <td id="betaToReleaseUpdatesStatus" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Tailscale VPN Access:</strong></td>
-                                                                                    <td style="padding: 4px;">False</td>
+                                                                                    <td id="tailscaleVPNAccessStatus" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Auto-Backup Enabled:</strong></td>
-                                                                                    <td style="padding: 4px;">False</td>
+                                                                                    <td id="autobackupEnabledStatus" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Auto-Updates for Script:</strong></td>
-                                                                                    <td style="padding: 4px;">False</td>
+                                                                                    <td id="autoUpdatesScriptEnabledStatus" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Email-Notifications:</strong></td>
-                                                                                    <td style="padding: 4px;">False</td>
+                                                                                    <td id="emailNotificationsStatus" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
                                                                             </table>
                                                                         </td>
@@ -324,8 +353,8 @@
                                                     <tr>
                                                         <td>
                                                         <div style="text-align: center; margin-top: 10px;">
-                                                            <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
-                                                            <button type="button" onclick="Uninstall()">Uninstall Now</button>
+                                                                <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
+                                                                <button type="button" onclick="Uninstall()">Uninstall Now</button>
                                                         </div>
                                                             <form id="actionsForm">
                                                                 <table width="100%" border="0" cellpadding="5" cellspacing="5">
@@ -347,7 +376,7 @@
                                                                     </tr>
                                                                 </table>
                                                                 <div style="text-align: center; margin-top: 10px;">
-                                                                    <input type="submit" onclick="SaveActionsConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
+                                                                        <input type="submit" onclick="SaveActionsConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
                                                                 </div>
                                                             </form>
                                                         </td>
