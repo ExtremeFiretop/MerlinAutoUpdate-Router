@@ -25,37 +25,7 @@
     var GRNct = "<span style='color:green;'>";
     var NOct = "</span>";
     var REDct = "<span style='color:red;'>";
-    function LoadCustomSettings(){
-        custom_settings = <% get_custom_settings(); %>;
-        console.log("Custom Settings Loaded:", custom_settings);
-    }
-
-    // Helper function to set status with color
-    function setStatus(elementId, isEnabled) {
-        var element = document.getElementById(elementId);
-        if (element) {
-            if (isEnabled) {
-                element.innerHTML = GRNct + "Enabled" + NOct;
-            } else {
-                element.innerHTML = REDct + "Disabled" + NOct;
-            }
-        }
-    }
-
-    function SetCurrentPage() {
-        /* Set the proper return pages */
-        document.form.next_page.value = window.location.pathname.substring(1);
-        document.form.current_page.value = window.location.pathname.substring(1);
-    }
-
-    function parseBoolean(value) {
-        if (typeof value === 'boolean') return value;
-        if (typeof value === 'string') {
-            return value.toLowerCase() === 'true';
-        }
-        return false;
-    }
-
+    
     function initializeFields() {
         console.log("Initializing fields...");
         let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
@@ -89,7 +59,6 @@
             if (betaToReleaseUpdatesEnabled) betaToReleaseUpdatesEnabled.checked = parseBoolean(custom_settings.betaToReleaseUpdatesEnabled);
             if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.fwUpdateDirectory || '';
 
-
             // Update Firmware Status
             setStatus('fwUpdateEstimatedRunDate', custom_settings.fwUpdateEstimatedRunDate);
             setStatus('fwUpdateCheckStatus', parseBoolean(custom_settings.fwUpdateEnabled));
@@ -107,20 +76,190 @@
         }
     }
 
+    function get_conf_file() {
+        $.ajax({
+            url: '/ext/MerlinAU/custom_settings.htm',
+            dataType: 'text',
+            error: function(xhr) {
+                console.error("Failed to fetch custom_settings.htm:", xhr.statusText);
+                setTimeout(get_conf_file, 1000); // Retry after 1 second
+            },
+            success: function(data) {
+                // Initialize an empty object to store relevant settings
+                custom_settings = {};
+
+                // Tokenize the data while respecting quoted values
+                var tokens = tokenize(data);
+
+                // Iterate through tokens to extract key-value pairs
+                for (var i = 0; i < tokens.length; i++) {
+                    var token = tokens[i];
+
+                    if (token.includes('=')) {
+                        // Handle key=value format
+                        var splitIndex = token.indexOf('=');
+                        var key = token.substring(0, splitIndex).trim();
+                        var value = token.substring(splitIndex + 1).trim();
+
+                        // Remove surrounding quotes if present
+                        if (value.startsWith('"') && value.endsWith('"')) {
+                            value = value.substring(1, value.length - 1);
+                        }
+
+                        assignSetting(key, value);
+                    } else {
+                        // Handle key value format
+                        var key = token.trim();
+                        var value = '';
+
+                        // Ensure there's a next token for the value
+                        if (i + 1 < tokens.length) {
+                            value = tokens[i + 1].trim();
+
+                            // Remove surrounding quotes if present
+                            if (value.startsWith('"') && value.endsWith('"')) {
+                                value = value.substring(1, value.length - 1);
+                            }
+
+                            assignSetting(key, value);
+                            i++; // Skip the next token as it's already processed
+                        } else {
+                            console.warn(`No value found for key: ${key}`);
+                        }
+                    }
+                }
+
+                console.log("Custom Settings Loaded via AJAX:", custom_settings);
+
+                // Initialize fields with the loaded settings
+                initializeFields();
+            }
+        });
+    }
+
+    // Helper function to tokenize the input string, respecting quoted substrings
+    function tokenize(input) {
+        var regex = /(?:[^\s"]+|"[^"]*")+/g;
+        return input.match(regex) || [];
+    }
+
+    // Helper function to assign settings based on key
+    function assignSetting(key, value) {
+        // Normalize key to uppercase for case-insensitive comparison
+        var keyUpper = key.toUpperCase();
+
+        switch (true) {
+            case keyUpper.startsWith('NODE_') && keyUpper.endsWith('_MODEL_NAMEID'):
+                custom_settings.firmwareProductModelID = value;
+                break;
+
+            case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_VERS':
+                custom_settings.fwUpdateAvailable = value;
+                break;
+
+            case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
+                custom_settings.fwUpdateEstimatedRunDate = value;
+                break;
+
+            case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
+                custom_settings.emailNotificationsEnabled = parseBoolean(value);
+                break;
+
+            case keyUpper === 'CHECKCHANGELOG':
+                custom_settings.changelogCheckEnabled = parseBoolean(value);
+                break;
+
+            case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
+                custom_settings.betaToReleaseUpdatesEnabled = parseBoolean(value);
+                break;
+
+            case keyUpper === 'ALLOW_UPDATES_OVERVPN':
+                custom_settings.tailscaleVPNEnabled = parseBoolean(value);
+                break;
+
+            case keyUpper === 'FW_AUTO_BACKUPMON':
+                custom_settings.autobackupEnabled = parseBoolean(value);
+                break;
+
+            case keyUpper === 'ALLOW_SCRIPT_AUTO_UPDATE':
+                custom_settings.autoUpdatesScriptEnabled = parseBoolean(value);
+                break;
+
+            // Set Directory for F/W Updates
+            case keyUpper === 'FW_NEW_UPDATE_ZIP_DIRECTORY_PATH':
+                custom_settings.fwUpdateDirectory = value;
+                break;
+
+            // F/W Update Postponement Days
+            case keyUpper === 'FW_NEW_UPDATE_POSTPONEMENT_DAYS':
+                custom_settings.fwUpdatePostponement = value;
+                break;
+
+            // Router Login Password (Base64 Encoded)
+            case keyUpper === 'CREDENTIALS_BASE64':
+                try {
+                    var decoded = atob(value);
+                    var password = decoded.split(':')[1] || '';
+                    custom_settings.routerPassword = password;
+                } catch (e) {
+                    console.error("Error decoding credentials_base64:", e);
+                }
+                break;
+
+            // Additional settings can be handled here
+            // Example:
+            // case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
+            //     custom_settings.fwUpdateNotificationDate = value;
+            //     break;
+
+            default:
+                // Optionally handle or log unknown settings
+                break;
+        }
+    }
+
+    // Helper function to set status with color
+    function setStatus(elementId, isEnabled) {
+        var element = document.getElementById(elementId);
+        if (element) {
+            if (isEnabled) {
+                element.innerHTML = GRNct + "Enabled" + NOct;
+            } else {
+                element.innerHTML = REDct + "Disabled" + NOct;
+            }
+        }
+    }
+
+    function SetCurrentPage() {
+        /* Set the proper return pages */
+        document.form.next_page.value = window.location.pathname.substring(1);
+        document.form.current_page.value = window.location.pathname.substring(1);
+    }
+
+    function parseBoolean(value) {
+        if (typeof value === 'boolean') return value;
+        if (typeof value === 'string') {
+            return value.toLowerCase() === 'true' || value.toLowerCase() === 'enabled';
+        }
+        return false;
+    }
+
     function initial() {
         SetCurrentPage();
-        LoadCustomSettings();
+        get_conf_file();
         show_menu();
 
         // Debugging iframe behavior
-        document.getElementById('hidden_frame').onload = function () {
-            console.log("Hidden frame loaded with server response.");
-            hideLoading();
-            window.location.reload(); // Automatically reload the page to reflect changes
-        };
+        var hiddenFrame = document.getElementById('hidden_frame');
+        if (hiddenFrame) {
+            hiddenFrame.onload = function () {
+                console.log("Hidden frame loaded with server response.");
+                hideLoading();
+                window.location.reload(); // Automatically reload the page to reflect changes
+            };
 
-        initializeFields();
-        initializeCollapsibleSections();
+            initializeCollapsibleSections();
+        }
     }
 
     function SaveActionsConfig() {
@@ -253,7 +392,7 @@
             console.error("jQuery is not loaded. Collapsible sections will not work.");
         }
     }
-    </script>
+</script>
 </head>
 <body onload="initial();" class="bg">
     <div id="TopBanner"></div>
@@ -270,10 +409,9 @@
         <input type="hidden" name="first_time" value="" />
         <input type="hidden" name="SystemCmd" value="" />
         <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get('preferred_lang'); %>" />
-        <input type="hidden" name="firmver" value="<% nvram_get("firmver"); %>" />
-        <input type="hidden" name="firmver" value="<% nvram_get("buildno"); %>" />
-        <input type="hidden" name="firmver" value="<% nvram_get("extendno"); %>" />
-        <input type="hidden" name="firmver" id="firmver" value="" />
+        <!-- Consolidated firmver input -->
+        <input type="hidden" name="firmver" id="firmver" value="<% nvram_get('firmver'); %>.<% nvram_get('buildno'); %>.<% nvram_get('extendno'); %>" />
+        <input type="hidden" id="firmware_check_enable" value="<% nvram_get("firmware_check_enable"); %>" />
         <input type="hidden" id="nvram_odmpid" value="<% nvram_get("odmpid"); %>" />
         <input type="hidden" id="nvram_wps_modelnum" value="<% nvram_get("wps_modelnum"); %>" />
         <input type="hidden" id="nvram_model" value="<% nvram_get("model"); %>" />
