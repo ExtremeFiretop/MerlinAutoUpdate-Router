@@ -60,7 +60,6 @@
             if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.fwUpdateDirectory || '';
 
             // Update Firmware Status
-            setStatus('fwUpdateEstimatedRunDate', custom_settings.fwUpdateEstimatedRunDate);
             setStatus('fwUpdateCheckStatus', parseBoolean(custom_settings.fwUpdateEnabled));
 
             // Update Settings Status Table
@@ -70,6 +69,16 @@
             setStatus('autobackupEnabledStatus', parseBoolean(custom_settings.autobackupEnabled));
             setStatus('autoUpdatesScriptEnabledStatus', parseBoolean(custom_settings.autoUpdatesScriptEnabled));
             setStatus('emailNotificationsStatus', parseBoolean(custom_settings.emailNotificationsEnabled));
+
+            // **Handle fwUpdateEstimatedRunDate Separately**
+            var fwUpdateEstimatedRunDateElement = document.getElementById('fwUpdateEstimatedRunDate');
+            if (fwUpdateEstimatedRunDateElement) {
+                if (custom_settings.fwUpdateEstimatedRunDate) {
+                    fwUpdateEstimatedRunDateElement.innerHTML = GRNct + custom_settings.fwUpdateEstimatedRunDate + NOct;
+                } else {
+                    fwUpdateEstimatedRunDateElement.innerHTML = REDct + "Disabled" + NOct;
+                }
+            }
 
         } else {
             console.error("Custom settings not loaded.");
