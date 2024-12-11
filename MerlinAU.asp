@@ -72,7 +72,6 @@
 
             // **Handle fwUpdateEstimatedRunDate Separately**
             var fwUpdateEstimatedRunDateElement = document.getElementById('fwUpdateEstimatedRunDate');
-            var fwUpdateEstimatedRunDate = custom_settings.fwUpdateEstimatedRunDate || ''; // Ensure this variable exists
 
             // **Handle fwUpdateAvailable with Version Comparison**
             var fwUpdateAvailableElement = document.getElementById('fwUpdateAvailable');
