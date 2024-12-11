@@ -382,9 +382,34 @@
         return tmp.textContent || tmp.innerText || "";
     }
 
-    // Initialize the formatting after the DOM is fully loaded
+    // Function to format the Firmware Version Installed
+    function formatFirmwareVersion() {
+        var fwVersionElement = document.getElementById('fwVersionInstalled');
+        if (fwVersionElement) {
+            var version = fwVersionElement.textContent.trim();
+            // Split the version string by dots
+            var parts = version.split('.');
+            if (parts.length >= 4) {
+                // Combine the first four parts without dots
+                var firstPart = parts.slice(0, 4).join('');
+                // Combine the remaining parts with dots
+                var remainingParts = parts.slice(4).join('.');
+                // Construct the formatted version
+                var formattedVersion = firstPart + '.' + remainingParts;
+                // Update the table cell with the formatted version
+                fwVersionElement.textContent = formattedVersion;
+            } else {
+                console.warn("Unexpected firmware version format:", version);
+            }
+        } else {
+            console.error("Element with id 'fwVersionInstalled' not found.");
+        }
+    }
+
+    // Modify the existing DOMContentLoaded event listener to include the new function
     document.addEventListener("DOMContentLoaded", function() {
         formatRouterIDs();
+        formatFirmwareVersion(); // Call the new formatting function
     });
 
     function initializeCollapsibleSections() {
@@ -489,7 +514,7 @@
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Version Installed:</strong></td>
-                                                                                    <td style="padding: 4px;">
+                                                                                    <td style="padding: 4px;" id="fwVersionInstalled">
                                                                                         <% nvram_get("firmver"); %>.<% nvram_get("buildno"); %>.<% nvram_get("extendno"); %>
                                                                                     </td>
                                                                                 </tr>
