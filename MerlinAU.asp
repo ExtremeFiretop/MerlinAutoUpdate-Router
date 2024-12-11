@@ -686,7 +686,7 @@
                                                                         </colgroup>
                                                                         <tr>
                                                                             <td style="text-align: right; border: none;">
-                                                                                <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
+                                                                                <button type="button" onclick="checkFirmwareUpdate()">F/W Update Check Now</button>
                                                                             </td>
                                                                             <td style="text-align: center; border: none;">
                                                                                 <button type="button" onclick="changelogApproval()">Approve Changelog</button>
