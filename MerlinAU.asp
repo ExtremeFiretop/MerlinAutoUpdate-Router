@@ -69,7 +69,6 @@
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
 
             if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
-            if (fwNotificationsDate) fwNotificationsDate.checked = parseBoolean(custom_settings.fwNotificationsDate);
             if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.emailNotificationsEnabled);
             if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.autobackupEnabled);
             if (tailscaleVPNEnabled) tailscaleVPNEnabled.checked = parseBoolean(custom_settings.tailscaleVPNEnabled);
@@ -79,12 +78,18 @@
 
             // Update Settings Status Table
             setStatus('changelogCheckStatus', parseBoolean(custom_settings.changelogCheckEnabled));
-            setStatus('fwNotificationsDate', parseBoolean(custom_settings.fwNotificationsDate));
             setStatus('betaToReleaseUpdatesStatus', parseBoolean(custom_settings.betaToReleaseUpdatesEnabled));
             setStatus('tailscaleVPNAccessStatus', parseBoolean(custom_settings.tailscaleVPNEnabled));
             setStatus('autobackupEnabledStatus', parseBoolean(custom_settings.autobackupEnabled));
             setStatus('autoUpdatesScriptEnabledStatus', parseBoolean(custom_settings.autoUpdatesScriptEnabled));
             setStatus('emailNotificationsStatus', parseBoolean(custom_settings.emailNotificationsEnabled));
+
+            // Handle fwNotificationsDate as a date
+            if (fwNotificationsDate && custom_settings.fwUpdateNotificationsDate) {
+                fwNotificationsDate.innerHTML = GRNct + custom_settings.fwUpdateNotificationsDate + NOct;
+            } else if (fwNotificationsDate) {
+                fwNotificationsDate.innerHTML = REDct + "TBD" + NOct;
+            }
 
             // **Handle fwUpdateEstimatedRunDate Separately**
             var fwUpdateEstimatedRunDateElement = document.getElementById('fwUpdateEstimatedRunDate');
@@ -120,7 +125,7 @@
                 if (isFwUpdateAvailable && fwUpdateEstimatedRunDate) {
                     fwUpdateEstimatedRunDateElement.innerHTML = GRNct + fwUpdateEstimatedRunDate + NOct;
                 } else {
-                    fwUpdateEstimatedRunDateElement.innerHTML = REDct + "Disabled" + NOct;
+                    fwUpdateEstimatedRunDateElement.innerHTML = REDct + "TBD" + NOct;
                 }
             }
 
@@ -214,10 +219,6 @@
                 custom_settings.emailNotificationsEnabled = parseBoolean(value);
                 break;
 
-            case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
-                custom_settings.fwNotificationsDate = parseBoolean(value);
-                break;
-
             case keyUpper === 'CHECKCHANGELOG':
                 custom_settings.changelogCheckEnabled = parseBoolean(value);
                 break;
@@ -268,7 +269,7 @@
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
-                custom_settings.fwUpdateNotificationDate = value;
+                custom_settings.fwUpdateNotificationsDate = value;
                 break;
 
             // Additional settings can be handled here
