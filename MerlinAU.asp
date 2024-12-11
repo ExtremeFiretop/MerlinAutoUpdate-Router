@@ -253,6 +253,11 @@
                 break;
 
             // Additional settings can be handled here
+            case keyUpper === 'ROGBuild':
+                 custom_settings.rogFWBuildType = value;
+                 break;
+
+            // Additional settings can be handled here
             // Example:
             // case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
             //     custom_settings.fwUpdateNotificationDate = value;
@@ -558,7 +563,7 @@
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>USB Storage Connected:</strong></td>
-                                                                                    <td style="padding: 4px;">N/A</td>
+                                                                                    <td style="padding: 4px;">NO CODE YET</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Version Installed:</strong></td>
