@@ -392,7 +392,7 @@
             console.error("jQuery is not loaded. Collapsible sections will not work.");
         }
     }
-</script>
+    </script>
 </head>
 <body onload="initial();" class="bg">
     <div id="TopBanner"></div>
