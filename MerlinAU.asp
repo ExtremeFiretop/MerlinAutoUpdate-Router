@@ -631,7 +631,7 @@
                                                                             <table style="margin: 0; text-align: left; width: 100%; border: none;">
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Changelog Approval:</strong></td>
-                                                                                    <td id="changelogApproval" style="padding: 4px;">Disabled</td>
+                                                                                    <td id="changelogApproval" style="padding: 4px;">NO CODE YET</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Changelog Check:</strong></td>
