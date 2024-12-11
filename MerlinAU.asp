@@ -74,7 +74,6 @@
             if (autoUpdatesScriptEnabled) autoUpdatesScriptEnabled.checked = parseBoolean(custom_settings.autoUpdatesScriptEnabled);
             if (betaToReleaseUpdatesEnabled) betaToReleaseUpdatesEnabled.checked = parseBoolean(custom_settings.betaToReleaseUpdatesEnabled);
             if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.fwUpdateDirectory || '';
-            if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
 
             // Update Settings Status Table
             setStatus('changelogCheckStatus', parseBoolean(custom_settings.changelogCheckEnabled));
