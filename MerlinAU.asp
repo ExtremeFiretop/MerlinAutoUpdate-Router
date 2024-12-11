@@ -73,8 +73,8 @@
             // **Handle fwUpdateEstimatedRunDate Separately**
             var fwUpdateEstimatedRunDateElement = document.getElementById('fwUpdateEstimatedRunDate');
             if (fwUpdateEstimatedRunDateElement) {
-                if (custom_settings.fwUpdateEstimatedRunDate) {
-                    fwUpdateEstimatedRunDateElement.innerHTML = GRNct + custom_settings.fwUpdateEstimatedRunDate + NOct;
+                if (fwUpdateEstimatedRunDate) {
+                    fwUpdateEstimatedRunDateElement.innerHTML = GRNct + fwUpdateEstimatedRunDate + NOct;
                 } else {
                     fwUpdateEstimatedRunDateElement.innerHTML = REDct + "Disabled" + NOct;
                 }
@@ -173,7 +173,7 @@
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
-                custom_settings.fwUpdateEstimatedRunDate = value;
+                fwUpdateEstimatedRunDate = value;
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
