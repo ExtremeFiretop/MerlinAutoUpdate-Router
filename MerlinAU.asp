@@ -80,6 +80,16 @@
                 }
             }
 
+            // Update the HTML table cells
+            var fwUpdateAvailableElement = document.getElementById('fwUpdateAvailable');
+            if (fwUpdateAvailableElement) {
+                if (custom_settings.fwUpdateAvailable) {
+                    fwUpdateAvailableElement.innerHTML = GRNct + custom_settings.fwUpdateAvailable + NOct;
+                } else {
+                    fwUpdateAvailableElement.innerHTML = REDct + "NONE FOUND" + NOct;
+                }
+            }
+
         } else {
             console.error("Custom settings not loaded.");
         }
@@ -158,10 +168,6 @@
         var keyUpper = key.toUpperCase();
 
         switch (true) {
-            case keyUpper.startsWith('NODE_') && keyUpper.endsWith('_MODEL_NAMEID'):
-                custom_settings.firmwareProductModelID = value;
-                break;
-
             case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_VERS':
                 custom_settings.fwUpdateAvailable = value;
                 break;
