@@ -28,7 +28,6 @@
     
     function initializeFields() {
         console.log("Initializing fields...");
-        let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
         let changelogCheckEnabled = document.getElementById('changelogCheckEnabled');
         let routerPassword = document.getElementById('routerPassword');
         let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
@@ -42,6 +41,24 @@
         let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
         let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
 
+        // Read the firmware_check_enable value from the hidden input
+        let firmwareCheckEnableValue = document.getElementById('firmware_check_enable').value.trim();
+        let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
+        let fwUpdateCheckStatus = document.getElementById('fwUpdateCheckStatus');
+    
+        // Determine if firmware update check is enabled based on the hidden input value
+        let isFwUpdateEnabled = (firmwareCheckEnableValue === '1');
+    
+        // Set the checkbox state
+        if (fwUpdateEnabled) {
+            fwUpdateEnabled.checked = isFwUpdateEnabled;
+        }
+    
+        // Update the Firmware Status display
+        if (fwUpdateCheckStatus) {
+            setStatus('fwUpdateCheckStatus', isFwUpdateEnabled);
+        }
+
         // Safe value assignments
         if (custom_settings) {
             if (routerPassword) routerPassword.value = custom_settings.routerPassword || '';
@@ -50,7 +67,6 @@
             if (emailFormat) emailFormat.value = custom_settings.emailFormatType || 'HTML';
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
 
-            if (fwUpdateEnabled) fwUpdateEnabled.checked = parseBoolean(custom_settings.fwUpdateEnabled);
             if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
             if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.emailNotificationsEnabled);
             if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.autobackupEnabled);
@@ -58,9 +74,7 @@
             if (autoUpdatesScriptEnabled) autoUpdatesScriptEnabled.checked = parseBoolean(custom_settings.autoUpdatesScriptEnabled);
             if (betaToReleaseUpdatesEnabled) betaToReleaseUpdatesEnabled.checked = parseBoolean(custom_settings.betaToReleaseUpdatesEnabled);
             if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.fwUpdateDirectory || '';
-
-            // Update Firmware Status
-            setStatus('fwUpdateCheckStatus', parseBoolean(custom_settings.fwUpdateEnabled));
+            if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
 
             // Update Settings Status Table
             setStatus('changelogCheckStatus', parseBoolean(custom_settings.changelogCheckEnabled));
