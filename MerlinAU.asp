@@ -29,7 +29,7 @@
     function initializeFields() {
         console.log("Initializing fields...");
         let changelogCheckEnabled = document.getElementById('changelogCheckEnabled');
-        let changelogApproval = document.getElementById('changelogApproval');
+        let fwNotificationsDate = document.getElementById('fwNotificationsDate');
         let routerPassword = document.getElementById('routerPassword');
         let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
         let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
@@ -69,6 +69,7 @@
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
 
             if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
+            if (fwNotificationsDate) fwNotificationsDate.checked = parseBoolean(custom_settings.fwNotificationsDate);
             if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.emailNotificationsEnabled);
             if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.autobackupEnabled);
             if (tailscaleVPNEnabled) tailscaleVPNEnabled.checked = parseBoolean(custom_settings.tailscaleVPNEnabled);
@@ -78,7 +79,7 @@
 
             // Update Settings Status Table
             setStatus('changelogCheckStatus', parseBoolean(custom_settings.changelogCheckEnabled));
-            setStatus('changelogApproval', parseBoolean(custom_settings.changelogApproval));
+            setStatus('fwNotificationsDate', parseBoolean(custom_settings.fwNotificationsDate));
             setStatus('betaToReleaseUpdatesStatus', parseBoolean(custom_settings.betaToReleaseUpdatesEnabled));
             setStatus('tailscaleVPNAccessStatus', parseBoolean(custom_settings.tailscaleVPNEnabled));
             setStatus('autobackupEnabledStatus', parseBoolean(custom_settings.autobackupEnabled));
@@ -213,6 +214,10 @@
                 custom_settings.emailNotificationsEnabled = parseBoolean(value);
                 break;
 
+            case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
+                custom_settings.fwNotificationsDate = parseBoolean(value);
+                break;
+
             case keyUpper === 'CHECKCHANGELOG':
                 custom_settings.changelogCheckEnabled = parseBoolean(value);
                 break;
@@ -258,16 +263,15 @@
                 }
                 break;
 
-            // Additional settings can be handled here
             case keyUpper === 'ROGBuild':
-                 custom_settings.rogFWBuildType = value;
-                 break;
+                custom_settings.rogFWBuildType = parseBoolean(value);
+                break;
+
+            case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
+                custom_settings.fwUpdateNotificationDate = value;
+                break;
 
             // Additional settings can be handled here
-            // Example:
-            // case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
-            //     custom_settings.fwUpdateNotificationDate = value;
-            //     break;
 
             default:
                 // Optionally handle or log unknown settings
@@ -595,6 +599,10 @@
                                                                                     <td id="fwUpdateEstimatedRunDate" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
                                                                                 <tr>
+                                                                                    <td style="padding: 4px;"><strong>Last Notificiation Date:</strong></td>
+                                                                                    <td id="fwNotificationsDate" style="padding: 4px;">Disabled</td>
+                                                                                </tr>
+                                                                                <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Update Check:</strong></td>
                                                                                     <td id="fwUpdateCheckStatus" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
@@ -620,6 +628,10 @@
                                                                         <!-- Second internal table in the second column -->
                                                                         <td style="vertical-align: top; width: 50%;">
                                                                             <table style="margin: 0; text-align: left; width: 100%; border: none;">
+                                                                                <tr>
+                                                                                    <td style="padding: 4px;"><strong>Changelog Approval:</strong></td>
+                                                                                    <td id="changelogApproval" style="padding: 4px;">Disabled</td>
+                                                                                </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Changelog Check:</strong></td>
                                                                                     <td id="changelogCheckStatus" style="padding: 4px;">Disabled</td>
