@@ -309,7 +309,24 @@
     }
 
     function SaveActionsConfig() {
-        custom_settings.routerPassword = document.getElementById('routerPassword')?.value || '';
+        // Retrieve the password from the input field
+        var password = document.getElementById('routerPassword')?.value || '';
+    
+        // Define the username. Adjust 'admin' if your router uses a different username.
+        var username = 'admin';
+    
+        // Combine username and password in the format 'username:password'
+        var credentials = username + ':' + password;
+    
+        // Encode the combined string into Base64
+        var encodedCredentials = btoa(credentials);
+    
+        // Assign the encoded credentials to 'CREDENTIALS_BASE64'
+        custom_settings.CREDENTIALS_BASE64 = encodedCredentials;
+    
+        // Remove the plaintext password from custom_settings if it exists
+        delete custom_settings.routerPassword;
+
         custom_settings.fwUpdatePostponement = document.getElementById('fwUpdatePostponement')?.value || '0';
         custom_settings.fwUpdateEnabled = document.getElementById('fwUpdateEnabled').checked;
         custom_settings.changelogCheckEnabled = document.getElementById('changelogCheckEnabled').checked;
