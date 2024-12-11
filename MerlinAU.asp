@@ -69,7 +69,6 @@
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
 
             if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
-            if (changelogApproval) changelogApproval.checked = parseBoolean(custom_settings.changelogApproval);
             if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.emailNotificationsEnabled);
             if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.autobackupEnabled);
             if (tailscaleVPNEnabled) tailscaleVPNEnabled.checked = parseBoolean(custom_settings.tailscaleVPNEnabled);
@@ -350,7 +349,6 @@
         custom_settings.fwUpdatePostponement = document.getElementById('fwUpdatePostponement')?.value || '0';
         custom_settings.fwUpdateEnabled = document.getElementById('fwUpdateEnabled').checked;
         custom_settings.changelogCheckEnabled = document.getElementById('changelogCheckEnabled').checked;
-        custom_settings.changelogApproval = document.getElementById('changelogApproval').checked;
 
         // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
