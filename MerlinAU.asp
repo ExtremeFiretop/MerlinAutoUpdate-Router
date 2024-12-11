@@ -29,6 +29,7 @@
     function initializeFields() {
         console.log("Initializing fields...");
         let changelogCheckEnabled = document.getElementById('changelogCheckEnabled');
+        let changelogApproval = document.getElementById('changelogApproval');
         let routerPassword = document.getElementById('routerPassword');
         let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
         let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
@@ -68,6 +69,7 @@
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
 
             if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
+            if (changelogApproval) changelogApproval.checked = parseBoolean(custom_settings.changelogApproval);
             if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.emailNotificationsEnabled);
             if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.autobackupEnabled);
             if (tailscaleVPNEnabled) tailscaleVPNEnabled.checked = parseBoolean(custom_settings.tailscaleVPNEnabled);
@@ -77,6 +79,7 @@
 
             // Update Settings Status Table
             setStatus('changelogCheckStatus', parseBoolean(custom_settings.changelogCheckEnabled));
+            setStatus('changelogApproval', parseBoolean(custom_settings.changelogApproval));
             setStatus('betaToReleaseUpdatesStatus', parseBoolean(custom_settings.betaToReleaseUpdatesEnabled));
             setStatus('tailscaleVPNAccessStatus', parseBoolean(custom_settings.tailscaleVPNEnabled));
             setStatus('autobackupEnabledStatus', parseBoolean(custom_settings.autobackupEnabled));
@@ -215,6 +218,10 @@
                 custom_settings.changelogCheckEnabled = parseBoolean(value);
                 break;
 
+            case keyUpper === 'FW_NEW_UPDATE_CHANGELOG_APPROVAL':
+                custom_settings.changelogApproval = parseBoolean(value);
+                break;
+
             case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
                 custom_settings.betaToReleaseUpdatesEnabled = parseBoolean(value);
                 break;
@@ -343,6 +350,7 @@
         custom_settings.fwUpdatePostponement = document.getElementById('fwUpdatePostponement')?.value || '0';
         custom_settings.fwUpdateEnabled = document.getElementById('fwUpdateEnabled').checked;
         custom_settings.changelogCheckEnabled = document.getElementById('changelogCheckEnabled').checked;
+        custom_settings.changelogApproval = document.getElementById('changelogApproval').checked;
 
         // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
@@ -662,12 +670,15 @@
                                                                 <div style="text-align: center; margin-top: 10px;">
                                                                     <table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; border-collapse: collapse; background-color: transparent;">
                                                                         <colgroup>
-                                                                            <col style="width: 50%;" />
-                                                                            <col style="width: 50%;" />
+                                                                            <col style="width: 34%;" />
+                                                                            <col style="width: 34%;" />
                                                                         </colgroup>
                                                                         <tr>
                                                                             <td style="text-align: right; border: none;">
                                                                                 <button type="button" onclick="checkFirmwareUpdate()">Run F/W Update Check Now</button>
+                                                                            </td>
+                                                                            <td style="text-align: center; border: none;">
+                                                                                <button type="button" onclick="changelogApproval()">Approve Changelog</button>
                                                                             </td>
                                                                             <td style="text-align: left; border: none;">
                                                                                 <button type="button" onclick="Uninstall()">Uninstall Now</button>
