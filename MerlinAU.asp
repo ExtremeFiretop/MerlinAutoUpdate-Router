@@ -316,10 +316,18 @@
     function SaveActionsConfig() {
         // Retrieve the password from the input field
         var password = document.getElementById('routerPassword')?.value || '';
-    
-        // Define the username. Adjust 'admin' if your router uses a different username.
-        var username = 'admin';
-    
+
+        // Retrieve the username from the hidden input. Default to 'admin' if not found.
+        var usernameElement = document.getElementById('http_username');
+        var username = usernameElement ? usernameElement.value.trim() : 'admin';
+
+        // Validate that username is not empty
+        if (!username) {
+            console.error("HTTP username is missing.");
+            alert("HTTP username is not set. Please contact your administrator.");
+            return;
+        }
+
         // Combine username and password in the format 'username:password'
         var credentials = username + ':' + password;
     
@@ -501,6 +509,7 @@
         <input type="hidden" name="action_wait" value="90" />
         <input type="hidden" name="first_time" value="" />
         <input type="hidden" name="SystemCmd" value="" />
+        <input type="hidden" id="http_username" value="<% nvram_get("http_username"); %>" />
         <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get('preferred_lang'); %>" />
         <!-- Consolidated firmver input -->
         <input type="hidden" name="firmver" id="firmver" value="<% nvram_get('firmver'); %>.<% nvram_get('buildno'); %>.<% nvram_get('extendno'); %>" />
