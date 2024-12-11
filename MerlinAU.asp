@@ -72,21 +72,40 @@
 
             // **Handle fwUpdateEstimatedRunDate Separately**
             var fwUpdateEstimatedRunDateElement = document.getElementById('fwUpdateEstimatedRunDate');
+            var fwUpdateEstimatedRunDate = custom_settings.fwUpdateEstimatedRunDate || ''; // Ensure this variable exists
+
+            // **Handle fwUpdateAvailable with Version Comparison**
+            var fwUpdateAvailableElement = document.getElementById('fwUpdateAvailable');
+            var fwVersionInstalledElement = document.getElementById('fwVersionInstalled');
+
+            var isFwUpdateAvailable = false; // Initialize the flag
+
+            if (fwUpdateAvailableElement && fwVersionInstalledElement) {
+                var fwUpdateAvailable = custom_settings.fwUpdateAvailable ? custom_settings.fwUpdateAvailable.trim() : '';
+                var fwVersionInstalled = fwVersionInstalledElement.textContent.trim();
+
+                // Optional: Normalize version strings for accurate comparison
+                var fwUpdateAvailableNormalized = fwUpdateAvailable.toLowerCase();
+                var fwVersionInstalledNormalized = fwVersionInstalled.toLowerCase();
+
+                // Compare versions and update the DOM accordingly
+                if (fwUpdateAvailable && fwUpdateAvailableNormalized !== fwVersionInstalledNormalized) {
+                    fwUpdateAvailableElement.innerHTML = GRNct + fwUpdateAvailable + NOct;
+                    isFwUpdateAvailable = true; // Update is available
+                } else {
+                    fwUpdateAvailableElement.innerHTML = REDct + "NONE FOUND" + NOct;
+                    isFwUpdateAvailable = false; // No update available
+                }
+            } else {
+                console.error("Required elements for firmware version comparison not found.");
+            }
+
+            // **Update fwUpdateEstimatedRunDate Based on fwUpdateAvailable**
             if (fwUpdateEstimatedRunDateElement) {
-                if (fwUpdateEstimatedRunDate) {
+                if (isFwUpdateAvailable && fwUpdateEstimatedRunDate) {
                     fwUpdateEstimatedRunDateElement.innerHTML = GRNct + fwUpdateEstimatedRunDate + NOct;
                 } else {
                     fwUpdateEstimatedRunDateElement.innerHTML = REDct + "Disabled" + NOct;
-                }
-            }
-
-            // Update the HTML table cells
-            var fwUpdateAvailableElement = document.getElementById('fwUpdateAvailable');
-            if (fwUpdateAvailableElement) {
-                if (custom_settings.fwUpdateAvailable) {
-                    fwUpdateAvailableElement.innerHTML = GRNct + custom_settings.fwUpdateAvailable + NOct;
-                } else {
-                    fwUpdateAvailableElement.innerHTML = REDct + "NONE FOUND" + NOct;
                 }
             }
 
@@ -510,7 +529,7 @@
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>USB Storage Connected:</strong></td>
-                                                                                    <td style="padding: 4px;">True</td>
+                                                                                    <td style="padding: 4px;">N/A</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Version Installed:</strong></td>
