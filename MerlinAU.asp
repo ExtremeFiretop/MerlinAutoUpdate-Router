@@ -28,13 +28,6 @@
     function LoadCustomSettings(){
         custom_settings = <% get_custom_settings(); %>;
         console.log("Custom Settings Loaded:", custom_settings);
-        for(var prop in custom_settings) {
-            if(Object.prototype.hasOwnProperty.call(custom_settings, prop)) {
-                if(prop.indexOf('MerlinAU') != -1 && prop.indexOf('MerlinAU_version') == -1){
-                    delete custom_settings[prop];
-                }
-            }
-        }
     }
 
     // Helper function to set status with color
