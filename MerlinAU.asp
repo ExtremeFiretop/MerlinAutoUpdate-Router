@@ -368,6 +368,8 @@
         }, 10000);
 
         // Apply the settings
+		document.form.action_script.value = 'MerlinAUconfig';
+		document.form.action_wait.value = 10;
         showLoading();
         document.form.submit();
         console.log("Form submitted.");
@@ -394,6 +396,8 @@
         }, 10000);
 
         // Apply the settings
+		document.form.action_script.value = 'MerlinAUconfig';
+		document.form.action_wait.value = 10;
         showLoading();
         document.form.submit();
         console.log("Form submitted.");
