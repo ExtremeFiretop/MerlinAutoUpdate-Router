@@ -109,7 +109,10 @@
                 var fwVersionInstalledNormalized = fwVersionInstalled.toLowerCase();
 
                 // Compare versions and update the DOM accordingly
-                if (fwUpdateAvailable && fwUpdateAvailableNormalized !== fwVersionInstalledNormalized) {
+                if (fwUpdateAvailableNormalized === 'tbd') {
+                    fwUpdateAvailableElement.innerHTML = REDct + "NONE FOUND" + NOct;
+                    isFwUpdateAvailable = false; // No update available
+                } else if (fwUpdateAvailable && fwUpdateAvailableNormalized !== fwVersionInstalledNormalized) {
                     fwUpdateAvailableElement.innerHTML = GRNct + fwUpdateAvailable + NOct;
                     isFwUpdateAvailable = true; // Update is available
                 } else {
