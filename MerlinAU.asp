@@ -22,10 +22,39 @@
     <script type="text/javascript">
     var custom_settings;
     // Define color formatting
-    var GRNct = "<span style='color:green;'>";
+    var GRNct = "<span style='color:cyan;'>";
     var NOct = "</span>";
     var REDct = "<span style='color:red;'>";
-    
+
+    // Add this function to handle the visibility of the ROG F/W Build Type row
+    function handleROGFWBuildTypeVisibility() {
+        // Get the router model from the hidden input
+        var firmwareProductModelElement = document.getElementById('firmwareProductModelID');
+        var routerModel = firmwareProductModelElement ? firmwareProductModelElement.textContent.trim() : '';
+
+        // Check if the model includes 'GT-'
+        var isROGModel = routerModel.includes('GT-');
+
+        // Check if 'rogFWBuildType' is present in custom_settings
+        var hasROGFWBuildType = custom_settings.hasOwnProperty('rogFWBuildType');
+
+        // Get the table row element
+        var rogFWBuildRow = document.getElementById('rogFWBuildRow');
+
+        // Determine whether to hide or show the row
+        if (!isROGModel || !hasROGFWBuildType) {
+            // Hide the row
+            if (rogFWBuildRow) {
+                rogFWBuildRow.style.display = 'none';
+            }
+        } else {
+            // Show the row (optional, in case it was previously hidden)
+            if (rogFWBuildRow) {
+                rogFWBuildRow.style.display = '';
+            }
+        }
+    }
+
     function initializeFields() {
         console.log("Initializing fields...");
         let changelogCheckEnabled = document.getElementById('changelogCheckEnabled');
@@ -131,6 +160,9 @@
                     fwUpdateEstimatedRunDateElement.innerHTML = REDct + "TBD" + NOct;
                 }
             }
+
+            // Call the visibility handler
+            handleROGFWBuildTypeVisibility();
 
         } else {
             console.error("Custom settings not loaded.");
@@ -267,8 +299,8 @@
                 }
                 break;
 
-            case keyUpper === 'ROGBuild':
-                custom_settings.rogFWBuildType = parseBoolean(value);
+            case keyUpper === 'ROGBUILD':
+                custom_settings.rogFWBuildType = parseBoolean(value) ? 'ROG' : 'Pure';
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
@@ -530,6 +562,7 @@
         <input type="hidden" id="http_username" value="<% nvram_get("http_username"); %>" />
         <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get('preferred_lang'); %>" />
         <!-- Consolidated firmver input -->
+        <input type="hidden" name="firmwarev" id="firmwarev" value="<% nvram_get('firmver'); %>" />
         <input type="hidden" name="firmver" id="firmver" value="<% nvram_get('firmver'); %>.<% nvram_get('buildno'); %>.<% nvram_get('extendno'); %>" />
         <input type="hidden" id="firmware_check_enable" value="<% nvram_get("firmware_check_enable"); %>" />
         <input type="hidden" id="nvram_odmpid" value="<% nvram_get("odmpid"); %>" />
@@ -774,7 +807,7 @@
                                                                             <td style="text-align: left;"><label for="autoUpdatesScriptEnabled">Auto-Updates for Script</label></td>
                                                                             <td><input type="checkbox" id="autoUpdatesScriptEnabled" name="autoUpdatesScriptEnabled" /></td>
                                                                         </tr>
-                                                                        <tr>
+                                                                        <tr id="rogFWBuildRow">
                                                                             <td style="text-align: left;"><label for="rogFWBuildType">ROG F/W Build Type</label></td>
                                                                             <td>
                                                                                 <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;">
