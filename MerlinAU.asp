@@ -217,7 +217,7 @@
 
     function get_conf_file() {
         $.ajax({
-            url: '/ext/MerlinAU/custom_settings.htm',
+            url: '/ext/MerlinAU.d/custom_settings.htm',
             dataType: 'text',
             error: function(xhr) {
                 console.error("Failed to fetch custom_settings.htm:", xhr.statusText);
@@ -450,7 +450,7 @@
         }, 10000);
 
         // Apply the settings
-        document.form.action_script.value = 'MerlinAUconfig';
+        document.form.action_script.value = 'MerlinAU_config';
         document.form.action_wait.value = 10;
         showLoading();
         document.form.submit();
@@ -479,7 +479,7 @@
         }, 10000);
 
         // Apply the settings
-        document.form.action_script.value = 'MerlinAUconfig';
+        document.form.action_script.value = 'MerlinAU_config';
         document.form.action_wait.value = 10;
         showLoading();
         document.form.submit();
@@ -602,7 +602,7 @@
     <iframe name="hidden_frame" id="hidden_frame" src="" width="0" height="0" frameborder="0"></iframe>
 
     <form method="post" name="form" action="start_apply.htm" target="hidden_frame">
-        <input type="hidden" name="action_script" value="start_merlinau" />
+        <input type="hidden" name="action_script" value="MerlinAU_start" />
         <input type="hidden" name="current_page" value="" />
         <input type="hidden" name="next_page" value="" />
         <input type="hidden" name="modified" value="0" />
