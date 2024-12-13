@@ -1578,7 +1578,7 @@ _Conf_FromSettings_(){
 			grep "MerlinAU_" "$SHAREDSETTINGSFILE" | grep -v "version" > "$TMPFILE"
 			sed -i "s/MerlinAU_//g;s/ /=/g" "$TMPFILE"
 			while IFS='' read -r line || [ -n "$line" ]; do
-				SETTINGNAME="$(echo "$line" | cut -f1 -d'=' | awk '{ print toupper($1) }')"
+				SETTINGNAME="$(echo "$line" | cut -f1 -d'=')"
 				SETTINGVALUE="$(echo "$line" | cut -f2- -d'=' | sed "s/=/ /g")"
 				Update_Custom_Settings "$SETTINGNAME" "$SETTINGVALUE"
 			done < "$TMPFILE"
