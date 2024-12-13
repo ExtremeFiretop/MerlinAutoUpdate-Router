@@ -175,6 +175,22 @@
                 }
             }
 
+            // **Handle Changelog Approval Display**
+            var changelogApprovalElement = document.getElementById('changelogApproval');
+            if (changelogApprovalElement) {
+                var approvalStatus = custom_settings.hasOwnProperty('changelogApproval') ? custom_settings.changelogApproval : "DISABLED"; // Default to "DISABLED" if missing
+                if (approvalStatus === "TBD") {
+                    changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
+                } else if (approvalStatus === "BLOCKED") {
+                    changelogApprovalElement.innerHTML = GRNct + approvalStatus + NOct;
+                } else if (approvalStatus === "APPROVED") {
+                    changelogApprovalElement.innerHTML = GRNct + approvalStatus + NOct;
+                } else {
+                    // Handle unexpected values gracefully
+                    changelogApprovalElement.innerHTML = GRNct + approvalStatus + NOct;
+                }
+            }
+
             // Call the visibility handler
             handleROGFWBuildTypeVisibility();
 
@@ -261,7 +277,7 @@
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
-                fwUpdateEstimatedRunDate = value;
+                fwUpdateEstimatedRunDate = value;  // We don't want to save it the custom_settings; only as-is for displaying it.
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
@@ -273,7 +289,7 @@
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_CHANGELOG_APPROVAL':
-                custom_settings.changelogApproval = parseBoolean(value);
+                 custom_settings.changelogApproval = value; // Store as-is for display
                 break;
 
             case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
@@ -318,7 +334,7 @@
                 break;
 
             case keyUpper === 'TUFBUILD':
-                custom_settings.rogFWBuildType = parseBoolean(value) ? 'TUF' : 'Pure';
+                custom_settings.tufFWBuildType = parseBoolean(value) ? 'TUF' : 'Pure';
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
