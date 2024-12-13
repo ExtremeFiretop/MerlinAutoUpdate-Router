@@ -182,12 +182,12 @@
                 if (approvalStatus === "TBD") {
                     changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
                 } else if (approvalStatus === "BLOCKED") {
-                    changelogApprovalElement.innerHTML = GRNct + approvalStatus + NOct;
+                    changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
                 } else if (approvalStatus === "APPROVED") {
                     changelogApprovalElement.innerHTML = GRNct + approvalStatus + NOct;
                 } else {
                     // Handle unexpected values gracefully
-                    changelogApprovalElement.innerHTML = GRNct + approvalStatus + NOct;
+                    changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
                 }
             }
 
