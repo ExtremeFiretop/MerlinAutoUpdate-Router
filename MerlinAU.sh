@@ -76,6 +76,9 @@ readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+readonly SHAREDSETTINGSFILE="/jffs/addons/custom_settings.txt"
+readonly TMPFILE="/tmp/MerlinAU_settings.txt"
+readonly WEBDIR="/www/user/$ScriptDirNameD"
 
 # Give FIRST priority to built-in binaries over any other #
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
@@ -1461,6 +1464,10 @@ then
     /usr/bin/find -L "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
 
+if [ ! -d "$WEBDIR" ]; then
+	mkdir -p "$WEBDIR"
+fi
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jan-27] ##
 ##----------------------------------------##
@@ -1491,6 +1498,105 @@ then
    rm -fr "${FW_LOG_DIR:?}"
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Auto_ServiceEvent_(){
+	case $1 in
+		create)
+			if [ -f /jffs/scripts/service-event ]; then
+				STARTUPLINECOUNT=$(grep -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)
+				STARTUPLINECOUNTEX=$(grep -cx 'if echo "$2" | /bin/grep -q "'"${SCRIPT_NAME}".sh'"; then { /jffs/scripts/'"$SCRIPT_NAME"' service_event "$@" & }; fi # '"$SCRIPT_NAME" /jffs/scripts/service-event)
+				
+				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }; then
+					sed -i -e '/# '"$SCRIPT_NAME"'/d' /jffs/scripts/service-event
+				fi
+				
+				if [ "$STARTUPLINECOUNTEX" -eq 0 ]; then
+					echo 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME"'"; then { /jffs/scripts/'"${SCRIPT_NAME}".sh' service_event "$@" & }; fi # '"$SCRIPT_NAME" >> /jffs/scripts/service-event
+				fi
+			else
+				echo "#!/bin/sh" > /jffs/scripts/service-event
+				echo "" >> /jffs/scripts/service-event
+				echo 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME"'"; then { /jffs/scripts/'"${SCRIPT_NAME}".sh' service_event "$@" & }; fi # '"$SCRIPT_NAME" >> /jffs/scripts/service-event
+				chmod 0755 /jffs/scripts/service-event
+			fi
+		;;
+		delete)
+			if [ -f /jffs/scripts/service-event ]; then
+				STARTUPLINECOUNT=$(grep -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)
+				
+				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
+					sed -i -e '/# '"${SCRIPT_NAME}".sh'/d' /jffs/scripts/service-event
+				fi
+			fi
+		;;
+	esac
+}
+
+_Auto_ServiceEvent_ create 2>/dev/null
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Set_Version_SharedSettings_(){
+	if [ -f "$SHAREDSETTINGSFILE" ]; then
+		if [ "$(grep -c "MerlinAU_version" $SHAREDSETTINGSFILE)" -gt 0 ]; then
+			if [ "$1" != "$(grep "MerlinAU_version" /jffs/addons/custom_settings.txt | cut -f2 -d' ')" ]; then
+				sed -i "s/MerlinAU_version.*/MerlinAU_version $1/" "$SHAREDSETTINGSFILE"
+			fi
+		else
+			echo "MerlinAU_version $1" >> "$SHAREDSETTINGSFILE"
+		fi
+	else
+		echo "MerlinAU_version $1" >> "$SHAREDSETTINGSFILE"
+	fi
+
+}
+
+_Set_Version_SharedSettings_ "$SCRIPT_VERSION"
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Create_Symlinks_(){
+	rm -rf "${WEBDIR:?}/"* 2>/dev/null
+	ln -s "$SETTINGSFILE" "$WEBDIR/custom_settings.htm" 2>/dev/null
+}
+
+_Create_Symlinks_
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Conf_FromSettings_(){
+	if [ -f "$SHAREDSETTINGSFILE" ]; then
+		if [ "$(grep "MerlinAU_" $SHAREDSETTINGSFILE | grep -v "version" -c)" -gt 0 ]; then
+			Say "Updated settings from WebUI found, merging into $SETTINGSFILE"
+			cp -a "$SETTINGSFILE" "${SETTINGSFILE}.bak"
+			grep "MerlinAU_" "$SHAREDSETTINGSFILE" | grep -v "version" > "$TMPFILE"
+			sed -i "s/MerlinAU_//g;s/ /=/g" "$TMPFILE"
+			while IFS='' read -r line || [ -n "$line" ]; do
+				SETTINGNAME="$(echo "$line" | cut -f1 -d'=' | awk '{ print toupper($1) }')"
+				SETTINGVALUE="$(echo "$line" | cut -f2- -d'=' | sed "s/=/ /g")"
+				Update_Custom_Settings $SETTINGNAME "$SETTINGVALUE"
+			done < "$TMPFILE"
+			grep 'MerlinAU_version' "$SHAREDSETTINGSFILE" > "$TMPFILE"
+			sed -i "\\~MerlinAU~d" "$SHAREDSETTINGSFILE"
+			mv "$SHAREDSETTINGSFILE" "$SHAREDSETTINGSFILE.bak"
+			cat "$SHAREDSETTINGSFILE.bak" "$TMPFILE" > "$SHAREDSETTINGSFILE"
+			rm -f "$TMPFILE"
+			rm -f "$SHAREDSETTINGSFILE.bak"
+			
+			_Create_Symlinks_
+						
+			Say "Merge of updated settings from WebUI completed successfully"
+		else
+			Say "No updated settings from WebUI found, no merge into $SETTINGSFILE necessary"
+		fi
+	fi
+}
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Nov-18] ##
@@ -1527,6 +1633,7 @@ _SCRIPTUPDATE_()
 
        if _DownloadScriptFiles_
        then
+           _Set_Version_SharedSettings_
            echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
            _ReleaseLock_
            chmod 755 "$ScriptFilePath"
@@ -1554,6 +1661,8 @@ _SCRIPTUPDATE_()
 
           if _DownloadScriptFiles_
           then
+              _Set_Version_SharedSettings_
+              chmod 755 "$ScriptFilePath"
               echo
               echo -e "${CYANct}Download successful!${NOct}"
               echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
@@ -1580,6 +1689,7 @@ _SCRIPTUPDATE_()
               echo
               echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
               echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+              _Set_Version_SharedSettings_
               _ReleaseLock_
               chmod 755 "$ScriptFilePath"
               exec "$ScriptFilePath"  # Re-execute the updated script #
@@ -7679,6 +7789,7 @@ _DoUninstall_()
    _DelScriptAutoUpdateCronJob_
    _DelPostRebootRunScriptHook_
    _DelPostUpdateEmailNotifyScriptHook_
+   _Auto_ServiceEvent_ delete 2>/dev/null
 
    if rm -fr "${SETTINGS_DIR:?}" && \
       rm -fr "${FW_BIN_BASE_DIR:?}/$ScriptDirNameD" && \
@@ -8007,6 +8118,19 @@ then
        stable) _ChangeToStable_
            ;;
        uninstall) _DoUninstall_
+           ;;
+	   service_event)
+		   if [ "$3" = "MerlinAUuninstall" ]; then
+		   	   _DoUninstall_
+			   sleep 3
+		   elif [ "$3" = "MerlinAUchangelog" ]; then
+			   #_Conf_FromSettings_
+			   _ReleaseLock_
+		   elif [ "$3" = "MerlinAUcheck" ]; then
+			   _RunFirmwareUpdateNow_
+		   elif [ "$3" = "MerlinAUconfig" ]; then
+			   _Conf_FromSettings_
+		   fi
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
            ;;
