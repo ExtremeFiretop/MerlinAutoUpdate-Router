@@ -412,8 +412,6 @@
         if (hiddenFrame) {
             hiddenFrame.onload = function () {
                 console.log("Hidden frame loaded with server response.");
-                hideLoading();
-                window.location.reload(); // Automatically reload the page to reflect changes
             };
 
             initializeCollapsibleSections();
