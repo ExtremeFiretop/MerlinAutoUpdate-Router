@@ -1555,8 +1555,6 @@ _Set_Version_SharedSettings_(){
 
 }
 
-_Set_Version_SharedSettings_ "$SCRIPT_VERSION"
-
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Dec-13] ##
 ##---------------------------------------##
@@ -1631,7 +1629,7 @@ _SCRIPTUPDATE_()
 
        if _DownloadScriptFiles_
        then
-           _Set_Version_SharedSettings_
+           _Set_Version_SharedSettings_ "$SCRIPT_VERSION"
            _Create_Symlinks_
            echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
            _ReleaseLock_
@@ -1660,7 +1658,7 @@ _SCRIPTUPDATE_()
 
           if _DownloadScriptFiles_
           then
-              _Set_Version_SharedSettings_
+              _Set_Version_SharedSettings_ "$DLRepoVersion"
               _Create_Symlinks_
               chmod 755 "$ScriptFilePath"
               echo
@@ -1690,7 +1688,7 @@ _SCRIPTUPDATE_()
               echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
               echo -e "${CYANct}Update successful! Restarting script...${NOct}"
               _Create_Symlinks_
-              _Set_Version_SharedSettings_
+              _Set_Version_SharedSettings_ "$DLRepoVersion"
               _ReleaseLock_
               chmod 755 "$ScriptFilePath"
               exec "$ScriptFilePath"  # Re-execute the updated script #
@@ -8058,6 +8056,7 @@ _ProcessMeshNodes_()
     fi
 }
 
+_Set_Version_SharedSettings_ "$SCRIPT_VERSION"
 _Create_Symlinks_
 keepZIPfile=0
 keepWfile=0
