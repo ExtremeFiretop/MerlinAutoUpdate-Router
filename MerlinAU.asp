@@ -26,6 +26,16 @@
     var NOct = "</span>";
     var REDct = "<span style='color:red;'>";
 
+    function prefixCustomSettings(settings, prefix) {
+        let prefixedSettings = {};
+        for (let key in settings) {
+            if (settings.hasOwnProperty(key)) {
+                prefixedSettings[prefix + key] = settings[key];
+            }
+        }
+        return prefixedSettings;
+    }
+
     // Function to handle the visibility of the ROG and TUF F/W Build Type rows
     function handleROGFWBuildTypeVisibility() {
         // Get the router model from the hidden input
@@ -441,8 +451,11 @@
         custom_settings.FW_New_Update_Postponement_Days = document.getElementById('fwUpdatePostponement')?.value || '0';
         custom_settings.CheckChangeLog = document.getElementById('changelogCheckEnabled').checked;
 
+        // Prefix all keys with "MerlinAU_" before saving
+        var prefixedSettings = prefixCustomSettings(custom_settings, 'MerlinAU_');
+
         // Save to hidden input field
-        document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
+        document.getElementById('amng_custom').value = JSON.stringify(prefixedSettings);
 
         // Add a timeout fallback
         setTimeout(() => {
@@ -470,8 +483,10 @@
         custom_settings.Allow_Script_Auto_Update = document.getElementById('autoUpdatesScriptEnabled').checked;
         custom_settings.FW_Allow_Beta_Production_Up = document.getElementById('betaToReleaseUpdatesEnabled').checked;
 
+        var prefixedSettings = prefixCustomSettings(custom_settings, 'MerlinAU_');
+
         // Save to hidden input field
-        document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
+        document.getElementById('amng_custom').value = JSON.stringify(prefixedSettings);
 
         // Add a timeout fallback
         setTimeout(() => {
