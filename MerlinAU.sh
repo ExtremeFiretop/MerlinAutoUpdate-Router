@@ -1535,8 +1535,6 @@ _Auto_ServiceEvent_(){
 	esac
 }
 
-_Auto_ServiceEvent_ create 2>/dev/null
-
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Dec-13] ##
 ##---------------------------------------##
@@ -8056,6 +8054,7 @@ _ProcessMeshNodes_()
     fi
 }
 
+_Auto_ServiceEvent_ create 2>/dev/null
 _Set_Version_SharedSettings_ "$SCRIPT_VERSION"
 _Create_Symlinks_
 keepZIPfile=0
