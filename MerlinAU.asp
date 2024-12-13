@@ -191,6 +191,22 @@
                 }
             }
 
+            // **New Code to Control "Approve Changelog" Button Visibility**
+            var approveChangelogButton = document.getElementById('approveChangelogButton');
+            if (approveChangelogButton) {
+                var isChangelogCheckEnabled = custom_settings.changelogCheckEnabled;
+                var changelogApprovalValue = custom_settings.changelogApproval;
+
+                // Condition: Show button only if
+                // 1. Changelog Check is enabled
+                // 2. Changelog Approval is neither empty nor "TBD"
+                if (isChangelogCheckEnabled && changelogApprovalValue && changelogApprovalValue !== 'TBD') {
+                    approveChangelogButton.style.display = 'inline-block'; // Show the button
+                } else {
+                    approveChangelogButton.style.display = 'none'; // Hide the button
+                }
+            }
+
             // Call the visibility handler
             handleROGFWBuildTypeVisibility();
 
@@ -764,8 +780,8 @@
                                                                             <td style="text-align: right; border: none;">
                                                                                 <button type="button" onclick="checkFirmwareUpdate()">F/W Update Check Now</button>
                                                                             </td>
-                                                                            <td style="text-align: center; border: none;">
-                                                                                <button type="button" onclick="changelogApproval()">Approve Changelog</button>
+                                                                            <td style="text-align: center; border: none;" id="approveChangelogCell">
+                                                                                <button type="button" id="approveChangelogButton" onclick="changelogApproval()">Approve Changelog</button>
                                                                             </td>
                                                                             <td style="text-align: left; border: none;">
                                                                                 <button type="button" onclick="Uninstall()">Uninstall Now</button>
