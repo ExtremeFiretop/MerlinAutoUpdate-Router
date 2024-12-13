@@ -26,31 +26,43 @@
     var NOct = "</span>";
     var REDct = "<span style='color:red;'>";
 
-    // Add this function to handle the visibility of the ROG F/W Build Type row
+    // Add this function to handle the visibility of the ROG and TUF F/W Build Type rows
     function handleROGFWBuildTypeVisibility() {
         // Get the router model from the hidden input
         var firmwareProductModelElement = document.getElementById('firmwareProductModelID');
         var routerModel = firmwareProductModelElement ? firmwareProductModelElement.textContent.trim() : '';
 
-        // Check if the model includes 'GT-'
+        // ROG Model Check
         var isROGModel = routerModel.includes('GT-');
-
-        // Check if 'rogFWBuildType' is present in custom_settings
         var hasROGFWBuildType = custom_settings.hasOwnProperty('rogFWBuildType');
-
-        // Get the table row element
         var rogFWBuildRow = document.getElementById('rogFWBuildRow');
 
-        // Determine whether to hide or show the row
         if (!isROGModel || !hasROGFWBuildType) {
-            // Hide the row
+            // Hide the ROG row
             if (rogFWBuildRow) {
                 rogFWBuildRow.style.display = 'none';
             }
         } else {
-            // Show the row (optional, in case it was previously hidden)
+            // Show the ROG row
             if (rogFWBuildRow) {
                 rogFWBuildRow.style.display = '';
+            }
+        }
+
+        // TUF Model Check
+        var isTUFModel = routerModel.includes('TUF-');
+        var hasTUFWBuildType = custom_settings.hasOwnProperty('tufFWBuildType');
+        var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
+
+        if (!isTUFModel || !hasTUFWBuildType) {
+            // Hide the TUF row
+            if (tufFWBuildRow) {
+                tufFWBuildRow.style.display = 'none';
+            }
+        } else {
+            // Show the TUF row
+            if (tufFWBuildRow) {
+                tufFWBuildRow.style.display = '';
             }
         }
     }
@@ -66,6 +78,7 @@
         let secondaryEmail = document.getElementById('secondaryEmail');
         let emailFormat = document.getElementById('emailFormat');
         let rogFWBuildType = document.getElementById('rogFWBuildType');
+        let tuffFWBuildType = document.getElementById('tuffFWBuildType');
         let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
         let autoUpdatesScriptEnabled = document.getElementById('autoUpdatesScriptEnabled');
         let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
@@ -96,6 +109,7 @@
             if (secondaryEmail) secondaryEmail.value = custom_settings.secondaryEmail || '';
             if (emailFormat) emailFormat.value = custom_settings.emailFormatType || 'HTML';
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
+            if (tuffFWBuildType) tuffFWBuildType.value = custom_settings.tufFWBuildType || 'TUF';
 
             if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
             if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.emailNotificationsEnabled);
@@ -154,8 +168,8 @@
 
             // **Update fwUpdateEstimatedRunDate Based on fwUpdateAvailable**
             if (fwUpdateEstimatedRunDateElement) {
-                if (isFwUpdateAvailable && fwUpdateEstimatedRunDate) {
-                    fwUpdateEstimatedRunDateElement.innerHTML = GRNct + fwUpdateEstimatedRunDate + NOct;
+                if (isFwUpdateAvailable && fwUpdateEstimatedRunDateElement.textContent.trim() !== '') {
+                    fwUpdateEstimatedRunDateElement.innerHTML = GRNct + fwUpdateEstimatedRunDateElement.textContent.trim() + NOct;
                 } else {
                     fwUpdateEstimatedRunDateElement.innerHTML = REDct + "TBD" + NOct;
                 }
@@ -303,6 +317,10 @@
                 custom_settings.rogFWBuildType = parseBoolean(value) ? 'ROG' : 'Pure';
                 break;
 
+            case keyUpper === 'TUFBUILD':
+                custom_settings.rogFWBuildType = parseBoolean(value) ? 'TUF' : 'Pure';
+                break;
+
             case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
                 custom_settings.fwUpdateNotificationsDate = value;
                 break;
@@ -411,6 +429,7 @@
         custom_settings.secondaryEmail = document.getElementById('secondaryEmail')?.value || '';
         custom_settings.emailFormatType = document.getElementById('emailFormat')?.value || 'HTML';
         custom_settings.rogFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
+        custom_settings.tufFWBuildType = document.getElementById('tuffFWBuildType')?.value || 'TUF';
         custom_settings.emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled').checked;
         custom_settings.autobackupEnabled = document.getElementById('autobackupEnabled').checked;
         custom_settings.tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled').checked;
@@ -721,8 +740,9 @@
                                                                 <div style="text-align: center; margin-top: 10px;">
                                                                     <table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; border-collapse: collapse; background-color: transparent;">
                                                                         <colgroup>
-                                                                            <col style="width: 34%;" />
-                                                                            <col style="width: 34%;" />
+                                                                            <col style="width: 33%;" />
+                                                                            <col style="width: 33%;" />
+                                                                            <col style="width: 33%;"
                                                                         </colgroup>
                                                                         <tr>
                                                                             <td style="text-align: right; border: none;">
@@ -812,6 +832,15 @@
                                                                             <td>
                                                                                 <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;">
                                                                                     <option value="ROG">ROG</option>
+                                                                                    <option value="Pure">Pure</option>
+                                                                                </select>
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr id="tuffFWBuildRow">
+                                                                            <td style="text-align: left;"><label for="tuffFWBuildType">TUF F/W Build Type</label></td>
+                                                                            <td>
+                                                                                <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 20%;">
+                                                                                    <option value="TUF">TUF</option>
                                                                                     <option value="Pure">Pure</option>
                                                                                 </select>
                                                                             </td>
