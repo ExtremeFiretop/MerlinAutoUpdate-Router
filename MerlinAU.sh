@@ -1565,8 +1565,6 @@ _Create_Symlinks_(){
 	ln -s "$SETTINGSFILE" "$WEBDIR/custom_settings.htm" 2>/dev/null
 }
 
-_Create_Symlinks_
-
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Dec-13] ##
 ##---------------------------------------##
@@ -1634,6 +1632,7 @@ _SCRIPTUPDATE_()
        if _DownloadScriptFiles_
        then
            _Set_Version_SharedSettings_
+           _Create_Symlinks_
            echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
            _ReleaseLock_
            chmod 755 "$ScriptFilePath"
@@ -1662,6 +1661,7 @@ _SCRIPTUPDATE_()
           if _DownloadScriptFiles_
           then
               _Set_Version_SharedSettings_
+              _Create_Symlinks_
               chmod 755 "$ScriptFilePath"
               echo
               echo -e "${CYANct}Download successful!${NOct}"
@@ -1689,6 +1689,7 @@ _SCRIPTUPDATE_()
               echo
               echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
               echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+              _Create_Symlinks_
               _Set_Version_SharedSettings_
               _ReleaseLock_
               chmod 755 "$ScriptFilePath"
@@ -8057,6 +8058,7 @@ _ProcessMeshNodes_()
     fi
 }
 
+_Create_Symlinks_
 keepZIPfile=0
 keepWfile=0
 trap '_DoCleanUp_ 0 "$keepZIPfile" "$keepWfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
