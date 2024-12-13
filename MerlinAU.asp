@@ -292,6 +292,10 @@
                 custom_settings.FW_New_Update_Postponement_Days = value;
                 break;
 
+            case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
+                fwUpdateEstimatedRunDate = value;  // We don't want to save it the custom_settings; only as-is for displaying it.
+                break;
+
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
                 custom_settings.FW_New_Update_EMail_Notification = parseBoolean(value);
                 break;
