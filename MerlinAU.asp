@@ -499,14 +499,16 @@
         advanced_settings.FW_Allow_Beta_Production_Up = document.getElementById('betaToReleaseUpdatesEnabled').checked;
         advanced_settings.FW_Auto_Backupmon = document.getElementById('autobackupEnabled').checked;
 
-        // Handle conditional fields based on visibility
-        var rogFWBuildTypeElement = document.getElementById('rogFWBuildType');
-        if (rogFWBuildTypeElement && rogFWBuildTypeElement.parentElement.style.display !== 'none') {
+        // **Handle conditional fields based on visibility by checking the <tr> display property**
+        var rogFWBuildRow = document.getElementById('rogFWBuildRow');
+        if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none') {
+            var rogFWBuildTypeElement = document.getElementById('rogFWBuildType');
             advanced_settings.FW_New_Update_ROGFWBuildType = rogFWBuildTypeElement.value || 'ROG';
         }
-
-        var tuffFWBuildTypeElement = document.getElementById('tuffFWBuildType');
-        if (tuffFWBuildTypeElement && tuffFWBuildTypeElement.parentElement.style.display !== 'none') {
+    
+        var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
+        if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none') {
+            var tuffFWBuildTypeElement = document.getElementById('tuffFWBuildType');
             advanced_settings.FW_New_Update_TUFWBuildType = tuffFWBuildTypeElement.value || 'TUF';
         }
 
