@@ -26,7 +26,7 @@
     var NOct = "</span>";
     var REDct = "<span style='color:red;'>";
 
-    // Add this function to handle the visibility of the ROG and TUF F/W Build Type rows
+    // Function to handle the visibility of the ROG and TUF F/W Build Type rows
     function handleROGFWBuildTypeVisibility() {
         // Get the router model from the hidden input
         var firmwareProductModelElement = document.getElementById('firmwareProductModelID');
@@ -34,7 +34,7 @@
 
         // ROG Model Check
         var isROGModel = routerModel.includes('GT-');
-        var hasROGFWBuildType = custom_settings.hasOwnProperty('rogFWBuildType');
+        var hasROGFWBuildType = custom_settings.hasOwnProperty('FW_New_Update_ROGFWBuildType');
         var rogFWBuildRow = document.getElementById('rogFWBuildRow');
 
         if (!isROGModel || !hasROGFWBuildType) {
@@ -51,7 +51,7 @@
 
         // TUF Model Check
         var isTUFModel = routerModel.includes('TUF-');
-        var hasTUFWBuildType = custom_settings.hasOwnProperty('tufFWBuildType');
+        var hasTUFWBuildType = custom_settings.hasOwnProperty('FW_New_Update_TUFWBuildType');
         var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
 
         if (!isTUFModel || !hasTUFWBuildType) {
@@ -88,15 +88,15 @@
         let firmwareCheckEnableValue = document.getElementById('firmware_check_enable').value.trim();
         let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
         let fwUpdateCheckStatus = document.getElementById('fwUpdateCheckStatus');
-    
+
         // Determine if firmware update check is enabled based on the hidden input value
         let isFwUpdateEnabled = (firmwareCheckEnableValue === '1');
-    
+
         // Set the checkbox state
         if (fwUpdateEnabled) {
             fwUpdateEnabled.checked = isFwUpdateEnabled;
         }
-    
+
         // Update the Firmware Status display
         if (fwUpdateCheckStatus) {
             setStatus('fwUpdateCheckStatus', isFwUpdateEnabled);
@@ -105,31 +105,31 @@
         // Safe value assignments
         if (custom_settings) {
             if (routerPassword) routerPassword.value = custom_settings.routerPassword || '';
-            if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.fwUpdatePostponement || '0';
-            if (secondaryEmail) secondaryEmail.value = custom_settings.secondaryEmail || '';
-            if (emailFormat) emailFormat.value = custom_settings.emailFormatType || 'HTML';
-            if (rogFWBuildType) rogFWBuildType.value = custom_settings.rogFWBuildType || 'ROG';
-            if (tuffFWBuildType) tuffFWBuildType.value = custom_settings.tufFWBuildType || 'TUF';
+            if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.FW_New_Update_Postponement_Days || '0';
+            if (secondaryEmail) secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address || '';
+            if (emailFormat) emailFormat.value = custom_settings.FW_New_Update_EMail_FormatType || 'HTML';
+            if (rogFWBuildType) rogFWBuildType.value = custom_settings.FW_New_Update_ROGFWBuildType || 'ROG';
+            if (tuffFWBuildType) tuffFWBuildType.value = custom_settings.FW_New_Update_TUFWBuildType || 'TUF';
 
-            if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.changelogCheckEnabled);
-            if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.emailNotificationsEnabled);
-            if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.autobackupEnabled);
-            if (tailscaleVPNEnabled) tailscaleVPNEnabled.checked = parseBoolean(custom_settings.tailscaleVPNEnabled);
-            if (autoUpdatesScriptEnabled) autoUpdatesScriptEnabled.checked = parseBoolean(custom_settings.autoUpdatesScriptEnabled);
-            if (betaToReleaseUpdatesEnabled) betaToReleaseUpdatesEnabled.checked = parseBoolean(custom_settings.betaToReleaseUpdatesEnabled);
-            if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.fwUpdateDirectory || '';
+            if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.CheckChangeLog);
+            if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.FW_New_Update_EMail_Notification);
+            if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.FW_Auto_Backupmon);
+            if (tailscaleVPNEnabled) tailscaleVPNEnabled.checked = parseBoolean(custom_settings.Allow_Updates_OverVPN);
+            if (autoUpdatesScriptEnabled) autoUpdatesScriptEnabled.checked = parseBoolean(custom_settings.Allow_Script_Auto_Update);
+            if (betaToReleaseUpdatesEnabled) betaToReleaseUpdatesEnabled.checked = parseBoolean(custom_settings.FW_Allow_Beta_Production_Up);
+            if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.FW_New_Update_ZIP_Directory_Path || '';
 
             // Update Settings Status Table
-            setStatus('changelogCheckStatus', parseBoolean(custom_settings.changelogCheckEnabled));
-            setStatus('betaToReleaseUpdatesStatus', parseBoolean(custom_settings.betaToReleaseUpdatesEnabled));
-            setStatus('tailscaleVPNAccessStatus', parseBoolean(custom_settings.tailscaleVPNEnabled));
-            setStatus('autobackupEnabledStatus', parseBoolean(custom_settings.autobackupEnabled));
-            setStatus('autoUpdatesScriptEnabledStatus', parseBoolean(custom_settings.autoUpdatesScriptEnabled));
-            setStatus('emailNotificationsStatus', parseBoolean(custom_settings.emailNotificationsEnabled));
+            setStatus('changelogCheckStatus', parseBoolean(custom_settings.CheckChangeLog));
+            setStatus('betaToReleaseUpdatesStatus', parseBoolean(custom_settings.FW_Allow_Beta_Production_Up));
+            setStatus('tailscaleVPNAccessStatus', parseBoolean(custom_settings.Allow_Updates_OverVPN));
+            setStatus('autobackupEnabledStatus', parseBoolean(custom_settings.FW_Auto_Backupmon));
+            setStatus('autoUpdatesScriptEnabledStatus', parseBoolean(custom_settings.Allow_Script_Auto_Update));
+            setStatus('emailNotificationsStatus', parseBoolean(custom_settings.FW_New_Update_EMail_Notification));
 
             // Handle fwNotificationsDate as a date
-            if (fwNotificationsDate && custom_settings.fwUpdateNotificationsDate) {
-                fwNotificationsDate.innerHTML = GRNct + custom_settings.fwUpdateNotificationsDate + NOct;
+            if (fwNotificationsDate && custom_settings.FW_New_Update_Notifications_Date) {
+                fwNotificationsDate.innerHTML = GRNct + custom_settings.FW_New_Update_Notifications_Date + NOct;
             } else if (fwNotificationsDate) {
                 fwNotificationsDate.innerHTML = REDct + "TBD" + NOct;
             }
@@ -144,7 +144,7 @@
             var isFwUpdateAvailable = false; // Initialize the flag
 
             if (fwUpdateAvailableElement && fwVersionInstalledElement) {
-                var fwUpdateAvailable = custom_settings.fwUpdateAvailable ? custom_settings.fwUpdateAvailable.trim() : '';
+                var fwUpdateAvailable = custom_settings.FW_New_Update_Available ? custom_settings.FW_New_Update_Available.trim() : '';
                 var fwVersionInstalled = fwVersionInstalledElement.textContent.trim();
 
                 // Optional: Normalize version strings for accurate comparison
@@ -178,7 +178,7 @@
             // **Handle Changelog Approval Display**
             var changelogApprovalElement = document.getElementById('changelogApproval');
             if (changelogApprovalElement) {
-                var approvalStatus = custom_settings.hasOwnProperty('changelogApproval') ? custom_settings.changelogApproval : "DISABLED"; // Default to "DISABLED" if missing
+                var approvalStatus = custom_settings.hasOwnProperty('FW_New_Update_Changelog_Approval') ? custom_settings.FW_New_Update_Changelog_Approval : "DISABLED"; // Default to "DISABLED" if missing
                 if (approvalStatus === "TBD") {
                     changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
                 } else if (approvalStatus === "BLOCKED") {
@@ -191,11 +191,11 @@
                 }
             }
 
-            // **New Code to Control "Approve Changelog" Button Visibility**
+            // **Control "Approve Changelog" Button Visibility**
             var approveChangelogButton = document.getElementById('approveChangelogButton');
             if (approveChangelogButton) {
-                var isChangelogCheckEnabled = custom_settings.changelogCheckEnabled;
-                var changelogApprovalValue = custom_settings.changelogApproval;
+                var isChangelogCheckEnabled = custom_settings.CheckChangeLog;
+                var changelogApprovalValue = custom_settings.FW_New_Update_Changelog_Approval;
 
                 // Condition: Show button only if
                 // 1. Changelog Check is enabled
@@ -288,53 +288,50 @@
         var keyUpper = key.toUpperCase();
 
         switch (true) {
-            case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_VERS':
-                custom_settings.fwUpdateAvailable = value;
-                break;
-
-            case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
-                fwUpdateEstimatedRunDate = value;  // We don't want to save it the custom_settings; only as-is for displaying it.
+            case keyUpper === 'FW_NEW_UPDATE_POSTPONEMENT_DAYS':
+                custom_settings.FW_New_Update_Postponement_Days = value;
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
-                custom_settings.emailNotificationsEnabled = parseBoolean(value);
+                custom_settings.FW_New_Update_EMail_Notification = parseBoolean(value);
                 break;
 
-            case keyUpper === 'CHECKCHANGELOG':
-                custom_settings.changelogCheckEnabled = parseBoolean(value);
+            case keyUpper === 'FW_NEW_UPDATE_EMAIL_FORMATTYPE':
+                custom_settings.FW_New_Update_EMail_FormatType = value;
                 break;
 
-            case keyUpper === 'FW_NEW_UPDATE_CHANGELOG_APPROVAL':
-                 custom_settings.changelogApproval = value; // Store as-is for display
-                break;
-
-            case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
-                custom_settings.betaToReleaseUpdatesEnabled = parseBoolean(value);
+            case keyUpper === 'FW_NEW_UPDATE_ZIP_DIRECTORY_PATH':
+                custom_settings.FW_New_Update_ZIP_Directory_Path = value;
                 break;
 
             case keyUpper === 'ALLOW_UPDATES_OVERVPN':
-                custom_settings.tailscaleVPNEnabled = parseBoolean(value);
+                custom_settings.Allow_Updates_OverVPN = parseBoolean(value);
                 break;
 
-            case keyUpper === 'FW_AUTO_BACKUPMON':
-                custom_settings.autobackupEnabled = parseBoolean(value);
+            case keyUpper === 'FW_NEW_UPDATE_EMAIL_CC_ADDRESS':
+                custom_settings.FW_New_Update_EMail_CC_Address = value;
+                break;
+
+            case keyUpper === 'CHECKCHANGELOG':
+                custom_settings.CheckChangeLog = parseBoolean(value);
                 break;
 
             case keyUpper === 'ALLOW_SCRIPT_AUTO_UPDATE':
-                custom_settings.autoUpdatesScriptEnabled = parseBoolean(value);
+                custom_settings.Allow_Script_Auto_Update = parseBoolean(value);
                 break;
 
-            // Set Directory for F/W Updates
-            case keyUpper === 'FW_NEW_UPDATE_ZIP_DIRECTORY_PATH':
-                custom_settings.fwUpdateDirectory = value;
+            case keyUpper === 'FW_NEW_UPDATE_CHANGELOG_APPROVAL':
+                custom_settings.FW_New_Update_Changelog_Approval = value; // Store as-is for display
                 break;
 
-            // F/W Update Postponement Days
-            case keyUpper === 'FW_NEW_UPDATE_POSTPONEMENT_DAYS':
-                custom_settings.fwUpdatePostponement = value;
+            case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
+                custom_settings.FW_Allow_Beta_Production_Up = parseBoolean(value);
                 break;
 
-            // Router Login Password (Base64 Encoded)
+            case keyUpper === 'FW_AUTO_BACKUPMON':
+                custom_settings.FW_Auto_Backupmon = parseBoolean(value);
+                break;
+
             case keyUpper === 'CREDENTIALS_BASE64':
                 try {
                     var decoded = atob(value);
@@ -346,15 +343,15 @@
                 break;
 
             case keyUpper === 'ROGBUILD':
-                custom_settings.rogFWBuildType = parseBoolean(value) ? 'ROG' : 'Pure';
+                custom_settings.FW_New_Update_ROGFWBuildType = parseBoolean(value) ? 'ROG' : 'Pure';
                 break;
 
             case keyUpper === 'TUFBUILD':
-                custom_settings.tufFWBuildType = parseBoolean(value) ? 'TUF' : 'Pure';
+                custom_settings.FW_New_Update_TUFWBuildType = parseBoolean(value) ? 'TUF' : 'Pure';
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
-                custom_settings.fwUpdateNotificationsDate = value;
+                custom_settings.FW_New_Update_Notifications_Date = value;
                 break;
 
             // Additional settings can be handled here
@@ -426,19 +423,19 @@
 
         // Combine username and password in the format 'username:password'
         var credentials = username + ':' + password;
-    
+
         // Encode the combined string into Base64
         var encodedCredentials = btoa(credentials);
-    
-        // Assign the encoded credentials to 'CREDENTIALS_BASE64'
-        custom_settings.CREDENTIALS_BASE64 = encodedCredentials;
-    
+
+        // Assign the encoded credentials to 'credentials_base64'
+        custom_settings.credentials_base64 = encodedCredentials;
+
         // Remove the plaintext password from custom_settings if it exists
         delete custom_settings.routerPassword;
 
-        custom_settings.fwUpdatePostponement = document.getElementById('fwUpdatePostponement')?.value || '0';
-        custom_settings.fwUpdateEnabled = document.getElementById('fwUpdateEnabled').checked;
-        custom_settings.changelogCheckEnabled = document.getElementById('changelogCheckEnabled').checked;
+        // Update custom_settings with the new key names
+        custom_settings.FW_New_Update_Postponement_Days = document.getElementById('fwUpdatePostponement')?.value || '0';
+        custom_settings.CheckChangeLog = document.getElementById('changelogCheckEnabled').checked;
 
         // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
@@ -458,16 +455,16 @@
     }
 
     function SaveAdvancedConfig() {
-        custom_settings.secondaryEmail = document.getElementById('secondaryEmail')?.value || '';
-        custom_settings.emailFormatType = document.getElementById('emailFormat')?.value || 'HTML';
-        custom_settings.rogFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
-        custom_settings.tufFWBuildType = document.getElementById('tuffFWBuildType')?.value || 'TUF';
-        custom_settings.emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled').checked;
-        custom_settings.autobackupEnabled = document.getElementById('autobackupEnabled').checked;
-        custom_settings.tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled').checked;
-        custom_settings.autoUpdatesScriptEnabled = document.getElementById('autoUpdatesScriptEnabled').checked;
-        custom_settings.betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled').checked;
-        custom_settings.fwUpdateDirectory = document.getElementById('fwUpdateDirectory')?.value || '';
+        custom_settings.FW_New_Update_ZIP_Directory_Path = document.getElementById('fwUpdateDirectory')?.value || '';
+        custom_settings.FW_New_Update_EMail_CC_Address = document.getElementById('secondaryEmail')?.value || '';
+        custom_settings.FW_New_Update_EMail_FormatType = document.getElementById('emailFormat')?.value || 'HTML';
+        custom_settings.FW_New_Update_ROGFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
+        custom_settings.FW_New_Update_TUFWBuildType = document.getElementById('tuffFWBuildType')?.value || 'TUF';
+        custom_settings.FW_New_Update_EMail_Notification = document.getElementById('emailNotificationsEnabled').checked;
+        custom_settings.FW_Auto_Backupmon = document.getElementById('autobackupEnabled').checked;
+        custom_settings.Allow_Updates_OverVPN = document.getElementById('tailscaleVPNEnabled').checked;
+        custom_settings.Allow_Script_Auto_Update = document.getElementById('autoUpdatesScriptEnabled').checked;
+        custom_settings.FW_Allow_Beta_Production_Up = document.getElementById('betaToReleaseUpdatesEnabled').checked;
 
         // Save to hidden input field
         document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
@@ -688,11 +685,11 @@
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Update Estimated Run Date:</strong></td>
-                                                                                    <td id="fwUpdateEstimatedRunDate" style="padding: 4px;">Disabled</td>
+                                                                                    <td id="fwUpdateEstimatedRunDate" style="padding: 4px;">TBD</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Last Notificiation Date:</strong></td>
-                                                                                    <td id="fwNotificationsDate" style="padding: 4px;">Disabled</td>
+                                                                                    <td id="fwNotificationsDate" style="padding: 4px;">TBD</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Update Check:</strong></td>
@@ -722,7 +719,7 @@
                                                                             <table style="margin: 0; text-align: left; width: 100%; border: none;">
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Changelog Approval:</strong></td>
-                                                                                    <td id="changelogApproval" style="padding: 4px;">NO CODE YET</td>
+                                                                                    <td id="changelogApproval" style="padding: 4px;">DISABLED</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Changelog Check:</strong></td>
@@ -774,7 +771,7 @@
                                                                         <colgroup>
                                                                             <col style="width: 33%;" />
                                                                             <col style="width: 33%;" />
-                                                                            <col style="width: 33%;"
+                                                                            <col style="width: 33%;" />
                                                                         </colgroup>
                                                                         <tr>
                                                                             <td style="text-align: right; border: none;">
