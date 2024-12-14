@@ -79,7 +79,7 @@ readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 readonly SHAREDSETTINGSFILE="/jffs/addons/custom_settings.txt"
 readonly TMPFILE="/tmp/MerlinAU_settings.txt"
 readonly WEBDIR="/www/user/$ScriptDirNameD"
-readonly PAGE_FILE="$ADDON_DIR/MerlinAU.asp"
+readonly PAGE_FILE="$SETTINGS_DIR/MerlinAU.asp"
 
 # Give FIRST priority to built-in binaries over any other #
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
