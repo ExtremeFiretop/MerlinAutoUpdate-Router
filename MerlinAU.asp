@@ -20,11 +20,20 @@
     <script type="text/javascript" src="/help.js"></script>
     <script type="text/javascript" src="/validator.js"></script>
     <script type="text/javascript">
-    var custom_settings;
     // Define color formatting
     var GRNct = "<span style='color:cyan;'>";
     var NOct = "</span>";
     var REDct = "<span style='color:red;'>";
+
+    // Separate variables for server and AJAX settings
+    var server_custom_settings = {};
+    var ajax_custom_settings = {};
+    var custom_settings = {}; // This will hold the merged settings
+
+    function LoadCustomSettings(){
+        server_custom_settings = <% get_custom_settings(); %>;
+        console.log("Server Custom Settings Loaded:", server_custom_settings);
+    }
 
     function prefixCustomSettings(settings, prefix) {
         let prefixedSettings = {};
@@ -234,8 +243,8 @@
                 setTimeout(get_conf_file, 1000); // Retry after 1 second
             },
             success: function(data) {
-                // Initialize an empty object to store relevant settings
-                custom_settings = {};
+                // Initialize an empty object to store AJAX settings
+                ajax_custom_settings = {};
 
                 // Tokenize the data while respecting quoted values
                 var tokens = tokenize(data);
@@ -255,7 +264,7 @@
                             value = value.substring(1, value.length - 1);
                         }
 
-                        assignSetting(key, value);
+                        assignAjaxSetting(key, value);
                     } else {
                         // Handle key value format
                         var key = token.trim();
@@ -270,7 +279,7 @@
                                 value = value.substring(1, value.length - 1);
                             }
 
-                            assignSetting(key, value);
+                            assignAjaxSetting(key, value);
                             i++; // Skip the next token as it's already processed
                         } else {
                             console.warn(`No value found for key: ${key}`);
@@ -278,9 +287,13 @@
                     }
                 }
 
-                console.log("Custom Settings Loaded via AJAX:", custom_settings);
+                console.log("AJAX Custom Settings Loaded:", ajax_custom_settings);
 
-                // Initialize fields with the loaded settings
+                // Merge both server and AJAX settings
+                custom_settings = Object.assign({}, server_custom_settings, ajax_custom_settings);
+                console.log("Merged Custom Settings:", custom_settings);
+
+                // Initialize fields with the merged settings
                 initializeFields();
             }
         });
@@ -293,82 +306,82 @@
     }
 
     // Helper function to assign settings based on key
-    function assignSetting(key, value) {
+    function assignAjaxSetting(key, value) {
         // Normalize key to uppercase for case-insensitive comparison
         var keyUpper = key.toUpperCase();
 
         switch (true) {
             case keyUpper === 'FW_NEW_UPDATE_POSTPONEMENT_DAYS':
-                custom_settings.FW_New_Update_Postponement_Days = value;
+                ajax_custom_settings.FW_New_Update_Postponement_Days = value;
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
-                fwUpdateEstimatedRunDate = value;  // We don't want to save it the custom_settings; only as-is for displaying it.
+                ajax_custom_settings.FW_New_Update_Notifications_Date = value;
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
-                custom_settings.FW_New_Update_EMail_Notification = parseBoolean(value);
+                ajax_custom_settings.FW_New_Update_EMail_Notification = parseBoolean(value);
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_FORMATTYPE':
-                custom_settings.FW_New_Update_EMail_FormatType = value;
+                ajax_custom_settings.FW_New_Update_EMail_FormatType = value;
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_ZIP_DIRECTORY_PATH':
-                custom_settings.FW_New_Update_ZIP_Directory_Path = value;
+                ajax_custom_settings.FW_New_Update_ZIP_Directory_Path = value;
                 break;
 
             case keyUpper === 'ALLOW_UPDATES_OVERVPN':
-                custom_settings.Allow_Updates_OverVPN = parseBoolean(value);
+                ajax_custom_settings.Allow_Updates_OverVPN = parseBoolean(value);
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_CC_ADDRESS':
-                custom_settings.FW_New_Update_EMail_CC_Address = value;
+                ajax_custom_settings.FW_New_Update_EMail_CC_Address = value;
                 break;
 
             case keyUpper === 'CHECKCHANGELOG':
-                custom_settings.CheckChangeLog = parseBoolean(value);
+                ajax_custom_settings.CheckChangeLog = parseBoolean(value);
                 break;
 
             case keyUpper === 'ALLOW_SCRIPT_AUTO_UPDATE':
-                custom_settings.Allow_Script_Auto_Update = parseBoolean(value);
+                ajax_custom_settings.Allow_Script_Auto_Update = parseBoolean(value);
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_CHANGELOG_APPROVAL':
-                custom_settings.FW_New_Update_Changelog_Approval = value; // Store as-is for display
+                ajax_custom_settings.FW_New_Update_Changelog_Approval = value; // Store as-is for display
                 break;
 
             case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
-                custom_settings.FW_Allow_Beta_Production_Up = parseBoolean(value);
+                ajax_custom_settings.FW_Allow_Beta_Production_Up = parseBoolean(value);
                 break;
 
             case keyUpper === 'FW_AUTO_BACKUPMON':
-                custom_settings.FW_Auto_Backupmon = parseBoolean(value);
+                ajax_custom_settings.FW_Auto_Backupmon = parseBoolean(value);
                 break;
 
             case keyUpper === 'CREDENTIALS_BASE64':
                 try {
                     var decoded = atob(value);
                     var password = decoded.split(':')[1] || '';
-                    custom_settings.routerPassword = password;
+                    ajax_custom_settings.routerPassword = password;
                 } catch (e) {
                     console.error("Error decoding credentials_base64:", e);
                 }
                 break;
 
             case keyUpper === 'ROGBUILD':
-                custom_settings.FW_New_Update_ROGFWBuildType = parseBoolean(value) ? 'ROG' : 'Pure';
+                ajax_custom_settings.FW_New_Update_ROGFWBuildType = parseBoolean(value) ? 'ROG' : 'Pure';
                 break;
 
             case keyUpper === 'TUFBUILD':
-                custom_settings.FW_New_Update_TUFWBuildType = parseBoolean(value) ? 'TUF' : 'Pure';
+                ajax_custom_settings.FW_New_Update_TUFWBuildType = parseBoolean(value) ? 'TUF' : 'Pure';
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
-                custom_settings.FW_New_Update_Notifications_Date = value;
+                ajax_custom_settings.FW_New_Update_Notifications_Date = value;
                 break;
 
-            // Additional settings can be handled here
+            // Additional AJAX settings can be handled here
 
             default:
                 // Optionally handle or log unknown settings
@@ -404,6 +417,7 @@
 
     function initial() {
         SetCurrentPage();
+        LoadCustomSettings();
         get_conf_file();
         show_menu();
 
@@ -440,30 +454,18 @@
         // Encode the combined string into Base64
         var encodedCredentials = btoa(credentials);
 
-        // Create a new object for action settings
-        var action_settings = {};
-
-        // Assign action-specific settings
-        action_settings.credentials_base64 = encodedCredentials;
-        action_settings.FW_New_Update_Postponement_Days = document.getElementById('fwUpdatePostponement')?.value || '0';
-        action_settings.CheckChangeLog = document.getElementById('changelogCheckEnabled').checked;
+        // Merge any new action-specific settings
+        var action_settings = {
+            credentials_base64: encodedCredentials,
+            FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
+            CheckChangeLog: document.getElementById('changelogCheckEnabled').checked
+        };
 
         // Prefix the action settings
         var prefixedActionSettings = prefixCustomSettings(action_settings, 'MerlinAU_');
 
-        // Retrieve existing prefixed settings from 'amng_custom'
-        var existingSettings = {};
-        var existingCustom = document.getElementById('amng_custom').value.trim();
-        if (existingCustom) {
-            try {
-                existingSettings = JSON.parse(existingCustom);
-            } catch (e) {
-                console.error("Error parsing existing 'amng_custom' JSON:", e);
-            }
-        }
-
-        // Merge existing settings with the new action settings
-        var updatedSettings = Object.assign({}, existingSettings, prefixedActionSettings);
+        // Merge with existing custom_settings
+        var updatedSettings = Object.assign({}, custom_settings, prefixedActionSettings);
 
         // Save the merged settings back to 'amng_custom'
         document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
@@ -485,25 +487,24 @@
     // **Adjusted SaveAdvancedConfig Function**
     function SaveAdvancedConfig() {
         // Create a new object for advanced settings
-        var advanced_settings = {};
+        var advanced_settings = {
+            FW_New_Update_EMail_Notification: document.getElementById('emailNotificationsEnabled').checked,
+            FW_New_Update_EMail_FormatType: document.getElementById('emailFormat')?.value || 'HTML',
+            FW_New_Update_ZIP_Directory_Path: document.getElementById('fwUpdateDirectory')?.value || '/tmp/mnt/USB1',
+            Allow_Updates_OverVPN: document.getElementById('tailscaleVPNEnabled').checked,
+            FW_New_Update_EMail_CC_Address: document.getElementById('secondaryEmail')?.value || 'TBD',
+            Allow_Script_Auto_Update: document.getElementById('autoUpdatesScriptEnabled').checked,
+            FW_Allow_Beta_Production_Up: document.getElementById('betaToReleaseUpdatesEnabled').checked,
+            FW_Auto_Backupmon: document.getElementById('autobackupEnabled').checked
+        };
 
-        // Collect only the advanced settings
-        advanced_settings.FW_New_Update_EMail_Notification = document.getElementById('emailNotificationsEnabled').checked;
-        advanced_settings.FW_New_Update_EMail_FormatType = document.getElementById('emailFormat')?.value || 'HTML';
-        advanced_settings.FW_New_Update_ZIP_Directory_Path = document.getElementById('fwUpdateDirectory')?.value || '/tmp/mnt/USB1';
-        advanced_settings.Allow_Updates_OverVPN = document.getElementById('tailscaleVPNEnabled').checked;
-        advanced_settings.FW_New_Update_EMail_CC_Address = document.getElementById('secondaryEmail')?.value || 'TBD';
-        advanced_settings.Allow_Script_Auto_Update = document.getElementById('autoUpdatesScriptEnabled').checked;
-        advanced_settings.FW_Allow_Beta_Production_Up = document.getElementById('betaToReleaseUpdatesEnabled').checked;
-        advanced_settings.FW_Auto_Backupmon = document.getElementById('autobackupEnabled').checked;
-
-        // **Handle conditional fields based on visibility by checking the <tr> display property**
+        // Handle conditional fields based on visibility
         var rogFWBuildRow = document.getElementById('rogFWBuildRow');
         if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none') {
             var rogFWBuildTypeElement = document.getElementById('rogFWBuildType');
             advanced_settings.FW_New_Update_ROGFWBuildType = rogFWBuildTypeElement.value || 'ROG';
         }
-    
+
         var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
         if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none') {
             var tuffFWBuildTypeElement = document.getElementById('tuffFWBuildType');
@@ -513,19 +514,8 @@
         // Prefix the advanced settings
         var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
 
-        // Retrieve existing prefixed settings from 'amng_custom'
-        var existingSettings = {};
-        var existingCustom = document.getElementById('amng_custom').value.trim();
-        if (existingCustom) {
-            try {
-                existingSettings = JSON.parse(existingCustom);
-            } catch (e) {
-                console.error("Error parsing existing 'amng_custom' JSON:", e);
-            }
-        }
-
-        // Merge existing settings with the new advanced settings
-        var updatedSettings = Object.assign({}, existingSettings, prefixedAdvancedSettings);
+        // Merge with existing custom_settings
+        var updatedSettings = Object.assign({}, custom_settings, prefixedAdvancedSettings);
 
         // Save the merged settings back to 'amng_custom'
         document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
