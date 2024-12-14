@@ -8,6 +8,7 @@
 ###################################################################
 set -u
 
+source /usr/sbin/helper.sh
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.4.0
 readonly SCRIPT_NAME="MerlinAU"
