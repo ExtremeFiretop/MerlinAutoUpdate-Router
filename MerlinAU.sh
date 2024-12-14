@@ -1667,31 +1667,43 @@ _Create_Symlinks_(){
 ## Added by ExtremeFiretop [2024-Dec-13] ##
 ##---------------------------------------##
 _Conf_FromSettings_(){
-	if [ -f "$SHAREDSETTINGSFILE" ]; then
-		if [ "$(grep "MerlinAU_" $SHAREDSETTINGSFILE | grep -v "version" -c)" -gt 0 ]; then
-			Say "Updated settings from WebUI found, merging into $SETTINGSFILE"
-			cp -a "$SETTINGSFILE" "${SETTINGSFILE}.bak"
-			grep "MerlinAU_" "$SHAREDSETTINGSFILE" | grep -v "version" > "$TMPFILE"
-			sed -i "s/MerlinAU_//g;s/ /=/g" "$TMPFILE"
-			while IFS='' read -r line || [ -n "$line" ]; do
-				SETTINGNAME="$(echo "$line" | cut -f1 -d'=')"
-				SETTINGVALUE="$(echo "$line" | cut -f2- -d'=' | sed "s/=/ /g")"
-				Update_Custom_Settings "$SETTINGNAME" "$SETTINGVALUE"
-			done < "$TMPFILE"
-			grep 'MerlinAU_version' "$SHAREDSETTINGSFILE" > "$TMPFILE"
-			sed -i "\\~MerlinAU~d" "$SHAREDSETTINGSFILE"
-			mv "$SHAREDSETTINGSFILE" "$SHAREDSETTINGSFILE.bak"
-			cat "$SHAREDSETTINGSFILE.bak" "$TMPFILE" > "$SHAREDSETTINGSFILE"
-			rm -f "$TMPFILE"
-			rm -f "$SHAREDSETTINGSFILE.bak"
-			
-			_Create_Symlinks_
-						
-			Say "Merge of updated settings from WebUI completed successfully"
-		else
-			Say "No updated settings from WebUI found, no merge into $SETTINGSFILE necessary"
-		fi
-	fi
+    if [ -f "$SHAREDSETTINGSFILE" ]; then
+        # Check for MerlinAU_ entries excluding 'version' and 'uiPage'
+        if [ "$(grep "MerlinAU_" "$SHAREDSETTINGSFILE" | grep -Ev "version|uiPage" -c)" -gt 0 ]; then
+            Say "Updated settings from WebUI found, merging into $SETTINGSFILE"
+            cp -a "$SETTINGSFILE" "${SETTINGSFILE}.bak"
+            
+            # Extract MerlinAU_ entries excluding 'version' and 'uiPage'
+            grep "MerlinAU_" "$SHAREDSETTINGSFILE" | grep -Ev "version|uiPage" > "$TMPFILE"
+            sed -i "s/MerlinAU_//g;s/ /=/g" "$TMPFILE"
+            
+            while IFS='' read -r line || [ -n "$line" ]; do
+                SETTINGNAME="$(echo "$line" | cut -f1 -d'=')"
+                SETTINGVALUE="$(echo "$line" | cut -f2- -d'=' | sed "s/=/ /g")"
+                Update_Custom_Settings "$SETTINGNAME" "$SETTINGVALUE"
+            done < "$TMPFILE"
+            
+            # Handle MerlinAU_version separately if needed
+            grep 'MerlinAU_version' "$SHAREDSETTINGSFILE" > "$TMPFILE"
+            
+            # Remove all MerlinAU_ entries including 'uiPage' and 'version'
+            sed -i "\\~MerlinAU~d" "$SHAREDSETTINGSFILE"
+            
+            # Reconstruct the SHAREDSETTINGSFILE without excluded entries
+            mv "$SHAREDSETTINGSFILE" "$SHAREDSETTINGSFILE.bak"
+            cat "$SHAREDSETTINGSFILE.bak" "$TMPFILE" > "$SHAREDSETTINGSFILE"
+            
+            # Clean up temporary files
+            rm -f "$TMPFILE"
+            rm -f "$SHAREDSETTINGSFILE.bak"
+            
+            _Create_Symlinks_
+                    
+            Say "Merge of updated settings from WebUI completed successfully"
+        else
+            Say "No updated settings from WebUI found, no merge into $SETTINGSFILE necessary"
+        fi
+    fi
 }
 
 ##------------------------------------------##
