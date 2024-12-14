@@ -1682,9 +1682,12 @@ _Conf_FromSettings_(){
                 SETTINGVALUE="$(echo "$line" | cut -f2- -d'=' | sed "s/=/ /g")"
                 Update_Custom_Settings "$SETTINGNAME" "$SETTINGVALUE"
             done < "$TMPFILE"
+
+            # Handle MerlinAU_uiPage separately if needed
+            grep 'MerlinAU_uiPage' "$SHAREDSETTINGSFILE" > "$TMPFILE"
             
             # Handle MerlinAU_version separately if needed
-            grep 'MerlinAU_version' "$SHAREDSETTINGSFILE" > "$TMPFILE"
+            grep 'MerlinAU_version' "$SHAREDSETTINGSFILE" >> "$TMPFILE"
             
             # Remove all MerlinAU_ entries including 'uiPage' and 'version'
             sed -i "\\~MerlinAU~d" "$SHAREDSETTINGSFILE"
