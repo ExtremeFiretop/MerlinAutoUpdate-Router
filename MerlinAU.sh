@@ -1535,7 +1535,7 @@ _Mount_WebUI_(){
 	fi
 
 	# Store the page name for later use (e.g., in uninstall scripts)
-	echo "MerlinAU_uiPage $am_webui_page" > "$SHAREDSETTINGSFILE"
+	echo "MerlinAU_uiPage $am_webui_page" >> "$SHAREDSETTINGSFILE"
 
 	# Copy custom page to the user's WebUI directory
 	cp "$PAGE_FILE" "/www/user/$am_webui_page"
