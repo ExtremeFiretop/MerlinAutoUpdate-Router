@@ -1,950 +1,9190 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml">
-<head>
-    <!-- Use router-provided CSS -->
-    <meta http-equiv="X-UA-Compatible" content="IE=Edge" />
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
-    <meta http-equiv="Pragma" content="no-cache" />
-    <meta http-equiv="Expires" content="-1" />
-    <link rel="shortcut icon" href="images/favicon.png" />
-    <link rel="icon" href="images/favicon.png" />
-    <link rel="stylesheet" type="text/css" href="index_style.css" />
-    <link rel="stylesheet" type="text/css" href="form_style.css" />
-    <!-- Other meta tags and links -->
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <!-- Existing scripts -->
-    <script type="text/javascript" src="/state.js"></script>
-    <script type="text/javascript" src="/general.js"></script>
-    <script type="text/javascript" src="/popup.js"></script>
-    <script type="text/javascript" src="/help.js"></script>
-    <script type="text/javascript" src="/validator.js"></script>
-    <script type="text/javascript">
-    // Define color formatting
-    var GRNct = "<span style='color:cyan;'>";
-    var NOct = "</span>";
-    var REDct = "<span style='color:red;'>";
+#!/bin/sh
+###################################################################
+# MerlinAU.sh (MerlinAutoUpdate)
+#
+# Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
+# Official Co-Author: @Martinski W. - Date: 2023-Nov-01
+# Last Modified: 2024-Dec-13
+###################################################################
+set -u
 
-    // Separate variables for server and AJAX settings
-    var advanced_settings = {};
-    var custom_settings = {};
-    var server_custom_settings = {};
-    var ajax_custom_settings = {};
+source /usr/sbin/helper.sh
+## Set version for each Production Release ##
+readonly SCRIPT_VERSION=1.4.0
+readonly SCRIPT_NAME="MerlinAU"
+## Set to "master" for Production Releases ##
+SCRIPT_BRANCH="dev"
 
-    function LoadCustomSettings(){
-        server_custom_settings = <% get_custom_settings(); %>;
-        console.log("Server Custom Settings Loaded:", server_custom_settings);
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-03] ##
+##----------------------------------------##
+# Script URL Info #
+readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router"
+SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
+
+# Firmware URL Info #
+readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
+readonly FW_SFURL_RELEASE_SUFFIX="Release"
+readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
+# Changelog Info #
+readonly CL_URL_NG="${FW_SFURL_BASE}/Documentation/Changelog-NG.txt/download"
+readonly CL_URL_386="${FW_SFURL_BASE}/Documentation/Changelog-386.txt/download"
+readonly CL_URL_3006="${FW_SFURL_BASE}/Documentation/Changelog-3006.txt/download"
+
+readonly high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
+
+# For new script version updates from source repository #
+DLRepoVersion=""
+scriptUpdateNotify=0
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Oct-02] ##
+##------------------------------------------##
+# For minimum supported firmware version check #
+MinFirmwareVerCheckFailed=false
+MinSupportedFirmwareVers="3004.386.12.6"
+
+# For router model check #
+routerModelCheckFailed=false
+offlineUpdateTrigger=false
+
+##--------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-26]   ##
+##--------------------------------------------##
+readonly NOct="\e[0m"
+readonly REDct="\e[1;31m"
+readonly GRNct="\e[1;32m"
+readonly BLKct="\e[1;30m"
+readonly YLWct="\e[1;33m"
+readonly BLUEct="\e[1;34m"
+readonly MAGENTAct="\e[1;35m"
+readonly CYANct="\e[1;36m"
+readonly WHITEct="\e[1;37m"
+
+readonly ScriptFileName="${0##*/}"
+readonly ScriptFNameTag="${ScriptFileName%%.*}"
+readonly ScriptDirNameD="${ScriptFNameTag}.d"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-01] ##
+##----------------------------------------##
+readonly ADDONS_PATH="/jffs/addons"
+readonly SCRIPTS_PATH="/jffs/scripts"
+readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
+readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
+readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+readonly SHAREDSETTINGSFILE="/jffs/addons/custom_settings.txt"
+readonly TMPFILE="/tmp/MerlinAU_settings.txt"
+readonly WEBDIR="/www/user/$ScriptDirNameD"
+readonly PAGE_FILE="$SETTINGS_DIR/MerlinAU.asp"
+
+# Give FIRST priority to built-in binaries over any other #
+export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Sep-15] ##
+##-------------------------------------##
+# For handling 3rd-party add-on cron jobs #
+readonly USB_OPT_DIRPATH1="/opt"
+readonly USB_OPT_DIRPATH2="/tmp/opt"
+readonly USB_MNT_DIRPATH1="/mnt"
+readonly USB_MNT_DIRPATH2="/tmp/mnt"
+
+readonly cronJobsRegEx1="[[:blank:]]+${ADDONS_PATH}/.* "
+readonly cronJobsRegEx2="[[:blank:]]+${SCRIPTS_PATH}/.* "
+readonly cronJobsRegEx3="[[:blank:]]+${USB_OPT_DIRPATH1}/.* "
+readonly cronJobsRegEx4="[[:blank:]]+${USB_OPT_DIRPATH2}/.* "
+readonly cronJobsRegEx5="[[:blank:]]+${USB_MNT_DIRPATH1}/.* "
+readonly cronJobsRegEx6="[[:blank:]]+${USB_MNT_DIRPATH2}/.* "
+readonly addonCronJobList="/home/root/addonCronJobList_$$.txt"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-05] ##
+##----------------------------------------##
+ScriptsDirPath="$SCRIPTS_PATH"
+ScriptFilePath="${SCRIPTS_PATH}/${SCRIPT_NAME}.sh"
+
+if [ ! -f "$ScriptFilePath" ]
+then
+    ScriptsDirPath="$(pwd)"
+    ScriptFilePath="$(pwd)/$ScriptFileName"
+fi
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Apr-02] ##
+##------------------------------------------##
+#-------------------------------------------------------#
+# We'll use the built-in AMTM email configuration file
+# to send email notifications *IF* enabled by the user.
+#-------------------------------------------------------#
+readonly FW_UpdateEMailFormatTypeDefault=HTML
+readonly FW_UpdateEMailNotificationDefault=false
+readonly amtmMailDirPath="/jffs/addons/amtm/mail"
+readonly amtmMailConfFile="${amtmMailDirPath}/email.conf"
+readonly amtmMailPswdFile="${amtmMailDirPath}/emailpw.enc"
+readonly tempEMailContent="/tmp/var/tmp/tempEMailContent.$$.TXT"
+readonly tempNodeEMailList="/tmp/var/tmp/tempNodeEMailList.$$.TXT"
+readonly tempEMailBodyMsg="/tmp/var/tmp/tempEMailBodyMsg.$$.TXT"
+readonly saveEMailInfoMsg="${SETTINGS_DIR}/savedEMailInfoMsg.SAVE.TXT"
+readonly theEMailDateTimeFormat="%Y-%b-%d %a %I:%M:%S %p %Z"
+
+if [ -z "$(which crontab)" ]
+then cronListCmd="cru l"
+else cronListCmd="crontab -l"
+fi
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
+inMenuMode=true
+isInteractive=false
+FlashStarted=false
+MerlinChangeLogURL=""
+GnutonChangeLogURL=""
+
+# Main LAN Network Info #
+readonly myLAN_HostName="$(nvram get lan_hostname)"
+readonly mainLAN_IFname="$(nvram get lan_ifname)"
+readonly mainLAN_IPaddr="$(nvram get lan_ipaddr)"
+readonly mainNET_IPaddr="$(ip route show | grep -E "[[:blank:]]+dev[[:blank:]]+${mainLAN_IFname}[[:blank:]]+proto[[:blank:]]+" | awk -F ' ' '{print $1}')"
+
+# RegExp for IPv4 address #
+readonly IPv4octet_RegEx="([0-9]|[1-9][0-9]|1[0-9][0-9]|2[0-4][0-9]|25[0-5])"
+readonly IPv4addrs_RegEx="(${IPv4octet_RegEx}\.){3}${IPv4octet_RegEx}"
+readonly IPv4privt_RegEx="(^10\.|^172\.1[6-9]\.|^172\.2[0-9]\.|^172\.3[0-1]\.|^192\.168\.)"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Oct-03] ##
+##----------------------------------------##
+readonly fwInstalledBaseVers="$(nvram get firmver | sed 's/\.//g')"
+readonly fwInstalledBuildVers="$(nvram get buildno)"
+readonly fwInstalledExtendNum="$(nvram get extendno)"
+readonly fwInstalledInnerVers="$(nvram get innerver)"
+readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildVers" | awk -F'.' '{print $1}')"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Oct-03] ##
+##-------------------------------------##
+readonly MinSupportedFW_3004_386_Ver="3004.386.12.6"
+readonly MinSupportedFW_3004_388_Ver="3004.388.6.2"
+readonly MinSupportedFW_3006_102_Ver="3004.388.8.0"
+
+case "$fwInstalledBranchVer" in
+   "3004.386") MinSupportedFirmwareVers="$MinSupportedFW_3004_386_Ver" ;;
+   "3004.388") MinSupportedFirmwareVers="$MinSupportedFW_3004_388_Ver" ;;
+   "3006.102") MinSupportedFirmwareVers="$MinSupportedFW_3006_102_Ver" ;;
+esac
+
+if [ "$(nvram get sw_mode)" -eq 1 ]
+then inRouterSWmode=true
+else inRouterSWmode=false
+fi
+
+readonly mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
+readonly advnMenuReturnPromptStr="Press <Enter> to return to the Advanced Options Menu..."
+readonly logsMenuReturnPromptStr="Press <Enter> to return to the Log Options Menu..."
+theMenuReturnPromptMsg="$mainMenuReturnPromptStr"
+readonly SEPstr="----------------------------------------------------------"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+# menu setup variables #
+readonly theExitStr="${GRNct}e${NOct}=Exit to Main Menu"
+readonly theMUExitStr="${GRNct}e${NOct}=Exit"
+readonly theADExitStr="${GRNct}e${NOct}=Exit to Advanced Options Menu"
+readonly theLGExitStr="${GRNct}e${NOct}=Exit to Log Options Menu"
+readonly menuCancelAndExitStr="${GRNct}e${NOct}=Exit Menu"
+readonly menuSavedThenExitStr="${GRNct}s${NOct}=Save&Exit"
+readonly menuReturnToBeginStr="${GRNct}b${NOct}=Back to Top"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Aug-15] ##
+##-------------------------------------##
+routerLoginFailureMsg="Please try the following:
+1. Confirm that you are *not* already logged into the router webGUI using a web browser.
+2. Check that the \"Enable Access Restrictions\" option from the webGUI is *not* set up
+   to restrict access to the router webGUI from the router's IP address [${GRNct}${mainLAN_IPaddr}${NOct}].
+3. Confirm your password via the \"Set Router Login Credentials\" option from the Main Menu."
+
+[ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-23] ##
+##----------------------------------------##
+userLOGFile=""
+userTraceFile="${SETTINGS_DIR}/${ScriptFNameTag}_Trace.LOG"
+userDebugFile="${SETTINGS_DIR}/${ScriptFNameTag}_Debug.LOG"
+LOGdateFormat="%Y-%m-%d %H:%M:%S"
+_LogMsgNoTime_() { _UserLogMsg_ "_NOTIME_" "$@" ; }
+
+_UserTraceLog_()
+{
+   local logTime="$(date +"$LOGdateFormat")"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       echo >> "$userTraceFile"
+   elif [ $# -eq 1 ]
+   then
+       echo "$logTime" "$1" >> "$userTraceFile"
+   elif [ "$1" = "_NOTIME_" ]
+   then
+       echo "$2" >> "$userTraceFile"
+   else
+       echo "$logTime" "${1}: $2" >> "$userTraceFile"
+   fi
+}
+
+_UserLogMsg_()
+{
+   if [ -z "$userLOGFile" ] || [ ! -f "$userLOGFile" ]
+   then return 1 ; fi
+
+   local logTime="$(date +"$LOGdateFormat")"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       echo >> "$userLOGFile"
+   elif [ $# -eq 1 ]
+   then
+       echo "$logTime" "$1" >> "$userLOGFile"
+   elif [ "$1" = "_NOTIME_" ]
+   then
+       echo "$2" >> "$userLOGFile"
+   else
+       echo "$logTime" "${1}: $2" >> "$userLOGFile"
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Dec-21] ##
+##----------------------------------------##
+Say()
+{
+   "$isInteractive" && printf "${1}\n"
+   # Clean out the "color escape sequences" from the log file #
+   local logMsg="$(echo "$1" | sed 's/\\\e\[0m//g ; s/\\\e\[[0-1];3[0-9]m//g')"
+   _UserLogMsg_ "$logMsg"
+   printf "$logMsg" | logger -t "[$(basename "$0")] $$"
+}
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-20] ##
+##----------------------------------------------##
+_WaitForEnterKey_()
+{
+   ! "$isInteractive" && return 0
+   local promptStr
+
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then promptStr="$1"
+   else promptStr="Press <Enter> to continue..."
+   fi
+
+   printf "\n$promptStr"
+   read -rs EnterKEY ; echo
+}
+
+##----------------------------------##
+## Added Martinski W. [2023-Nov-28] ##
+##----------------------------------##
+_WaitForYESorNO_()
+{
+   ! "$isInteractive" && return 0
+   local promptStr
+
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then promptStr=" [yY|nN]?  "
+   else promptStr="$1 [yY|nN]?  "
+   fi
+
+   printf "$promptStr" ; read -r YESorNO
+   if echo "$YESorNO" | grep -qE "^([Yy](es)?|YES)$"
+   then echo "OK" ; return 0
+   else echo "NO" ; return 1
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-24] ##
+##----------------------------------------##
+readonly LockFilePath="/tmp/var/${ScriptFNameTag}.LOCK"
+LockFileMaxAgeSecs=600  #10-minutes#
+LockWaitTimeoutSecs=120
+
+_ReleaseLock_() { rm -f "$LockFilePath" ; }
+
+if [ $# -eq 0 ] || [ -z "$1" ] || \
+   [ "$1" = "resetLockFile" ]
+then  #Interactive Mode#
+    LockFileMaxAgeSecs=1200
+    LockWaitTimeoutSecs=2
+elif [ "$1" = "addCronJob" ]
+then  #Special Case#
+    LockFileMaxAgeSecs=1200
+    LockWaitTimeoutSecs=600
+fi
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-17] ##
+##----------------------------------------##
+_AcquireLock_()
+{
+   if [ ! -f "$LockFilePath" ]
+   then
+       echo "$$" > "$LockFilePath"
+       return 0
+   fi
+   local lockFileSecs  ageOfLockSecs  oldPID  retCode  waitTimeoutSecs
+
+   retCode=1
+   waitTimeoutSecs=0
+
+   while true
+   do
+      if [ -f "$LockFilePath" ]
+      then
+          oldPID="$(cat "$LockFilePath")"
+          lockFileSecs="$(date +%s -r "$LockFilePath")"
+      else
+          echo "$$" > "$LockFilePath"
+          retCode=0
+          break
+      fi
+
+      ageOfLockSecs="$(($(date +%s) - lockFileSecs))"
+      if [ "$ageOfLockSecs" -gt "$LockFileMaxAgeSecs" ]
+      then
+          Say "Stale Lock Found (older than $LockFileMaxAgeSecs secs.) Resetting lock file..."
+          if [ -n "$oldPID" ] && kill -EXIT "$oldPID" 2>/dev/null && \
+              pidof "$ScriptFileName" | grep -qow "$oldPID"
+          then
+              kill -TERM "$oldPID" ; wait "$oldPID"
+          fi
+          echo "$$" > "$LockFilePath"
+          retCode=0
+          break
+      elif [ "$waitTimeoutSecs" -le "$LockWaitTimeoutSecs" ]
+      then
+          if [ "$((waitTimeoutSecs % 10))" -eq 0 ]
+          then
+              Say "Lock Found [Age: $ageOfLockSecs secs.] Waiting for script [PID=$oldPID] to exit [Timer: $waitTimeoutSecs secs.]"
+          fi
+          sleep 2
+          waitTimeoutSecs="$((waitTimeoutSecs + 2))"
+      else
+          Say "${REDct}**ERROR**${NOct}: The shell script ${ScriptFileName} [PID=$oldPID] is already running [Lock Age: $ageOfLockSecs secs.]"
+          retCode=1
+          break
+      fi
+   done
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Dec-26] ##
+##-------------------------------------##
+_DoExit_()
+{
+   local exitCode=0
+   [ $# -gt 0 ] && [ -n "$1" ] && exitCode="$1"
+   _ReleaseLock_ ; exit "$exitCode"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-21] ##
+##------------------------------------------##
+logo() {
+  echo -e "${YLWct}"
+  echo -e "      __  __           _ _               _    _ "
+  echo -e "     |  \/  |         | (_)         /\  | |  | |"
+  echo -e "     | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
+  echo -e "     | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
+  echo -e "     | |  | |  __| |  | | | | | |/ ____ | |__| |"
+  echo -e "     |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
+  echo -e "${NOct}"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Jul-03] ##
+##---------------------------------------##
+_ShowAbout_()
+{
+    clear
+    logo
+    cat <<EOF
+About
+  $SCRIPT_NAME is a tool for automating firmware updates on AsusWRT Merlin,
+  ensuring your router stays up-to-date with the latest features and security
+  patches. It simplifies the update process by automatically checking for,
+  downloading, and applying new firmware versions.
+  Developed by ExtremeFiretop and Martinski W.
+License
+  $SCRIPT_NAME is free to use under the GNU General Public License
+  version 3 (GPL-3.0) https://opensource.org/licenses/GPL-3.0
+Help & Support
+  https://www.snbforums.com/threads/merlinau-the-ultimate-firmware-auto-updater-addon.88577/
+Source code
+  https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
+EOF
+    printf "\n"
+    _DoExit_ 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
+_ShowHelp_()
+{
+    clear
+    logo
+    cat <<EOF
+Available commands:
+  ${SCRIPT_NAME}.sh about              explains functionality
+  ${SCRIPT_NAME}.sh help               display available commands
+  ${SCRIPT_NAME}.sh checkupdates       check for available MerlinAU script updates
+  ${SCRIPT_NAME}.sh forceupdate        updates to latest version (force update)
+  ${SCRIPT_NAME}.sh run_now            run update process on router
+  ${SCRIPT_NAME}.sh processNodes       run update check on nodes
+  ${SCRIPT_NAME}.sh develop            switch to development branch
+  ${SCRIPT_NAME}.sh stable             switch to stable branch
+  ${SCRIPT_NAME}.sh uninstall          uninstalls script
+EOF
+    printf "\n"
+    _DoExit_ 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
+## To support new "3006" F/W Basecode ##
+if [ "$fwInstalledBaseVers" -ge 3006 ]
+then readonly nvramLEDsVar=AllLED
+else readonly nvramLEDsVar=led_disable
+fi
+
+# Save initial LEDs state to put it back later #
+readonly LEDsInitState="$(nvram get "$nvramLEDsVar")"
+LEDsToggleState="$LEDsInitState"
+Toggle_LEDs_PID=""
+
+# To enable/disable the built-in "F/W Update Check" #
+FW_UpdateCheckState="TBD"
+FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
+
+##--------------------------------------##
+## Added by Martinski W. [22023-Nov-24] ##
+##--------------------------------------##
+#---------------------------------------------------------#
+# The USB-attached drives can have multiple partitions
+# with different file systems (NTFS, ext3, ext4, etc.),
+# which means that multiple mount points can be found.
+# So for the purpose of choosing a default value here
+# we will simply select the first mount point found.
+# Users can later on change it by typing a different
+# mount point path or directory using the Main Menu.
+#---------------------------------------------------------#
+_GetDefaultUSBMountPoint_()
+{
+   local mountPointPath  retCode=0
+   local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
+
+   mountPointPath="$(grep -m1 "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mountPointPath" ] && retCode=1
+   echo "$mountPointPath" ; return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
+# Background function to create a blinking LED effect #
+_Toggle_LEDs_()
+{
+   if [ -z "$LEDsToggleState" ]
+   then
+       sleep 1
+       Toggle_LEDs_PID=""
+       return 1
+   fi
+
+   if [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^[2-5]$"
+   then blinkRateSecs=2
+   else blinkRateSecs="$1"
+   fi
+
+   while true
+   do
+      LEDsToggleState="$((! LEDsToggleState))"
+      nvram set ${nvramLEDsVar}="$LEDsToggleState"
+      /sbin/service restart_leds > /dev/null 2>&1
+      sleep "$blinkRateSecs"
+   done
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
+_Reset_LEDs_()
+{
+   local doTrace=false
+   [ $# -gt 0 ] && [ "$1" -eq 1 ] && doTrace=false
+   if "$doTrace"
+   then
+       Say "START _Reset_LEDs_"
+       _UserTraceLog_ "START _Reset_LEDs_"
+   fi
+
+   # Check if the process with that PID is still running #
+   if [ -n "$Toggle_LEDs_PID" ] && \
+      kill -EXIT "$Toggle_LEDs_PID" 2>/dev/null
+   then
+       kill -TERM $Toggle_LEDs_PID
+       wait $Toggle_LEDs_PID
+       # Set LEDs to their "initial state" #
+       nvram set ${nvramLEDsVar}="$LEDsInitState"
+       /sbin/service restart_leds >/dev/null 2>&1
+       sleep 2
+   fi
+   Toggle_LEDs_PID=""
+
+   if "$doTrace"
+   then
+       Say "EXIT _Reset_LEDs_"
+       _UserTraceLog_ "EXIT _Reset_LEDs_"
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-06] ##
+##----------------------------------------##
+_GetRouterURL_()
+{
+    local urlProto  urlDomain  urlPort
+
+    if [ "$(nvram get http_enable)" = "1" ]
+    then urlProto="https"
+    else urlProto="http"
+    fi
+
+    urlDomain="$(nvram get lan_domain)"
+    if [ -z "$urlDomain" ]
+    then urlDomain="$mainLAN_IPaddr"
+    else urlDomain="${myLAN_HostName}.$urlDomain"
+    fi
+
+    urlPort="$(nvram get "${urlProto}_lanport")"
+    if [ "$urlPort" -eq 80 ] || [ "$urlPort" -eq 443 ]
+    then urlPort=""
+    else urlPort=":$urlPort"
+    fi
+
+    echo "${urlProto}://${urlDomain}${urlPort}"
+}
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-20] ##
+##----------------------------------------------##
+_GetRouterModelID_()
+{
+   local retCode=1  routerModelID=""
+   local nvramModelKeys="odmpid wps_modelnum model build_name"
+   for nvramKey in $nvramModelKeys
+   do
+       routerModelID="$(nvram get "$nvramKey")"
+       [ -n "$routerModelID" ] && retCode=0 && break
+   done
+   echo "$routerModelID" ; return "$retCode"
+}
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-20] ##
+##----------------------------------------------##
+_GetRouterProductID_()
+{
+   local retCode=1  routerProductID=""
+   local nvramProductKeys="productid build_name odmpid"
+   for nvramKey in $nvramProductKeys
+   do
+       routerProductID="$(nvram get "$nvramKey")"
+       [ -n "$routerProductID" ] && retCode=0 && break
+   done
+   echo "$routerProductID" ; return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Nov-28] ##
+##-------------------------------------##
+_ScriptVersionStrToNum_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then echo 0 ; return 1 ; fi
+   local verNum  verStr
+
+   verStr="$(echo "$1" | awk -F '_' '{print $1}')"
+   verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%03d%03d\n", $1,$2,$3);}')"
+   verNum="$(echo "$verNum" | sed 's/^0*//')"
+   echo "$verNum" ; return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-11] ##
+##----------------------------------------##
+_GetFirmwareVariantFromRouter_()
+{
+   local hasGNUtonFW=false
+
+   ##FOR TESTING/DEBUG ONLY##
+   if false  # Change to true for forcing GNUton flag #
+   then hasGNUtonFW=true ; return 0 ; fi
+   ##FOR TESTING/DEBUG ONLY##
+
+   # Check if installed F/W NVRAM vars contain "gnuton" #
+   if echo "$fwInstalledInnerVers" | grep -iq "gnuton" || \
+      echo "$fwInstalledExtendNum" | grep -iq "gnuton"
+   then hasGNUtonFW=true ; fi
+
+   echo "$hasGNUtonFW" ; return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
+_FWVersionStrToNum_()
+{
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+    then echo ; return 1 ; fi
+
+    USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
+
+    local verNum  verStr="$1"  nonProductionVersionWeight=0
+    local fwBasecodeVers=""  numOfFields
+
+    #--------------------------------------------------------------
+    # Handle any 'alpha/beta' in the version string to be sure
+    # that we always get good numerical values for comparison.
+    #--------------------------------------------------------------
+    if echo "$verStr" | grep -qiE '(alpha|beta)'
+    then
+        # Adjust weight value if "Beta-to-Production" update is enabled #
+        [ "$USE_BETA_WEIGHT" = "ENABLED" ] && nonProductionVersionWeight=-100
+
+        # Replace '.alpha|.beta' and anything following it with ".0" #
+        verStr="$(echo "$verStr" | sed 's/[.][Aa]lpha.*/.0/ ; s/[.][Bb]eta.*/.0/')"
+        # Remove 'alpha|beta' and anything following it #
+        verStr="$(echo "$verStr" | sed 's/[_-]\?[Aa]lpha.*// ; s/[_-]\?[Bb]eta.*//')"
+    fi
+
+    numOfFields="$(echo "$verStr" | awk -F '.' '{print NF}')"
+
+    if [ "$numOfFields" -lt "$2" ]
+    then fwBasecodeVers="$fwInstalledBaseVers" ; fi
+
+    #-----------------------------------------------------------
+    # Temporarily remove Basecode version to avoid issues with
+    # integers greater than the maximum 32-bit signed integer
+    # when doing arithmetic computations with shell cmds.
+    #-----------------------------------------------------------
+    if [ "$numOfFields" -gt 3 ]
+    then
+        fwBasecodeVers="$(echo "$verStr" | cut -d'.' -f1)"
+        verStr="$(echo "$verStr" | cut -d'.' -f2-)"
+    fi
+    verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')"
+
+    # Subtract non-production weight from the version number #
+    verNum="$((verNum + nonProductionVersionWeight))"
+
+    # Now prepend the F/W Basecode version #
+    [ -n "$fwBasecodeVers" ] && verNum="${fwBasecodeVers}$verNum"
+
+    echo "$verNum" ; return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
+if "$inRouterSWmode" 
+then
+    readonly FW_Update_CRON_DefaultSchedule="0 0 * * *"
+else
+    ## Recommended 20 minutes AFTER for AiMesh Nodes ##
+    readonly FW_Update_CRON_DefaultSchedule="20 0 * * *"
+fi
+
+## Recommended 15 minutes BEFORE the F/W Update ##
+readonly ScriptAU_CRON_DefaultSchedule="45 23 * * *"
+
+## For Automatic Script Updates Cron Schedule ##
+readonly SW_Update_CRON_DefaultSchedDays="* x *"
+
+readonly CRON_MINS_RegEx="([0-9]|[1-5][0-9])"
+readonly CRON_HOUR_RegEx="([0-9]|1[0-9]|2[0-3])"
+
+readonly CRON_DAYofMONTH_rexp1="([1-9]|[1-2][0-9]|3[0-1])"
+readonly CRON_DAYofMONTH_rexp2="${CRON_DAYofMONTH_rexp1}[-]${CRON_DAYofMONTH_rexp1}"
+readonly CRON_DAYofMONTH_rexp3="${CRON_DAYofMONTH_rexp2}[/][2-9]"
+readonly CRON_DAYofMONTH_rexp4="${CRON_DAYofMONTH_rexp1}([,]${CRON_DAYofMONTH_rexp1})+"
+readonly CRON_DAYofMONTH_RegEx="($CRON_DAYofMONTH_rexp1|$CRON_DAYofMONTH_rexp2|$CRON_DAYofMONTH_rexp3|$CRON_DAYofMONTH_rexp4)"
+
+readonly CRON_DAYofWEEK_Names="([S|s]un|[M|m]on|[T|t]ue|[W|w]ed|[T|t]hu|[F|f]ri|[S|s]at)"
+readonly CRON_DAYofWEEK_rexp1="[0-6][-][0-6][/][2-3]"
+readonly CRON_DAYofWEEK_rexp2="${CRON_DAYofWEEK_Names}|[0-6]"
+readonly CRON_DAYofWEEK_rexp3="${CRON_DAYofWEEK_Names}[-]${CRON_DAYofWEEK_Names}|[0-6][-][0-6]"
+readonly CRON_DAYofWEEK_rexp4="${CRON_DAYofWEEK_Names}([,]${CRON_DAYofWEEK_Names})+|[0-6]([,][0-6])+"
+readonly CRON_DAYofWEEK_RegEx="($CRON_DAYofWEEK_rexp1|$CRON_DAYofWEEK_rexp2|$CRON_DAYofWEEK_rexp3|$CRON_DAYofWEEK_rexp4)"
+
+readonly CRON_MONTH_NAMES="(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
+readonly CRON_MONTH_RegEx="$CRON_MONTH_NAMES([\/,-]$CRON_MONTH_NAMES)*|([*1-9]|1[0-2])([\/,-]([1-9]|1[0-2]))*"
+
+readonly CRON_UNKNOWN_DATE="**ERROR**: UNKNOWN Date Found"
+
+##------------------------------------------##
+## Modified by Martinski W. [2024-Aug-06]   ##
+##------------------------------------------##
+# To postpone a firmware update for a few days #
+readonly FW_UpdateMinimumPostponementDays=0
+readonly FW_UpdateDefaultPostponementDays=15
+readonly FW_UpdateMaximumPostponementDays=199
+readonly FW_UpdateNotificationDateFormat="%Y-%m-%d_%H:%M:00"
+
+readonly MODEL_ID="$(_GetRouterModelID_)"
+readonly PRODUCT_ID="$(_GetRouterProductID_)"
+
+##FOR TESTING/DEBUG ONLY##
+##readonly PRODUCT_ID="TUF-AX3000_V2"
+##readonly MODEL_ID="$PRODUCT_ID"
+##FOR TESTING/DEBUG ONLY##
+
+readonly FW_FileName="${PRODUCT_ID}_firmware"
+readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
+readonly isGNUtonFW="$(_GetFirmwareVariantFromRouter_)"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-03] ##
+##----------------------------------------##
+_ChangeToDev_()
+{
+    SCRIPT_BRANCH="dev"
+    SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
+    _SCRIPTUPDATE_ force
+    _DoExit_ 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-03] ##
+##----------------------------------------##
+_ChangeToStable_()
+{
+    SCRIPT_BRANCH="master"
+    SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
+    _SCRIPTUPDATE_ force
+    _DoExit_ 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-15] ##
+##----------------------------------------##
+#-------------------------------------------------------------#
+# Since a list of current mount points can have a different
+# order after each reboot, or when USB drives are unmounted
+# (unplugged) & then mounted (plugged in) manually by users,
+# to validate a given mount point path selection we have to
+# go through the current list & check for the specific path.
+# We also make a special case for Entware "/opt/" paths.
+#-------------------------------------------------------------#
+_ValidateUSBMountPoint_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local mounPointPaths  expectedPath  mountPointList
+   local symblPath  realPath1  realPath2  foundPathOK
+   local mountPointRegExp="^/dev/sd.* /tmp/mnt/.*"
+
+   mounPointPaths="$(grep "$mountPointRegExp" /proc/mounts | awk -F ' ' '{print $2}')"
+   [ -z "$mounPointPaths" ] && return 1
+
+   expectedPath="$1"
+   if echo "$1" | grep -qE "^(/opt/|/tmp/opt/)" && [ -d /tmp/opt ]
+   then
+       realPath1="$(readlink -f /tmp/opt)"
+       realPath2="$(ls -l /tmp/opt | awk -F ' ' '{print $11}')"
+       symblPath="$(ls -l /tmp/opt | awk -F ' ' '{print $9}')"
+       [ -L "$symblPath" ] && [ -n "$realPath1" ] && \
+       [ -n "$realPath2" ] && [ "$realPath1" = "$realPath2" ] && \
+       expectedPath="$(/usr/bin/dirname "$realPath1")"
+   fi
+
+   mountPointList=""
+   foundPathOK=false
+
+   for thePATH in $mounPointPaths
+   do
+      if echo "${expectedPath}/" | grep -qE "^${thePATH}/"
+      then foundPathOK=true ; break ; fi
+      mountPointList="$mountPointList $thePATH"
+   done
+   "$foundPathOK" && return 0
+
+   ## Report found Mount Points on failure ##
+   if [ $# -gt 1 ] && [ "$2" -eq 1 ] && [ -n "$mountPointList" ]
+   then Say "Mount points found:\n$mountPointList" ; fi
+   return 1
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-24] ##
+##----------------------------------------##
+if USBMountPoint="$(_GetDefaultUSBMountPoint_)"
+then
+    USBConnected="${GRNct}True${NOct}"
+    readonly FW_Update_ZIP_DefaultSetupDIR="$USBMountPoint"
+    readonly FW_Update_LOG_BASE_DefaultDIR="$USBMountPoint"
+else
+    USBConnected="${REDct}False${NOct}"
+    readonly FW_Update_ZIP_DefaultSetupDIR="/home/root"
+    readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
+fi
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
+_Init_Custom_Settings_Config_()
+{
+   [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
+
+   if [ ! -f "$SETTINGSFILE" ]
+   then
+      {
+         echo "FW_New_Update_Notification_Date TBD"
+         echo "FW_New_Update_Notification_Vers TBD"
+         echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays"
+         echo "FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault"
+         echo "FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\""
+         echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
+         echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
+         echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
+         echo "FW_New_Update_LOG_Preferred_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
+         echo "FW_New_Update_EMail_CC_Name=TBD"
+         echo "FW_New_Update_EMail_CC_Address=TBD"
+         echo "CheckChangeLog ENABLED"
+         echo "Allow_Updates_OverVPN DISABLED"
+         echo "FW_New_Update_Changelog_Approval=TBD"
+         echo "FW_Allow_Beta_Production_Up ENABLED"
+         echo "FW_Auto_Backupmon ENABLED"
+         echo "Allow_Script_Auto_Update DISABLED"
+         echo "Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\""
+      } > "$SETTINGSFILE"
+      chmod 0664 "$SETTINGSFILE"
+      return 1
+   fi
+   local retCode=0  preferredPath
+
+   if ! grep -q "^FW_New_Update_Notification_Date " "$SETTINGSFILE"
+   then
+       sed -i "1 i FW_New_Update_Notification_Date TBD" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_Notification_Vers " "$SETTINGSFILE"
+   then
+       sed -i "2 i FW_New_Update_Notification_Vers TBD" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_Postponement_Days=" "$SETTINGSFILE"
+   then
+       sed -i "3 i FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_EMail_Notification=" "$SETTINGSFILE"
+   then
+       sed -i "4 i FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_EMail_FormatType=" "$SETTINGSFILE"
+   then
+       sed -i "5 i FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\"" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_Cron_Job_Schedule=" "$SETTINGSFILE"
+   then
+       sed -i "6 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_ZIP_Directory_Path=" "$SETTINGSFILE"
+   then
+       sed -i "7 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_LOG_Directory_Path=" "$SETTINGSFILE"
+   then
+       sed -i "8 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_LOG_Preferred_Path=" "$SETTINGSFILE"
+   then
+       preferredPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+       sed -i "9 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^CheckChangeLog " "$SETTINGSFILE"
+   then
+       sed -i "10 i CheckChangeLog ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^Allow_Updates_OverVPN " "$SETTINGSFILE"
+   then
+       sed -i "11 i Allow_Updates_OverVPN DISABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_Allow_Beta_Production_Up " "$SETTINGSFILE"
+   then
+       sed -i "12 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_Auto_Backupmon " "$SETTINGSFILE"
+   then
+       sed -i "13 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^Allow_Script_Auto_Update " "$SETTINGSFILE"
+   then
+       sed -i "14 i Allow_Script_Auto_Update DISABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^Script_Update_Cron_Job_SchedDays=" "$SETTINGSFILE"
+   then
+       sed -i "15 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_Changelog_Approval=" "$SETTINGSFILE"
+   then
+       sed -i "16 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
+       retCode=1
+   fi
+   dos2unix "$SETTINGSFILE"
+   chmod 0664 "$SETTINGSFILE"
+
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
+Get_Custom_Setting()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
+    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
+
+    local setting_value=""  setting_type="$1"  default_value="TBD"
+    [ $# -gt 1 ] && default_value="$2"
+
+    if [ -f "$SETTINGSFILE" ]; then
+        case "$setting_type" in
+            "ROGBuild" | "TUFBuild" | \
+            "credentials_base64" | \
+            "CheckChangeLog" | \
+            "Allow_Updates_OverVPN" | \
+            "FW_Allow_Beta_Production_Up" | \
+            "FW_Auto_Backupmon" | \
+            "Allow_Script_Auto_Update" | \
+            "FW_New_Update_Notification_Date" | \
+            "FW_New_Update_Notification_Vers")
+                setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
+                ;;
+            "FW_New_Update_Postponement_Days"  | \
+            "FW_New_Update_Changelog_Approval" | \
+            "FW_New_Update_Expected_Run_Date"  | \
+            "FW_New_Update_Cron_Job_Schedule"  | \
+            "Script_Update_Cron_Job_SchedDays" | \
+            "FW_New_Update_ZIP_Directory_Path" | \
+            "FW_New_Update_LOG_Directory_Path" | \
+            "FW_New_Update_LOG_Preferred_Path" | \
+            "FW_New_Update_EMail_Notification" | \
+            "FW_New_Update_EMail_FormatType" | \
+            "FW_New_Update_EMail_CC_Name" | \
+            "FW_New_Update_EMail_CC_Address")
+                grep -q "^${setting_type}=" "$SETTINGSFILE" && \
+                setting_value="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                ;;
+            *)
+                setting_value="**ERROR**"
+                ;;
+        esac
+        [ -z "$setting_value" ] && echo "$default_value" || echo "$setting_value"
+    else
+        echo "$default_value"
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-30] ##
+##----------------------------------------##
+_GetAllNodeSettings_()
+{
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+    then echo "**ERROR**" ; return 1; fi
+
+    ## Node Setting KEY="Node_{MACaddress}_{keySuffix}" ##
+    local fullKeyName="Node_${1}_${2}"
+    local setting_value="TBD"  matched_lines
+
+    # Ensure the settings directory exists #
+    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
+
+    if [ -f "$SETTINGSFILE" ]
+    then
+        matched_lines="$(grep -E "^${fullKeyName}=.*" "$SETTINGSFILE")"
+        if [ -n "$matched_lines" ]
+        then
+            # Extract the value from the first matched line #
+            setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
+        fi
+    fi
+    echo "$setting_value"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
+Update_Custom_Settings()
+{
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
+
+    local fixedVal  oldVal=""
+    local setting_type="$1"  setting_value="$2"
+
+    # Check if the directory exists, and if not, create it
+    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
+
+    case "$setting_type" in
+        "ROGBuild" | "TUFBuild" | \
+        "credentials_base64" | \
+        "CheckChangeLog" | \
+        "Allow_Updates_OverVPN" | \
+        "FW_Allow_Beta_Production_Up" | \
+        "FW_Auto_Backupmon" | \
+        "Allow_Script_Auto_Update" | \
+        "FW_New_Update_Notification_Date" | \
+        "FW_New_Update_Notification_Vers")
+            if [ -f "$SETTINGSFILE" ]
+            then
+                if [ "$(grep -c "$setting_type" "$SETTINGSFILE")" -gt 0 ]
+                then
+                    if [ "$setting_value" != "$(grep "^$setting_type" "$SETTINGSFILE" | cut -f2 -d' ')" ]; then
+                        sed -i "s/$setting_type.*/$setting_type $setting_value/" "$SETTINGSFILE"
+                    fi
+                else
+                    echo "$setting_type $setting_value" >> "$SETTINGSFILE"
+                fi
+            else
+                echo "$setting_type $setting_value" > "$SETTINGSFILE"
+            fi
+            ;;
+        "FW_New_Update_Postponement_Days"  | \
+        "FW_New_Update_Changelog_Approval" | \
+        "FW_New_Update_Expected_Run_Date"  | \
+        "FW_New_Update_Cron_Job_Schedule"  | \
+        "Script_Update_Cron_Job_SchedDays" | \
+        "FW_New_Update_ZIP_Directory_Path" | \
+        "FW_New_Update_LOG_Directory_Path" | \
+        "FW_New_Update_LOG_Preferred_Path" | \
+        "FW_New_Update_EMail_Notification" | \
+        "FW_New_Update_EMail_FormatType" | \
+        "FW_New_Update_EMail_CC_Name" | \
+        "FW_New_Update_EMail_CC_Address")
+            if [ -f "$SETTINGSFILE" ]
+            then
+                if grep -q "^${setting_type}=" "$SETTINGSFILE"
+                then
+                    oldVal="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                    if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
+                    then
+                        fixedVal="$(echo "$setting_value" | sed 's/[\/.,*-]/\\&/g')"
+                        sed -i "s/${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$SETTINGSFILE"
+                    fi
+                else
+                    echo "$setting_type=\"${setting_value}\"" >> "$SETTINGSFILE"
+                fi
+            else
+                echo "$setting_type=\"${setting_value}\"" > "$SETTINGSFILE"
+            fi
+            if [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
+            then
+                FW_UpdatePostponementDays="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_Expected_Run_Date" ]
+            then
+                FW_UpdateExpectedRunDate="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_EMail_Notification" ]
+            then
+                sendEMailNotificationsFlag="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_EMail_FormatType" ]
+            then
+                sendEMailFormaType="$setting_value"
+                [ "$sendEMailFormaType" = "HTML" ] && \
+                isEMailFormatHTML=true || isEMailFormatHTML=false
+            #
+            elif [ "$setting_type" = "FW_New_Update_EMail_CC_Name" ]
+            then
+                sendEMail_CC_Name="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_EMail_CC_Address" ]
+            then
+                sendEMail_CC_Address="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
+            then
+                FW_UpdateCronJobSchedule="$setting_value"
+            #
+            elif [ "$setting_type" = "Script_Update_Cron_Job_SchedDays" ]
+            then
+                ScriptUpdateCronSchedDays="$setting_value"
+            #
+            elif [ "$setting_type" = "FW_New_Update_ZIP_Directory_Path" ]
+            then
+                FW_ZIP_BASE_DIR="$setting_value"
+                FW_ZIP_DIR="${setting_value}/$FW_ZIP_SUBDIR"
+                FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+            #
+            elif [ "$setting_type" = "FW_New_Update_LOG_Directory_Path" ]
+            then  # Addition for handling log directory path
+                FW_LOG_BASE_DIR="$setting_value"
+                FW_LOG_DIR="${setting_value}/$FW_LOG_SUBDIR"
+            fi
+            ;;
+        *)
+            # Generic handling for arbitrary settings #
+            if grep -q "^${setting_type}=" "$SETTINGSFILE"
+            then
+                oldVal="$(grep "^${setting_type}=" "$SETTINGSFILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
+                then
+                    fixedVal="$(echo "$setting_value" | sed 's/[\/&]/\\&/g')"
+                    sed -i "s/^${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$SETTINGSFILE"
+                fi
+            else
+                echo "${setting_type}=\"${setting_value}\"" >> "$SETTINGSFILE"
+            fi
+            ;;
+    esac
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-04] ##
+##----------------------------------------##
+Delete_Custom_Settings()
+{
+    if [ $# -lt 1 ] || [ -z "$1" ] || [ ! -f "$SETTINGSFILE" ]
+    then return 1 ; fi
+
+    local setting_type="$1"
+    sed -i "/^${setting_type}[ =]/d" "$SETTINGSFILE"
+    return $?
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-24] ##
+##------------------------------------------##
+_Set_FW_UpdateLOG_DirectoryPath_()
+{
+   local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
+
+   while true
+   do
+      printf "\nEnter the directory path where the LOG subdirectory [${GRNct}${FW_LOG_SUBDIR}${NOct}] will be stored.\n"
+      printf "[${theADExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
+      read -r userInput
+
+      if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+      then break ; fi
+
+      if echo "$userInput" | grep -q '/$'
+      then userInput="${userInput%/*}" ; fi
+
+      if echo "$userInput" | grep -q '//'   || \
+         echo "$userInput" | grep -q '/$'   || \
+         ! echo "$userInput" | grep -q '^/' || \
+         [ "${#userInput}" -lt 4 ]          || \
+         [ "$(echo "$userInput" | awk -F '/' '{print NF-1}')" -lt 2 ]
+      then
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
+          continue
+      fi
+
+      if [ -d "$userInput" ]
+      then newLogBaseDirPath="$userInput" ; break ; fi
+
+      rootDir="${userInput%/*}"
+      if [ ! -d "$rootDir" ]
+      then
+          printf "\n${REDct}**ERROR**${NOct}: Root directory path [${REDct}${rootDir}${NOct}] does NOT exist.\n\n"
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
+          continue
+      fi
+
+      printf "The directory path '${REDct}${userInput}${NOct}' does NOT exist.\n\n"
+      if ! _WaitForYESorNO_ "Do you want to create it now"
+      then
+          printf "Directory was ${REDct}NOT${NOct} created.\n\n"
+      else
+          mkdir -m 755 "$userInput" 2>/dev/null
+          if [ -d "$userInput" ]
+          then newLogBaseDirPath="$userInput" ; break
+          else printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${userInput}${NOct}].\n\n"
+          fi
+      fi
+   done
+
+   # Double-check current directory indeed exists after menu selection #
+   if [ "$newLogBaseDirPath" = "$FW_LOG_BASE_DIR" ] && [ ! -d "$FW_LOG_DIR" ]
+   then mkdir -p -m 755 "$FW_LOG_DIR" ; fi
+
+   if [ "$newLogBaseDirPath" != "$FW_LOG_BASE_DIR" ] && [ -d "$newLogBaseDirPath" ]
+   then
+       if ! echo "$newLogBaseDirPath" | grep -qE "${FW_LOG_SUBDIR}$"
+       then newLogFileDirPath="${newLogBaseDirPath}/$FW_LOG_SUBDIR" ; fi
+       mkdir -p -m 755 "$newLogFileDirPath" 2>/dev/null
+       if [ ! -d "$newLogFileDirPath" ]
+       then
+           printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${newLogFileDirPath}${NOct}].\n"
+           _WaitForEnterKey_
+           return 1
+       fi
+       # Move any existing log files to new directory #
+       mv -f "${FW_LOG_DIR}"/*.log "$newLogFileDirPath" 2>/dev/null
+       # Remove now the obsolete directory path #
+       rm -fr "${FW_LOG_DIR:?}"
+       # Update the log directory path after validation #
+       Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newLogBaseDirPath"
+       Update_Custom_Settings FW_New_Update_LOG_Preferred_Path "$newLogBaseDirPath"
+       echo "The directory path for the log files was updated successfully."
+       _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+   fi
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+_Set_FW_UpdateZIP_DirectoryPath_()
+{
+   local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath=""
+
+   while true
+   do
+      if "$isGNUtonFW"
+      then
+          printf "\nEnter the directory path where the update subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n" 
+      else
+          printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
+      fi
+      if [ -n "$USBMountPoint" ] && _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+      then
+          printf "Default directory for USB-attached drive: [${GRNct}${FW_ZIP_BASE_DIR}${NOct}]\n"
+      else
+          printf "Default directory for 'Local' storage is: [${GRNct}/home/root${NOct}]\n"
+      fi
+      printf "\n[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
+
+      read -r userInput
+
+      if [ -z "$userInput" ] ; then break ; fi
+      if echo "$userInput" | grep -qE "^(e|E|exit|Exit)$" ; then return 1 ; fi
+
+      if echo "$userInput" | grep -q '/$'
+      then userInput="${userInput%/*}" ; fi
+
+      if echo "$userInput" | grep -q '//'   || \
+         echo "$userInput" | grep -q '/$'   || \
+         ! echo "$userInput" | grep -q '^/' || \
+         [ "${#userInput}" -lt 4 ]          || \
+         [ "$(echo "$userInput" | awk -F '/' '{print NF-1}')" -lt 2 ]
+      then
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
+          continue
+      fi
+
+      if [ -d "$userInput" ]
+      then newZIP_BaseDirPath="$userInput" ; break ; fi
+
+      rootDir="${userInput%/*}"
+      if [ ! -d "$rootDir" ]
+      then
+          printf "\n${REDct}**ERROR**${NOct}: Root directory path [${REDct}${rootDir}${NOct}] does NOT exist.\n\n"
+          printf "\n${REDct}INVALID input.${NOct}\n"
+          _WaitForEnterKey_
+          clear
+          continue
+      fi
+
+      printf "The directory path '${REDct}${userInput}${NOct}' does NOT exist.\n\n"
+      if ! _WaitForYESorNO_ "Do you want to create it now"
+      then
+          printf "Directory was ${REDct}NOT${NOct} created.\n\n"
+      else
+          mkdir -m 755 "$userInput" 2>/dev/null
+          if [ -d "$userInput" ]
+          then newZIP_BaseDirPath="$userInput" ; break
+          else printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${userInput}${NOct}].\n\n"
+          fi
+      fi
+   done
+
+   if [ "$newZIP_BaseDirPath" != "$FW_ZIP_BASE_DIR" ] && [ -d "$newZIP_BaseDirPath" ]
+   then
+       if ! echo "$newZIP_BaseDirPath" | grep -qE "${FW_ZIP_SUBDIR}$"
+       then newZIP_FileDirPath="${newZIP_BaseDirPath}/$FW_ZIP_SUBDIR" ; fi
+       mkdir -p -m 755 "$newZIP_FileDirPath" 2>/dev/null
+       if [ ! -d "$newZIP_FileDirPath" ]
+       then
+           printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${newZIP_FileDirPath}${NOct}].\n"
+           _WaitForEnterKey_
+           return 1
+       fi
+       # Remove now the obsolete directory path #
+       rm -fr "${FW_ZIP_DIR:?}"
+       rm -f "${newZIP_FileDirPath}"/*.zip  "${newZIP_FileDirPath}"/*.sha256
+       Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newZIP_BaseDirPath"
+       if "$isGNUtonFW"
+       then
+           echo "The directory path for the F/W update file was updated successfully." 
+       else
+           echo "The directory path for the F/W ZIP file was updated successfully."
+       fi
+       keepWfile=0
+       _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+   fi
+   return 0
+}
+
+_Init_Custom_Settings_Config_
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-03] ##
+##------------------------------------------##
+# NOTE:
+# ROG upgrades to 3006 codebase should have 
+# the ROG option deleted.
+#-----------------------------------------------------------
+if ! "$isGNUtonFW"
+then
+    if [ "$fwInstalledBaseVers" -ge 3006 ] && grep -q "^ROGBuild" "$SETTINGSFILE"
+    then Delete_Custom_Settings "ROGBuild" ; fi
+fi
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-27] ##
+##------------------------------------------##
+# NOTE:
+# Depending on available RAM & storage capacity of the
+# target router, it may be required to have USB-attached
+# storage for the ZIP file so that it can be downloaded
+# in a separate directory from the firmware bin file.
+#-----------------------------------------------------------
+FW_BIN_BASE_DIR="/home/root"
+FW_ZIP_BASE_DIR="$(Get_Custom_Setting FW_New_Update_ZIP_Directory_Path)"
+FW_LOG_BASE_DIR="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+
+readonly FW_LOG_SUBDIR="${ScriptDirNameD}/logs"
+readonly FW_BIN_SUBDIR="${ScriptDirNameD}/$FW_FileName"
+readonly FW_ZIP_SUBDIR="${ScriptDirNameD}/$FW_FileName"
+
+FW_BIN_DIR="${FW_BIN_BASE_DIR}/$FW_BIN_SUBDIR"
+FW_LOG_DIR="${FW_LOG_BASE_DIR}/$FW_LOG_SUBDIR"
+FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
+FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-24] ##
+##----------------------------------------------##
+# The built-in F/W hook script file to be used for
+# setting up persistent jobs to run after a reboot.
+readonly hookScriptFName="services-start"
+readonly hookScriptFPath="${SCRIPTS_PATH}/$hookScriptFName"
+readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
+
+# Postponement Days for F/W Update Check #
+FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+FW_UpdateExpectedRunDate="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-18] ##
+##----------------------------------------##
+# F/W Update Email Notifications #
+isEMailFormatHTML=true
+isEMailConfigEnabledInAMTM=false
+sendEMailFormaType="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
+sendEMailNotificationsFlag="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
+sendEMail_CC_Name="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
+sendEMail_CC_Address="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+[ "$sendEMailFormaType" = "HTML" ] && \
+isEMailFormatHTML=true || isEMailFormatHTML=false
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
+# Define the CRON job command to execute #
+# Define the hook script file to be used #
+ScriptAutoUpdateSetting="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+ScriptUpdateCronSchedDays="$(Get_Custom_Setting Script_Update_Cron_Job_SchedDays)"
+
+readonly SCRIPT_UP_CRON_JOB_RUN="sh $ScriptFilePath checkupdates"
+readonly SCRIPT_UP_CRON_JOB_TAG="${ScriptFNameTag}_ScriptUpdate"
+readonly DAILY_SCRIPT_UPDATE_CHECK_JOB="sh $ScriptFilePath scriptAUCronJob &  $hookScriptTagStr"
+readonly DAILY_SCRIPT_UPDATE_CHECK_HOOK="[ -f $ScriptFilePath ] && $DAILY_SCRIPT_UPDATE_CHECK_JOB"
+
+# Define the CRON job command to execute #
+FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+readonly CRON_JOB_RUN="sh $ScriptFilePath run_now"
+readonly CRON_JOB_TAG_OLD="$ScriptFNameTag"
+readonly CRON_JOB_TAG="${ScriptFNameTag}_FWUpdate"
+readonly CRON_SCRIPT_JOB="sh $ScriptFilePath addCronJob &  $hookScriptTagStr"
+readonly CRON_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $CRON_SCRIPT_JOB"
+
+# Define post-reboot run job command to execute #
+readonly POST_REBOOT_SCRIPT_JOB="sh $ScriptFilePath postRebootRun &  $hookScriptTagStr"
+readonly POST_REBOOT_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_REBOOT_SCRIPT_JOB"
+
+# Define post-update email notification job command to execute #
+readonly POST_UPDATE_EMAIL_SCRIPT_JOB="sh $ScriptFilePath postUpdateEmail &  $hookScriptTagStr"
+readonly POST_UPDATE_EMAIL_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_UPDATE_EMAIL_SCRIPT_JOB"
+
+if [ -d "$FW_LOG_DIR" ]
+then
+    # Log rotation - delete logs older than 30 days #
+    /usr/bin/find -L "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
+fi
+
+if [ ! -d "$WEBDIR" ]; then
+	mkdir -p "$WEBDIR"
+fi
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jan-27] ##
+##----------------------------------------##
+#-------------------------------------------------------------------------------------------
+# This code is in case the user-selected USB mount point isn't available anymore.
+# If the USB drive is selected as the log location but it goes offline for some reason,
+# any call to the "Say" function creates a new '/tmp/mnt/XXXX' directory.
+# In such a case where the USB drive is unmounted, we need to change the log directory
+# back to a local directory. First if-statement executes first and updates to local 'jffs'
+# directory if no USB drives are found. If ANY DefaultUSBMountPoint found, then move the
+# log files from their local jffs location to the default mount location.
+# We don't know the user selected yet because it's local at this time and was changed
+# by the else statement. Remove the old log directory location from jffs, and update the
+# settings file again to the new default again. This creates a semi-permanent switch which
+# can reset back to default if the user-selected mount points aren't valid anymore.
+#-------------------------------------------------------------------------------------------
+UserSelectedLogPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
+if [ ! -d "$UserSelectedLogPath" ] || [ ! -r "$UserSelectedLogPath" ]; then
+    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$ADDONS_PATH"
+fi
+
+UserPreferredLogPath="$(Get_Custom_Setting FW_New_Update_LOG_Preferred_Path)"
+if echo "$UserPreferredLogPath" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
+   _ValidateUSBMountPoint_ "$UserPreferredLogPath" && \
+   [ "$UserPreferredLogPath" != "$FW_LOG_BASE_DIR" ]
+then
+   mv -f "${FW_LOG_DIR}"/*.log "${UserPreferredLogPath}/$FW_LOG_SUBDIR" 2>/dev/null
+   rm -fr "${FW_LOG_DIR:?}"
+   Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
+fi
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Mount_WebUI_(){
+	Say "Mounting WebUI tab for $SCRIPT_NAME"
+
+    # Check if the WebUI is already installed
+    if [ -f "$SHAREDSETTINGSFILE" ]; then
+        # Extract the page associated with MerlinAU_uiPage
+        existing_page=$(grep "^MerlinAU_uiPage" "$SHAREDSETTINGSFILE" | awk '{print $2}')
+        
+        # If an existing page is found and matches the current page, skip installation
+        if [ -n "$existing_page" ]; then
+            Say "WebUI for $SCRIPT_NAME is already mounted as $existing_page"
+            return 0
+        fi
+    fi
+
+	# Check if the firmware supports addons
+	nvram get rc_support | grep -q am_addons
+	if [ $? != 0 ]; then
+	    Say "$SCRIPT_NAME" "This firmware does not support addons!"
+	    _DoExit_ 1
+	fi
+
+	# Obtain the first available mount point in $am_webui_page
+	am_get_webui_page $PAGE_FILE
+
+	if [ "$am_webui_page" = "none" ]; then
+    	Say "$SCRIPT_NAME" "Unable to install $SCRIPT_NAME"
+    	_DoExit_ 1
+	fi
+
+	# Store the page name for later use (e.g., in uninstall scripts)
+	echo "MerlinAU_uiPage $am_webui_page" >> "$SHAREDSETTINGSFILE"
+
+	# Copy custom page to the user's WebUI directory
+	cp "$PAGE_FILE" "/www/user/$am_webui_page"
+				
+	# Copy menuTree.js if not already copied, so we can modify it
+	if [ ! -f /tmp/menuTree.js ]; then
+		cp /www/require/modules/menuTree.js /tmp/
+		mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+	fi
+
+	# Insert link at the end of the Tools menu		
+	sed -i "/url: \"Advanced_FirmwareUpgrade_Content.asp\", tabName:/a {url: \"$am_webui_page\", tabName: \"$SCRIPT_NAME\"}," /tmp/menuTree.js
+		
+	# Remount menuTree.js to apply changes
+	umount /www/require/modules/menuTree.js 2>/dev/null
+	mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+	Say "Mounted $SCRIPT_NAME WebUI page as $PAGE_FILE"
+    return 0
+}
+
+_Unmount_WebUI_(){
+	Say "Unmounting WebUI tab for $SCRIPT_NAME"
+
+	# Load the page name we stored during install
+	if [ -f "$SHAREDSETTINGSFILE" ]; then
+    	am_webui_page=$(grep "^MerlinAU_uiPage" "$SHAREDSETTINGSFILE" | awk '{print $2}')
+    else
+        # If not stored, try to extract it from /tmp/menuTree.js
+        if [ -f "/tmp/menuTree.js" ]; then
+            am_webui_page=$(grep 'tabName: "MerlinAU"' /tmp/menuTree.js | sed -n 's/.*url: "\([^"]*\)".*/\1/p')
+        else
+            Say "$ADDON_NAME" "Unable to find menuTree.js to derive the WebUI page."
+            _DoExit_ 1
+        fi
+    fi
+
+	if [ -z "$am_webui_page" ] || [ "$am_webui_page" = "none" ]; then
+    	Say "$ADDON_NAME" "No assigned page found to uninstall."
+    	_DoExit_ 1
+	fi
+
+	# Remove just our entry from menuTree.js, but do not unmount others may depend on it
+	if [ -f /tmp/menuTree.js ]; then
+    	sed -i "/url: \"$am_webui_page\", tabName: \"$ADDON_NAME\"/d" /tmp/menuTree.js
+	fi
+
+	# Remove our custom page (only if still mounted and safe to do so)
+	if [ -f "/www/user/$am_webui_page" ]; then
+    	rm -f "/www/user/$am_webui_page"
+	fi
+
+    # **Remove the specific line from SHAREDSETTINGSFILE instead of deleting PAGE_NAME_FILE**
+    if [ -f "$SHAREDSETTINGSFILE" ]; then
+        sed -i "/^MerlinAU_uiPage\s\+$am_webui_page$/d" "$SHAREDSETTINGSFILE"
+    fi
+
+	# Remount menuTree.js to apply changes
+	umount /www/require/modules/menuTree.js
+	mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+
+	/sbin/service restart_httpd >/dev/null 2>&1 &
+
+	Say "$ADDON_NAME" "Uninstalled successfully (preserving other add-ons' entries)."
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Auto_ServiceEvent_(){
+	case $1 in
+		create)
+			if [ -f /jffs/scripts/service-event ]; then
+				STARTUPLINECOUNT=$(grep -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)
+				STARTUPLINECOUNTEX=$(grep -cx 'if echo "$2" | /bin/grep -q "'"${SCRIPT_NAME}".sh'"; then { /jffs/scripts/'"$SCRIPT_NAME"' service_event "$@" & }; fi # '"$SCRIPT_NAME" /jffs/scripts/service-event)
+				
+				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }; then
+					sed -i -e '/# '"$SCRIPT_NAME"'/d' /jffs/scripts/service-event
+				fi
+				
+				if [ "$STARTUPLINECOUNTEX" -eq 0 ]; then
+					echo 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME"'"; then { /jffs/scripts/'"${SCRIPT_NAME}".sh' service_event "$@" & }; fi # '"$SCRIPT_NAME" >> /jffs/scripts/service-event
+				fi
+			else
+				echo "#!/bin/sh" > /jffs/scripts/service-event
+				echo "" >> /jffs/scripts/service-event
+				echo 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME"'"; then { /jffs/scripts/'"${SCRIPT_NAME}".sh' service_event "$@" & }; fi # '"$SCRIPT_NAME" >> /jffs/scripts/service-event
+				chmod 0755 /jffs/scripts/service-event
+			fi
+		;;
+		delete)
+			if [ -f /jffs/scripts/service-event ]; then
+				STARTUPLINECOUNT=$(grep -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)
+				
+				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
+					sed -i -e '/# '"${SCRIPT_NAME}".sh'/d' /jffs/scripts/service-event
+				fi
+			fi
+		;;
+	esac
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Set_Version_SharedSettings_(){
+	if [ -f "$SHAREDSETTINGSFILE" ]; then
+		if [ "$(grep -c "MerlinAU_version" $SHAREDSETTINGSFILE)" -gt 0 ]; then
+			if [ "$1" != "$(grep "MerlinAU_version" /jffs/addons/custom_settings.txt | cut -f2 -d' ')" ]; then
+				sed -i "s/MerlinAU_version.*/MerlinAU_version $1/" "$SHAREDSETTINGSFILE"
+			fi
+		else
+			echo "MerlinAU_version $1" >> "$SHAREDSETTINGSFILE"
+		fi
+	else
+		echo "MerlinAU_version $1" >> "$SHAREDSETTINGSFILE"
+	fi
+
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Create_Symlinks_(){
+	rm -rf "${WEBDIR:?}/"* 2>/dev/null
+	ln -s "$SETTINGSFILE" "$WEBDIR/custom_settings.htm" 2>/dev/null
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Conf_FromSettings_(){
+	if [ -f "$SHAREDSETTINGSFILE" ]; then
+		if [ "$(grep "MerlinAU_" $SHAREDSETTINGSFILE | grep -v "version" -c)" -gt 0 ]; then
+			Say "Updated settings from WebUI found, merging into $SETTINGSFILE"
+			cp -a "$SETTINGSFILE" "${SETTINGSFILE}.bak"
+			grep "MerlinAU_" "$SHAREDSETTINGSFILE" | grep -v "version" > "$TMPFILE"
+			sed -i "s/MerlinAU_//g;s/ /=/g" "$TMPFILE"
+			while IFS='' read -r line || [ -n "$line" ]; do
+				SETTINGNAME="$(echo "$line" | cut -f1 -d'=')"
+				SETTINGVALUE="$(echo "$line" | cut -f2- -d'=' | sed "s/=/ /g")"
+				Update_Custom_Settings "$SETTINGNAME" "$SETTINGVALUE"
+			done < "$TMPFILE"
+			grep 'MerlinAU_version' "$SHAREDSETTINGSFILE" > "$TMPFILE"
+			sed -i "\\~MerlinAU~d" "$SHAREDSETTINGSFILE"
+			mv "$SHAREDSETTINGSFILE" "$SHAREDSETTINGSFILE.bak"
+			cat "$SHAREDSETTINGSFILE.bak" "$TMPFILE" > "$SHAREDSETTINGSFILE"
+			rm -f "$TMPFILE"
+			rm -f "$SHAREDSETTINGSFILE.bak"
+			
+			_Create_Symlinks_
+						
+			Say "Merge of updated settings from WebUI completed successfully"
+		else
+			Say "No updated settings from WebUI found, no merge into $SETTINGSFILE necessary"
+		fi
+	fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
+_SCRIPTUPDATE_()
+{
+   local scriptVers  ScriptFileDL="${ScriptFilePath}.DL"
+
+   _DownloadScriptFiles_()
+   {
+      local retCode
+
+      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
+      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+
+      if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
+      then
+          mv -f "$ScriptFileDL" "$ScriptFilePath"
+          chmod 755 "$ScriptFilePath"
+          retCode=0
+      else
+          rm -f "$ScriptFileDL"
+          printf "\n${REDct}Download failed.${NOct}\n"
+          retCode=1
+      fi
+      return "$retCode"
+   }
+
+   if [ $# -gt 0 ] && [ "$1" = "force" ]
+   then
+       echo -e "${CYANct}Force downloading latest version...${NOct}"
+       scriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
+       echo -e "${CYANct}Downloading latest version ($scriptVers) of ${SCRIPT_NAME}${NOct}"
+
+       if _DownloadScriptFiles_
+       then
+           _Set_Version_SharedSettings_ "$SCRIPT_VERSION"
+           _Create_Symlinks_
+           echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
+           _ReleaseLock_
+           chmod 755 "$ScriptFilePath"
+           exec "$ScriptFilePath"
+       fi
+       return
+   fi
+
+   _CheckForNewScriptUpdates_
+
+   clear
+   logo
+   printf "\n${YLWct}Script Update Utility${NOct}\n\n"
+   printf "${CYANct}Version Currently Installed:  ${YLWct}${SCRIPT_VERSION}${NOct}\n"
+   printf "${CYANct}Update Version Available Now: ${YLWct}${DLRepoVersion}${NOct}\n\n"
+
+   if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ]
+   then
+      echo -e "${CYANct}You are on the latest version! Would you like to download anyways?${NOct}"
+      echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
+      if _WaitForYESorNO_
+      then
+          printf "\n\n"
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
+
+          if _DownloadScriptFiles_
+          then
+              _Set_Version_SharedSettings_ "$DLRepoVersion"
+              _Create_Symlinks_
+              chmod 755 "$ScriptFilePath"
+              echo
+              echo -e "${CYANct}Download successful!${NOct}"
+              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+              echo
+          fi
+          _WaitForEnterKey_
+          return
+      else
+          printf "\n\n"
+          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
+          sleep 1
+          return
+      fi
+   elif [ "$scriptUpdateNotify" != "0" ]
+   then
+      echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
+      if _WaitForYESorNO_
+      then
+          printf "\n\n"
+          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
+
+          if _DownloadScriptFiles_
+          then
+              echo
+              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+              echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+              _Create_Symlinks_
+              _Set_Version_SharedSettings_ "$DLRepoVersion"
+              _ReleaseLock_
+              chmod 755 "$ScriptFilePath"
+              exec "$ScriptFilePath"  # Re-execute the updated script #
+              exit 0  # This line will not be executed due to above exec #
+          else
+              _WaitForEnterKey_
+              return
+          fi
+      else
+          printf "\n\n"
+          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
+          sleep 1
+          return
+      fi
+   fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
+_CheckForNewScriptUpdates_()
+{
+   local DLRepoVersionNum  ScriptVersionNum
+
+   echo ""
+   [ -s "$SCRIPTVERPATH" ] && DLRepoVersion="$(cat "$SCRIPTVERPATH")"
+   rm -f "$SCRIPTVERPATH"
+
+   # Download the latest version file from the source repository
+   curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
+
+   if [ $? -ne 0 ] || [ ! -s "$SCRIPTVERPATH" ]
+   then scriptUpdateNotify=0 ; return 1 ; fi
+
+   # Read in its contents for the current version file
+   DLRepoVersion="$(cat "$SCRIPTVERPATH")"
+   if [ -z "$DLRepoVersion" ]
+   then
+       echo "Variable for downloaded version is empty."
+       scriptUpdateNotify=0
+       return 1
+   fi
+
+   DLRepoVersionNum="$(_ScriptVersionStrToNum_ "$DLRepoVersion")"
+   ScriptVersionNum="$(_ScriptVersionStrToNum_ "$SCRIPT_VERSION")"
+
+   # Version comparison
+   if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
+   then
+      scriptUpdateNotify="New script update available.
+${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
+      Say "$(date +'%b %d %Y %X') $myLAN_HostName ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
+      if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
+      then
+         _SCRIPTUPDATE_ force
+      fi
+   else
+      scriptUpdateNotify=0
+   fi
+}
+
+##----------------------------------------------##
+## Added/Modified by Martinski W. [2023-Nov-22] ##
+##----------------------------------------------##
+_GetLatestFWUpdateVersionFromRouter_()
+{
+   local retCode=0  webState  newVersionStr
+
+   webState="$(nvram get webs_state_flag)"
+   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
+   then retCode=1 ; fi
+
+   newVersionStr="$(nvram get webs_state_info | sed 's/_/./g')"
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
+   fi
+
+   [ -z "$newVersionStr" ] && retCode=1
+   echo "$newVersionStr" ; return "$retCode"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-26] ##
+##------------------------------------------##
+_CreateEMailContent_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local fwInstalledVersion  fwNewUpdateVersion
+   local savedInstalledVersion  savedNewUpdateVersion
+   local subjectStr  emailBodyTitle=""  release_version
+
+   rm -f "$tempEMailContent" "$tempEMailBodyMsg"
+
+   if [ -s "$tempNodeEMailList" ]
+   then subjectStr="F/W Update Status for $node_lan_hostname"
+   else subjectStr="F/W Update Status for $MODEL_ID"
+   fi
+   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+   if ! "$offlineUpdateTrigger"
+   then
+        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   else
+        fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+   fi
+
+   #Remove any suffix starting with "-" or "_" to avoid version comparison failures#
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/[-_].*$//')"
+
+   case "$1" in
+       FW_UPDATE_TEST_EMAIL)
+           emailBodyTitle="Testing Email Notification"
+           {
+             echo "This is a TEST of the F/W Update email notification from the <b>${MODEL_ID}</b> router."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       NEW_FW_UPDATE_STATUS)
+           emailBodyTitle="New Firmware Update for ASUS Router"
+           {
+             echo "A new F/W Update version <b>${fwNewUpdateVersion}</b> is available for the <b>${MODEL_ID}</b> router."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
+             printf "\nNumber of days to postpone flashing the new F/W Update version: <b>${FW_UpdatePostponementDays}</b>\n"
+             printf "\nPlease click here to review the changelog:\n"
+             if "$isGNUtonFW"
+             then
+                 printf "${GnutonChangeLogURL}\n"
+             else
+                 printf "${MerlinChangeLogURL}\n"
+             fi
+             [ "$FW_UpdateExpectedRunDate" != "TBD" ] && \
+             printf "\nThe firmware update is expected to occur on: <b>${FW_UpdateExpectedRunDate}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       AGGREGATED_UPDATE_NOTIFICATION)
+           if "$inRouterSWmode" && [ -n "$node_list" ]; then
+              nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+           fi
+           if [ -z "$nodefwNewUpdateVersion" ]
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to send node email notification [No saved info]."
+               return 1
+           fi
+           emailBodyTitle="New Firmware Update(s) for AiMesh Node(s)"
+           NODE_UPDATE_CONTENT="$(cat "$tempNodeEMailList")"
+           {
+             echo "The following AiMesh Node(s) have a new F/W Update version available:"
+             echo "$NODE_UPDATE_CONTENT"
+           } > "$tempEMailBodyMsg"
+           ;;
+       START_FW_UPDATE_STATUS)
+           emailBodyTitle="New Firmware Flash Started"
+           {
+             echo "Started flashing the new F/W Update version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       STOP_FW_UPDATE_APPROVAL)
+           emailBodyTitle="WARNING"
+           if $isEMailFormatHTML
+           then
+               # Highlight high-risk terms using HTML with a yellow background #
+               highlighted_changelog_contents="$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/<span style='background-color:yellow;'>\1<\/span>/gi")"
+           else
+               # Step 1: Enclose matched terms with unique markers that don't conflict with '>' and '<'
+               highlighted_changelog_contents="$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/\[\[UPPER\]\]\1\[\[ENDUPPER\]\]/gi")"
+
+               # Step 2: Modify the awk script with correct marker lengths
+               highlighted_changelog_contents="$(echo "$highlighted_changelog_contents" | awk '
+               BEGIN {
+                   upper_marker = "[[UPPER]]"
+                   endupper_marker = "[[ENDUPPER]]"
+                   upper_marker_length = length(upper_marker)
+                   endupper_marker_length = length(endupper_marker)
+               }
+               {
+                 while (match($0, /\[\[UPPER\]\][^\[]*\[\[ENDUPPER\]\]/)) {
+                   prefix = substr($0, 1, RSTART - 1)
+                   match_text_start = RSTART + upper_marker_length
+                   match_text_length = RLENGTH - upper_marker_length - endupper_marker_length
+                   match_text = substr($0, match_text_start, match_text_length)
+                   suffix = substr($0, RSTART + RLENGTH)
+                   match_text_upper = toupper(match_text)
+                   $0 = prefix ">" match_text_upper "<" suffix
+                 }
+                 print
+               }
+               ')"
+           fi
+           {
+               echo "Found high-risk phrases in the changelog file while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+               echo "Changelog contents include the following changes:"
+               echo "$highlighted_changelog_contents"
+               printf "\nPlease run script interactively to approve this F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       NEW_BM_BACKUP_FAILED)
+           emailBodyTitle="WARNING"
+           {
+             echo "Backup failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled."
+             printf "\nPlease check <b>backupmon.sh</b> configuration and retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       FAILED_FW_UNZIP_STATUS)
+           emailBodyTitle="**ERROR**"
+           {
+             echo "Unable to decompress the F/W Update ZIP file for version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled due to decompress error."
+             printf "\nPlease retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       FAILED_FW_CHECKSUM_STATUS)
+           emailBodyTitle="**ERROR**"
+           {
+             echo "Checksum verification failed during the F/W Update process to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
+             echo "Flashing the F/W Update on the <b>${MODEL_ID}</b> router is now cancelled due to checksum mismatch."
+             printf "\nPlease retry F/W Update from current version:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       FAILED_FW_UPDATE_STATUS)
+           emailBodyTitle="**ERROR**"
+           {
+             echo "Flashing of new F/W Update version <b>${fwNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
+             printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       POST_REBOOT_FW_UPDATE_SETUP)
+           {
+              echo "FW_InstalledVersion=$fwInstalledVersion"
+              echo "FW_NewUpdateVersion=$fwNewUpdateVersion"
+           } > "$saveEMailInfoMsg"
+           _AddPostUpdateEmailNotifyScriptHook_
+           return 0
+           ;;
+       POST_REBOOT_FW_UPDATE_STATUS)
+           if [ ! -f "$saveEMailInfoMsg" ]
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [No saved info file]."
+               return 1
+           fi
+           savedInstalledVersion="$(grep "^FW_InstalledVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
+           savedNewUpdateVersion="$(grep "^FW_NewUpdateVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
+           if [ -z "$savedInstalledVersion" ] || [ -z "$savedNewUpdateVersion" ]
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [Saved info is empty]."
+               return 1
+           fi
+           if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ]
+           then
+              emailBodyTitle="Successful Firmware Update"
+              {
+                echo "Flashing of new F/W Update version <b>${fwInstalledVersion}</b> for the <b>${MODEL_ID}</b> router was successful."
+                printf "\nThe F/W version that was previously installed:\n<b>${savedInstalledVersion}</b>\n"
+              } > "$tempEMailBodyMsg"
+           else
+              emailBodyTitle="**ERROR**"
+              {
+                echo "Flashing of new F/W Update version <b>${savedNewUpdateVersion}</b> for the <b>${MODEL_ID}</b> router failed."
+                printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
+              } > "$tempEMailBodyMsg"
+           fi
+           rm -f "$saveEMailInfoMsg"
+           ;;
+       *) return 1
+           ;;
+   esac
+
+   ! "$isEMailFormatHTML" && sed -i 's/[<]b[>]//g ; s/[<]\/b[>]//g' "$tempEMailBodyMsg"
+
+   if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
+   then
+       CC_ADDRESS_ARG="--mail-rcpt $CC_ADDRESS"
+       CC_ADDRESS_STR="\"${CC_NAME}\" <$CC_ADDRESS>"
+   fi
+
+   ## Header-1 ##
+   cat <<EOF > "$tempEMailContent"
+From: "$FROM_NAME" <$FROM_ADDRESS>
+To: "$TO_NAME" <$TO_ADDRESS>
+EOF
+
+   [ -n "$CC_ADDRESS_STR" ] && \
+   printf "Cc: %s\n" "$CC_ADDRESS_STR" >> "$tempEMailContent"
+
+   ## Header-2 ##
+   cat <<EOF >> "$tempEMailContent"
+Subject: $subjectStr
+Date: $(date -R)
+EOF
+
+   if "$isEMailFormatHTML"
+   then
+       cat <<EOF >> "$tempEMailContent"
+MIME-Version: 1.0
+Content-Type: text/html; charset="UTF-8"
+Content-Disposition: inline
+
+<!DOCTYPE html><html>
+<head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8"></head>
+<body><h2>${emailBodyTitle}</h2>
+<div style="color:black; font-family: sans-serif; font-size:130%;"><pre>
+EOF
+    else
+        cat <<EOF >> "$tempEMailContent"
+Content-Type: text/plain; charset="UTF-8"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
+
+EOF
+       [ -n "$emailBodyTitle" ] && \
+       printf "%s\n\n" "$emailBodyTitle" >> "$tempEMailContent"
+   fi
+
+   ## Body ##
+   cat "$tempEMailBodyMsg" >> "$tempEMailContent"
+
+   ## Footer ##
+   if "$isEMailFormatHTML"
+   then
+       cat <<EOF >> "$tempEMailContent"
+
+Sent by the "<b>${ScriptFNameTag}</b>" utility.
+From the "<b>${FRIENDLY_ROUTER_NAME}</b>" router.
+
+$(date +"$theEMailDateTimeFormat")
+</pre></div></body></html>
+EOF
+   else
+       cat <<EOF >> "$tempEMailContent"
+
+Sent by the "${ScriptFNameTag}" utility.
+From the "${FRIENDLY_ROUTER_NAME}" router.
+
+$(date +"$theEMailDateTimeFormat")
+EOF
+   fi
+
+   rm -f "$tempEMailBodyMsg"
+   rm -f "$tempNodeEMailList"
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-16] ##
+##----------------------------------------##
+_CheckEMailConfigFileFromAMTM_()
+{
+   local doLogMsgs
+
+   if [ $# -gt 0 ] && [ "$1" -eq 1 ]
+   then doLogMsgs=true
+   else doLogMsgs=false
+   fi
+
+   isEMailConfigEnabledInAMTM=false
+
+   if [ ! -f "$amtmMailConfFile" ] || [ ! -f "$amtmMailPswdFile" ]
+   then
+       "$doLogMsgs" && \
+       Say "${REDct}**ERROR**${NOct}: Unable to send email notification [No config file]."
+       return 1
+   fi
+
+   FROM_NAME=""  TO_NAME=""  FROM_ADDRESS=""  TO_ADDRESS=""
+   USERNAME=""  SMTP=""  PORT=""  PROTOCOL=""
+   PASSWORD=""  emailPwEnc=""
+
+   # Custom Options ##
+   CC_NAME=""  CC_ADDRESS=""
+
+   . "$amtmMailConfFile"
+
+   if [ -z "$TO_NAME" ] || [ -z "$USERNAME" ] || \
+      [ -z "$FROM_ADDRESS" ] || [ -z "$TO_ADDRESS" ] || \
+      [ -z "$SMTP" ] || [ -z "$PORT" ] || [ -z "$PROTOCOL" ] || \
+      [ -z "$emailPwEnc" ] || [ "$PASSWORD" = "PUT YOUR PASSWORD HERE" ]
+   then
+       "$doLogMsgs" && \
+       Say "${REDct}**ERROR**${NOct}: Unable to send email notification [Empty variables]."
+       return 1
+   fi
+
+   if [ -n "$sendEMail_CC_Name" ] && [ "$sendEMail_CC_Name" != "TBD" ] && \
+      [ -n "$sendEMail_CC_Address" ] && [ "$sendEMail_CC_Address" != "TBD" ]
+   then
+       [ -z "$CC_NAME" ] && CC_NAME="$sendEMail_CC_Name"
+       [ -z "$CC_ADDRESS" ] && CC_ADDRESS="$sendEMail_CC_Address"
+   fi
+
+   isEMailConfigEnabledInAMTM=true
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-05] ##
+##----------------------------------------##
+_SendEMailNotification_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ]  || \
+   ! "$sendEMailNotificationsFlag" || \
+   ! _CheckEMailConfigFileFromAMTM_ 1
+   then return 1 ; fi
+
+   local CC_ADDRESS_STR=""  CC_ADDRESS_ARG=""
+
+   [ -z "$FROM_NAME" ] && FROM_NAME="$ScriptFNameTag"
+   [ -z "$FRIENDLY_ROUTER_NAME" ] && FRIENDLY_ROUTER_NAME="$MODEL_ID"
+
+   ! _CreateEMailContent_ "$1" && return 1
+
+   [ "$1" = "POST_REBOOT_FW_UPDATE_SETUP" ] && return 0
+
+   if "$isInteractive"
+   then
+       printf "\nSending email notification [$1]."
+       printf "\nPlease wait...\n"
+   fi
+
+   _UserTraceLog_ "SENDING email notification..."
+
+   curl -Lv --retry 4 --retry-delay 5 --url "${PROTOCOL}://${SMTP}:${PORT}" \
+   --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" $CC_ADDRESS_ARG \
+   --user "${USERNAME}:$(/usr/sbin/openssl aes-256-cbc "$emailPwEnc" -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)" \
+   --upload-file "$tempEMailContent" \
+   $SSL_FLAG --ssl-reqd --crlf >> "$userTraceFile" 2>&1
+   curlCode="$?"
+
+   if [ "$curlCode" -eq 0 ]
+   then
+       sleep 2
+       rm -f "$userTraceFile"
+       Say "The email notification was sent successfully [$1]."
+   else
+       Say "${REDct}**ERROR**${NOct}: Failure to send email notification [Code: $curlCode][$1]."
+   fi
+   rm -f "$tempEMailContent"
+
+   return "$curlCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+# Directory for downloading & extracting firmware #
+_CreateDirectory_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+    mkdir -p "$1"
+    if [ ! -d "$1" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: Unable to create directory [$1] to download firmware."
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        return 1
+    fi
+    if ! "$offlineUpdateTrigger"
+    then
+        # Clear directory in case any previous files still exist #
+        rm -f "${1}"/*
+    fi
+    return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
+_DelPostUpdateEmailNotifyScriptHook_()
+{
+   local hookScriptFile
+
+   hookScriptFile="$hookScriptFPath"
+   if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
+
+   if grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
+   then
+       sed -i -e '/\/'"$ScriptFileName"' postUpdateEmail &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       if [ $? -eq 0 ]
+       then
+           Say "Post-update email notification hook was deleted successfully from '$hookScriptFile' script."
+       fi
+   else
+       Say "${GRNct}Post-update email notification hook is not found in '$hookScriptFile' script.${NOct}"
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
+_AddPostUpdateEmailNotifyScriptHook_()
+{
+   local hookScriptFile  jobHookAdded=false
+
+   hookScriptFile="$hookScriptFPath"
+   if [ ! -f "$hookScriptFile" ]
+   then
+      jobHookAdded=true
+      {
+        echo "#!/bin/sh"
+        echo "# $hookScriptFName"
+        echo "#"
+        echo "$POST_UPDATE_EMAIL_SCRIPT_HOOK"
+      } > "$hookScriptFile"
+   #
+   elif ! grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
+   then
+      jobHookAdded=true
+      echo "$POST_UPDATE_EMAIL_SCRIPT_HOOK" >> "$hookScriptFile"
+   fi
+   chmod 0755 "$hookScriptFile"
+
+   if "$jobHookAdded"
+   then Say "Post-update email notification hook was added successfully to '$hookScriptFile' script."
+   else Say "Post-update email notification hook already exists in '$hookScriptFile' script."
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
+_DelPostRebootRunScriptHook_()
+{
+   local hookScriptFile
+
+   hookScriptFile="$hookScriptFPath"
+   if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
+
+   if grep -qE "$POST_REBOOT_SCRIPT_JOB" "$hookScriptFile"
+   then
+       sed -i -e '/\/'"$ScriptFileName"' postRebootRun &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       if [ $? -eq 0 ]
+       then
+           Say "Post-reboot run hook was deleted successfully from '$hookScriptFile' script."
+       fi
+   else
+       Say "${GRNct}Post-reboot run hook is not found in '$hookScriptFile' script.${NOct}"
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
+_AddPostRebootRunScriptHook_()
+{
+   local hookScriptFile  jobHookAdded=false
+
+   hookScriptFile="$hookScriptFPath"
+   if [ ! -f "$hookScriptFile" ]
+   then
+      jobHookAdded=true
+      {
+        echo "#!/bin/sh"
+        echo "# $hookScriptFName"
+        echo "#"
+        echo "$POST_REBOOT_SCRIPT_HOOK"
+      } > "$hookScriptFile"
+   #
+   elif ! grep -qE "$POST_REBOOT_SCRIPT_JOB" "$hookScriptFile"
+   then
+      jobHookAdded=true
+      echo "$POST_REBOOT_SCRIPT_HOOK" >> "$hookScriptFile"
+   fi
+   chmod 0755 "$hookScriptFile"
+
+   if "$jobHookAdded"
+   then Say "Post-reboot run hook was added successfully to '$hookScriptFile' script."
+   else Say "Post-reboot run hook already exists in '$hookScriptFile' script."
+   fi
+   _WaitForEnterKey_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
+_GetCurrentFWInstalledLongVersion_()
+{
+
+##FOR TESTING/DEBUG ONLY##
+if false ; then echo "3004.388.6.2" ; return 0 ; fi
+##FOR TESTING/DEBUG ONLY##
+
+   local theVersionStr  extVersNum
+
+   extVersNum="$fwInstalledExtendNum"
+   echo "$extVersNum" | grep -qiE "^(alpha|beta)" && extVersNum="0_$extVersNum"
+   [ -z "$extVersNum" ] && extVersNum=0
+
+   theVersionStr="${fwInstalledBuildVers}.$extVersNum"
+   [ -n "$fwInstalledBaseVers" ] && \
+   theVersionStr="${fwInstalledBaseVers}.${theVersionStr}"
+
+   echo "$theVersionStr"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-31] ##
+##----------------------------------------##
+_HasRouterMoreThan256MBtotalRAM_()
+{
+   local totalRAM_KB
+   totalRAM_KB="$(awk -F ' ' '/^MemTotal:/{print $2}' /proc/meminfo)"
+   [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 262144 ] && return 0
+   return 1
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-01] ##
+##----------------------------------------##
+#---------------------------------------------------------------------#
+# The actual amount of RAM that is available for any new process
+# (*without* using the swap file) can be roughly estimated from
+# "Free Memory" & "Page Cache" (e.g. Inactive memory pages).
+# This estimate must take into account that the overall system
+# (kernel + native services + tmpfs) needs a minimum amount of RAM
+# to continue to work, and that not all reclaimable Page Cache can
+# be reclaimed because some may actually be in used at the time.
+# NOTE: [Martinski]
+# Since reported "Available RAM" estimates tend to be extremely
+# conservative in many cases, we decided to take another approach
+# and calculate it based on the reported "Free RAM" plus ~66% of
+# reported "Memory Cached" and then take the largest of the two
+# values: Reported "Available RAM" vs Calculated "Available RAM"
+# While still somewhat conservative, this would provide a better
+# estimate, especially at the time when the router is about to
+# shut down and terminate all non-critical services/processes
+# before the actual F/W flash is performed.
+#---------------------------------------------------------------------#
+_GetAvailableRAM_KB_()
+{
+   local theMemAvailable_KB  theMemAvail_KB  theMemCache_KB
+   local theMemFree1_KB  theMemFree2_KB  inactivePgs_KB
+
+   _MaxNumber_() { echo "$(($1 < $2 ? $2 : $1))" ; }
+
+   theMemCache_KB="$(awk -F ' ' '/^Cached:/{print $2}' /proc/meminfo)"
+   theMemFree1_KB="$(awk -F ' ' '/^MemFree:/{print $2}' /proc/meminfo)"
+   theMemAvail_KB="$(awk -F ' ' '/^MemAvailable:/{print $2}' /proc/meminfo)"
+   # Assumes that only ~66% of Page Cache can be reclaimed #
+   theMemFree2_KB="$((theMemFree1_KB + ((theMemCache_KB * 2) / 3)))"
+
+   if [ -z "$theMemAvail_KB" ]
+   then
+       inactivePgs_KB="$(awk -F ' ' '/^Inactive:/{print $2}' /proc/meminfo)"
+       theMemAvail_KB="$((theMemFree1_KB + inactivePgs_KB))"
+   fi
+   theMemAvailable_KB="$(_MaxNumber_ "$theMemAvail_KB" "$theMemFree2_KB")"
+   echo "$theMemAvailable_KB" ; return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-31] ##
+##----------------------------------------##
+_GetFreeRAM_KB_()
+{
+   awk -F ' ' '/^MemFree:/{print $2}' /proc/meminfo
+   ##FOR DEBUG ONLY## echo 1000
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-05] ##
+##----------------------------------------##
+_GetRequiredRAM_KB_()
+{
+    local url="$1"
+    local zip_file_size_bytes  zip_file_size_kb  overhead_kb
+    local total_required_kb  overhead_percentage=50
+
+    # Size of the ZIP file in bytes
+    zip_file_size_bytes="$(curl -LsI --retry 4 --retry-delay 5 "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
+    # Convert bytes to kilobytes
+    zip_file_size_kb="$((zip_file_size_bytes / 1024))"
+
+    # Calculate overhead based on the percentage
+    overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
+
+    # Calculate total required space
+    total_required_kb="$((zip_file_size_kb + overhead_kb))"
+    echo "$total_required_kb"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2023-Mar-24] ##
+##----------------------------------------##
+_ShutDownNonCriticalServices_()
+{
+    for procName in nt_center nt_monitor nt_actMail
+    do
+         procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
+         if [ "$procNum" -gt 0 ]
+         then
+             printf "$procName: [$procNum]\n"
+             killall -9 "$procName" && sleep 1
+         fi
+    done
+
+    for service_name in conn_diag samba nasapps
+    do
+        procNum="$(ps w | grep -w "$service_name" | grep -cv "grep -w")"
+        if [ "$procNum" -gt 0 ]
+        then
+            printf "$service_name: [$procNum]\n"
+            service "stop_$service_name" && sleep 1
+        fi
+    done
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jan-26] ##
+##------------------------------------------##
+_DoCleanUp_()
+{
+   local delBINfiles=false  keepZIPfile=false  keepWfile=false
+
+   local doTrace=false
+   [ $# -gt 0 ] && [ "$1" -eq 0 ] && doTrace=false
+   if "$doTrace"
+   then
+       Say "START _DoCleanUp_"
+       _UserTraceLog_ "START _DoCleanUp_"
+   fi
+
+   [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
+   [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
+   [ $# -gt 2 ] && [ "$3" -eq 1 ] && keepWfile=true
+
+   # Stop the LEDs blinking #
+   _Reset_LEDs_ 1
+
+   # Check existence of files and preserve based on flags #
+   local moveZIPback=false  moveWback=false
+
+   # Move file temporarily to save it from deletion #
+   "$keepZIPfile" && [ -f "$FW_ZIP_FPATH" ] && \
+   mv -f "$FW_ZIP_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveZIPback=true
+
+   if "$keepWfile" && [ -f "$FW_DL_FPATH" ]; then
+       mv -f "$FW_DL_FPATH" "${FW_ZIP_BASE_DIR}/$ScriptDirNameD" && moveWback=true
+   fi
+
+   rm -f "${FW_ZIP_DIR:?}"/*
+   "$delBINfiles" && rm -f "${FW_BIN_DIR:?}"/*
+
+   # Move files back to their original location if needed #
+   "$moveZIPback" && \
+   mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.zip" "$FW_ZIP_FPATH"
+
+   "$moveWback" && \
+   mv -f "${FW_ZIP_BASE_DIR}/${ScriptDirNameD}/${FW_FileName}.${extension}" "$FW_DL_FPATH"
+
+   if "$doTrace"
+   then
+       Say "EXIT _DoCleanUp_"
+       _UserTraceLog_ "EXIT _DoCleanUp_"
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Mar-26] ##
+##-------------------------------------##
+_LogMemoryDebugInfo_()
+{
+   {
+     printf "Uptime\n------\n" ; uptime ; echo
+     df -hT | grep -E '(^Filesystem|/jffs$|/tmp$|/var$)' | sort -d -t ' ' -k 1
+     echo
+     printf "/proc/meminfo\n-------------\n"
+     grep -E '^Mem[TFA].*:[[:blank:]]+.*' /proc/meminfo
+     grep -E '^(Buffers|Cached):[[:blank:]]+.*' /proc/meminfo
+     grep -E '^Swap[TFC].*:[[:blank:]]+.*' /proc/meminfo
+     grep -E '^(Active|Inactive)(\([af].*\))?:[[:blank:]]+.*' /proc/meminfo
+     grep -E '^(Dirty|Writeback|AnonPages|Unevictable):[[:blank:]]+.*' /proc/meminfo
+     echo "------------------------------"
+   } > "$userDebugFile"
+   "$isInteractive" && cat "$userDebugFile"
+   _LogMsgNoTime_ "$(cat "$userDebugFile")"
+   rm -f "$userDebugFile"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-26] ##
+##----------------------------------------##
+check_memory_and_prompt_reboot()
+{
+    local requiredRAM_kb="$1"
+    local availableRAM_kb="$2"
+
+    if [ "$availableRAM_kb" -lt "$requiredRAM_kb" ]
+    then
+        Say "Insufficient RAM available."
+
+        # Attempt to clear PageCache #
+        Say "Attempting to free up memory..."
+        sync; echo 1 > /proc/sys/vm/drop_caches
+        sleep 2
+
+        # Check available memory again #
+        availableRAM_kb="$(_GetAvailableRAM_KB_)"
+        if [ "$availableRAM_kb" -lt "$requiredRAM_kb" ]
+        then
+            freeRAM_kb="$(_GetFreeRAM_KB_)"
+            Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+            _LogMemoryDebugInfo_
+
+            # Attempt to clear dentries and inodes. #
+            Say "Attempting to free up memory again more aggressively..."
+            sync; echo 2 > /proc/sys/vm/drop_caches
+            sleep 2
+
+            # Check available memory again #
+            availableRAM_kb="$(_GetAvailableRAM_KB_)"
+            if [ "$availableRAM_kb" -lt "$requiredRAM_kb" ]
+            then
+                freeRAM_kb="$(_GetFreeRAM_KB_)"
+                Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+                _LogMemoryDebugInfo_
+
+                # Attempt to clear clears pagecache, dentries, and inodes after shutting down services
+                Say "Attempting to free up memory once more even more aggressively..."
+
+                # Stop Entware services to free some memory #
+                _EntwareServicesHandler_ stop
+
+                _ShutDownNonCriticalServices_
+
+                sync; echo 3 > /proc/sys/vm/drop_caches
+                sleep 2
+
+                # Check available memory again #
+                availableRAM_kb="$(_GetAvailableRAM_KB_)"
+                if [ "$availableRAM_kb" -lt "$requiredRAM_kb" ]
+                then
+                    _LogMemoryDebugInfo_
+
+                    # In an interactive shell session, ask user to confirm reboot #
+                    if "$isInteractive" && _WaitForYESorNO_ "Reboot router now"
+                    then
+                        freeRAM_kb="$(_GetFreeRAM_KB_)"
+                        Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+                        _AddPostRebootRunScriptHook_
+                        Say "Rebooting router..."
+                        _ReleaseLock_
+                        /sbin/service reboot
+                        exit 1  # Although the reboot command should end the script, it's good practice to exit after.
+                    else
+                        # Exit script if non-interactive or if user answers NO #
+                        freeRAM_kb="$(_GetFreeRAM_KB_)"
+                        Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+                        Say "Insufficient memory to continue. Exiting script."
+                        # Restart Entware services #
+                        _EntwareServicesHandler_ start
+
+                        _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+                        _DoExit_ 1
+                    fi
+                else
+                    Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+                fi
+            else
+                Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+            fi
+        else
+            Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+        fi
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
+check_version_support()
+{
+    local numOfFields  current_version  numCurrentVers  numMinimumVers
+    current_version="$(_GetCurrentFWInstalledLongVersion_)"
+
+    numOfFields="$(echo "$current_version" | awk -F '.' '{print NF}')"
+    numCurrentVers="$(_FWVersionStrToNum_ "$current_version" "$numOfFields")"
+    numMinimumVers="$(_FWVersionStrToNum_ "$MinSupportedFirmwareVers" "$numOfFields")"
+
+    # If the current firmware version is lower than the minimum supported firmware version, exit.
+    if [ "$numCurrentVers" -lt "$numMinimumVers" ]
+    then MinFirmwareVerCheckFailed=true ; fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Oct-19] ##
+##------------------------------------------##
+check_model_support()
+{
+    # List of unsupported models as a space-separated string
+    local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC68UF RT-AC68P RT-AC1900P RT-AC1900 RT-N66U RT-N16 DSL-AC68U"
+
+    # Get the current model
+    local current_model="$(_GetRouterProductID_)"
+
+    # Check if the current model is in the list of unsupported models #
+    if echo "$unsupported_models" | grep -wq "$current_model"
+    then routerModelCheckFailed=true ; fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-15] ##
+##----------------------------------------##
+_TestLoginCredentials_()
+{
+    local credsBase64="$1"
+    local curl_response routerURLstr
+
+    # Define routerURLstr #
+    routerURLstr="$(_GetRouterURL_)"
+
+    printf "\nRestarting web server... Please wait.\n"
+    /sbin/service restart_httpd >/dev/null 2>&1 &
+    sleep 5
+
+    curl_response="$(curl -k "${routerURLstr}/login.cgi" \
+    --referer "${routerURLstr}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${routerURLstr}/" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsBase64}" \
+    --cookie-jar /tmp/cookie.txt)"
+
+    # Interpret the curl_response to determine login success or failure #
+    # This is a basic check #
+    if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
+    then
+        printf "\n${GRNct}Router Login test passed.${NOct}"
+        printf "\nRestarting web server... Please wait.\n"
+        /sbin/service restart_httpd >/dev/null 2>&1 &
+        sleep 1
+        return 0
+    else
+        printf "\n${REDct}**ERROR**${NOct}: Router Login test failed.\n"
+        printf "\n${routerLoginFailureMsg}\n\n"
+        if _WaitForYESorNO_ "Would you like to try again?"
+        then return 1  # Indicates failure but with intent to retry #
+        else return 0  # User opted not to retry; do a graceful exit #
+        fi
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-30] ##
+##----------------------------------------##
+_GetRawKeypress_() 
+{
+   local savedSettings
+   savedSettings="$(stty -g)"
+   stty -echo raw
+   echo "$(dd count=1 2>/dev/null)"
+   stty "$savedSettings"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+_GetKeypressInput_()
+{
+   local inputStrLenMAX=16  inputString  promptStr
+   local charNum  inputStrLen  keypressCount
+   local theKeySeqCnt  maxKeySeqCnt=4  retCode
+   local theKeySeqNum  maxKeySeqNum="27251624"
+   local offlineModeFlag=false
+
+   if [ -n "${offlineUpdateFlag:+xSETx}" ]
+   then offlineModeFlag=true ; fi
+
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       printf "\n**ERROR**: NO prompt string was provided.\n"
+       return 1
+   fi
+   promptStr="$1"
+
+   _ShowInputString_()
+   { printf "\r\033[0K${promptStr}  %s" "$inputString" ; }
+
+   _ClearKeySeqState_()
+   {
+      theKeySeqNum=0 ; theKeySeqCnt=0
+      if "$offlineModeFlag"
+      then offlineUpdateFlag=false
+      else unset offlineUpdateFlag
+      fi
+   }
+
+   charNum=""
+   inputString=""
+   inputStrLen=0
+   keypressCount=0
+   _ClearKeySeqState_
+   _ShowInputString_
+
+   local savedIFS="$IFS"
+   while IFS='' theChar="$(_GetRawKeypress_)"
+   do
+      charNum="$(printf "%d" "'$theChar")"
+
+      if [ "$charNum" -eq 0 ] || [ "$charNum" -eq 10 ] || [ "$charNum" -eq 13 ]
+      then
+          if [ "$inputStrLen" -gt 0 ]
+          then retCode=0 ; else retCode=1 ; fi
+          break
+      fi
+
+      ## BACKSPACE keypress ##
+      if [ "$charNum" -eq 8 ] || [ "$charNum" -eq 127 ]
+      then
+          if [ "$inputStrLen" -gt 0 ]
+          then
+              inputString="${inputString%?}"
+              inputStrLen="${#inputString}"
+              _ShowInputString_
+          fi
+          _ClearKeySeqState_
+          continue
+      fi
+
+      ## BACKSPACE ALL keypress ##
+      if [ "$charNum" -eq 21 ]
+      then
+          if [ "$inputStrLen" -gt 0 ]
+          then
+              inputString=""
+              inputStrLen=0
+              _ShowInputString_
+          fi
+          _ClearKeySeqState_
+          continue
+      fi
+
+      ## ONLY 7-bit ASCII printable characters are VALID ##
+      if [ "$charNum" -gt 31 ] && [ "$charNum" -lt 127 ]
+      then
+          if [ "$inputStrLen" -le "$inputStrLenMAX" ]
+          then
+              inputString="${inputString}${theChar}"
+              inputStrLen="${#inputString}"
+          fi
+          _ShowInputString_
+          _ClearKeySeqState_
+          continue
+      fi
+
+      # Non-Printable ASCII Codes ##
+      if "$offlineModeFlag" && [ "$charNum" -gt 0 ] && [ "$charNum" -lt 32 ]
+      then
+          offlineUpdateFlag=false
+          theKeySeqCnt="$((theKeySeqCnt + 1))"
+          if [ "$theKeySeqCnt" -eq 1 ]
+          then theKeySeqNum="$charNum"
+          else theKeySeqNum="${theKeySeqNum}${charNum}"
+          fi
+          if [ "$theKeySeqCnt" -eq "$maxKeySeqCnt" ] && \
+             [ "$theKeySeqNum" -eq "$maxKeySeqNum" ]
+          then
+              _ClearKeySeqState_
+              if [ "$inputString" = "offline" ]
+              then offlineUpdateFlag=true ; fi
+              continue
+          fi
+          if [ "$theKeySeqCnt" -gt "$maxKeySeqCnt" ] || \
+             { [ "$theKeySeqCnt" -eq "$maxKeySeqCnt" ] && \
+               [ "$theKeySeqNum" -ne "$maxKeySeqNum" ] ; }
+          then _ClearKeySeqState_ ; fi
+      else
+          _ClearKeySeqState_
+      fi
+   done
+   IFS="$savedIFS"
+
+   theUserInputStr="$inputString"
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+_GetPasswordInput_()
+{
+   local PSWDstrLenMIN=1  PSWDstrLenMAX=64
+   local newPSWDstring  newPSWDtmpStr  PSWDprompt
+   local retCode  charNum  newPSWDlength  showPSWD
+   # For more responsive TAB keypress debounce #
+   local tabKeyDebounceSem="/tmp/var/tmp/${ScriptFNameTag}_TabKeySEM.txt"
+
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       printf "${REDct}**ERROR**${NOct}: NO prompt string was provided.\n"
+       return 1
+   fi
+   PSWDprompt="$1"
+
+   _TabKeyDebounceWait_()
+   {
+      touch "$tabKeyDebounceSem"
+      usleep 300000   #0.3 sec#
+      rm -f "$tabKeyDebounceSem"
+   }
+
+   _ShowAsterisks_()
+   {
+      if [ $# -eq 0 ] || [ "$1" -eq 0 ]
+      then echo ""
+      else printf "%*s" "$1" ' ' | tr ' ' '*'
+      fi
+   }
+
+   _ShowPSWDPrompt_()
+   {
+      local pswdTemp  LENct  LENwd
+      [ "$showPSWD" = "1" ] && pswdTemp="$newPSWDstring" || pswdTemp="$newPSWDtmpStr"
+      if [ "$newPSWDlength" -lt "$PSWDstrLenMIN" ] || [ "$newPSWDlength" -gt "$PSWDstrLenMAX" ]
+      then LENct="$REDct" ; LENwd=""
+      else LENct="$GRNct" ; LENwd="02"
+      fi
+      printf "\r\033[0K$PSWDprompt [Length=${LENct}%${LENwd}d${NOct}]: %s" "$newPSWDlength" "$pswdTemp"
+   }
+
+   showPSWD=0
+   charNum=""
+   newPSWDstring="$thePWSDstring"
+   newPSWDlength="${#newPSWDstring}"
+   newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
+   echo ; _ShowPSWDPrompt_
+
+   local savedIFS="$IFS"
+   while IFS='' theChar="$(_GetRawKeypress_)"
+   do
+      charNum="$(printf "%d" "'$theChar")"
+
+      if [ "$charNum" -eq 0 ] || [ "$charNum" -eq 10 ] || [ "$charNum" -eq 13 ]
+      then
+          if [ "$newPSWDlength" -ge "$PSWDstrLenMIN" ] && [ "$newPSWDlength" -le "$PSWDstrLenMAX" ]
+          then
+              echo
+              retCode=0
+          elif [ "$newPSWDlength" -lt "$PSWDstrLenMIN" ]
+          then
+              newPSWDstring=""
+              printf "\n${REDct}**ERROR**${NOct}: Password length is less than allowed minimum length "
+              printf "[MIN=${GRNct}${PSWDstrLenMIN}${NOct}].\n"
+              retCode=1
+          elif [ "$newPSWDlength" -gt "$PSWDstrLenMAX" ]
+          then
+              newPSWDstring=""
+              printf "\n${REDct}**ERROR**${NOct}: Password length is greater than allowed maximum length "
+              printf "[MAX=${GRNct}${PSWDstrLenMAX}${NOct}].\n"
+              retCode=1
+          fi
+          break
+      fi
+
+      ## Keep same previous password string ##
+      if [ "$charNum" -eq 27 ] && [ -n "$thePWSDstring" ]
+      then
+          retCode=0
+          newPSWDstring="$thePWSDstring"
+          break
+      fi
+
+      ## TAB keypress as toggle with debounce ##
+      if [ "$charNum" -eq 9 ]
+      then
+          if [ ! -f "$tabKeyDebounceSem" ]
+          then
+              showPSWD="$((! showPSWD))"
+              _ShowPSWDPrompt_
+              _TabKeyDebounceWait_ &
+          fi
+          continue
+      fi
+
+      ## BACKSPACE keypress ##
+      if [ "$charNum" -eq 8 ] || [ "$charNum" -eq 127 ]
+      then
+          if [ "$newPSWDlength" -gt 0 ]
+          then
+              newPSWDstring="${newPSWDstring%?}"
+              newPSWDlength="${#newPSWDstring}"
+              newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
+              _ShowPSWDPrompt_
+          fi
+          continue
+      fi
+
+      ## BACKSPACE ALL keypress ##
+      if [ "$charNum" -eq 21 ]
+      then
+          if [ "$newPSWDlength" -gt 0 ]
+          then
+              newPSWDstring=""
+              newPSWDlength=0
+              newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
+              _ShowPSWDPrompt_
+          fi
+          continue
+      fi
+
+      ## ONLY 7-bit ASCII printable characters are VALID ##
+      if [ "$charNum" -gt 31 ] && [ "$charNum" -lt 127 ]
+      then
+          if [ "$newPSWDlength" -le "$PSWDstrLenMAX" ]
+          then
+              newPSWDstring="${newPSWDstring}${theChar}"
+              newPSWDlength="${#newPSWDstring}"
+              newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
+          fi
+          _ShowPSWDPrompt_
+          continue
+      fi
+   done
+   IFS="$savedIFS"
+
+   thePWSDstring="$newPSWDstring"
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Aug-18] ##
+##-------------------------------------##
+_CIDR_IPaddrBlockContainsIPaddr_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1 ; fi
+
+   local lastNETIPaddr4thOctet  cidrIPRangeMax=0
+
+   local thisLANIPaddr="$2"
+   local cidrNETIPaddr="${1%/*}"
+   local cidrNETIPmask="${1#*/}"
+   local NETIPaddr4thOctet="${cidrNETIPaddr##*.}"
+   local LANIPaddr4thOctet="${thisLANIPaddr##*.}"
+
+   # Assumes the host segment has a maximum of 8 bits #
+   # and the network segment has a minimum of 24 bits #
+   case "$cidrNETIPmask" in
+       31) cidrIPRangeMax=1 ;;
+       30) cidrIPRangeMax=3 ;;
+       29) cidrIPRangeMax=7 ;;
+       28) cidrIPRangeMax=15 ;;
+       27) cidrIPRangeMax=31 ;;
+       26) cidrIPRangeMax=63 ;;
+       25) cidrIPRangeMax=127 ;;
+       24) cidrIPRangeMax=255 ;;
+   esac
+   lastNETIPaddr4thOctet="$((NETIPaddr4thOctet + cidrIPRangeMax))"
+   [ "$lastNETIPaddr4thOctet" -gt 255 ] && lastNETIPaddr4thOctet=255
+
+   if [ "$LANIPaddr4thOctet" -ge "$NETIPaddr4thOctet" ] && \
+      [ "$LANIPaddr4thOctet" -le "$lastNETIPaddr4thOctet" ]
+   then return 0
+   else return 1
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-18] ##
+##----------------------------------------##
+_CheckWebGUILoginAccessOK_()
+{
+   local accessRestriction  restrictRuleList
+   local lanIPaddrRegEx1 lanIPaddrRegEx2 lanIPaddrRegEx3
+   local cidrIPaddrEntry  cidrIPaddrBlock  cidrIPaddrRegEx
+   local mainLANIPaddrRegEx  netwkIPv4AddrRegEx  netwkIPv4AddrX
+
+   accessRestriction="$(nvram get enable_acc_restriction)"
+   if [ -z "$accessRestriction" ] || [ "$accessRestriction" -eq 0 ]
+   then return 0 ; fi
+
+   restrictRuleList="$(nvram get restrict_rulelist)"
+   if [ -n "$mainNET_IPaddr" ]
+   then
+       netwkIPv4AddrX="${mainNET_IPaddr%/*}"
+       netwkIPv4AddrX="${netwkIPv4AddrX%.*}"
+   else
+       netwkIPv4AddrX="${mainLAN_IPaddr%.*}"
+   fi
+   netwkIPv4AddrX="${netwkIPv4AddrX}.${IPv4octet_RegEx}"
+   netwkIPv4AddrRegEx="$(echo "$netwkIPv4AddrX" | sed 's/\./\\./g')"
+   mainLANIPaddrRegEx="$(echo "$mainLAN_IPaddr" | sed 's/\./\\./g')"
+
+   # Router IP address MUST have access to WebGUI #
+   cidrIPaddrRegEx="${netwkIPv4AddrRegEx}/(2[4-9]|3[0-1])"
+   lanIPaddrRegEx1=">${mainLANIPaddrRegEx}>[13]"
+   lanIPaddrRegEx2=">${mainLANIPaddrRegEx}/(2[4-9]|3[0-2])>[13]"
+   lanIPaddrRegEx3=">${cidrIPaddrRegEx}>[13]"
+
+   if echo "$restrictRuleList" | grep -qE "$lanIPaddrRegEx1|$lanIPaddrRegEx2"
+   then return 0 ; fi
+
+   cidrIPaddrEntry="$(echo "$restrictRuleList" | grep -oE "$lanIPaddrRegEx3")"
+   if [ -n "$cidrIPaddrEntry" ]
+   then
+       cidrIPaddrBlock="$(echo "$cidrIPaddrEntry" | grep -oE "$cidrIPaddrRegEx")"
+       for cidrIPblock in $cidrIPaddrBlock
+       do
+           if _CIDR_IPaddrBlockContainsIPaddr_ "$cidrIPblock" "$mainLAN_IPaddr"
+           then return 0 ; fi
+       done
+   fi
+
+   printf "\n${REDct}*WARNING*: The \"Enable Access Restrictions\" option is currently active.${NOct}"
+   printf "\nTo allow webGUI login access you must add the router IP address ${GRNct}${mainLAN_IPaddr}${NOct}
+with the \"${GRNct}Web UI${NOct}\" access type on the \"Access restriction list\" panel."
+   printf "\n[See ${GRNct}'Administration -> System -> Access restriction list'${NOct}]"
+   printf "\nAn alternative method would be to disable the \"Enable Access Restrictions\" option.\n"
+
+   return 1
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-16] ##
+##----------------------------------------##
+_GetLoginCredentials_()
+{
+    local retry="yes"  userName  savedMsg
+    local oldPWSDstring  thePWSDstring
+    local loginCredsENC  loginCredsDEC
+
+    # Check if WebGUI access is NOT restricted #
+    if ! _CheckWebGUILoginAccessOK_
+    then
+        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
+    fi
+
+    # Get the Username from NVRAM #
+    userName="$(nvram get http_username)"
+
+    loginCredsENC="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$loginCredsENC" ] || [ "$loginCredsENC" = "TBD" ]
+    then
+        thePWSDstring=""
+    else
+        loginCredsDEC="$(echo "$loginCredsENC" | openssl base64 -d)"
+        thePWSDstring="$(echo "$loginCredsDEC" | sed "s/${userName}://")"
+    fi
+    oldPWSDstring="$thePWSDstring"
+
+    while [ "$retry" = "yes" ]
+    do
+        echo "=== Login Credentials ==="
+        _GetPasswordInput_ "Enter password for user ${GRNct}${userName}${NOct}"
+        if [ -z "$thePWSDstring" ]
+        then
+            printf "\nPassword string is ${REDct}NOT${NOct} valid. Credentials were not saved.\n"
+            _WaitForEnterKey_
+            continue
+        fi
+
+        # Encode the Username and Password in Base64 #
+        loginCredsENC="$(echo -n "${userName}:${thePWSDstring}" | openssl base64 -A)"
+
+        # Save the credentials to the SETTINGSFILE #
+        Update_Custom_Settings credentials_base64 "$loginCredsENC"
+
+        if [ "$thePWSDstring" != "$oldPWSDstring" ]
+        then savedMsg="${GRNct}New credentials saved.${NOct}"
+        else savedMsg="${GRNct}Credentials remain unchanged.${NOct}"
+        fi
+        printf "\n${savedMsg}\n"
+        printf "Encoded Credentials:\n"
+        printf "${GRNct}$loginCredsENC${NOct}\n"
+
+        # Prompt to test the credentials #
+        if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"
+        then
+            _TestLoginCredentials_ "$loginCredsENC" || continue
+        fi
+
+        # Stop the loop if the test passes or if the user chooses not to test #
+        retry="no"
+    done
+
+    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+    return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-06] ##
+##----------------------------------------##
+_GetNodeIPv4List_()
+{
+    # Get the value of asus_device_list #
+    local ip_addresses
+    local device_list="$(nvram get asus_device_list)"
+
+    # Check if asus_device_list is not empty #
+    if [ -n "$device_list" ]
+    then
+        # Split the device list into records and extract the IP addresses, excluding Main Router LAN IP address #
+        ip_addresses="$(echo "$device_list" | tr '<' '\n' | awk -v exclude="$mainLAN_IPaddr" -F'>' '{if (NF>=4 && $3 != exclude) print $3}')"
+
+        # Check if IP addresses are not empty #
+        if [ -n "$ip_addresses" ]; then
+            # Print each IP address on a separate line
+            printf "%s\n" "$ip_addresses"
+        else
+            return 1
+        fi
+    else
+        Say "NVRAM asus_device_list is NOT populated. No Mesh Nodes were found."
+        return 1
+    fi
+    return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-06] ##
+##----------------------------------------##
+_NodeActiveStatus_()
+{
+    # Get the value of cfg_device_list #
+    local ip_addresses
+    local node_online_status="$(nvram get cfg_device_list)"
+
+    # Check if cfg_device_list is not empty #
+    if [ -n "$node_online_status" ]
+    then
+        # Split the device list into records and extract the IP addresses, excluding Main Router LAN IP address #
+        ip_addresses="$(echo "$node_online_status" | tr '<' '\n' | awk -v exclude="$mainLAN_IPaddr" -F'>' '{if (NF>=3 && $2 != exclude) print $2}')"
+
+        # Check if IP addresses are not empty #
+        if [ -n "$ip_addresses" ]; then
+            # Print each IP address on a separate line
+            printf "%s\n" "$ip_addresses"
+        else
+            return 1
+        fi
+    else
+        Say "NVRAM cfg_device_list is NOT populated. No Mesh Nodes were found."
+        return 1
+    fi
+    return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-30] ##
+##----------------------------------------##
+_Populate_Node_Settings_()
+{
+    local MAC_address="$1"
+    local model_id="$2"
+    local update_date="$3"
+    local update_vers="$4"
+    local nodeKeyPrefix="Node_${MAC_address}_"
+
+    # Update or add each piece of information
+    Update_Custom_Settings "${nodeKeyPrefix}Model_NameID" "$model_id"
+    Update_Custom_Settings "${nodeKeyPrefix}New_Notification_Date" "$update_date"
+    Update_Custom_Settings "${nodeKeyPrefix}New_Notification_Vers" "$update_vers"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-26] ##
+##---------------------------------------##
+_GetNodeURL_()
+{
+    local NodeIP_Address="$1"
+    local urlProto urlDomain urlPort
+
+    if [ "$(nvram get http_enable)" = "1" ]; then
+        urlProto="https"
+    else
+        urlProto="http"
+    fi
+
+    urlPort="$(nvram get "${urlProto}_lanport")"
+    if [ "$urlPort" -eq 80 ] || [ "$urlPort" -eq 443 ]; then
+        urlPort=""
+    else
+        urlPort=":$urlPort"
+    fi
+
+    echo "${urlProto}://${NodeIP_Address}${urlPort}"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-26] ##
+##---------------------------------------##
+_GetNodeInfo_()
+{
+    local NodeIP_Address="$1"
+    local NodeURLstr="$(_GetNodeURL_ "$NodeIP_Address")"
+
+    ## Default values for specific variables
+    node_productid="Unreachable"
+    Node_combinedVer="Unreachable"
+    node_asus_device_list=""
+    node_cfg_device_list=""
+    node_firmver="Unreachable"
+    node_buildno="Unreachable"
+    node_extendno="Unreachable"
+    node_webs_state_flag=""
+    node_webs_state_info=""
+    node_odmpid="Unreachable"
+    node_wps_modelnum="Unreachable"
+    node_model="Unreachable"
+    node_build_name="Unreachable"
+    node_lan_hostname="Unreachable"
+    node_label_mac="Unreachable"
+    NodeGNUtonFW=false
+
+    ## Check for Login Credentials ##
+    credsBase64="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
+    fi
+
+    # Perform login request
+    curl -s -k "${NodeURLstr}/login.cgi" \
+    --referer "${NodeURLstr}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${NodeURLstr}" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
+    --cookie-jar '/tmp/nodecookies.txt' \
+    --max-time 2 > /tmp/login_response.txt 2>&1
+
+    if [ $? -ne 0 ]
+    then
+        printf "\n${REDct}Login failed for AiMesh Node [$NodeIP_Address].${NOct}\n"
+        return 1
+    fi
+
+    # Run the curl command to retrieve the HTML content
+    htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
+    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Accept-Encoding: gzip, deflate' \
+    -H 'Connection: keep-alive' \
+    -H "Referer: ${NodeURLstr}/index.asp" \
+    -H 'Upgrade-Insecure-Requests: 0' \
+    --cookie '/tmp/nodecookies.txt' \
+    --max-time 2 2>&1)"
+
+    if [ $? -ne 0 ] || [ -z "$htmlContent" ]
+    then
+        printf "\n${REDct}Failed to get information for AiMesh Node [$NodeIP_Address].${NOct}\n"
+        return 1
+    fi
+
+    # Extract values using regular expressions #
+    node_productid="$(echo "$htmlContent" | grep -o '"productid":"[^"]*' | sed 's/"productid":"//')"
+    node_asus_device_list="$(echo "$htmlContent" | grep -o '"asus_device_list":"[^"]*' | sed 's/"asus_device_list":"//')"
+    node_cfg_device_list="$(echo "$htmlContent" | grep -o '"cfg_device_list":"[^"]*' | sed 's/"cfg_device_list":"//')"
+    node_firmver="$(echo "$htmlContent" | grep -o '"firmver":"[^"]*' | sed 's/"firmver":"//' | tr -d '.')"
+    node_buildno="$(echo "$htmlContent" | grep -o '"buildno":"[^"]*' | sed 's/"buildno":"//')"
+    node_extendno="$(echo "$htmlContent" | grep -o '"extendno":"[^"]*' | sed 's/"extendno":"//')"
+    node_webs_state_flag="$(echo "$htmlContent" | grep -o '"webs_state_flag":"[^"]*' | sed 's/"webs_state_flag":"//')"
+    node_webs_state_info="$(echo "$htmlContent" | grep -o '"webs_state_info":"[^"]*' | sed 's/"webs_state_info":"//')"
+    node_odmpid="$(echo "$htmlContent" | grep -o '"odmpid":"[^"]*' | sed 's/"odmpid":"//')"
+    node_wps_modelnum="$(echo "$htmlContent" | grep -o '"wps_modelnum":"[^"]*' | sed 's/"wps_modelnum":"//')"
+    node_model="$(echo "$htmlContent" | grep -o '"model":"[^"]*' | sed 's/"model":"//')"
+    node_build_name="$(echo "$htmlContent" | grep -o '"build_name":"[^"]*' | sed 's/"build_name":"//')"
+    node_lan_hostname="$(echo "$htmlContent" | grep -o '"lan_hostname":"[^"]*' | sed 's/"lan_hostname":"//')"
+    node_label_mac="$(echo "$htmlContent" | grep -o '"label_mac":"[^"]*' | sed 's/"label_mac":"//')"
+
+    # Check if installed F/W NVRAM vars contain "gnuton" #
+    if echo "$node_extendno" | grep -iq "gnuton"
+    then NodeGNUtonFW=true ; fi
+    # Combine extracted information into one string #
+    Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
+
+    # Perform logout request
+    curl -s -k "${NodeURLstr}/Logout.asp" \
+    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Accept-Encoding: gzip, deflate' \
+    -H 'Connection: keep-alive' \
+    -H "Referer: ${NodeURLstr}/Main_Login.asp" \
+    -H 'Upgrade-Insecure-Requests: 0' \
+    --cookie '/tmp/nodecookies.txt' \
+    --max-time 2 > /tmp/logout_response.txt 2>&1
+
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-06] ##
+##----------------------------------------##
+_GetLatestFWUpdateVersionFromNode_()
+{
+   local retCode=0  webState  newVersionStr
+
+   if [ -z "${node_webs_state_flag:+xSETx}" ]
+   then webState=""
+   else webState="$node_webs_state_flag"
+   fi
+   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
+   then retCode=1 ; fi
+
+   if [ -z "${node_webs_state_info:+xSETx}" ]
+   then
+       newVersionStr=""
+   else
+       newVersionStr="$(echo "$node_webs_state_info" | sed 's/_/./g')"
+       if [ $# -eq 0 ] || [ -z "$1" ]
+       then
+           newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
+       fi
+   fi
+
+   [ -z "$newVersionStr" ] && retCode=1
+   echo "$newVersionStr" ; return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-05] ##
+##----------------------------------------##
+_GetLatestFWUpdateVersionFromWebsite_()
+{
+    local url="$1"
+
+    local links_and_versions="$(curl -Ls --retry 4 --retry-delay 5 "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | \
+        awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
+
+    if [ -z "$links_and_versions" ]
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+
+    local latest="$(echo "$links_and_versions" | tail -n 1)"
+    local linkStr="$(echo "$latest" | cut -d' ' -f2-)"
+    local fileStr="$(echo "$linkStr" | grep -oE "/${PRODUCT_ID}_[0-9]+.*.zip$")"
+    local versionStr
+
+    if [ -z "$fileStr" ]
+    then versionStr="$(echo "$latest" | cut -d ' ' -f1)"
+    else versionStr="$(echo "${fileStr%.*}" | sed "s/\/${PRODUCT_ID}_//" | sed 's/_/./g')"
+    fi
+
+    # Extracting the correct link from the page
+    local correct_link="$(echo "$linkStr" | sed 's|^/|https://sourceforge.net/|')"
+
+    if [ -z "$versionStr" ] || [ -z "$correct_link" ]
+    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+
+    echo "$versionStr"
+    echo "$correct_link"
+    return 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Feb-23] ##
+##---------------------------------------##
+_GetLatestFWUpdateVersionFromGithub_()
+{
+    local url="$1"  # GitHub API URL for the latest release
+    local firmware_type="$2"  # Type of firmware, e.g., "tuf", "rog" or "pure"
+
+    local search_type="$firmware_type"  # Default to the input firmware_type
+
+    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    if [ "$firmware_type" = "pure" ]; then
+        search_type="pure\|squashfs\|ubi"
+    fi
+
+    # Fetch the latest release data from GitHub #
+    local release_data="$(curl -s "$url")"
+
+    # Construct the grep pattern based on search_type #
+    local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
+
+    # Filter the JSON for the desired firmware using grep and head to fetch the URL
+    local download_url="$(echo "$release_data" | 
+        grep -o "$grep_pattern" | 
+        grep -o "https://[^ ]*\.\(w\|pkgtb\)" | 
+        head -1)"
+
+    # Check if a URL was found
+    if [ -z "$download_url" ]
+    then
+        echo "**ERROR** **NO_GITHUB_URL**"
+        return 1
+    else
+        # Extract the version from the download URL or release data
+        local version="$(echo "$download_url" | grep -oE "${PRODUCT_ID}[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.w$//;s/_/./g")"
+        echo "$version"
+        echo "$download_url"
+        return 0
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-05] ##
+##---------------------------------------##
+GetLatestFirmwareMD5Url()
+{
+    local url="$1"  # GitHub API URL for the latest release
+    local firmware_type="$2"  # Type of firmware, e.g., "tuf", "rog" or "pure"
+
+    local search_type="$firmware_type"  # Default to the input firmware_type
+
+    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    if [ "$firmware_type" = "pure" ]; then
+        search_type="pure\|squashfs\|ubi"
+    fi
+
+    # Fetch the latest release data from GitHub
+    local release_data="$(curl -s "$url")"
+
+    # Construct the grep pattern based on search_type
+    local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.md5\""
+
+    # Filter the JSON for the desired firmware using grep and sed
+    local md5_url="$(echo "$release_data" |
+        grep -o "$grep_pattern" | 
+        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/' |
+        head -1)"
+
+    # Check if a URL was found and output result or error
+    if [ -z "$md5_url" ]
+    then
+        echo "**ERROR** **NO_FIRMWARE_FILE_URL_FOUND**"
+        return 1
+    else
+        echo "$md5_url"
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-17] ##
+##---------------------------------------##
+GetLatestChangelogUrl()
+{
+    local url="$1"  # GitHub API URL for the latest release
+
+    # Fetch the latest release data from GitHub
+    local release_data="$(curl -s "$url")"
+
+    # Parse the release data to find the download URL of the CHANGELOG file
+    # Directly find the URL without matching a specific model number
+    local changelog_url="$(echo "$release_data" | grep -o "\"browser_download_url\": \".*CHANGELOG.*\"" | grep -o "https://[^ ]*\"" | tr -d '"' | head -1)"
+
+    # Check if the URL has been found
+    if [ -z "$changelog_url" ]
+    then
+        echo "**ERROR** **NO_CHANGELOG_FILE_URL_FOUND**"
+        return 1
+    else
+        echo "$changelog_url"
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-18] ##
+##----------------------------------------##
+_DownloadForGnuton_()
+{
+    # Follow redirects and capture the effective URL
+    local effective_url="$(curl -Ls -o /dev/null -w %{url_effective} "$release_link")"
+
+    # Use the effective URL to capture the Content-Disposition header
+    local original_filename="$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')"
+
+    # Sanitize filename by removing problematic characters
+    local sanitized_filename="$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')"
+
+    # Extract the file extension
+    extension="${sanitized_filename##*.}"   
+
+    # Combine path, custom file name, and extension before download
+    FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
+    FW_MD5_GITHUB="${FW_ZIP_DIR}/${FW_FileName}.md5"
+    FW_Changelog_GITHUB="${FW_ZIP_DIR}/${FW_FileName}_Changelog.txt"
+
+    # Download the firmware using the release link #
+    wget --tries=5 --waitretry=5 --retry-connrefused \
+         -O "$FW_DL_FPATH" "$release_link"
+    if [ ! -s "$FW_DL_FPATH" ]
+    then return 1 ; fi
+
+    # Download the latest MD5 checksum #
+    Say "Downloading latest MD5 checksum ${GRNct}${md5_url}${NOct}"
+    wget --tries=5 --waitretry=5 --retry-connrefused \
+         -O "$FW_MD5_GITHUB" "$md5_url"
+    if [ ! -s "$FW_MD5_GITHUB" ]
+    then return 1 ; fi
+
+    # Download the latest changelog #
+    Say "Downloading latest Changelog ${GRNct}${GnutonChangeLogURL}${NOct}"
+    wget --tries=5 --waitretry=5 --retry-connrefused \
+         -O "$FW_Changelog_GITHUB" "$GnutonChangeLogURL"
+    if [ ! -s "$FW_Changelog_GITHUB" ]
+    then return 1
+    else return 0
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-18] ##
+##----------------------------------------##
+_DownloadForMerlin_()
+{
+    wget --tries=5 --waitretry=5 --retry-connrefused \
+         -O "$FW_ZIP_FPATH" "$release_link"
+
+    # Check if the file was downloaded successfully #
+    if [ ! -s "$FW_ZIP_FPATH" ]
+    then return 1
+    else return 0
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
+_UnzipMerlin_()
+{
+    Say "-----------------------------------------------------------"
+    # List & log the contents of the ZIP file
+    unzip -l "$FW_ZIP_FPATH" 2>&1 | \
+    while IFS= read -r uzLINE ; do Say "$uzLINE" ; done
+    Say "-----------------------------------------------------------"
+
+    # Extracting the firmware binary image
+    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
+       while IFS= read -r line ; do Say "$line" ; done
+    then
+        Say "-----------------------------------------------------------"
+        #---------------------------------------------------------------#
+        # Check if ZIP file was downloaded to a USB-attached drive.
+        # Take into account special case for Entware "/opt/" paths.
+        #---------------------------------------------------------------#
+        if ! echo "$FW_ZIP_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+        then
+            # It's not on a USB drive, so it's safe to delete it
+            rm -f "$FW_ZIP_FPATH"
+        elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+        then
+            #-------------------------------------------------------------#
+            # This should not happen because we already checked for it
+            # at the very beginning of this function, but just in case
+            # it does (drive going bad suddenly?) we'll report it here.
+            #-------------------------------------------------------------#
+            Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+            Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+            return 1
+            # Consider how to handle this error. For now, we'll not delete the ZIP file.
+        else
+            keepZIPfile=1
+        fi
+    else
+        #------------------------------------------------------------#
+        # Remove ZIP file here because it may have been corrupted.
+        # Better to download it again and start all over, instead
+        # of trying to figure out why uncompressing it failed.
+        #------------------------------------------------------------#
+        rm -f "$FW_ZIP_FPATH"
+        _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
+        Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
+        _return 1
+    fi
+    return 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
+_CopyGnutonFiles_()
+{
+   Say "Checking if file management is required"
+
+   local copy_success=true
+   local copy_attempted=false
+
+   # Check and copy the firmware file if different from destination
+   if [ "$FW_DL_FPATH" != "${FW_BIN_DIR}/${FW_FileName}.${extension}" ]
+   then
+       Say "File management is required"
+       copy_attempted=true
+       cp "$FW_DL_FPATH" "$FW_BIN_DIR" && Say "Copying firmware file..." || copy_success=false
+   else
+       Say "File management is not required"
+   fi
+
+   if ! "$offlineUpdateTrigger"
+   then
+       # Check and copy the MD5 file if different from destination
+       if [ "$FW_MD5_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}.md5" ]
+       then
+           copy_attempted=true
+           mv -f "$FW_MD5_GITHUB" "$FW_BIN_DIR" && Say "Moving MD5 file..." || copy_success=false
+       fi
+
+       # Check and copy the Changelog file if different from destination
+       if [ "$FW_Changelog_GITHUB" != "${FW_BIN_DIR}/${FW_FileName}_Changelog.txt" ]
+       then
+           copy_attempted=true
+           mv -f "$FW_Changelog_GITHUB" "$FW_BIN_DIR" && Say "Moving changelog file..." || copy_success=false
+       fi
+   fi
+
+   if "$copy_attempted" && "$copy_success"
+   then
+       #---------------------------------------------------------------#
+       # Check if Gntuon file was downloaded to a USB-attached drive.
+       # Take into account special case for Entware "/opt/" paths.
+       #---------------------------------------------------------------#
+       if ! echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
+       then
+           # It's not on a USB drive, so it's safe to delete it #
+           rm -f "$FW_DL_FPATH"
+           rm -f "$FW_Changelog_GITHUB"
+           rm -f "$FW_MD5_GITHUB"
+       elif ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+       then
+          #-------------------------------------------------------------#
+           # This should not happen because we already checked for it
+           # at the very beginning of this function, but just in case
+           # it does (drive going bad suddenly?) we'll report it here.
+           #-------------------------------------------------------------#
+           Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+           Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+           return 1
+           # Consider how to handle this error. For now, we'll not delete the firmware file.
+       else
+           keepWfile=1
+       fi
+   fi
+   return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-24] ##
+##------------------------------------------##
+_CheckOnlineFirmwareSHA256_()
+{
+    # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
+    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
+ https://www.asuswrt-merlin.net/download | \
+ sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' | \
+ sed -n '/<pre[^>].*>/,/<\/pre>/p' | sed -e 's/<[^>].*>//g')"
+
+    if [ -z "$checksums" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: Could not download the firmware SHA256 signatures from the website."
+        _DoCleanUp_ 1
+        return 1
+    fi
+
+    if [ -f "$firmware_file" ]
+    then
+        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+        # Extract the corresponding signature for the firmware file from the fetched checksums #
+        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | cut -d' ' -f1)"
+        if [ "$fw_sig" != "$dl_sig" ]
+        then
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            return 1
+        else
+            Say "SHA256 signature check for firmware image file passed successfully."
+            return 0
+        fi
+    else
+        Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
+        _DoCleanUp_ 1
+        return 1
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-31] ##
+##----------------------------------------##
+_CheckOfflineFirmwareSHA256_()
+{
+    if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]
+    then
+        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+        dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
+        if [ "$fw_sig" != "$dl_sig" ]
+        then
+            echo
+            Say "${REDct}**ERROR**${NOct}: SHA256 signature from firmware file does NOT have a matching SHA256 signature."
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            printf "\nOffline update was aborted. Exiting.\n"
+            _DoCleanUp_ 1
+            return 1
+        else
+            Say "SHA256 signature check for firmware image file passed successfully."
+            return 0
+        fi
+    else
+        echo
+        Say "${REDct}**ERROR**${NOct}: SHA256 signature file NOT found."
+        printf "\nOffline update was aborted. Exiting.\n"
+        _DoCleanUp_ 1
+        return 1
+    fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-18] ##
+##---------------------------------------##
+_CheckFirmwareMD5_()
+{
+    # Check if both the MD5 checksum file and the firmware file exist
+    if [ -f "${FW_BIN_DIR}/${FW_FileName}.md5" ] && [ -f "$firmware_file" ]
+    then
+        # Extract the MD5 checksum from the downloaded .md5 file #
+        # Assuming the .md5 file contains a single line with the checksum followed by the filename
+        local md5_expected="$(cut -d' ' -f1 "${FW_BIN_DIR}/${FW_FileName}.md5")"
+    
+        # Calculate the MD5 checksum of the firmware file #
+        local md5_actual="$(md5sum "$firmware_file" | cut -d' ' -f1)"
+    
+        # Compare the calculated MD5 checksum with the expected MD5 checksum #
+        if [ "$md5_actual" != "$md5_expected" ]
+        then
+            Say "${REDct}**ERROR**${NOct}: Extracted firmware does not match the MD5 checksum!"
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            return 1
+        else
+            Say "Firmware MD5 checksum verified successfully."
+        fi
+    else
+        Say "${REDct}**ERROR**${NOct}: MD5 checksum file not found or firmware file is missing!"
+        _DoCleanUp_ 1
+        return 1
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-27] ##
+##----------------------------------------##
+_toggle_change_log_check_()
+{
+    local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
+
+    if [ "$currentSetting" = "ENABLED" ]
+    then
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Disabling the changelog verification check may risk unanticipated firmware changes.\n"
+        printf "The advice is to proceed only if you review the latest firmware changelog file manually.\n"
+
+        if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "CheckChangeLog" "DISABLED"
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+            printf "Changelog verification check is now ${REDct}DISABLED.${NOct}\n"
+        else
+            printf "Changelog verification check remains ${GRNct}ENABLED.${NOct}\n"
+        fi
+    else
+        printf "Confirm to enable the changelog verification check."
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
+        then
+            Update_Custom_Settings "CheckChangeLog" "ENABLED"
+            printf "Changelog verification check is now ${GRNct}ENABLED.${NOct}\n"
+        else
+            printf "Changelog verification check remains ${REDct}DISABLED.${NOct}\n"
+        fi
+    fi
+    _WaitForEnterKey_
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-23] ##
+##------------------------------------------##
+_Toggle_VPN_Access_()
+{
+    local currentSetting="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+
+    if [ "$currentSetting" = "ENABLED" ]
+    then
+        printf "\n${REDct}*NOTICE*${NOct}\n"
+        printf "Disabling this feature will shut down Tailscale/ZeroTier VPN access during updates.\n"
+        printf "Proceed if you do not need remote VPN access during firmware updates.\n"
+
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "Allow_Updates_OverVPN" "DISABLED"
+            printf "VPN access will now be ${GRNct}DISABLED.${NOct}\n"
+        else
+            printf "VPN access during updates remains ${REDct}ENABLED.${NOct}\n"
+        fi
+    else
+        printf "\n${REDct}*WARNING*${NOct}\n"
+        printf "Enabling this feature will keep Tailscale/ZeroTier VPN access active during updates.\n"
+        printf "Proceed only if you require Tailscale/ZeroTier to connect remotely via an SSH session during firmware updates.\n"
+        if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
+        then
+            Update_Custom_Settings "Allow_Updates_OverVPN" "ENABLED"
+            printf "VPN access will now be ${REDct}ENABLED.${NOct}\n"
+        else
+            printf "VPN access during updates remains ${GRNct}DISABLED.${NOct}\n"
+        fi
+    fi
+    _WaitForEnterKey_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-27] ##
+##----------------------------------------##
+_Toggle_FW_UpdatesFromBeta_()
+{
+    local currentSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+
+    if [ "$currentSetting" = "ENABLED" ]
+    then
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Disabling firmware updates from beta to production releases may limit access to new features and fixes.\n"
+        printf "Keep this option ENABLED if you prefer to stay up-to-date with the latest production releases.\n"
+
+        if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "FW_Allow_Beta_Production_Up" "DISABLED"
+            printf "Firmware updates from beta to production releases are now ${REDct}DISABLED.${NOct}\n"
+        else
+            printf "Firmware updates from beta to production releases remain ${GRNct}ENABLED.${NOct}\n"
+        fi
+    else
+        printf "Confirm to enable firmware updates from beta to production."
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
+        then
+            Update_Custom_Settings "FW_Allow_Beta_Production_Up" "ENABLED"
+            printf "Firmware updates from beta to production releases are now ${GRNct}ENABLED.${NOct}\n"
+        else
+            printf "Firmware updates from beta to production releases remain ${REDct}DISABLED.${NOct}\n"
+        fi
+    fi
+    _WaitForEnterKey_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-27] ##
+##----------------------------------------##
+_Toggle_Auto_Backups_()
+{
+    local currentSetting="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+    if [ "$currentSetting" = "ENABLED" ]
+    then
+        printf "${REDct}*WARNING*${NOct}\n"
+        printf "Disabling automatic backups may risk data loss or inconsistency.\n"
+        printf "The advice is to proceed only if you're sure you want to disable auto backups.\n"
+
+        if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "FW_Auto_Backupmon" "DISABLED"
+            printf "Automatic backups are now ${REDct}DISABLED.${NOct}\n"
+        else
+            printf "Automatic backups remain ${GRNct}ENABLED.${NOct}\n"
+        fi
+    else
+        printf "Confirm to enable automatic backups before firmware flash."
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
+        then
+            Update_Custom_Settings "FW_Auto_Backupmon" "ENABLED"
+            printf "Automatic backups are now ${GRNct}ENABLED.${NOct}\n"
+        else
+            printf "Automatic backups remain ${REDct}DISABLED.${NOct}\n"
+        fi
+    fi
+    _WaitForEnterKey_
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-18] ##
+##------------------------------------------##
+_ChangeBuildType_TUF_()
+{
+   local doReturnToMenu  buildtypechoice
+   printf "Changing Flash Build Type...\n"
+
+   # Use Get_Custom_Setting to retrieve the previous choice
+   previous_choice="$(Get_Custom_Setting "TUFBuild")"
+
+   # If the previous choice is not set, default to 'n'
+   if [ "$previous_choice" = "TBD" ]; then
+       previous_choice="n"
+   fi
+
+   # Convert previous choice to a descriptive text
+   if [ "$previous_choice" = "y" ]; then
+       display_choice="TUF Build"
+   else
+       display_choice="Pure Build"
+   fi
+
+   printf "\nCurrent Build Type: ${GRNct}$display_choice${NOct}.\n"
+
+   doReturnToMenu=false
+   while true
+   do
+       printf "\n${SEPstr}"
+       printf "\nChoose your preferred option for the build type to flash:\n"
+       printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface${NOct}\n"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-TUF${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
+       printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
+       printf "${SEPstr}\n"
+       printf "[$display_choice] Enter selection:  "
+       read -r choice
+
+       [ -z "$choice" ] && break
+
+       if echo "$choice" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       case $choice in
+           1) buildtypechoice="y" ; break
+              ;;
+           2) buildtypechoice="n" ; break
+              ;;
+           *) echo ; _InvalidMenuSelection_
+              ;;
+       esac
+   done
+
+   "$doReturnToMenu" && return 0
+
+   Update_Custom_Settings "TUFBuild" "$buildtypechoice"
+   printf "\nThe build type to flash was updated successfully.\n"
+
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Feb-18] ##
+##------------------------------------------##
+_ChangeBuildType_ROG_()
+{
+   local doReturnToMenu  buildtypechoice
+   printf "Changing Flash Build Type...\n"
+
+   # Use Get_Custom_Setting to retrieve the previous choice
+   previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+   # If the previous choice is not set, default to 'n'
+   if [ "$previous_choice" = "TBD" ]; then
+       previous_choice="n"
+   fi
+
+   # Convert previous choice to a descriptive text
+   if [ "$previous_choice" = "y" ]; then
+       display_choice="ROG Build"
+   else
+       display_choice="Pure Build"
+   fi
+
+   printf "\nCurrent Build Type: ${GRNct}$display_choice${NOct}.\n"
+
+   doReturnToMenu=false
+   while true
+   do
+       printf "\n${SEPstr}"
+       printf "\nChoose your preferred option for the build type to flash:\n"
+       printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface${NOct}\n"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
+       printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
+       printf "${SEPstr}\n"
+       printf "[$display_choice] Enter selection:  "
+       read -r choice
+
+       [ -z "$choice" ] && break
+
+       if echo "$choice" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       case $choice in
+           1) buildtypechoice="y" ; break
+              ;;
+           2) buildtypechoice="n" ; break
+              ;;
+           *) echo ; _InvalidMenuSelection_
+              ;;
+       esac
+   done
+
+   "$doReturnToMenu" && return 0
+
+   Update_Custom_Settings "ROGBuild" "$buildtypechoice"
+   printf "\nThe build type to flash was updated successfully.\n"
+
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-27] ##
+##----------------------------------------##
+_Approve_FW_Update_()
+{
+    local currentSetting="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+
+    if [ "$currentSetting" = "BLOCKED" ]
+    then
+        printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the changelog file.\n"
+        printf "The advice is to approve if you've read the firmware changelog and you want to proceed with the update.\n"
+
+        if _WaitForYESorNO_ "Do you want to ${GRNct}APPROVE${NOct} the latest firmware update?"
+        then
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+            printf "The latest firmware update is now ${GRNct}APPROVED.${NOct}\n"
+        else
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+            printf "The latest firmware update remain ${REDct}BLOCKED.${NOct}\n"
+        fi
+    else
+        printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the changelog file.\n"
+        if _WaitForYESorNO_ "Do you want to ${REDct}BLOCK${NOct} the latest firmware update?"
+        then
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+            printf "The latest firmware update is now ${REDct}BLOCKED.${NOct}\n"
+        else
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+            printf "The latest firmware update remain ${GRNct}APPROVED.${NOct}\n"
+        fi
+    fi
+    _WaitForEnterKey_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-22] ##
+##----------------------------------------##
+translate_schedule()
+{
+   minute="$(echo "$1" | cut -d' ' -f1)"
+   hour="$(echo "$1" | cut -d' ' -f2)"
+   day_of_month="$(echo "$1" | cut -d' ' -f3)"
+   month="$(echo "$1" | cut -d' ' -f4)"
+   day_of_week="$(echo "$1" | cut -d' ' -f5)"
+
+   # Function to add ordinal suffix to day
+   get_ordinal()
+   {
+      case $1 in
+          1? | *[04-9]) echo "$1"th ;;
+          *1) echo "$1"st ;;
+          *2) echo "$1"nd ;;
+          *3) echo "$1"rd ;;
+      esac
+   }
+
+   # Helper function to translate each field
+   translate_field()
+   {
+      local field="$1"
+      local type="$2"
+      case "$field" in
+          '*') echo "every $type" ;;
+          */*) echo "every $(echo "$field" | cut -d'/' -f2) $type(s)" ;;
+          *-*) echo "from $(echo "$field" | cut -d'-' -f1) to $(echo "$field" | cut -d'-' -f2) $type(s)" ;;
+          *,*) echo "$(echo "$field" | sed 's/,/, /g') $type(s)" ;;
+            *) if [ "$type" = "day of the month" ]; then
+                   echo "$(get_ordinal "$field") $type"
+               else
+                   echo "$type $field"
+               fi ;;
+      esac
+   }
+
+   minute_text="$(translate_field "$minute" "Minute")"
+   hour_text="$(translate_field "$hour" "Hour")"
+   day_of_month_text="$(translate_field "$day_of_month" "day of the month")"
+   month_text="$(translate_field "$month" "month")"
+   # Check specifically for "day_of_week" being "*" #
+   if [ "$day_of_week" = "*" ]; then
+       day_of_week_text="Any day of the week"
+   else
+       day_of_week_text="$(translate_field "$day_of_week" "week day")"
+   fi
+
+   # Special handling for "month" to map short abbreviations to long full names #
+   month_text="$(echo "$month_text" | tr 'A-Z' 'a-z')"
+   month_map1="jan:January feb:February mar:March apr:April may:May jun:June jul:July aug:August sep:September oct:October nov:November dec:December"
+   for month_pair in $month_map1
+   do
+       month_stName="$(echo "$month_pair" | cut -d':' -f1)"
+       month_lnName="$(echo "$month_pair" | cut -d':' -f2)"
+       month_text="$(echo "$month_text" | sed "s/\b${month_stName}\b/$month_lnName/g")"
+   done
+
+   # Special handling for "month" to map month numbers to long full names #
+   month_map2="1:January 2:February 3:March 4:April 5:May 6:June 7:July 8:August 9:September 10:October 11:November 12:December"
+   for month_pair in $month_map2
+   do
+       month_number="$(echo "$month_pair" | cut -d':' -f1)"
+       month_lnName="$(echo "$month_pair" | cut -d':' -f2)"
+       month_text="$(echo "$month_text" | sed "s/\b${month_number}\b/$month_lnName/g")"
+   done
+
+   if [ "$day_of_week_text" != "Any day of the week" ]
+   then
+       # Special handling for "day of the week" to map short abbreviations to long full names #
+       day_of_week_text="$(echo "$day_of_week_text" | tr 'A-Z' 'a-z')"
+       dow_map1="sun:Sunday mon:Monday tue:Tuesday wed:Wednesday thu:Thursday fri:Friday sat:Saturday"
+       for dow_pair in $dow_map1
+       do
+           dow_stName="$(echo "$dow_pair" | cut -d':' -f1)"
+           dow_lnName="$(echo "$dow_pair" | cut -d':' -f2)"
+           day_of_week_text="$(echo "$day_of_week_text" | sed "s/\b${dow_stName}\b/$dow_lnName/g")"
+       done
+
+       # Special handling for "day of the week" to map day numbers to long full names #
+       dow_map2="0:Sunday 1:Monday 2:Tuesday 3:Wednesday 4:Thursday 5:Friday 6:Saturday"
+       for dow_pair in $dow_map2
+       do
+           dow_number="$(echo "$dow_pair" | cut -d':' -f1)"
+           dow_lnName="$(echo "$dow_pair" | cut -d':' -f2)"
+           day_of_week_text="$(echo "$day_of_week_text" | sed "s/\b${dow_number}\b/$dow_lnName/g")"
+       done
+   fi
+
+   echo "At $hour_text, and $minute_text."
+   echo "$day_of_week_text, $day_of_month_text, in $month_text."
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-04] ##
+##------------------------------------------##
+_IncrementDay_()
+{
+    local day="$1"
+    local month="$2"
+    local year="$3"
+
+    # Define number of days in each month considering leap year
+    local leap_year=0
+    if [ "$((year % 4))" -eq 0 ]
+    then
+        if [ "$((year % 100))" -ne 0 ] || [ "$((year % 400))" -eq 0 ]; then
+            leap_year=1
+        fi
+    fi
+
+    local days_in_feb="$((28 + leap_year))"
+    local days_in_month=31
+
+    case $month in
+        4|6|9|11) days_in_month=30 ;;
+        2) days_in_month="$days_in_feb" ;;
+    esac
+
+    day="$((day + 1))"
+    if [ "$day" -gt "$days_in_month" ]
+    then
+        day=1
+        month="$((month + 1))"
+    fi
+    if [ "$month" -gt 12 ]
+    then
+        month=1
+        year="$((year + 1))"
+    fi
+
+    echo "$day $month $year"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-26] ##
+##------------------------------------------##
+matches_day_of_month()
+{
+    local curr_dom="$1"
+    local dom_expr="$2"
+    local domStart  domEnd  expanded_days
+
+    if [ "$dom_expr" = "*" ]
+    then  # Matches any day of the month #
+        return 0
+    elif echo "$dom_expr" | grep -q '/'
+    then
+        # Handle step values like '*/5' or '1-15/3' #
+        expanded_days="$(expand_cron_field "$dom_expr" 1 31)"
+        for day in $expanded_days
+        do
+            if [ "$day" -eq "$curr_dom" ]
+            then  # Current day matches one in the expanded list #
+                return 0
+            fi
+        done
+    elif echo "$dom_expr" | grep -q '-'
+    then
+        domStart="$(echo "$dom_expr" | cut -d'-' -f1)"
+        domEnd="$(echo "$dom_expr" | cut -d'-' -f2)"
+
+        if [ "$domStart" -le "$domEnd" ] && \
+           [ "$curr_dom" -ge "$domStart" ] && \
+           [ "$curr_dom" -le "$domEnd" ]
+        then  # Current day is within the range #
+            return 0
+        fi
+    else
+        for day in $(echo "$dom_expr" | tr ',' ' ')
+        do
+            if [ "$day" -eq "$curr_dom" ]
+            then  # Current day matches one in the list #
+                return 0
+            fi
+        done
+    fi
+    return 1  # No match #
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+matches_month()
+{
+    local curr_month="$1"
+    local month_expr="$2"
+    local monthStart  monthEnd  monthStartNum  monthEndNum
+
+    _MonthNameToNumber_()
+    {
+        if echo "$1" | grep -qE "^([1-9]|1[0-2])$"
+        then echo "$1" ; return 0 ; fi
+
+        local monthNum="$1"
+        case "$1" in
+            [Jj][Aa][Nn]) monthNum=1 ;;
+            [Ff][Ee][Bb]) monthNum=2 ;;
+            [Mm][Aa][Rr]) monthNum=3 ;;
+            [Aa][Pp][Rr]) monthNum=4 ;;
+            [Mm][Aa][Yy]) monthNum=5 ;;
+            [Jj][Uu][Nn]) monthNum=6 ;;
+            [Jj][Uu][Ll]) monthNum=7 ;;
+            [Aa][Uu][Gg]) monthNum=8 ;;
+            [Ss][Ee][Pp]) monthNum=9 ;;
+            [Oo][Cc][Tt]) monthNum=10 ;;
+            [Nn][Oo][Vv]) monthNum=11 ;;
+            [Dd][Ee][Cc]) monthNum=12 ;;
+            *) ;;
+        esac
+        echo "$monthNum" ; return 0
     }
 
-    function prefixCustomSettings(settings, prefix) {
-        let prefixedSettings = {};
-        for (let key in settings) {
-            if (settings.hasOwnProperty(key)) {
-                prefixedSettings[prefix + key] = settings[key];
-            }
-        }
-        return prefixedSettings;
+    if [ "$month_expr" = "*" ]
+    then  # Matches any month #
+        return 0
+    elif echo "$month_expr" | grep -q '-'
+    then
+        monthStart="$(echo "$month_expr" | cut -d'-' -f1)"
+        monthEnd="$(echo "$month_expr" | cut -d'-' -f2)"
+        monthStartNum="$(_MonthNameToNumber_ "$monthStart")"
+        monthEndNum="$(_MonthNameToNumber_ "$monthEnd")"
+
+        if [ "$monthStartNum" -le "$monthEndNum" ] && \
+           [ "$curr_month" -ge "$monthStartNum" ] && \
+           [ "$curr_month" -le "$monthEndNum" ]
+        then  # Current month is within the range #
+            return 0
+        fi
+    else
+        for month in $(echo "$month_expr" | tr ',' ' ')
+        do
+            if [ "$(_MonthNameToNumber_ "$month")" -eq "$curr_month" ]
+            then  # Current month matches one in the list #
+                return 0
+            fi
+        done
+    fi
+    return 1  # No match #
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-26] ##
+##------------------------------------------##
+matches_day_of_week()
+{
+    local curr_dow="$1"
+    local dow_expr="$2"
+    local dowStart  dowEnd  dowStartNum  dowEndNum  expanded_dows
+
+    _DayOfWeekNameToNumber_()
+    {
+        if echo "$1" | grep -qE "^[0-6]$"
+        then echo "$1" ; return 0 ; fi
+
+        local dowNum="$1"
+        case "$1" in
+            [Ss][Uu][Nn]) dowNum=0 ;;
+            [Mm][Oo][Nn]) dowNum=1 ;;
+            [Tt][Uu][Ee]) dowNum=2 ;;
+            [Ww][Ee][Dd]) dowNum=3 ;;
+            [Tt][Hh][Uu]) dowNum=4 ;;
+            [Ff][Rr][Ii]) dowNum=5 ;;
+            [Ss][Aa][Tt]) dowNum=6 ;;
+            *) ;;
+        esac
+        echo "$dowNum" ; return 0
     }
 
-    // Function to handle the visibility of the ROG and TUF F/W Build Type rows
-    function handleROGFWBuildTypeVisibility() {
-        // Get the router model from the hidden input
-        var firmwareProductModelElement = document.getElementById('firmwareProductModelID');
-        var routerModel = firmwareProductModelElement ? firmwareProductModelElement.textContent.trim() : '';
+    if [ "$dow_expr" = "*" ]
+    then  # Matches any day of the week #
+        return 0
+    elif echo "$dow_expr" | grep -q '/'
+    then
+        # Handle step values like '*/2' or '1-5/2' #
+        expanded_dows="$(expand_cron_field "$dow_expr" 0 6)"
+        for dow in $expanded_dows
+        do
+            if [ "$dow" -eq "$curr_dow" ]
+            then  # Current day of the week matches one in the expanded list #
+                return 0
+            fi
+        done
+    elif echo "$dow_expr" | grep -q '-'
+    then
+        dowStart="$(echo "$dow_expr" | cut -d'-' -f1)"
+        dowEnd="$(echo "$dow_expr" | cut -d'-' -f2)"
+        dowStartNum="$(_DayOfWeekNameToNumber_ "$dowStart")"
+        dowEndNum="$(_DayOfWeekNameToNumber_ "$dowEnd")"
+        if [ "$dowStartNum" -gt "$dowEndNum" ]
+        then
+            dow_expr="$dowStartNum"
+            while true
+            do
+                dowStartNum="$((dowStartNum + 1))"
+                [ "$dowStartNum" -ge 7 ] && dowStartNum=0
+                dow_expr="${dow_expr},$dowStartNum"
+                [ "$dowStartNum" -eq "$dowEndNum" ] && break
+            done
+            if matches_day_of_week "$curr_dow" "$dow_expr"
+            then return 0
+            else return 1
+            fi
+        elif [ "$dowStartNum" -le "$dowEndNum" ] && \
+             [ "$curr_dow" -ge "$dowStartNum" ] && \
+             [ "$curr_dow" -le "$dowEndNum" ]
+        then  # Current day of the week is within the range #
+            return 0
+        fi
+    else
+        for day in $(echo "$dow_expr" | tr ',' ' ')
+        do
+            if [ "$(_DayOfWeekNameToNumber_ "$day")" -eq "$curr_dow" ]
+            then  # Current day of the week matches one in the list #
+                return 0
+            fi
+        done
+    fi
+    return 1  # No match #
+}
 
-        // ROG Model Check
-        var isROGModel = routerModel.includes('GT-');
-        var hasROGFWBuildType = custom_settings.hasOwnProperty('FW_New_Update_ROGFWBuildType');
-        var rogFWBuildRow = document.getElementById('rogFWBuildRow');
+expand_cron_field()
+{
+    local field="$1"
+    local min="$2"
+    local max="$3"
+    local range_part  step  start  end  num
 
-        if (!isROGModel || !hasROGFWBuildType) {
-            // Hide the ROG row
-            if (rogFWBuildRow) {
-                rogFWBuildRow.style.display = 'none';
-            }
-        } else {
-            // Show the ROG row
-            if (rogFWBuildRow) {
-                rogFWBuildRow.style.display = '';
-            }
-        }
+    if echo "$field" | grep -q '/'
+    then
+        range_part="${field%/*}"
+        step="${field##*/}"
+        start="$min"
+        end="$max"
 
-        // TUF Model Check
-        var isTUFModel = routerModel.includes('TUF-');
-        var hasTUFWBuildType = custom_settings.hasOwnProperty('FW_New_Update_TUFWBuildType');
-        var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
+        if echo "$range_part" | grep -q '-'
+        then
+            start="${range_part%-*}"
+            end="${range_part#*-}"
+        fi
 
-        if (!isTUFModel || !hasTUFWBuildType) {
-            // Hide the TUF row
-            if (tufFWBuildRow) {
-                tufFWBuildRow.style.display = 'none';
-            }
-        } else {
-            // Show the TUF row
-            if (tufFWBuildRow) {
-                tufFWBuildRow.style.display = '';
-            }
-        }
-    }
+        num="$start"
+        while [ "$num" -le "$end" ]
+        do
+            echo "$num"
+            num="$((num + step))"
+        done
+    elif echo "$field" | grep -q '-'
+    then
+        start="${field%-*}"
+        end="${field#*-}"
+        num="$start"
+        while [ "$num" -le "$end" ]
+        do
+            echo "$num"
+            num="$((num + 1))"
+        done
+    elif [ "$field" = "*" ]
+    then
+        num="$min"
+        while [ "$num" -le "$max" ]
+        do
+            echo "$num"
+            num="$((num + 1))"
+        done
+    else
+        echo "$field"
+    fi
+}
 
-    function initializeFields() {
-        console.log("Initializing fields...");
-        let changelogCheckEnabled = document.getElementById('changelogCheckEnabled');
-        let fwNotificationsDate = document.getElementById('fwNotificationsDate');
-        let routerPassword = document.getElementById('routerPassword');
-        let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
-        let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
-        let autobackupEnabled = document.getElementById('autobackupEnabled');
-        let secondaryEmail = document.getElementById('secondaryEmail');
-        let emailFormat = document.getElementById('emailFormat');
-        let rogFWBuildType = document.getElementById('rogFWBuildType');
-        let tuffFWBuildType = document.getElementById('tuffFWBuildType');
-        let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
-        let autoUpdatesScriptEnabled = document.getElementById('autoUpdatesScriptEnabled');
-        let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
-        let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-10] ##
+##------------------------------------------##
+_EstimateNextCronTimeAfterDate_()
+{
+    local post_date_secs="$1"
+    local cron_schedule="$2"
+    local minute_field="$(echo "$cron_schedule" | awk '{print $1}')"
+    local hour_field="$(echo "$cron_schedule" | awk '{print $2}')"
+    local dom_field="$(echo "$cron_schedule" | awk '{print $3}')"
+    local month_field="$(echo "$cron_schedule" | awk '{print $4}')"
+    local dow_field="$(echo "$cron_schedule" | awk '{print $5}')"
+    local day  month  year  hour  minute  dow
 
-        // Read the firmware_check_enable value from the hidden input
-        let firmwareCheckEnableValue = document.getElementById('firmware_check_enable').value.trim();
-        let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
-        let fwUpdateCheckStatus = document.getElementById('fwUpdateCheckStatus');
+    eval $(date '+day=%d month=%m year=%Y hour=%H minute=%M dow=%u' -d "@$post_date_secs")
+    local current_day="$(echo "$day" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_month="$(echo "$month" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_year="$year"
+    local current_hour="$(echo "$hour" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_minute="$(echo "$minute" | sed 's/^0*\([0-9]\)/\1/')"
+    local current_dow="$((dow % 7))"  # Adjusting so Sunday is 0
 
-        // Determine if firmware update check is enabled based on the hidden input value
-        let isFwUpdateEnabled = (firmwareCheckEnableValue === '1');
+    # Apply default values if variables are empty
+    current_day="${current_day:-0}"
+    current_month="${current_month:-0}"
+    current_hour="${current_hour:-0}"
+    current_minute="${current_minute:-0}"
 
-        // Set the checkbox state
-        if (fwUpdateEnabled) {
-            fwUpdateEnabled.checked = isFwUpdateEnabled;
-        }
+    local found=false  loopCount=0  maxLoopCount=120
 
-        // Update the Firmware Status display
-        if (fwUpdateCheckStatus) {
-            setStatus('fwUpdateCheckStatus', isFwUpdateEnabled);
-        }
+    while [ "$found" = "false" ]
+    do
+        loopCount="$((loopCount + 1))"
 
-        // Safe value assignments
-        if (custom_settings) {
-            if (routerPassword) routerPassword.value = custom_settings.routerPassword || '';
-            if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.FW_New_Update_Postponement_Days || '0';
-            if (secondaryEmail) secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address || '';
-            if (emailFormat) emailFormat.value = custom_settings.FW_New_Update_EMail_FormatType || 'HTML';
-            if (rogFWBuildType) rogFWBuildType.value = custom_settings.FW_New_Update_ROGFWBuildType || 'ROG';
-            if (tuffFWBuildType) tuffFWBuildType.value = custom_settings.FW_New_Update_TUFWBuildType || 'TUF';
+        if matches_month "$current_month" "$month_field" && \
+           matches_day_of_month "$current_day" "$dom_field" && \
+           matches_day_of_week "$current_dow" "$dow_field"
+        then
+            for this_hour in $(expand_cron_field "$hour_field" 0 23)
+            do
+                if [ "$this_hour" -gt "$current_hour" ]
+                then
+                    for this_min in $(expand_cron_field "$minute_field" 0 59)
+                    do
+                        echo "$(date -d "@$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")" '+%Y-%m-%d %H:%M:%S')"
+                        found=true
+                        return 0
+                    done
+                elif [ "$this_hour" -eq "$current_hour" ]
+                then
+                    for this_min in $(expand_cron_field "$minute_field" 0 59)
+                    do
+                        if [ "$this_min" -ge "$current_minute" ]
+                        then
+                            echo "$(date -d "@$(date '+%s' -d "$current_year-$current_month-$current_day $this_hour:$this_min")" '+%Y-%m-%d %H:%M:%S')"
+                            found=true
+                            return 0
+                        fi
+                    done
+                fi
+            done
+        fi
+        if [ "$loopCount" -gt "$maxLoopCount" ]
+        then  # Avoid possible endless loop at this point #
+            echo "$CRON_UNKNOWN_DATE"
+            return 1
+        fi
+        # Increment the day and check again #
+        set -- $(_IncrementDay_ "$current_day" "$current_month" "$current_year")
+        current_day="$1"
+        current_month="$2"
+        current_year="$3"
+        current_dow="$(date '+%u' -d "$current_year-$current_month-$current_day" | awk '{print $1%7}')"  # Recalculate day of the week
+        current_hour=0  # Reset hours and minutes for the new day
+        current_minute=0
+    done
+}
 
-            if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.CheckChangeLog);
-            if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.FW_New_Update_EMail_Notification);
-            if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.FW_Auto_Backupmon);
-            if (tailscaleVPNEnabled) tailscaleVPNEnabled.checked = parseBoolean(custom_settings.Allow_Updates_OverVPN);
-            if (autoUpdatesScriptEnabled) autoUpdatesScriptEnabled.checked = parseBoolean(custom_settings.Allow_Script_Auto_Update);
-            if (betaToReleaseUpdatesEnabled) betaToReleaseUpdatesEnabled.checked = parseBoolean(custom_settings.FW_Allow_Beta_Production_Up);
-            if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.FW_New_Update_ZIP_Directory_Path || '';
+_Calculate_DST_()
+{
+   local notifyTimeStrn notifyTimeSecs currentTimeSecs dstAdjustSecs dstAdjustDays
+   local postponeTimeSecs fwNewUpdatePostponementDays
 
-            // Update Settings Status Table
-            setStatus('changelogCheckStatus', parseBoolean(custom_settings.CheckChangeLog));
-            setStatus('betaToReleaseUpdatesStatus', parseBoolean(custom_settings.FW_Allow_Beta_Production_Up));
-            setStatus('tailscaleVPNAccessStatus', parseBoolean(custom_settings.Allow_Updates_OverVPN));
-            setStatus('autobackupEnabledStatus', parseBoolean(custom_settings.FW_Auto_Backupmon));
-            setStatus('autoUpdatesScriptEnabledStatus', parseBoolean(custom_settings.Allow_Script_Auto_Update));
-            setStatus('emailNotificationsStatus', parseBoolean(custom_settings.FW_New_Update_EMail_Notification));
+   notifyTimeStrn="$1"
 
-            // Handle fwNotificationsDate as a date
-            if (fwNotificationsDate && custom_settings.FW_New_Update_Notifications_Date) {
-                fwNotificationsDate.innerHTML = GRNct + custom_settings.FW_New_Update_Notifications_Date + NOct;
-            } else if (fwNotificationsDate) {
-                fwNotificationsDate.innerHTML = REDct + "TBD" + NOct;
-            }
+   currentTimeSecs="$(date +%s)"
+   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
 
-            // **Handle fwUpdateEstimatedRunDate Separately**
-            var fwUpdateEstimatedRunDateElement = document.getElementById('fwUpdateEstimatedRunDate');
+   # Adjust for DST discrepancies
+   if [ "$(date -d @$currentTimeSecs +'%Z')" = "$(date -d @$notifyTimeSecs +'%Z')" ]
+   then dstAdjustSecs=86400  # 24-hour day is same as always
+   else dstAdjustSecs=82800  # 23-hour day only when DST happens
+   fi
 
-            // **Handle fwUpdateAvailable with Version Comparison**
-            var fwUpdateAvailableElement = document.getElementById('fwUpdateAvailable');
-            var fwVersionInstalledElement = document.getElementById('fwVersionInstalled');
+   fwNewUpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+   dstAdjustDays="$((fwNewUpdatePostponementDays - 1))"
+   if [ "$dstAdjustDays" -eq 0 ]
+   then postponeTimeSecs="$dstAdjustSecs"
+   else postponeTimeSecs="$(((dstAdjustDays * 86400) + dstAdjustSecs))"
+   fi
 
-            var isFwUpdateAvailable = false; // Initialize the flag
+   echo "$((notifyTimeSecs + postponeTimeSecs))"
+}
 
-            if (fwUpdateAvailableElement && fwVersionInstalledElement) {
-                var fwUpdateAvailable = custom_settings.FW_New_Update_Available ? custom_settings.FW_New_Update_Available.trim() : '';
-                var fwVersionInstalled = fwVersionInstalledElement.textContent.trim();
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jun-10] ##
+##------------------------------------------##
+_Calculate_NextRunTime_()
+{
+    local fwNewUpdateVersion  fwNewUpdateNotificationDate
+    local upfwDateTimeSecs  nextCronTimeSecs
 
-                // Optional: Normalize version strings for accurate comparison
-                var fwUpdateAvailableNormalized = fwUpdateAvailable.toLowerCase();
-                var fwVersionInstalledNormalized = fwVersionInstalled.toLowerCase();
+    # Check for available firmware update
+    if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"; then
+        fwNewUpdateVersion="NONE FOUND"
+    fi
 
-                // Compare versions and update the DOM accordingly
-                if (fwUpdateAvailableNormalized === 'tbd') {
-                    fwUpdateAvailableElement.innerHTML = REDct + "NONE FOUND" + NOct;
-                    isFwUpdateAvailable = false; // No update available
-                } else if (fwUpdateAvailable && fwUpdateAvailableNormalized !== fwVersionInstalledNormalized) {
-                    fwUpdateAvailableElement.innerHTML = GRNct + fwUpdateAvailable + NOct;
-                    isFwUpdateAvailable = true; // Update is available
-                } else {
-                    fwUpdateAvailableElement.innerHTML = REDct + "NONE FOUND" + NOct;
-                    isFwUpdateAvailable = false; // No update available
-                }
-            } else {
-                console.error("Required elements for firmware version comparison not found.");
-            }
+    ExpectedFWUpdateRuntime="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
 
-            // **Update fwUpdateEstimatedRunDate Based on fwUpdateAvailable**
-            if (fwUpdateEstimatedRunDateElement) {
-                if (isFwUpdateAvailable && fwUpdateEstimatedRunDateElement.textContent.trim() !== '') {
-                    fwUpdateEstimatedRunDateElement.innerHTML = GRNct + fwUpdateEstimatedRunDateElement.textContent.trim() + NOct;
-                } else {
-                    fwUpdateEstimatedRunDateElement.innerHTML = REDct + "TBD" + NOct;
-                }
-            }
+    # Determine appropriate messaging based on the firmware update availability and check state
+    if [ "$FW_UpdateCheckState" -eq 0 ]
+    then
+        ExpectedFWUpdateRuntime="${REDct}NO CRON JOB${NOct}"
+    elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]
+    then
+        ExpectedFWUpdateRuntime="${REDct}NONE FOUND${NOct}"
+    elif [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
+    then
+        # If conditions are met (cron job enabled and update available), calculate the next runtime
+        fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+        if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
+        then
+            fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
+        fi
+        upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
+        ExpectedFWUpdateRuntime="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+        if [ "$ExpectedFWUpdateRuntime" = "$CRON_UNKNOWN_DATE" ]
+        then
+            Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
+            ExpectedFWUpdateRuntime="${REDct}UNKNOWN${NOct}"
+        else
+            Update_Custom_Settings FW_New_Update_Expected_Run_Date "$ExpectedFWUpdateRuntime"
+            ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
+        fi
+    else
+        ExpectedFWUpdateRuntime="${GRNct}$ExpectedFWUpdateRuntime${NOct}"
+    fi
+}
 
-            // **Handle Changelog Approval Display**
-            var changelogApprovalElement = document.getElementById('changelogApproval');
-            if (changelogApprovalElement) {
-                var approvalStatus = custom_settings.hasOwnProperty('FW_New_Update_Changelog_Approval') ? custom_settings.FW_New_Update_Changelog_Approval : "DISABLED"; // Default to "DISABLED" if missing
-                if (approvalStatus === "TBD") {
-                    changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
-                } else if (approvalStatus === "BLOCKED") {
-                    changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
-                } else if (approvalStatus === "APPROVED") {
-                    changelogApprovalElement.innerHTML = GRNct + approvalStatus + NOct;
-                } else {
-                    // Handle unexpected values gracefully
-                    changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
-                }
-            }
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-19] ##
+##----------------------------------------##
+_AddFWAutoUpdateCronJob_()
+{
+   local newSchedule  newSetting  retCode=1
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then
+       newSetting=true
+       newSchedule="$1"
+   else
+       newSetting=false
+       newSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   fi
+   if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD" ]
+   then
+       newSchedule="$FW_Update_CRON_DefaultSchedule"
+   fi
 
-            // **Control "Approve Changelog" Button Visibility**
-            var approveChangelogButton = document.getElementById('approveChangelogButton');
-            if (approveChangelogButton) {
-                var isChangelogCheckEnabled = custom_settings.CheckChangeLog;
-                var changelogApprovalValue = custom_settings.FW_New_Update_Changelog_Approval;
+   cru a "$CRON_JOB_TAG" "$newSchedule $CRON_JOB_RUN"
+   sleep 1
+   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   then
+       retCode=0
+       "$newSetting" && \
+       Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$newSchedule"
+   fi
+   return "$retCode"
+}
 
-                // Condition: Show button only if
-                // 1. Changelog Check is enabled
-                // 2. Changelog Approval is neither empty nor "TBD"
-                if (isChangelogCheckEnabled && changelogApprovalValue && changelogApprovalValue !== 'TBD') {
-                    approveChangelogButton.style.display = 'inline-block'; // Show the button
-                } else {
-                    approveChangelogButton.style.display = 'none'; // Hide the button
-                }
-            }
+##-------------------------------------##
+## Added by Martinski W. [2023-Nov-19] ##
+##-------------------------------------##
+_DelFWAutoUpdateCronJob_()
+{
+   local retCode
+   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   then
+       cru d "$CRON_JOB_TAG" ; sleep 1
+       if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+       then
+           retCode=1
+           printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
+       else
+           retCode=0
+           printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was removed successfully.\n"
+       fi
+   else
+       retCode=0
+       printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' does not exist.\n"
+   fi
+   return "$retCode"
+}
 
-            // Call the visibility handler
-            handleROGFWBuildTypeVisibility();
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
+_GetScriptAutoUpdateCronSchedule_()
+{
+   local fwCronSchedule  scriptSchedDays
+   local cronMINS  cronHOUR  updtMINS  updtHOUR  cronDAYM  cronDAYW
 
-        } else {
-            console.error("Custom settings not loaded.");
-        }
-    }
+   fwCronSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   scriptSchedDays="$(Get_Custom_Setting Script_Update_Cron_Job_SchedDays)"
 
-    function get_conf_file() {
-        $.ajax({
-            url: '/ext/MerlinAU.d/custom_settings.htm',
-            dataType: 'text',
-            error: function(xhr) {
-                console.error("Failed to fetch custom_settings.htm:", xhr.statusText);
-                setTimeout(get_conf_file, 1000); // Retry after 1 second
-            },
-            success: function(data) {
-                // Tokenize the data while respecting quoted values
-                var tokens = tokenize(data);
+   if [ -z "$fwCronSchedule" ] || [ "$fwCronSchedule" = "TBD" ]
+   then
+       echo "$ScriptAU_CRON_DefaultSchedule"
+       return 1
+   fi
+   if [ -z "$scriptSchedDays" ] || [ "$scriptSchedDays" = "TBD" ]
+   then scriptSchedDays="$SW_Update_CRON_DefaultSchedDays" ; fi
 
-                // Iterate through tokens to extract key-value pairs
-                for (var i = 0; i < tokens.length; i++) {
-                    var token = tokens[i];
+   updtHOUR=0 ; updtMINS=45
+   cronMINS="$(echo "$fwCronSchedule" | awk -F ' ' '{print $1}')"
+   cronHOUR="$(echo "$fwCronSchedule" | awk -F ' ' '{print $2}')"
+   cronDAYM="$(echo "$scriptSchedDays" | awk -F ' ' '{print $1}')"
+   cronDAYW="$(echo "$scriptSchedDays" | awk -F ' ' '{print $3}')"
 
-                    if (token.includes('=')) {
-                        // Handle key=value format
-                        var splitIndex = token.indexOf('=');
-                        var key = token.substring(0, splitIndex).trim();
-                        var value = token.substring(splitIndex + 1).trim();
+   if [ "$cronDAYM" != "*" ] && [ "$cronDAYW" != "*" ]
+   then
+       cronDAYM="*" ; cronDAYW="*"
+       Update_Custom_Settings Script_Update_Cron_Job_SchedDays "$SW_Update_CRON_DefaultSchedDays"
+   fi
 
-                        // Remove surrounding quotes if present
-                        if (value.startsWith('"') && value.endsWith('"')) {
-                            value = value.substring(1, value.length - 1);
-                        }
+   if echo "$cronHOUR" | grep -qE "^${CRON_HOUR_RegEx}$"
+   then updtHOUR="$cronHOUR"
+   fi
+   if echo "$cronMINS" | grep -qE "^${CRON_MINS_RegEx}$"
+   then
+       if  [ "$cronMINS" -ge 15 ]
+       then
+           updtMINS="$((cronMINS - 15))"
+       else
+           updtMINS="$((45 + cronMINS))"
+           if [ "$updtHOUR" -eq 0 ]
+           then updtHOUR=23
+           else updtHOUR="$((updtHOUR - 1))"
+           fi
+       fi
+   fi
 
-                        assignAjaxSetting(key, value);
-                    } else {
-                        // Handle key value format
-                        var key = token.trim();
-                        var value = '';
+   echo "$updtMINS $updtHOUR $cronDAYM * $cronDAYW"
+   return 0
+}
 
-                        // Ensure there's a next token for the value
-                        if (i + 1 < tokens.length) {
-                            value = tokens[i + 1].trim();
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-24] ##
+##----------------------------------------##
+_AddScriptAutoUpdateCronJob_()
+{
+   local newSchedule  newSetting  retCode=1
+   if [ $# -gt 0 ] && [ -n "$1" ]
+   then
+       newSetting=true
+       newSchedule="$1"
+   else
+       newSetting=false
+       newSchedule="$(_GetScriptAutoUpdateCronSchedule_)"
+   fi
+   if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD" ]
+   then
+       newSchedule="$ScriptAU_CRON_DefaultSchedule"
+   fi
 
-                            // Remove surrounding quotes if present
-                            if (value.startsWith('"') && value.endsWith('"')) {
-                                value = value.substring(1, value.length - 1);
-                            }
+   cru a "$SCRIPT_UP_CRON_JOB_TAG" "$newSchedule $SCRIPT_UP_CRON_JOB_RUN"
+   sleep 1
+   if eval $cronListCmd | grep -qE "$SCRIPT_UP_CRON_JOB_RUN #${SCRIPT_UP_CRON_JOB_TAG}#$"
+   then
+       retCode=0
+   fi
+   return "$retCode"
+}
 
-                            assignAjaxSetting(key, value);
-                            i++; // Skip the next token as it's already processed
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Nov-18] ##
+##---------------------------------------##
+_DelScriptAutoUpdateCronJob_()
+{
+   local retCode
+   if eval $cronListCmd | grep -qE "$SCRIPT_UP_CRON_JOB_RUN #${SCRIPT_UP_CRON_JOB_TAG}#$"
+   then
+       cru d "$SCRIPT_UP_CRON_JOB_TAG" ; sleep 1
+       if eval $cronListCmd | grep -qE "$SCRIPT_UP_CRON_JOB_RUN #${SCRIPT_UP_CRON_JOB_TAG}#$"
+       then
+           retCode=1
+           printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}].\n"
+       else
+           retCode=0
+           printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' was removed successfully.\n"
+       fi
+   else
+       retCode=0
+       printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' does not exist.\n"
+   fi
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2023-Oct-12] ##
+##-------------------------------------##
+_CheckPostponementDays_()
+{
+   local retCode  newPostponementDays
+   newPostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
+   if [ -z "$newPostponementDays" ] || [ "$newPostponementDays" = "TBD" ]
+   then retCode=1 ; else retCode=0 ; fi
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-06] ##
+##----------------------------------------##
+_Set_FW_UpdatePostponementDays_()
+{
+   local validNumRegExp="([0-9]|[1-9][0-9]|1[0-9][0-9])"
+   local oldPostponementDays  newPostponementDays  postponeDaysStr  userInput
+
+   oldPostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
+   if [ -z "$oldPostponementDays" ] || [ "$oldPostponementDays" = "TBD" ]
+   then
+       newPostponementDays="$FW_UpdateDefaultPostponementDays"
+       postponeDaysStr="Default Value: ${GRNct}${newPostponementDays}${NOct}"
+   else
+       newPostponementDays="$oldPostponementDays"
+       postponeDaysStr="Current Value: ${GRNct}${newPostponementDays}${NOct}"
+   fi
+
+   while true
+   do
+       printf "\nEnter the number of days to postpone the update once a new firmware notification is made.\n"
+       printf "[${theExitStr}] "
+       printf "[Min=${GRNct}${FW_UpdateMinimumPostponementDays}${NOct}, Max=${GRNct}${FW_UpdateMaximumPostponementDays}${NOct}] "
+       printf "[${postponeDaysStr}]:  "
+       read -r userInput
+
+       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then break ; fi
+
+       if echo "$userInput" | grep -qE "^${validNumRegExp}$" && \
+          [ "$userInput" -ge "$FW_UpdateMinimumPostponementDays" ] && \
+          [ "$userInput" -le "$FW_UpdateMaximumPostponementDays" ]
+       then newPostponementDays="$userInput" ; break ; fi
+
+       printf "\n${REDct}INVALID input.${NOct}\n"
+       _WaitForEnterKey_
+       clear
+   done
+
+   if [ "$newPostponementDays" != "$oldPostponementDays" ]
+   then
+       Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
+       echo "The number of days to postpone F/W Update was updated successfully."
+       _Calculate_NextRunTime_
+       _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+   fi
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_TranslateCronSchedHR_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then echo "ERROR" ; return 1 ; fi
+
+   local theCronMINS  theCronHOUR  theCronDAYW  theCronDAYM
+   local freqNumMINS  freqNumHOUR  freqNumDAYW  freqNumDAYM
+   local hasFreqMINS  hasFreqHOUR  hasFreqDAYW  hasFreqDAYM
+   local infoStrDAYS  schedInfoStr
+
+   _IsValidNumber_()
+   {
+      if echo "$1" | grep -qE "^[0-9]+$"
+      then return 0 ; else return 1 ; fi
+   }
+
+   _Get12HourAmPm_()
+   {
+      if [ $# -eq 0 ] || [ -z "$1" ]
+      then echo ; return 1 ; fi
+      local theHour  theMins=""  ampmTag="AM"
+      theHour="$1"
+      if [ $# -eq 2 ] && [ -n "$2" ]
+      then theMins="$2"
+      fi
+      if [ "$theHour" -eq 0 ]
+      then theHour=12
+      elif [ "$theHour" -eq 12 ]
+      then ampmTag="PM"
+      elif [ "$theHour" -gt 12 ]
+      then
+          ampmTag="PM" ; theHour="$((theHour - 12))"
+      fi
+      if [ -z "$theMins" ]
+      then printf "%d $ampmTag" "$theHour"
+      else printf "%d:%02d $ampmTag" "$theHour" "$theMins"
+      fi
+   }
+
+   theCronMINS="$(echo "$1" | awk -F ' ' '{print $1}')"
+   theCronHOUR="$(echo "$1" | awk -F ' ' '{print $2}')"
+   theCronDAYM="$(echo "$1" | awk -F ' ' '{print $3}')"
+   theCronDAYW="$(echo "$1" | awk -F ' ' '{print $5}')"
+
+   if [ "$theCronDAYW" = "*" ] && [ "$theCronDAYM" = "*" ]
+   then
+       infoStrDAYS="every day, in every month"
+   elif [ "$theCronDAYW" != "*" ]
+   then
+       if echo "$theCronDAYW" | grep -qE "^[*]/.*"
+       then
+           freqNumDAYW="$(echo "$theCronDAYW" | cut -f2 -d'/')"
+           infoStrDAYS="every $freqNumDAYW days of the week, in every month"
+       elif echo "$theCronDAYW" | grep -qE "[,-]"
+       then
+           infoStrDAYS="days $theCronDAYW of the week, in every month"
+       else
+           infoStrDAYS="day $theCronDAYW of the week, in every month"
+       fi
+   elif [ "$theCronDAYM" != "*" ]
+   then
+       if echo "$theCronDAYM" | grep -qE "^[*]/.*"
+       then
+           freqNumDAYM="$(echo "$theCronDAYM" | cut -f2 -d'/')"
+           infoStrDAYS="every $freqNumDAYM days of the month, in every month"
+       elif echo "$theCronDAYM" | grep -qE "[,-]"
+       then
+           infoStrDAYS="days ${theCronDAYM} of the month, in every month"
+       else
+           infoStrDAYS="day ${theCronDAYM} of the month, in every month"
+       fi
+   fi
+
+   if echo "$theCronHOUR" | grep -qE "^[*]/.*"
+   then
+       hasFreqHOUR=true
+       freqNumHOUR="$(echo "$theCronHOUR" | cut -f2 -d'/')"
+   else
+       hasFreqHOUR=false ; freqNumHOUR=""
+   fi
+   if echo "$theCronMINS" | grep -qE "^[*]/.*"
+   then
+       hasFreqMINS=true
+       freqNumMINS="$(echo "$theCronMINS" | cut -f2 -d'/')"
+   else
+       hasFreqMINS=false ; freqNumMINS=""
+   fi
+   if [ "$theCronHOUR" = "*" ] && [ "$theCronMINS" -eq 0 ]
+   then
+       schedInfoStr="Every hour"
+   elif [ "$theCronHOUR" = "*" ] && [ "$theCronMINS" = "*" ]
+   then
+       schedInfoStr="Every minute"
+   elif [ "$theCronHOUR" = "*" ] && _IsValidNumber_ "$theCronMINS"
+   then
+       schedInfoStr="Every hour at minute $theCronMINS"
+   elif "$hasFreqHOUR" && [ "$theCronMINS" -eq 0 ]
+   then
+       schedInfoStr="Every $freqNumHOUR hours"
+   elif "$hasFreqHOUR" && [ "$theCronMINS" = "*" ]
+   then
+       schedInfoStr="Every minute, every $freqNumHOUR hours"
+   elif "$hasFreqHOUR" && _IsValidNumber_ "$theCronMINS"
+   then
+       schedInfoStr="Every $freqNumHOUR hours at minute $theCronMINS"
+   elif "$hasFreqMINS" && [ "$theCronHOUR" = "*" ]
+   then
+       schedInfoStr="Every $freqNumMINS minutes"
+   elif "$hasFreqHOUR" && "$hasFreqMINS"
+   then
+       schedInfoStr="Every $freqNumMINS minutes, every $freqNumHOUR hours"
+   elif "$hasFreqMINS" && _IsValidNumber_ "$theCronHOUR"
+   then
+       schedInfoStr="$(_Get12HourAmPm_ "$theCronHOUR"), every $freqNumMINS minutes"
+   elif _IsValidNumber_ "$theCronHOUR" && _IsValidNumber_ "$theCronMINS"
+   then
+       schedInfoStr="$(_Get12HourAmPm_ "$theCronHOUR" "$theCronMINS")"
+   elif "$hasFreqHOUR"
+   then
+       schedInfoStr="Every $freqNumHOUR hours, Minutes: $theCronMINS"
+   elif "$hasFreqMINS"
+   then
+       schedInfoStr="$theCronHOUR, every $freqNumMINS minutes"
+   elif [ "$theCronHOUR" = "*" ]
+   then
+       schedInfoStr="Every hour,  Minutes: $theCronMINS"
+   elif [ "$theCronMINS" = "*" ]
+   then
+       schedInfoStr="$theCronHOUR, every minute"
+   else
+       schedInfoStr="$theCronHOUR,  Minutes: $theCronMINS"
+   fi
+   echo "${schedInfoStr}, $infoStrDAYS"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-22] ##
+##-------------------------------------##
+_CapitalizeFirstChar_()
+{
+   if [ $# -eq 0 ] && [ -z "$1" ]
+   then echo "$1" ; return 1; fi
+
+   local upperChar  capWord  origStr="$1"
+   local prevIFS="$IFS"
+
+   IFS="/,-$IFS"
+   for origWord in $1
+   do
+       upperChar="$(echo "${origWord:0:1}" | tr 'a-z' 'A-Z')"
+       if [ -n "$upperChar" ]
+       then
+           capWord="${upperChar}${origWord:1}"
+           origStr="$(echo "$origStr" | sed "s/\b${origWord}\b/$capWord/g")"
+       fi
+   done
+   IFS="$prevIFS"
+   echo "$origStr"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-59].
+# All intervals, lists and ranges are INVALID for
+# the purposes of checking for F/W Updates.
+#---------------------------------------------------#
+_ValidateCronScheduleMINS_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   if echo "$1" | grep -qE "^${CRON_MINS_RegEx}$" && \
+      [ "$1" -ge 0 ] && [ "$1" -lt 60 ]
+   then return 0
+   fi
+   printf "\n${REDct}INVALID cron value for 'MINUTE' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [0-59] are valid.\n"
+   printf "All other intervals, lists, and ranges are INVALID.\n"
+   return 1
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-23]
+# and specific intervals [ */4  */6  */8  */12]
+# for the purposes of doing F/W Updates.
+# All other intervals, lists & ranges are INVALID.
+#---------------------------------------------------#
+_ValidateCronScheduleHOUR_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   if echo "$1" | grep -qE "^[*]/(4|6|8|12)$"
+   then return 0 ; fi
+   if echo "$1" | grep -qE "^${CRON_HOUR_RegEx}$" && \
+      [ "$1" -ge 0 ] && [ "$1" -lt 24 ]
+   then return 0
+   fi
+   printf "\n${REDct}INVALID cron value for 'HOUR' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [0-23] and\n"
+   printf "specific intervals (*/4 */6 */8 */12) are valid.\n"
+   printf "All other intervals, lists, and ranges are INVALID.\n"
+   return 1
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-23] ##
+##-------------------------------------##
+_ConvertDAYW_NumToName_()
+{
+   if [ $# -eq 0 ] && [ -z "$1" ] ; then echo ; return 1; fi
+   local rangeDays  rangeFreq
+   rangeDays="$(echo "$1" | awk -F '/' '{print $1}')"
+   rangeFreq="$(echo "$1" | awk -F '/' '{print $2}')"
+   rangeDays="$(echo "$rangeDays" | sed 's/0/Sun/g;s/1/Mon/g;s/2/Tue/g;s/3/Wed/g;s/4/Thu/g;s/5/Fri/g;s/6/Sat/g')"
+   if [ -z "$rangeFreq" ]
+   then echo "$rangeDays"
+   else echo "${rangeDays}/$rangeFreq"
+   fi
+   return 0
+}
+
+_ConvertDAYW_NameToNum_()
+{
+   if [ $# -eq 0 ] && [ -z "$1" ] ; then echo ; return 1; fi
+   echo "$1" | sed 's/[Ss]un/0/g;s/[Mm]on/1/g;s/[Tt]ue/2/g;s/[Ww]ed/3/g;s/[Tt]hu/4/g;s/[Ff]ri/5/g;s/[Ss]at/6/g'
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_ValidateCronNumOrderDAYW_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local numDAYS  numDays1  numDays2
+   if ! echo "$1" | grep -qE "[a-zA-Z]"
+   then numDAYS="$1"
+   else numDAYS="$(_ConvertDAYW_NameToNum_ "$1")"
+   fi
+   numDays1="$(echo "$numDAYS" | awk -F '[-/]' '{print $1}')"
+   numDays2="$(echo "$numDAYS" | awk -F '[-/]' '{print $2}')"
+   if [ "$numDays1" -lt "$numDays2" ]
+   then return 0
+   else return 1
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-6]
+# specific intervals [ *  */2  */3 ], lists and
+# ranges for the purposes of doing F/W Updates.
+#---------------------------------------------------#
+_ValidateCronScheduleDAYofWEEK_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   if [ "$1" = "*" ] || echo "$1" | grep -qE "^[*]/(2|3)$"
+   then return 0 ; fi
+   if echo "$1" | grep -qE "^${CRON_DAYofWEEK_RegEx}$"
+   then
+       if echo "$1" | grep -q '-'
+       then
+           if _ValidateCronNumOrderDAYW_ "$1"
+           then return 0 ; fi
+       else
+           return 0
+       fi
+   fi
+   printf "\n${REDct}INVALID cron value for 'DAY of WEEK' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [0-6], some\n"
+   printf "specific intervals (* */2 */3), day abbreviations,\n"
+   printf "lists of days, and single ranges are valid.\n"
+   return 1
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#----------------------------------------------------------#
+# Allow ONLY full numbers within the range [1-31]
+# some intervals [ *  */[2-9]  */10  */12  */15 ],
+# lists and ranges for the purposes of doing F/W Updates.
+#----------------------------------------------------------#
+_ValidateCronScheduleDAYofMONTH_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   if [ "$1" = "*" ] || \
+      echo "$1" | grep -qE "^[*]/([2-9]|10|12|15)$"
+   then return 0 ; fi
+   if echo "$1" | grep -qE "^${CRON_DAYofMONTH_RegEx}$"
+   then
+       if echo "$1" | grep -q '-'
+       then
+           local numDays1  numDays2
+           numDays1="$(echo "$1" | awk -F '[-/]' '{print $1}')"
+           numDays2="$(echo "$1" | awk -F '[-/]' '{print $2}')"
+           if [ "$numDays1" -lt "$numDays2" ]
+           then return 0 ; fi
+       else
+           return 0
+       fi
+   fi
+   printf "\n${REDct}INVALID cron value for 'DAY of MONTH' [$1]${NOct}\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [1-31],\n"
+   printf "specific intervals (* */[2-9] */10 */12 */15),\n"
+   printf "lists of numbers, and single ranges are valid.\n"
+   return 1
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-26] ##
+##----------------------------------------##
+_ValidateCronJobSchedule_()
+{
+   local cronSchedStr  cronSchedDAYW  cronSchedDAYM  cronSchedMNTH
+
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then
+       printf "${REDct}INVALID cron schedule string: [EMPTY].${NOct}\n"
+       return 1
+   fi
+   cronSchedStr="$(echo "$1" | awk -F ' ' '{print NF}')"
+   if [ "$cronSchedStr" -ne 5 ]
+   then
+       printf "${REDct}INVALID cron schedule string [$1]. Incorrect number of parameters.${NOct}\n"
+       return 1
+   fi
+   cronSchedStr="$(echo "$1" | awk -F ' ' '{print $1}')"
+   if ! _ValidateCronScheduleMINS_ "$cronSchedStr"
+   then return 1
+   fi
+   cronSchedStr="$(echo "$1" | awk -F ' ' '{print $2}')"
+   if ! _ValidateCronScheduleHOUR_ "$cronSchedStr"
+   then return 1
+   fi
+   cronSchedDAYM="$(echo "$1" | awk -F ' ' '{print $3}')"
+   if ! _ValidateCronScheduleDAYofMONTH_ "$cronSchedDAYM"
+   then return 1
+   fi
+   cronSchedMNTH="$(echo "$1" | awk -F ' ' '{print $4}')"
+   if ! echo "$cronSchedMNTH" | grep -qiE "^(${CRON_MONTH_RegEx})$"
+   then
+       printf "\n${REDct}INVALID cron value for 'MONTH' [$cronSchedMNTH]${NOct}\n"
+       return 1
+   fi
+   cronSchedDAYW="$(echo "$1" | awk -F ' ' '{print $5}')"
+   if ! _ValidateCronScheduleDAYofWEEK_ "$cronSchedDAYW"
+   then return 1
+   fi
+   if [ "$cronSchedDAYW" != "*" ] && [ "$cronSchedDAYM" != "*" ]
+   then
+       printf "\n${REDct}INVALID cron value for 'DAY of WEEK' [$cronSchedDAYW] or 'DAY of MONTH' [$cronSchedDAYM]${NOct}\n"
+       printf "One of them MUST be set to a 'daily' value [${GRNct}*${NOct}=daily].\n"
+       return 1
+   fi
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-24] ##
+##----------------------------------------##
+_Set_FW_UpdateCronScheduleCustom_()
+{
+    printf "\nChanging Firmware Auto Update Schedule...\n"
+
+    local currCronSchedule  nextCronSchedule  userInput  retCode=1
+
+    currCronSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+    if [ -z "$currCronSchedule" ] || [ "$currCronSchedule" = "TBD" ]
+    then
+        nextCronSchedule=""
+        currCronSchedule="$FW_UpdateCronJobSchedule"
+    else
+        nextCronSchedule="$currCronSchedule"
+        # Translate the current schedule to English (human readable form) #
+        current_schedule_english="$(translate_schedule "$currCronSchedule")"
+        printf "Current Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+    fi
+
+    while true
+    do
+        printf "\nEnter new cron job schedule (e.g. '${GRNct}0 0 * * Sun${NOct}' for every Sunday at midnight)"
+        if [ -z "$currCronSchedule" ]
+        then printf "\n[${theADExitStr}]\n[Default Schedule: ${GRNct}${nextCronSchedule}${NOct}]:  "
+        else printf "\n[${theADExitStr}]\n[Current Schedule: ${GRNct}${currCronSchedule}${NOct}]:  "
+        fi
+        read -r userInput
+
+        # If the user enters 'e', break out of the loop and return to the main menu
+        if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+        then
+            ! _ValidateCronJobSchedule_ "$currCronSchedule" && continue
+
+            # Capitalize 1st char of any abbreviated short names #
+            currCronSchedule="$(_CapitalizeFirstChar_ "$currCronSchedule")"
+            currCronSchedule="$(echo "$currCronSchedule" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
+            break
+        fi
+
+        if _ValidateCronJobSchedule_ "$userInput"
+        then
+            # Capitalize 1st char of any abbreviated short names #
+            nextCronSchedule="$(_CapitalizeFirstChar_ "$userInput")"
+            nextCronSchedule="$(echo "$nextCronSchedule" | awk -F ' ' '{print $1, $2, $3, $4, $5}')"
+            break
+        fi
+    done
+
+    [ "$nextCronSchedule" = "$currCronSchedule" ] && return 1
+
+    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
+    if [ "$FW_UpdateCheckState" -eq 1 ]
+    then
+        # Add/Update cron job ONLY if "F/W Update Check" is enabled #
+        printf "Updating '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+        if _AddFWAutoUpdateCronJob_ "$nextCronSchedule"
+        then
+            retCode=0
+            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
+            current_schedule_english="$(translate_schedule "$nextCronSchedule")"
+            printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
+            _Calculate_NextRunTime_
+        else
+            retCode=1
+            printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
+        fi
+    else
+        retCode=0
+        Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$nextCronSchedule"
+        printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was configured but not added.\n"
+        printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
+    fi
+
+    if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
+    then
+        _AddScriptAutoUpdateCronJob_
+    fi
+
+    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+    return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_CheckForSavedThenExitMenu_()
+{ if echo "$1" | grep -qE "^([Ss]|se|save)$" ; then return 0 ; else return 1 ; fi ; }
+   
+_CheckForCancelAndExitMenu_()
+{ if echo "$1" | grep -qE "^([Ee]|ce|exit)$" ; then return 0 ; else return 1 ; fi ; }
+
+_CheckForReturnToBeginMenu_()
+{ if echo "$1" | grep -qE "^([Bb]|be|begin)$" ; then return 0 ; else return 1 ; fi ; }
+
+_ShowCronMenuHeader_()
+{
+   clear
+   logo
+   printf "================ F/W Update Check Schedule ===============\n"
+   printf "${SEPstr}\n"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_GetCronScheduleInputDAYofMONTH_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local oldSchedDAYM="$1"  newSchedDAYM
+
+   newSchedDAYM=""
+   while true
+   do
+       _ShowCronMenuHeader_
+       printf "\nCurrent Schedule: ${GRNct}\"${cronSchedTmpStr}\"${NOct}"
+       printf "\n[${GRNct}${cronSchedStrHR}${NOct}]\n"
+       printf "\nThe DAYS of the MONTH when to run the cron job for Automatic F/W Updates.\n"
+       printf "\nExamples:\n"
+       printf "   ${GRNct}*${NOct}=Every day   ${GRNct}*/3${NOct}=Every 3 days   ${GRNct}*/5${NOct}=Every 5 days\n"
+       printf "   ${GRNct}*/7${NOct}=Every 7 days   ${GRNct}*/10${NOct}=Every 10 days  ${GRNct}*/15${NOct}=Every 15 days\n"
+
+       printf "\n[${menuCancelAndExitStr}]\n"
+       printf "\nEnter ${GRNct}DAYS of the MONTH${NOct} [1-31] ${GRNct}${oldSchedDAYM}${NOct}?: "
+       read -r newSchedDAYM
+       if [ -z "$newSchedDAYM" ]
+       then
+           newSchedDAYM="$oldSchedDAYM"
+           if _ValidateCronScheduleDAYofMONTH_ "$oldSchedDAYM"
+           then break  #Keep Current Value#
+           fi
+       elif _CheckForCancelAndExitMenu_ "$newSchedDAYM" || \
+            _ValidateCronScheduleDAYofMONTH_ "$newSchedDAYM"
+       then break
+       fi
+       _WaitForEnterKey_
+   done
+   nextSchedDAYM="$newSchedDAYM"
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_GetCronScheduleInputDAYofWEEK_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local oldSchedDAYW="$1"  newSchedDAYW
+
+   newSchedDAYW=""
+   while true
+   do
+       _ShowCronMenuHeader_
+       printf "\nCurrent Schedule: ${GRNct}\"${cronSchedTmpStr}\"${NOct}"
+       printf "\n[${GRNct}${cronSchedStrHR}${NOct}]\n"
+       printf "\nThe DAYS of the WEEK when to run the cron job for Automatic F/W Updates.\n"
+       printf "\nExamples:\n"
+       printf "   ${GRNct}*${NOct}=Every day   ${GRNct}*/2${NOct}=Every 2 days   ${GRNct}*/3${NOct}=Every 3 days\n"
+       printf "   ${GRNct}0${NOct}=Sun, ${GRNct}1${NOct}=Mon, ${GRNct}2${NOct}=Tue, "
+       printf "${GRNct}3${NOct}=Wed, ${GRNct}4${NOct}=Thu, ${GRNct}5${NOct}=Fri, ${GRNct}6${NOct}=Sat\n"
+       printf "   ${GRNct}6,0${NOct}=Sat,Sun   ${GRNct}1,3,5${NOct}=Mon,Wed,Fri   ${GRNct}2,4${NOct}=Tue,Thu\n"
+
+       printf "\n[${menuCancelAndExitStr}] [${menuSavedThenExitStr}] [${menuReturnToBeginStr}]\n"
+       printf "\nEnter ${GRNct}DAYS of the WEEK${NOct} [0-6] ${GRNct}${oldSchedDAYW}${NOct}?: "
+       read -r newSchedDAYW
+       if [ -z "$newSchedDAYW" ]
+       then
+           newSchedDAYW="$oldSchedDAYW"
+           if _ValidateCronScheduleDAYofWEEK_ "$oldSchedDAYW"
+           then break  #Keep Current Value#
+           fi
+       elif _CheckForCancelAndExitMenu_ "$newSchedDAYW" || \
+            _CheckForReturnToBeginMenu_ "$newSchedDAYW" || \
+            _CheckForSavedThenExitMenu_ "$newSchedDAYW"
+       then break
+       elif _ValidateCronScheduleDAYofWEEK_ "$newSchedDAYW"
+       then
+           if echo "$newSchedDAYW" | grep -qE "[fmstw]"
+           then
+               newSchedDAYW="$(_CapitalizeFirstChar_ "$newSchedDAYW")"
+           elif ! echo "$newSchedDAYW" | grep -q '[*/]' && \
+                echo "$newSchedDAYW" | grep -q "[0-6]"
+           then
+               newSchedDAYW="$(_ConvertDAYW_NumToName_ "$newSchedDAYW")"
+           fi
+           break
+       fi
+       _WaitForEnterKey_
+   done
+   nextSchedDAYW="$newSchedDAYW"
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range: [0-23]
+# and specific intervals [ */4  */6  */8  */12 ]
+# for the purposes of doing F/W Updates.
+# All other intervals, lists & ranges are INVALID.
+#---------------------------------------------------#
+_GetCronScheduleInputHOUR_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local oldSchedHOUR="$1"  newSchedHOUR
+
+   newSchedHOUR=""
+   while true
+   do
+       _ShowCronMenuHeader_
+       printf "\nCurrent Schedule: ${GRNct}\"${cronSchedTmpStr}\"${NOct}"
+       printf "\n[${GRNct}${cronSchedStrHR}${NOct}]\n"
+       printf "\nThe HOUR when to run the cron job for Automatic F/W Updates.\n"
+       printf "\nExamples:\n"
+       printf "   ${GRNct}0${NOct}=12:00AM   ${GRNct}23${NOct}=11:00PM"
+       printf "   ${GRNct}*/8${NOct}=Every 8 hours   ${GRNct}*/12${NOct}=Every 12 hours\n"
+
+       printf "\n[${menuCancelAndExitStr}] [${menuSavedThenExitStr}] [${menuReturnToBeginStr}]\n"
+       printf "\nEnter ${GRNct}HOUR${NOct} [0-23] ${GRNct}${oldSchedHOUR}${NOct}?: "
+       read -r newSchedHOUR
+       if [ -z "$newSchedHOUR" ]
+       then
+           newSchedHOUR="$oldSchedHOUR"
+           if _ValidateCronScheduleHOUR_ "$oldSchedHOUR"
+           then break  #Keep Current Value#
+           fi
+       elif _CheckForCancelAndExitMenu_ "$newSchedHOUR" || \
+            _CheckForReturnToBeginMenu_ "$newSchedHOUR" || \
+            _CheckForSavedThenExitMenu_ "$newSchedHOUR" || \
+            _ValidateCronScheduleHOUR_  "$newSchedHOUR"
+       then break
+       fi
+       _WaitForEnterKey_
+   done
+   nextSchedHOUR="$newSchedHOUR"
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+#---------------------------------------------------#
+# Allow ONLY full numbers within the range [0-59].
+# All intervals, lists and ranges are INVALID for
+# the purposes of checking for F/W Updates.
+#---------------------------------------------------#
+_GetCronScheduleInputMINS_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local oldSchedMINS="$1"  newSchedMINS
+
+   newSchedMINS=""
+   while true
+   do
+       _ShowCronMenuHeader_
+       printf "\nCurrent Schedule: ${GRNct}\"${cronSchedTmpStr}\"${NOct}"
+       printf "\n[${GRNct}${cronSchedStrHR}${NOct}]\n"
+       printf "\nThe MINUTE when to run the cron job for Automatic F/W Updates.\n"
+
+       printf "\n[${menuCancelAndExitStr}] [${menuSavedThenExitStr}] [${menuReturnToBeginStr}]\n"
+       printf "\nEnter ${GRNct}MINUTE${NOct} [0-59] ${GRNct}${oldSchedMINS}${NOct}?: "
+       read -r newSchedMINS
+       if [ -z "$newSchedMINS" ]
+       then
+           newSchedMINS="$oldSchedMINS"
+           if _ValidateCronScheduleMINS_ "$oldSchedMINS"
+           then break  #Keep Current Value#
+           fi
+       elif _CheckForCancelAndExitMenu_ "$newSchedMINS" || \
+            _CheckForReturnToBeginMenu_ "$newSchedMINS" || \
+            _CheckForSavedThenExitMenu_ "$newSchedMINS" || \
+            _ValidateCronScheduleMINS_  "$newSchedMINS"
+       then break
+       fi
+       _WaitForEnterKey_
+   done
+   nextSchedMINS="$newSchedMINS"
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_Set_FW_UpdateCronScheduleGuided_()
+{
+   local cronSchedInfo  currCronSched  nextCronSched
+   local cronSchedMINS  cronSchedHOUR  cronSchedDAYW  cronSchedDAYM  cronSchedMNTH
+   local nextSchedMINS  nextSchedHOUR  nextSchedDAYW  nextSchedDAYM  nextSchedMNTH
+   local savedThenExit  cronSchedStrHR  cronSchedTmpStr  retCode=1
+
+   currCronSched="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   if [ -z "$currCronSched" ] || [ "$currCronSched" = "TBD" ]
+   then
+       currCronSched="$FW_UpdateCronJobSchedule"
+   fi
+
+   cronSchedMINS="$(echo "$currCronSched" | awk -F ' ' '{print $1}')"
+   cronSchedHOUR="$(echo "$currCronSched" | awk -F ' ' '{print $2}')"
+   cronSchedDAYM="$(echo "$currCronSched" | awk -F ' ' '{print $3}')"
+   cronSchedDAYW="$(echo "$currCronSched" | awk -F ' ' '{print $5}')"
+
+   ## MONTH is FIXED to "every month" for F/W Update Purposes ##
+   cronSchedMNTH="*" ; nextSchedMNTH="*"
+
+   _ClearCronSchedValues_()
+   {
+      nextSchedMINS=""
+      nextSchedHOUR=""
+      nextSchedDAYM=""
+      nextSchedDAYW=""
+   }
+
+   _ResetCronSchedValues_()
+   {
+      nextSchedMINS="$cronSchedMINS"
+      nextSchedHOUR="$cronSchedHOUR"
+      nextSchedDAYM="$cronSchedDAYM"
+      nextSchedDAYW="$cronSchedDAYW"
+   }
+
+   nextCronSched=""
+   savedThenExit=false
+   _ResetCronSchedValues_
+
+   while true
+   do
+       cronSchedTmpStr="$nextSchedMINS $nextSchedHOUR $nextSchedDAYM $nextSchedMNTH $nextSchedDAYW"
+       cronSchedStrHR="$(_TranslateCronSchedHR_ "$cronSchedTmpStr")"
+       _GetCronScheduleInputDAYofMONTH_ "$cronSchedDAYM"
+       if _CheckForCancelAndExitMenu_ "$nextSchedDAYM"
+       then _ClearCronSchedValues_ ; break
+       fi
+
+       if [ "$nextSchedDAYM" = "*" ]
+       then
+           cronSchedTmpStr="$nextSchedMINS $nextSchedHOUR $nextSchedDAYM $nextSchedMNTH $nextSchedDAYW"
+           cronSchedStrHR="$(_TranslateCronSchedHR_ "$cronSchedTmpStr")"
+           _GetCronScheduleInputDAYofWEEK_ "$cronSchedDAYW"
+           if _CheckForCancelAndExitMenu_ "$nextSchedDAYW"
+           then _ClearCronSchedValues_ ; break
+           fi
+           if _CheckForReturnToBeginMenu_ "$nextSchedDAYW"
+           then _ResetCronSchedValues_ ; continue
+           fi
+           if _CheckForSavedThenExitMenu_ "$nextSchedDAYW"
+           then
+               savedThenExit=true
+               nextSchedDAYW="$cronSchedDAYW"
+               break
+           fi
+       else
+           nextSchedDAYW="*"
+       fi
+
+       cronSchedTmpStr="$nextSchedMINS $nextSchedHOUR $nextSchedDAYM $nextSchedMNTH $nextSchedDAYW"
+       cronSchedStrHR="$(_TranslateCronSchedHR_ "$cronSchedTmpStr")"
+       _GetCronScheduleInputHOUR_ "$cronSchedHOUR"
+       if _CheckForCancelAndExitMenu_ "$nextSchedHOUR"
+       then _ClearCronSchedValues_ ; break
+       fi
+       if _CheckForReturnToBeginMenu_ "$nextSchedHOUR"
+       then _ResetCronSchedValues_ ; continue
+       fi
+       if _CheckForSavedThenExitMenu_ "$nextSchedHOUR"
+       then
+           savedThenExit=true
+           nextSchedHOUR="$cronSchedHOUR"
+           break
+       fi
+
+       cronSchedTmpStr="$nextSchedMINS $nextSchedHOUR $nextSchedDAYM $nextSchedMNTH $nextSchedDAYW"
+       cronSchedStrHR="$(_TranslateCronSchedHR_ "$cronSchedTmpStr")"
+       _GetCronScheduleInputMINS_ "$cronSchedMINS"
+       if _CheckForCancelAndExitMenu_ "$nextSchedMINS"
+       then _ClearCronSchedValues_ ; break
+       fi
+       if _CheckForReturnToBeginMenu_ "$nextSchedMINS"
+       then _ResetCronSchedValues_ ; continue
+       fi
+       if _CheckForSavedThenExitMenu_ "$nextSchedMINS"
+       then
+           savedThenExit=true
+           nextSchedMINS="$cronSchedMINS"
+           break
+       fi
+
+       if [ -n "$nextSchedMINS" ] || \
+          [ -n "$nextSchedHOUR" ] || \
+          [ -n "$nextSchedDAYM" ] || \
+          [ -n "$nextSchedDAYW" ]
+       then savedThenExit=true
+       else savedThenExit=false
+       fi
+       break
+   done
+
+   if "$savedThenExit" && \
+      { [ "$nextSchedMINS" != "$cronSchedMINS" ] || \
+        [ "$nextSchedHOUR" != "$cronSchedHOUR" ] || \
+        [ "$nextSchedDAYM" != "$cronSchedDAYM" ] || \
+        [ "$nextSchedDAYW" != "$cronSchedDAYW" ]
+      }
+   then
+       if [ -n "$nextSchedMINS" ]
+       then nextCronSched="$nextSchedMINS"
+       else nextCronSched="$cronSchedMINS"
+       fi
+       if [ -n "$nextSchedHOUR" ]
+       then nextCronSched="$nextCronSched $nextSchedHOUR"
+       else nextCronSched="$nextCronSched $cronSchedHOUR"
+       fi
+       if [ -n "$nextSchedDAYM" ]
+       then nextCronSched="$nextCronSched $nextSchedDAYM"
+       else nextCronSched="$nextCronSched $cronSchedDAYM"
+       fi
+       ## MONTH is FIXED for F/W Update Purposes ##
+       nextCronSched="$nextCronSched $nextSchedMNTH"
+       ##
+       if [ -n "$nextSchedDAYW" ]
+       then nextCronSched="$nextCronSched $nextSchedDAYW"
+       else nextCronSched="$nextCronSched $cronSchedDAYW"
+       fi
+       cronSchedStrHR="$(_TranslateCronSchedHR_ "$nextCronSched")"
+       printf "\nNew Schedule: ${GRNct}\"${nextCronSched}\"${NOct}"
+       printf "\n[${GRNct}${cronSchedStrHR}${NOct}]\n"
+       _WaitForEnterKey_
+   else
+       nextCronSched="$currCronSched"
+   fi
+
+   [ "$nextCronSched" = "$currCronSched" ] && return 1
+
+   FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+   [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
+   if [ "$FW_UpdateCheckState" -eq 1 ]
+   then
+       # Add/Update cron job ONLY if "F/W Update Check" is enabled #
+       printf "Updating '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+       if _AddFWAutoUpdateCronJob_ "$nextCronSched"
+       then
+            retCode=0
+            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
+            cronSchedStrHR="$(_TranslateCronSchedHR_ "$nextCronSched")"
+            printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+            _Calculate_NextRunTime_
+       else
+            retCode=1
+            printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
+       fi
+   else
+       retCode=0
+       Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$nextCronSched"
+       printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was configured but not added.\n"
+       printf "Firmware Update Check is currently ${REDct}DISABLED${NOct}.\n"
+   fi
+
+   if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
+   then
+       _AddScriptAutoUpdateCronJob_
+   fi
+
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_Set_FW_AutoUpdateCronSchedule_()
+{
+   local doReturnToMenu=false
+
+   while true
+   do
+       printf "\n${SEPstr}"
+       printf "\nChoose the method to input the cron schedule for F/W Updates:\n"
+       printf "\n  ${GRNct}1${NOct}. Menu-Guided Entry\n"
+       printf "\n  ${GRNct}2${NOct}. Custom Input/Entry\n"
+       printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
+       printf "${SEPstr}\n"
+       printf "Enter selection:  " ; read -r userInput
+       if [ -z "$userInput" ] || \
+          echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then break ; fi
+
+       case $userInput in
+           1) if _Set_FW_UpdateCronScheduleGuided_
+              then break ; fi
+              ;;
+           2) if _Set_FW_UpdateCronScheduleCustom_
+              then break ; fi
+              ;;
+           *) echo ; _InvalidMenuSelection_
+           ;;
+       esac
+
+       "$doReturnToMenu" && break
+   done
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-26] ##
+##----------------------------------------##
+_Toggle_ScriptAutoUpdate_Config_()
+{
+    local currentSetting  scriptUpdateCronSched  cronSchedStrHR
+    local keepOptionDisabled=false  retCode=1
+
+    currentSetting="$(Get_Custom_Setting "Allow_Script_Auto_Update")"
+
+    if [ "$currentSetting" = "DISABLED" ]
+    then
+        printf "\n${REDct}*NOTICE*${NOct}\n"
+        printf "Enabling this feature allows the MerlinAU script to self-update automatically\n"
+        printf "without user action when a newer version becomes available. This means both the\n"
+        printf "script and the firmware updates become fully automatic. Proceed with caution.\n"
+        printf "The recommendation is to always read the changelogs on SNBForums or Github.\n"
+
+        if _WaitForYESorNO_ "\nProceed to ${MAGENTAct}ENABLE${NOct}?"
+        then
+            scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
+            cronSchedStrHR="$(_TranslateCronSchedHR_ "$scriptUpdateCronSched")"
+            printf "\nCurrent Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}\n"
+            printf "[${GRNct}${cronSchedStrHR}${NOct}]\n"
+
+            if _WaitForYESorNO_ "\nConfirm the above schedule to check for automatic script updates?"
+            then
+                if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
+                then
+                    Update_Custom_Settings "Allow_Script_Auto_Update" "ENABLED"
+                    printf "MerlinAU automatic script updates are now ${MAGENTAct}ENABLED${NOct}.\n"
+                    printf "Adding '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for automatic script updates...\n"
+                    if _AddScriptAutoUpdateCronJob_
+                    then
+                        retCode=0
+                        printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                        printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+                        _AddScriptAutoUpdateHook_
+                    else
+                        retCode=1
+                        printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${SCRIPT_UP_CRON_JOB_TAG}].\n"
+                    fi
+                else
+                    retCode=1 ; keepOptionDisabled=true
+                    printf "${REDct}**ERROR**${NOct}: Invalid cron schedule for automatic script updates.\n"
+                fi
+            else
+                retCode=1 ; keepOptionDisabled=true
+            fi
+        else
+            retCode=1 ; keepOptionDisabled=true
+        fi
+    else
+        printf "\n${REDct}*NOTICE*${NOct}\n"
+        printf "Disabling this feature will require user action to update the MerlinAU script\n"
+        printf "when a newer version becomes available. This is the default setting.\n"
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
+        then
+            Update_Custom_Settings "Allow_Script_Auto_Update" "DISABLED"
+            printf "MerlinAU automatic script updates are now ${GRNct}DISABLED${NOct}.\n"
+            printf "Removing '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for automatic script updates...\n"
+            _DelScriptAutoUpdateHook_
+            if _DelScriptAutoUpdateCronJob_
+            then
+                retCode=0
+                # Successful removal message is printed within function #
+            else
+                retCode=1
+                # Error message is printed within function call #
+            fi
+        else
+            printf "MerlinAU automatic script updates remain ${MAGENTAct}ENABLED${NOct}.\n"
+        fi
+    fi
+
+    if "$keepOptionDisabled"
+    then
+        printf "MerlinAU automatic script updates remain ${GRNct}DISABLED.${NOct}\n"
+    fi
+    _WaitForEnterKey_
+    return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-31] ##
+##----------------------------------------##
+_high_risk_phrases_interactive_()
+{
+    local changelog_contents="$1"
+
+    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    then
+        ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+
+        if [ "$ChangelogApproval" = "APPROVED" ]
+        then
+            Say "Changelog review is pre-approved!"
+        #
+        elif [ -z "$ChangelogApproval" ] || \
+             [ "$ChangelogApproval" = "TBD" ] || \
+             [ "$ChangelogApproval" = "BLOCKED" ]
+        then
+            if [ "$inMenuMode" = true ]
+            then
+                printf "\n ${REDct}*WARNING*: Found high-risk phrases in the changelog file.${NOct}"
+                printf "\n ${REDct}Would you like to continue with the firmware update anyways?${NOct}"
+                if ! _WaitForYESorNO_
+                then
+                    Say "Exiting for changelog review."
+                    Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+                    _DoCleanUp_ 1
+                    return 1
+                else
+                    Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+                fi
+            else
+                Say "*WARNING*: Found high-risk phrases in the changelog file."
+                Say "Please run script interactively to approve the firmware update."
+                Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+                _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+                _DoCleanUp_ 1
+                _DoExit_ 1
+            fi
+        fi
+    else
+        Say "No high-risk phrases found in the changelog file."
+    fi
+    return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-26] ##
+##------------------------------------------##
+_high_risk_phrases_nointeractive_()
+{
+    local changelog_contents="$1"
+
+    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    then
+        _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+        Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+        if [ "$inMenuMode" = true ]
+        then
+            printf "\n${REDct}*WARNING*${NOct}: Found high-risk phrases in the changelog file."
+            printf "\nPlease approve the update by selecting ${GRNct}'Toggle F/W Update Changelog Approval'${NOct}\n"
+            _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        else
+            Say "Please run script interactively to approve the firmware update."
+            Say "To approve the update, select 'Toggle F/W Update Changelog Approval'"
+        fi
+        return 1
+    else
+        return 0
+    fi
+}
+
+##-------------------------------------==---##
+## Modified by ExtremeFiretop [2024-Nov-24] ##
+##-------------------------------------==---##
+_ChangelogVerificationCheck_()
+{
+    local mode="$1"  # Mode should be 'auto' or 'interactive' #
+    local current_version  formatted_current_version
+    local release_version  formatted_release_version
+    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+    local changeLogFName  changeLogFPath
+
+    if [ "$checkChangeLogSetting" = "ENABLED" ]
+    then
+        current_version="$(_GetCurrentFWInstalledLongVersion_)"
+        release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+
+        if "$isGNUtonFW"
+        then
+            changeLogFName="${FW_FileName}_Changelog.txt"
+            changeLogFPath="${FW_BIN_DIR}/$changeLogFName"
+        else
+            # Get the correct Changelog filename: "Changelog-[3006|386|NG].txt" #
+            if echo "$release_version" | grep -qE "^3006[.]"
+            then
+                changeLogTag="3006"
+            elif echo "$release_version" | grep -q "386[.]"
+            then
+                changeLogTag="386"
+            else
+                changeLogTag="NG"
+            fi
+            changeLogFName="Changelog-${changeLogTag}.txt"
+            changeLogFPath="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "$changeLogFName" -print)"
+        fi
+
+        if [ ! -f "$changeLogFPath" ]
+        then
+            Say "Changelog file [${FW_BIN_DIR}/${changeLogFName}] does NOT exist."
+            _DoCleanUp_
+            return 1
+        else
+            # Use awk to format the version based on the number of initial digits #
+            formatted_current_version=$(echo "$current_version" | awk -F. '{
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4) {
+                        # Remove any non-digit characters from the fourth field
+                        sub(/[^0-9].*/, "", $4)
+                        if ($4 == "0") {
+                            printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
                         } else {
-                            console.warn(`No value found for key: ${key}`);
+                            printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
                         }
                     }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
                 }
+            }')
 
-                console.log("AJAX Custom Settings Loaded:", ajax_custom_settings);
-
-                // Merge both server and AJAX settings
-                custom_settings = Object.assign({}, server_custom_settings, ajax_custom_settings);
-                console.log("Merged Custom Settings:", custom_settings);
-
-                // Initialize fields with the merged settings
-                initializeFields();
-            }
-        });
-    }
-
-    // Helper function to tokenize the input string, respecting quoted substrings
-    function tokenize(input) {
-        var regex = /(?:[^\s"]+|"[^"]*")+/g;
-        return input.match(regex) || [];
-    }
-
-    // Helper function to assign settings based on key
-    function assignAjaxSetting(key, value) {
-        // Normalize key to uppercase for case-insensitive comparison
-        var keyUpper = key.toUpperCase();
-
-        switch (true) {
-            case keyUpper === 'FW_NEW_UPDATE_POSTPONEMENT_DAYS':
-                ajax_custom_settings.FW_New_Update_Postponement_Days = value;
-                break;
-
-            case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
-                fwUpdateEstimatedRunDate = value;  // We don't want to save it the custom_settings; only as-is for displaying it.
-                break;
-
-            case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
-                ajax_custom_settings.FW_New_Update_EMail_Notification = parseBoolean(value);
-                break;
-
-            case keyUpper === 'FW_NEW_UPDATE_EMAIL_FORMATTYPE':
-                ajax_custom_settings.FW_New_Update_EMail_FormatType = value;
-                break;
-
-            case keyUpper === 'FW_NEW_UPDATE_ZIP_DIRECTORY_PATH':
-                ajax_custom_settings.FW_New_Update_ZIP_Directory_Path = value;
-                break;
-
-            case keyUpper === 'ALLOW_UPDATES_OVERVPN':
-                ajax_custom_settings.Allow_Updates_OverVPN = parseBoolean(value);
-                break;
-
-            case keyUpper === 'FW_NEW_UPDATE_EMAIL_CC_ADDRESS':
-                ajax_custom_settings.FW_New_Update_EMail_CC_Address = value;
-                break;
-
-            case keyUpper === 'CHECKCHANGELOG':
-                ajax_custom_settings.CheckChangeLog = parseBoolean(value);
-                break;
-
-            case keyUpper === 'ALLOW_SCRIPT_AUTO_UPDATE':
-                ajax_custom_settings.Allow_Script_Auto_Update = parseBoolean(value);
-                break;
-
-            case keyUpper === 'FW_NEW_UPDATE_CHANGELOG_APPROVAL':
-                ajax_custom_settings.FW_New_Update_Changelog_Approval = value; // Store as-is for display
-                break;
-
-            case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
-                ajax_custom_settings.FW_Allow_Beta_Production_Up = parseBoolean(value);
-                break;
-
-            case keyUpper === 'FW_AUTO_BACKUPMON':
-                ajax_custom_settings.FW_Auto_Backupmon = parseBoolean(value);
-                break;
-
-            case keyUpper === 'CREDENTIALS_BASE64':
-                try {
-                    var decoded = atob(value);
-                    var password = decoded.split(':')[1] || '';
-                    ajax_custom_settings.routerPassword = password;
-                } catch (e) {
-                    console.error("Error decoding credentials_base64:", e);
+            formatted_release_version=$(echo "$release_version" | awk -F. '{
+                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
+                    if (NF == 4 && $4 == "0") {
+                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
+                    } else if (NF == 4) {
+                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
+                    }
+                } else if (NF == 3) {  # For version without a four-digit prefix
+                    if ($3 == "0") {
+                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
+                    } else {
+                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
+                    }
                 }
-                break;
+            }')
 
-            case keyUpper === 'ROGBUILD':
-                ajax_custom_settings.FW_New_Update_ROGFWBuildType = parseBoolean(value) ? 'ROG' : 'Pure';
-                break;
+            # Define regex patterns for both versions #
+            release_version_regex="${formatted_release_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
+            current_version_regex="${formatted_current_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
 
-            case keyUpper === 'TUFBUILD':
-                ajax_custom_settings.FW_New_Update_TUFWBuildType = parseBoolean(value) ? 'TUF' : 'Pure';
-                break;
+            if "$isGNUtonFW"
+            then
+                # For Gnuton, the whole file is relevant as it only contains the current version #
+                changelog_contents="$(cat "$changeLogFPath")"
+            else
+                if ! grep -Eq "$current_version_regex" "$changeLogFPath"
+                then
+                    Say "Current version NOT found in changelog file. Bypassing changelog verification for this run."
+                    return 0
+                fi
+                # Extract log contents between two firmware versions from RMerlin #
+                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFPath")"
+            fi
 
-            case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
-                ajax_custom_settings.FW_New_Update_Notifications_Date = value;
-                break;
-
-            // Additional AJAX settings can be handled here
-
-            default:
-                // Optionally handle or log unknown settings
-                break;
-        }
-    }
-
-    // Helper function to set status with color
-    function setStatus(elementId, isEnabled) {
-        var element = document.getElementById(elementId);
-        if (element) {
-            if (isEnabled) {
-                element.innerHTML = GRNct + "Enabled" + NOct;
-            } else {
-                element.innerHTML = REDct + "Disabled" + NOct;
-            }
-        }
-    }
-
-    function SetCurrentPage() {
-        /* Set the proper return pages */
-        document.form.next_page.value = window.location.pathname.substring(1);
-        document.form.current_page.value = window.location.pathname.substring(1);
-    }
-
-    function parseBoolean(value) {
-        if (typeof value === 'boolean') return value;
-        if (typeof value === 'string') {
-            return value.toLowerCase() === 'true' || value.toLowerCase() === 'enabled';
-        }
-        return false;
-    }
-
-    function initial() {
-        SetCurrentPage();
-        LoadCustomSettings();
-        get_conf_file();
-        show_menu();
-
-        // Debugging iframe behavior
-        var hiddenFrame = document.getElementById('hidden_frame');
-        if (hiddenFrame) {
-            hiddenFrame.onload = function () {
-                console.log("Hidden frame loaded with server response.");
-            };
-
-            initializeCollapsibleSections();
-        }
-    }
-
-    // **Adjusted SaveActionsConfig Function**
-function SaveActionsConfig() {
-    // Collect Action form-specific settings
-    var password = document.getElementById('routerPassword')?.value || '';
-    var usernameElement = document.getElementById('http_username');
-    var username = usernameElement ? usernameElement.value.trim() : 'admin';
-
-    if (!username) {
-        console.error("HTTP username is missing.");
-        alert("HTTP username is not set. Please contact your administrator.");
-        return;
-    }
-
-    // Encode credentials in Base64
-    var credentials = username + ':' + password;
-    var encodedCredentials = btoa(credentials);
-
-    // Collect only Action form-specific settings
-    var action_settings = {
-        credentials_base64: encodedCredentials,
-        FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
-        CheckChangeLog: document.getElementById('changelogCheckEnabled').checked
-    };
-
-    // Prefix only Action settings
-    var prefixedActionSettings = prefixCustomSettings(action_settings, 'MerlinAU_');
-
-    // Merge Server Custom Settings and prefixed Action form settings
-    var updatedSettings = Object.assign({}, server_custom_settings, prefixedActionSettings);
-
-    // Save merged settings to the hidden input field
-    document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
-
-    // Apply the settings
-    document.form.action_script.value = 'start_MerlinAUconfig';
-    document.form.action_wait.value = 10;
-    showLoading();
-    document.form.submit();
-    console.log("Actions Config Form submitted with settings:", updatedSettings);
+            if [ "$mode" = "interactive" ]
+            then
+                if _high_risk_phrases_interactive_ "$changelog_contents"
+                then return 0
+                else return 1
+                fi
+            else
+                if _high_risk_phrases_nointeractive_ "$changelog_contents"
+                then return 0
+                else return 1
+                fi
+            fi
+        fi
+    else
+        [ "$mode" = "interactive" ] && Say "Changelog check is DISABLED."
+        return 0
+    fi
 }
 
-function SaveAdvancedConfig() {
-    // Collect only Advanced form-specific settings
-    var advanced_settings = {
-        FW_New_Update_EMail_Notification: document.getElementById('emailNotificationsEnabled').checked,
-        FW_New_Update_EMail_FormatType: document.getElementById('emailFormat')?.value || 'HTML',
-        FW_New_Update_ZIP_Directory_Path: document.getElementById('fwUpdateDirectory')?.value || '/tmp/mnt/USB1',
-        Allow_Updates_OverVPN: document.getElementById('tailscaleVPNEnabled').checked,
-        FW_New_Update_EMail_CC_Address: document.getElementById('secondaryEmail')?.value || 'TBD',
-        Allow_Script_Auto_Update: document.getElementById('autoUpdatesScriptEnabled').checked,
-        FW_Allow_Beta_Production_Up: document.getElementById('betaToReleaseUpdatesEnabled').checked,
-        FW_Auto_Backupmon: document.getElementById('autobackupEnabled').checked
-    };
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-18] ##
+##----------------------------------------##
+_ManageChangelogMerlin_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ]
+    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-    // Handle conditional fields based on visibility
-    var rogFWBuildRow = document.getElementById('rogFWBuildRow');
-    if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none') {
-        advanced_settings.FW_New_Update_ROGFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
-    }
+    local mode="$1"  # Mode should be 'download' or 'view' #
+    local newUpdateVerStr=""
+    local wgetLogFile  changeLogFile  changeLogTag
 
-    var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
-    if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none') {
-        advanced_settings.FW_New_Update_TUFWBuildType = document.getElementById('tuffFWBuildType')?.value || 'TUF';
-    }
+    # Create directory to download changelog if missing #
+    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
-    // Prefix only Advanced settings
-    var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
+    if [ "$mode" = "view" ]
+    then
+        if [ "$fwInstalledBaseVers" -eq 3006 ]
+        then
+            changeLogTag="3006"
+            MerlinChangeLogURL="${CL_URL_3006}"
+        elif echo "$fwInstalledBuildVers" | grep -qE "^386[.]"
+        then
+            changeLogTag="386"
+            MerlinChangeLogURL="${CL_URL_386}"
+        else
+            changeLogTag="NG"
+            MerlinChangeLogURL="${CL_URL_NG}"
+        fi
+    elif [ "$mode" = "download" ]
+    then
+        [ $# -gt 1 ] && [ -n "$2" ] && newUpdateVerStr="$2"
+        if echo "$newUpdateVerStr" | grep -qE "^3006[.]"
+        then
+            changeLogTag="3006"
+            MerlinChangeLogURL="${CL_URL_3006}"
+        elif echo "$newUpdateVerStr" | grep -q "386[.]"
+        then
+            changeLogTag="386"
+            MerlinChangeLogURL="${CL_URL_386}"
+        else
+            changeLogTag="NG"
+            MerlinChangeLogURL="${CL_URL_NG}"
+        fi 
+    fi
 
-    // Merge Server Custom Settings and prefixed Advanced settings
-    var updatedSettings = Object.assign({}, server_custom_settings, prefixedAdvancedSettings);
+    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
+    changeLogFile="${FW_BIN_DIR}/Changelog-${changeLogTag}.txt"
 
-    // Save merged settings to the hidden input field
-    document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
+    if [ "$mode" = "view" ]; then
+        printf "\nRetrieving ${GRNct}Changelog-${changeLogTag}.txt${NOct} ...\n"
+    fi
 
-    // Apply the settings
-    document.form.action_script.value = 'start_MerlinAUconfig';
-    document.form.action_wait.value = 10;
-    showLoading();
-    document.form.submit();
-    console.log("Advanced Config Form submitted with settings:", updatedSettings);
+    wget --tries=5 --waitretry=5 --retry-connrefused \
+         -O "$changeLogFile" -o "$wgetLogFile" "${MerlinChangeLogURL}"
+
+    if [ ! -s "$changeLogFile" ]
+    then
+        Say "Changelog file [$changeLogFile] does NOT exist."
+        echo ; [ -s "$wgetLogFile" ] && cat "$wgetLogFile"
+    else
+        if [ "$mode" = "download" ]
+        then
+            _ChangelogVerificationCheck_ "auto"
+        elif [ "$mode" = "view" ]
+        then
+            clear
+            printf "\n${GRNct}Changelog file is ready to review!${NOct}\n"
+            printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+            dos2unix "$changeLogFile"
+            _WaitForEnterKey_
+            less "$changeLogFile"
+            "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr"
+        fi
+    fi
+    rm -f "$changeLogFile" "$wgetLogFile"
+    return 0
 }
 
-    // Function to get the first non-empty value from a list of element IDs
-    function getFirstNonEmptyValue(ids) {
-        for (var i = 0; i < ids.length; i++) {
-            var elem = document.getElementById(ids[i]);
-            if (elem) {
-                var value = elem.value.trim();
-                if (value.length > 0) {
-                    return value;
-                }
-            }
-        }
-        return "";
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-18] ##
+##----------------------------------------##
+_ManageChangelogGnuton_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ]
+    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+    local mode="$1"  # Mode should be 'download' or 'view' #
+    local newUpdateVerStr=""
+    local wgetLogFile  changeLogFile  changeLogTag
+
+    # Create directory to download changelog if missing
+    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
+
+    GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+
+    # Follow redirects and capture the effective URL
+    local effective_url="$(curl -Ls -o /dev/null -w %{url_effective} "$GnutonChangeLogURL")"
+
+    # Use the effective URL to capture the Content-Disposition header
+    local original_filename="$(curl -sI "$effective_url" | grep -i content-disposition | sed -n 's/.*filename=["]*\([^";]*\).*/\1/p')"
+
+    # Sanitize filename by removing problematic characters
+    local sanitized_filename="$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')"
+
+    FW_Changelog_GITHUB="${FW_BIN_DIR}/${FW_FileName}_Changelog.txt"
+
+    wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
+
+    if [ "$mode" = "view" ]; then
+        printf "\nRetrieving ${GRNct}${FW_Changelog_GITHUB}${NOct} ...\n"
+    fi
+
+    wget --tries=5 --waitretry=5 --retry-connrefused \
+         -O "$FW_Changelog_GITHUB" -o "$wgetLogFile" "${GnutonChangeLogURL}"
+
+    if [ ! -s "$FW_Changelog_GITHUB" ]
+    then
+        Say "Changelog file [$FW_Changelog_GITHUB] does NOT exist."
+        echo ; [ -s "$wgetLogFile" ] && cat "$wgetLogFile"
+    else
+        if [ "$mode" = "download" ]
+        then
+            _ChangelogVerificationCheck_ "auto"
+        elif [ "$mode" = "view" ]
+        then
+            clear
+            printf "\n${GRNct}Changelog file is ready to review!${NOct}\n"
+            printf "\nPress '${REDct}q${NOct}' to quit when finished.\n"
+            dos2unix "$FW_Changelog_GITHUB"
+            _WaitForEnterKey_
+            less "$FW_Changelog_GITHUB"
+        fi
+    fi
+    rm -f "$FW_Changelog_GITHUB" "$wgetLogFile"
+    return 1
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-05] ##
+##----------------------------------------##
+_CheckNewUpdateFirmwareNotification_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+   local numOfFields  fwNewUpdateVersNum
+   local sendNewUpdateStatusEmail=false
+   local currentVersionStr="$1"  releaseVersionStr="$2"
+
+   numOfFields="$(echo "$currentVersionStr" | awk -F '.' '{print NF}')"
+   currentVersionNum="$(_FWVersionStrToNum_ "$currentVersionStr" "$numOfFields")"
+   releaseVersionNum="$(_FWVersionStrToNum_ "$releaseVersionStr" "$numOfFields")"
+
+   if [ "$currentVersionNum" -ge "$releaseVersionNum" ]
+   then
+       Say "Current firmware version '${currentVersionStr}' is up to date."
+       Update_Custom_Settings FW_New_Update_Notification_Date TBD
+       Update_Custom_Settings FW_New_Update_Notification_Vers TBD
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
+       Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
+       return 1
+   fi
+
+   fwNewUpdateNotificationVers="$(Get_Custom_Setting FW_New_Update_Notification_Vers TBD)"
+   if [ -z "$fwNewUpdateNotificationVers" ] || [ "$fwNewUpdateNotificationVers" = "TBD" ]
+   then
+       fwNewUpdateNotificationVers="$releaseVersionStr"
+       Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
+   else
+       numOfFields="$(echo "$fwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
+       fwNewUpdateVersNum="$(_FWVersionStrToNum_ "$fwNewUpdateNotificationVers" "$numOfFields")"
+       if [ "$releaseVersionNum" -gt "$fwNewUpdateVersNum" ]
+       then
+           fwNewUpdateNotificationVers="$releaseVersionStr"
+           fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+           Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
+           Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
+           "$inRouterSWmode" && sendNewUpdateStatusEmail=true
+           if ! "$FlashStarted"
+           then
+               if "$isGNUtonFW"
+               then
+                   _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
+               else
+                   _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
+               fi
+           fi
+       fi
+   fi
+
+   fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   if [ -z "$fwNewUpdateNotificationDate" ] || [ "$fwNewUpdateNotificationDate" = "TBD" ]
+   then
+       fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+       Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
+       "$inRouterSWmode" && sendNewUpdateStatusEmail=true
+       if ! "$FlashStarted"
+       then
+           if "$isGNUtonFW"
+           then
+               _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
+           else
+               _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
+           fi
+       fi
+   fi
+
+   fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
+   upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
+   nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+
+   if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
+   then Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
+   else Update_Custom_Settings FW_New_Update_Expected_Run_Date "$nextCronTimeSecs"
+   fi
+
+   "$sendNewUpdateStatusEmail" && _SendEMailNotification_ NEW_FW_UPDATE_STATUS
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-27] ##
+##----------------------------------------##
+_CheckNodeFWUpdateNotification_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+   local nodeNumOfFields  nodefwNewUpdateVersNum
+   local currentVersionStr="$1"  releaseVersionStr="$2"
+
+   nodeNumOfFields="$(echo "$currentVersionStr" | awk -F '.' '{print NF}')"
+   nodecurrentVersionNum="$(_FWVersionStrToNum_ "$currentVersionStr" "$nodeNumOfFields")"
+   nodereleaseVersionNum="$(_FWVersionStrToNum_ "$releaseVersionStr" "$nodeNumOfFields")"
+
+   if [ "$nodecurrentVersionNum" -ge "$nodereleaseVersionNum" ]
+   then
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "TBD" "$uid"
+       return 1
+   fi
+
+   nodefwNewUpdateNotificationVers="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Vers")"
+   if [ -z "$nodefwNewUpdateNotificationVers" ] || [ "$nodefwNewUpdateNotificationVers" = "TBD" ]
+   then
+       nodefwNewUpdateNotificationVers="$releaseVersionStr"
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "$nodefwNewUpdateNotificationVers" "$uid"
+   else
+       nodeNumOfFields="$(echo "$nodefwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
+       nodefwNewUpdateVersNum="$(_FWVersionStrToNum_ "$nodefwNewUpdateNotificationVers" "$nodeNumOfFields")"
+       if [ "$nodereleaseVersionNum" -gt "$nodefwNewUpdateVersNum" ]
+       then
+           nodefwNewUpdateNotificationVers="$releaseVersionStr"
+           nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+           _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
+           nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
+           {
+             echo ""
+             echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
+             echo "(<b>${1}</b> --> <b>${2}</b>)"
+             echo "Please click here to review the latest changelog:"
+             if "$NodeGNUtonFW"
+             then
+                 GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+                 echo "$GnutonChangeLogURL"
+             else
+                 if [ "$node_firmver" -eq 3006 ]
+                 then
+                     MerlinChangeLogURL="${CL_URL_3006}"
+                 elif echo "$node_buildno" | grep -qE "^386[.]"
+                 then
+                     MerlinChangeLogURL="${CL_URL_386}"
+                 else
+                     MerlinChangeLogURL="${CL_URL_NG}"
+                 fi
+                 echo "$MerlinChangeLogURL"
+             fi
+             echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
+           } > "$tempNodeEMailList"
+       fi
+   fi
+
+   nodefwNewUpdateNotificationDate="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Date")"
+   if [ -z "$nodefwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
+   then
+       nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
+       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
+       nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
+       {
+         echo ""
+         echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
+         echo "(<b>${1}</b> --> <b>${2}</b>)"
+         echo "Please click here to review the latest changelog:"
+         if "$NodeGNUtonFW"
+         then
+             GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+             echo "$GnutonChangeLogURL"
+         else
+             if [ "$node_firmver" -eq 3006 ]
+             then
+                 MerlinChangeLogURL="${CL_URL_3006}"
+             elif echo "$node_buildno" | grep -qE "^386[.]"
+             then
+                 MerlinChangeLogURL="${CL_URL_386}"
+             else
+                 MerlinChangeLogURL="${CL_URL_NG}"
+             fi
+             echo "$MerlinChangeLogURL"
+         fi
+         echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
+       } > "$tempNodeEMailList"
+   fi
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-18] ##
+##----------------------------------------##
+_CheckTimeToUpdateFirmware_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+   local upfwDateTimeSecs nextCronTimeSecs upfwDateTimeStrn
+   local fwNewUpdatePostponementDays  fwNewUpdateNotificationDate  fwNewUpdateNotificationVers
+
+   _CheckNewUpdateFirmwareNotification_ "$1" "$2"
+
+   if [ "$currentVersionNum" -ge "$releaseVersionNum" ]
+   then return 1 ; fi
+
+   fwNewUpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days TBD)"
+   if [ -z "$fwNewUpdatePostponementDays" ] || [ "$fwNewUpdatePostponementDays" = "TBD" ]
+   then
+       fwNewUpdatePostponementDays="$FW_UpdateDefaultPostponementDays"
+       Update_Custom_Settings FW_New_Update_Postponement_Days "$fwNewUpdatePostponementDays"
+   fi
+
+   if [ "$fwNewUpdatePostponementDays" -eq 0 ]
+   then return 0 ; fi
+
+   upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
+
+   local currentTimeSecs="$(date +%s)"
+   if [ "$((currentTimeSecs - upfwDateTimeSecs))" -ge 0 ]
+   then return 0 ; fi
+
+   Say "The firmware update to ${GRNct}${2}${NOct} version is currently postponed for ${GRNct}${fwNewUpdatePostponementDays}${NOct} day(s)."
+
+   nextCronTimeSecs="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
+   if [ "$nextCronTimeSecs" = "$CRON_UNKNOWN_DATE" ]
+   then
+       upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
+       Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
+       return 1
+   fi
+
+   Say "The firmware update is expected to occur on ${GRNct}${nextCronTimeSecs}${NOct}."
+   echo ""
+
+   # Check if running in a menu environment #
+   if "$isInteractive" && _WaitForYESorNO_ "Would you like to proceed with the update now?"
+   then return 0
+   else return 1
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-16] ##
+##-------------------------------------##
+_RunEMailNotificationTest_()
+{
+   ! "$sendEMailNotificationsFlag" && return 1
+   local retCode=1
+
+   if _WaitForYESorNO_ "\nWould you like to run a test of the email notification?"
+   then
+       retCode=0
+       _SendEMailNotification_ FW_UPDATE_TEST_EMAIL
+   fi
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-16] ##
+##----------------------------------------##
+_Toggle_FW_UpdateEmailNotifications_()
+{
+   local emailNotificationEnabled  emailNotificationNewStateStr
+
+   if "$sendEMailNotificationsFlag"
+   then
+       emailNotificationEnabled=true
+       emailNotificationNewStateStr="${REDct}DISABLE${NOct}"
+   else
+       emailNotificationEnabled=false
+       emailNotificationNewStateStr="${GRNct}ENABLE${NOct}"
+   fi
+
+   if ! _WaitForYESorNO_ "Do you want to ${emailNotificationNewStateStr} F/W Update email notifications?"
+   then
+       _RunEMailNotificationTest_ && _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+       return 1
+   fi
+
+   if "$emailNotificationEnabled"
+   then
+       sendEMailNotificationsFlag=false
+       emailNotificationNewStateStr="${REDct}DISABLED${NOct}"
+   else
+       sendEMailNotificationsFlag=true
+       emailNotificationNewStateStr="${GRNct}ENABLED${NOct}"
+   fi
+
+   Update_Custom_Settings FW_New_Update_EMail_Notification "$sendEMailNotificationsFlag"
+   printf "F/W Update email notifications are now ${emailNotificationNewStateStr}.\n"
+
+   _RunEMailNotificationTest_
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2023-Nov-26] ##
+##------------------------------------------##
+_Toggle_FW_UpdateCheckSetting_()
+{
+   local fwUpdateCheckEnabled  fwUpdateCheckNewStateStr
+   local runfwUpdateCheck=false
+
+   if [ "$FW_UpdateCheckState" -eq 0 ]
+   then
+       fwUpdateCheckEnabled=false
+       fwUpdateCheckNewStateStr="${GRNct}ENABLE${NOct}"
+   else
+       fwUpdateCheckEnabled=true
+       fwUpdateCheckNewStateStr="${REDct}DISABLE${NOct}"
+   fi
+
+   if ! _WaitForYESorNO_ "Do you want to ${fwUpdateCheckNewStateStr} the built-in F/W Update Check?"
+   then return 1 ; fi
+
+   if "$fwUpdateCheckEnabled"
+   then
+       runfwUpdateCheck=false
+       FW_UpdateCheckState=0
+       fwUpdateCheckNewStateStr="${REDct}DISABLED${NOct}"
+       _DelFWAutoUpdateHook_
+       _DelFWAutoUpdateCronJob_
+   else
+       [ -x "$FW_UpdateCheckScript" ] && runfwUpdateCheck=true
+       FW_UpdateCheckState=1
+       fwUpdateCheckNewStateStr="${GRNct}ENABLED${NOct}"
+       if _AddFWAutoUpdateCronJob_
+       then
+           printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+           _AddFWAutoUpdateHook_
+       else
+           printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+       fi
+   fi
+
+   nvram set firmware_check_enable="$FW_UpdateCheckState"
+   printf "Router's built-in Firmware Update Check is now ${fwUpdateCheckNewStateStr}.\n"
+   nvram commit
+
+   if "$runfwUpdateCheck"
+   then
+       printf "\nChecking for new F/W Updates... Please wait.\n"
+       sh $FW_UpdateCheckScript 2>&1
+   fi
+   _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Oct-04] ##
+##----------------------------------------##
+_RemoveCronJobsFromAddOns_()
+{
+   eval $cronListCmd | grep -E "$cronJobsRegEx1|$cronJobsRegEx2|$cronJobsRegEx3|cronJobsRegEx4|$cronJobsRegEx5|$cronJobsRegEx6" > "$addonCronJobList"
+   if [ ! -s "$addonCronJobList" ]
+   then
+       rm -f "$addonCronJobList"
+       Say "Cron jobs from 3rd-party add-ons were not found."
+       return 1
+   fi
+
+   local cronJobCount=0  cronJobIDx  cronJobCMD
+
+   while read -r cronJobLINE
+   do
+      if [ -z "$cronJobLINE" ] || echo "$cronJobLINE" | grep -qE "^[[:blank:]]*#"
+      then continue ; fi
+      cronJobCount="$((cronJobCount + 1))"
+
+      [ "$cronJobCount" -eq 1 ] && \
+      Say "---------------------------------------------------------------"
+      Say "Cron job #${cronJobCount}: [$cronJobLINE]"
+
+      cronJobIDx="$(echo "$cronJobLINE" | awk -F '#' '{print $2}')"
+      cronJobCMD="$(echo "$cronJobLINE" | awk -F '#' '{print $1}' | sed 's/[[:blank:]]*$//')"
+
+      if [ -n "$cronJobIDx" ]
+      then
+          cru d "$cronJobIDx" ; sleep 1
+          if eval $cronListCmd | grep -qE "#${cronJobIDx}#$"
+          then Say "**ERROR**: Failed to remove cron job [$cronJobIDx]."
+          else Say "Cron job [$cronJobIDx] was removed successfully."
+          fi
+      fi
+   done < "$addonCronJobList"
+
+   rm -f "$addonCronJobList"
+   Say "Cron jobs [$cronJobCount] from 3rd-party add-ons were found."
+   Say "---------------------------------------------------------------"
+
+   sleep 5
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Aug-02] ##
+##----------------------------------------##
+_EntwareServicesHandler_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
+
+   local actionStr=""
+   local servicesList  servicesCnt=0
+   local entwOPT_init  entwOPT_unslung
+   # space-delimited list of services to skip #
+   local skipServiceList="tailscaled zerotier-one sshd"
+   local skippedService  skippedServiceFile  skippedServiceName
+   local theSkippedServiceList=""
+
+   entwOPT_init="/opt/etc/init.d"
+   entwOPT_unslung="${entwOPT_init}/rc.unslung"
+
+   case "$1" in
+       stop) actionStr="Stopping" ;;
+      start) actionStr="Restarting" ;;
+          *) return 1 ;;
+   esac
+
+   # Check if *NOT* skipping any services #
+   [ $# -gt 1 ] && [ "$2" = "-noskip" ] && skipServiceList=""
+
+   _RenameSkippedService_()
+   {
+       [ -z "$theSkippedServiceList" ] && return 1
+       for skippedServiceName in $theSkippedServiceList
+       do  # Rename service file back to original state #
+           skippedServiceFile="${entwOPT_init}/$skippedServiceName"
+           if mv -f "${entwOPT_init}/OFF.${skippedServiceName}.OFF" "$skippedServiceFile"
+           then Say "Skipped $skippedServiceFile $1 call." ; fi
+       done
+       return 0
+   }
+
+   if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
+   then return 0 ; fi  ## Entware is NOT found ##
+
+   servicesList="$(/usr/bin/find -L "$entwOPT_init" -name "*" -print 2>/dev/null | /bin/grep -E "(${entwOPT_init}/S[0-9]+|${entwOPT_init}/.*[.]sh$)")"
+   [ -z "$servicesList" ] && return 0
+
+   Say "Searching for Entware services to ${1}..."
+
+   # Filter out services to skip and add a "skip message" #
+   if [ "$AllowVPN" = "ENABLED" ] && [ -n "$skipServiceList" ]
+   then
+      for skipService in $skipServiceList
+      do
+          skippedService="$(echo "$servicesList" | /bin/grep -E "/S[0-9]+.*${skipService}([.]sh)?$")"
+          if [ -n "$skippedService" ]
+          then
+              for skippedServiceFile in $skippedService
+              do
+                  skippedServiceName="$(basename "$skippedServiceFile")"
+                  Say "Skipping $skippedServiceFile $1 call..."
+                  # Rename service file so it's skipped by Entware #
+                  if mv -f "$skippedServiceFile" "${entwOPT_init}/OFF.${skippedServiceName}.OFF"
+                  then
+                      [ -z "$theSkippedServiceList" ] && \
+                      theSkippedServiceList="$skippedServiceName" || \
+                      theSkippedServiceList="$theSkippedServiceList $skippedServiceName"
+                      servicesList="$(echo "$servicesList" | /bin/grep -vE "${skippedServiceFile}$")"
+                  fi
+              done
+          fi
+      done
+   fi
+
+   [ -n "$servicesList" ] && servicesCnt="$(echo "$servicesList" | wc -l)"
+   if [ "$servicesCnt" -eq 0 ]
+   then
+       Say "No Entware services to ${1}."
+       _RenameSkippedService_ "$1" && echo
+       return 0
+   fi
+
+   Say "${actionStr} Entware services..."
+   "$isInteractive" && printf "Please wait.\n"
+   Say "-----------------------------------------------------------"
+   # List the Entware services found to stop/start #
+   echo "$servicesList" | while IFS= read -r servLine ; do Say "$servLine" ; done
+   Say "-----------------------------------------------------------"
+
+   $entwOPT_unslung "$1" ; sleep 5
+   _RenameSkippedService_ "$1" && echo
+   "$isInteractive" && printf "\nDone.\n"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-15] ##
+##------------------------------------------##
+_GetOfflineFirmwareVersion_()
+{
+    local zip_file="$1"
+    local extract_version_regex='[0-9]+_[0-9]+\.[0-9]+_[0-9a-zA-Z]+'
+    local validate_version_regex='[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+(_[0-9a-zA-Z]+)?'
+    local fwVersionFormat  firmware_version  formatted_version
+
+    # Extract the version number using regex #
+    firmware_version="$(echo "$zip_file" | grep -oE "$extract_version_regex")"
+
+    if [ -n "$firmware_version" ]
+    then
+        if echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)$'
+        then
+            # Numeric patch version
+            formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)/\1.\2.\3.\4/')"
+        elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)$'
+        then
+            # Alphanumeric suffix
+            formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)/\1.\2.\3.0_\4/')"
+        else
+            printf "\nFailed to parse firmware version from the ZIP file name.\n"
+            firmware_version=""
+        fi
+        printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
+        printf "\n---------------------------------------------------\n"
+
+        # Ask the user to confirm the detected firmware version
+        if _WaitForYESorNO_ "\nIs this firmware version correct?"; then
+            printf "\n---------------------------------------------------\n"
+        else
+            # Set firmware_version to empty to trigger manual entry
+            firmware_version=""
+        fi
+    fi
+
+    if [ -z "$firmware_version" ]
+    then
+        fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
+        # Prompt user for the firmware version if extraction fails #
+        printf "\n${REDct}**WARNING**${NOct}\n"
+        if "$isGNUtonFW"
+        then
+            printf "\nFailed to identify firmware version from the update file name."
+        else
+            printf "\nFailed to identify firmware version from the ZIP file name."
+        fi
+        printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
+        printf "\n(Examples: 3004.388.8.0 or 3004.388.8.0_beta1). Enter 'e' to exit:  "
+        read -r formatted_version
+
+        # Validate user input #
+        while ! echo "$formatted_version" | grep -qE "^${validate_version_regex}$"
+        do
+            if echo "$formatted_version" | grep -qE "^(e|E|exit|Exit)$"; then
+                return 1
+            fi
+            printf "\n${REDct}**WARNING**${NOct} Invalid format detected!\n"
+            printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
+            printf "\n(i.e 3004.388.8.0 or 3004.388.8.0_beta1). Enter 'e' to exit:  "
+            read -r formatted_version
+        done
+        printf "\nThe user-provided firmware version: ${GRNct}$formatted_version${NOct}\n"
+    fi
+
+    export release_version="$formatted_version"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-15] ##
+##------------------------------------------##
+_SelectOfflineUpdateFile_()
+{
+    local selection fileList fileCount
+
+    # Check if the directory is empty or no valid files are found #
+    if "$isGNUtonFW"
+    then
+        if [ -z "$(ls -A "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb 2>/dev/null)" ]
+        then
+            printf "\nNo valid update files found in the directory. Exiting.\n"
+            printf "\n---------------------------------------------------\n"
+            return 1
+        fi
+    else
+        if [ -z "$(ls -A "$FW_ZIP_DIR"/*.zip 2>/dev/null)" ]
+        then
+            printf "\nNo valid ZIP files found in the directory. Exiting.\n"
+            printf "\n---------------------------------------------------\n"
+            return 1
+        fi
+    fi
+
+    while true
+    do
+        if "$isGNUtonFW"
+        then
+            fileList="$(ls -A1 "$FW_ZIP_DIR"/*.w "$FW_ZIP_DIR"/*.pkgtb 2>/dev/null)"
+            printf "\nAvailable update files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
+        else
+            fileList="$(ls -A1 "$FW_ZIP_DIR"/*.zip 2>/dev/null)"
+            printf "\nAvailable ZIP files in the directory: [${GRNct}${FW_ZIP_DIR}${NOct}]:\n\n"
+        fi
+        fileCount=1
+        for file in $fileList
+        do
+            printf "${GRNct}%d${NOct}) %s\n" "$fileCount" "$file"
+            fileCount="$((fileCount + 1))"
+        done
+
+        # Prompt user to select a file #
+        printf "\n---------------------------------------------------\n"
+        if "$isGNUtonFW"
+        then
+            printf "\n[${theMUExitStr}] Enter the number of the update file you want to select:  "
+        else
+            printf "\n[${theMUExitStr}] Enter the number of the ZIP file you want to select:  "
+        fi
+
+        read -r selection
+        if [ -z "$selection" ]
+        then
+            printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
+            _WaitForEnterKey_
+            clear
+            continue
+        fi
+
+        if echo "$selection" | grep -qE "^(e|E|exit|Exit)$"
+        then
+            printf "Update process was cancelled. Exiting.\n"
+            return 1
+        fi
+
+        # Validate selection #
+        selected_file="$(echo "$fileList" | awk "NR==$selection")"
+        if [ -z "$selected_file" ]
+        then
+            printf "\n${REDct}Invalid selection${NOct}. Please try again.\n"
+            _WaitForEnterKey_
+            clear
+            continue
+        else
+            clear
+            printf "\n---------------------------------------------------\n"
+            printf "\nYou have selected:\n${GRNct}$selected_file${NOct}\n"
+            break
+        fi
+    done
+
+    # Extract or prompt for firmware version #
+    if ! _GetOfflineFirmwareVersion_ "$selected_file"
+    then
+        printf "Operation was cancelled by user. Exiting.\n"
+        return 1
+    fi
+
+    # Confirm the selection
+    if _WaitForYESorNO_ "\nDo you want to continue with the selected file?"
+    then
+        printf "\n---------------------------------------------------\n"
+        printf "\nStarting firmware update with the selected file.\n"
+        # Rename the selected file #
+        new_file_name="${PRODUCT_ID}_firmware.${selected_file##*.}"
+        mv -f "$selected_file" "${FW_ZIP_DIR}/$new_file_name"
+        if [ $? -eq 0 ]
+        then
+            printf "\nFile packaged to ${GRNct}${new_file_name}${NOct}"
+            printf "\nRelease version: ${GRNct}${release_version}${NOct}\n"
+            printf "\n---------------------------------------------------\n"
+            _WaitForEnterKey_
+            Update_Custom_Settings FW_New_Update_Notification_Vers "$release_version"
+            Update_Custom_Settings FW_New_Update_Notification_Date "$(date +"$FW_UpdateNotificationDateFormat")"
+            clear
+            return 0
+        else
+            printf "\nFailed to rename the file. Exiting.\n"
+            return 1
+        fi
+    else
+        printf "Operation was cancelled by user. Exiting.\n"
+        return 1
+    fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Apr-18] ##
+##------------------------------------------##
+_GnutonBuildSelection_()
+{
+   # Check if PRODUCT_ID is for a TUF model and requires user choice
+   if echo "$PRODUCT_ID" | grep -q "^TUF-"
+   then
+        # Fetch the previous choice from the settings file
+        local previous_choice="$(Get_Custom_Setting "TUFBuild")"
+
+        if [ "$previous_choice" = "y" ]
+        then
+            echo "TUF Build selected for flashing"
+            firmware_choice="tuf"
+        elif [ "$previous_choice" = "n" ]
+        then
+            echo "Pure Build selected for flashing"
+            firmware_choice="pure"
+        elif [ "$inMenuMode" = true ]
+        then
+            printf "${REDct}Found TUF build for: $PRODUCT_ID.${NOct}\n"
+            printf "${REDct}Would you like to use the TUF build?${NOct}\n"
+            printf "Enter your choice (y/n): "
+            read -r choice
+            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]
+            then
+                echo "TUF Build selected for flashing"
+                firmware_choice="tuf"
+                Update_Custom_Settings "TUFBuild" "y"
+            else
+                echo "Pure Build selected for flashing"
+                firmware_choice="pure"
+                Update_Custom_Settings "TUFBuild" "n"
+            fi
+        else
+            echo "Defaulting to Pure Build due to non-interactive mode."
+            firmware_choice="pure"
+            Update_Custom_Settings "TUFBuild" "n"
+        fi
+   elif echo "$PRODUCT_ID" | grep -q "^GT-"
+   then
+        # Fetch the previous choice from the settings file
+        local previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+        if [ "$previous_choice" = "y" ]
+        then
+            echo "ROG Build selected for flashing"
+            firmware_choice="rog"
+        elif [ "$previous_choice" = "n" ]
+        then
+            echo "Pure Build selected for flashing"
+            firmware_choice="pure"
+        elif [ "$inMenuMode" = true ]
+        then
+            printf "${REDct}Found ROG build for: $PRODUCT_ID.${NOct}\n"
+            printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+            printf "Enter your choice (y/n): "
+            read -r choice
+            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]
+            then
+                echo "ROG Build selected for flashing"
+                firmware_choice="rog"
+                Update_Custom_Settings "ROGBuild" "y"
+            else
+                echo "Pure Build selected for flashing"
+                firmware_choice="pure"
+                Update_Custom_Settings "ROGBuild" "n"
+            fi
+        else
+            echo "Defaulting to Pure Build due to non-interactive mode."
+            firmware_choice="pure"
+            Update_Custom_Settings "ROGBuild" "n"
+        fi
+   else
+        # If not a TUF model, process as usual
+        firmware_choice="pure"
+   fi
+   return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-23] ##
+##------------------------------------------##
+_RunBackupmon_()
+{
+    # Check for the presence of backupmon.sh script
+    if [ -f "/jffs/scripts/backupmon.sh" ]
+    then
+        local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+        if [ "$current_backup_settings" = "ENABLED" ]
+        then
+            # Extract version number from backupmon.sh
+            local BM_VERSION="$(grep "^Version=" /jffs/scripts/backupmon.sh | awk -F'"' '{print $2}')"
+
+            # Adjust version format from 1.46 to 1.4.6 if needed
+            local DOT_COUNT="$(echo "$BM_VERSION" | tr -cd '.' | wc -c)"
+            if [ "$DOT_COUNT" -eq 0 ]
+            then
+                # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
+                BM_VERSION="${BM_VERSION}.0.0"
+            elif [ "$DOT_COUNT" -eq 1 ]
+            then
+                # For versions like 1.46, insert a dot before the last two digits
+                BM_VERSION="$(echo "$BM_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
+            fi
+
+            # Convert version strings to comparable numbers
+            local currentBM_version="$(_ScriptVersionStrToNum_ "$BM_VERSION")"
+            local requiredBM_version="$(_ScriptVersionStrToNum_ "1.5.3")"
+
+            # Check if BACKUPMON version is greater than or equal to 1.5.3
+            if [ "$currentBM_version" -ge "$requiredBM_version" ]
+            then
+                # Execute the backup script if it exists #
+                echo ""
+                Say "Backup Started (by BACKUPMON)"
+                sh /jffs/scripts/backupmon.sh -backup >/dev/null
+                BE=$?
+                Say "Backup Finished"
+                echo ""
+                if [ $BE -eq 0 ]
+                then
+                    Say "Backup Completed Successfully"
+                    echo ""
+                else
+                    Say "Backup Failed"
+                    echo ""
+                    _SendEMailNotification_ NEW_BM_BACKUP_FAILED
+                    _DoCleanUp_ 1
+                    return 1
+                fi
+            else
+                # BACKUPMON version is not sufficient
+                echo ""
+                Say "${REDct}**IMPORTANT NOTICE**:${NOct}"
+                echo ""
+                Say "Backup script (BACKUPMON) is installed; but version $BM_VERSION does not meet the minimum required version of 1.5.3."
+                Say "Skipping backup. Please update your version of BACKUPMON."
+                echo ""
+            fi
+        else
+            Say "Backup script (BACKUPMON) is disabled in the advanced options. Skipping backup."
+            echo ""
+        fi
+    else
+        Say "Backup script (BACKUPMON) is not installed. Skipping backup."
+        echo ""
+    fi
+    return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Oct-13] ##
+##------------------------------------------##
+_RunOfflineUpdateNow_()
+{
+    local retCode
+    local offlineConfigFile="${SETTINGS_DIR}/offline_updates.txt"
+
+    _ClearOfflineUpdateState_()
+    {
+        offlineUpdateTrigger=false
+        theMenuReturnPromptMsg="$mainMenuReturnPromptStr"
+        if [ $# -eq 0 ] || [ -z "$1" ] ; then return 0 ; fi
+        [ "$1" != "1" ] && printf "$1"
+        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
     }
 
-    // Function to format and display the Router IDs
-    function formatRouterIDs() {
-        // Define the order of NVRAM keys to search for Model ID and Product ID
-        var modelKeys = ["nvram_odmpid", "nvram_wps_modelnum", "nvram_model", "nvram_build_name"];
-        var productKeys = ["nvram_productid", "nvram_build_name", "nvram_odmpid"];
+    [ ! -s "$offlineConfigFile" ] && return 2
 
-        // Retrieve the first non-empty values
-        var MODEL_ID = getFirstNonEmptyValue(modelKeys);
-        var PRODUCT_ID = getFirstNonEmptyValue(productKeys);
+    # Source the configuration file #
+    . "$offlineConfigFile"
 
-        // Construct FW_RouterProductID with formatting
-        var FW_RouterProductID = GRNct + PRODUCT_ID + NOct;
+    # Check required parameter #
+    if [ -z "${FW_OFFLINE_UPDATE_IS_ALLOWED:+xSETx}" ] || \
+       [ "$FW_OFFLINE_UPDATE_IS_ALLOWED" != "true" ]
+    then return 2 ; fi
 
-        // Convert MODEL_ID to uppercase for comparison
-        var MODEL_ID_UPPER = MODEL_ID.toUpperCase();
+    # Reset FW_OFFLINE_UPDATE_ACCEPT_RISK to false #
+    if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$offlineConfigFile"
+    then
+        sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$offlineConfigFile"
+    fi
 
-        // Determine FW_RouterModelID based on comparison
-        var FW_RouterModelID = "";
-        if (PRODUCT_ID === MODEL_ID_UPPER) {
-            FW_RouterModelID = FW_RouterProductID;
-        } else {
-            FW_RouterModelID = FW_RouterProductID + "/" + GRNct + MODEL_ID + NOct;
-        }
+    clear
+    printf "\n${REDct}***WARNING***${NOct}"
+    printf "\nYou are about to initiate an ${REDct}offline${NOct} firmware update."
+    printf "\nThe firmware image to be flashed is ${REDct}unvetted${NOct} and of ${REDct}unknown${NOct} origin.\n"
+    printf "\n1. This feature is intended for developers and advanced users only."    
+    printf "\n2. No support will be offered when flashing firmware offline."
+    printf "\n3. This offline feature is excluded from documentation on purpose.\n"
+    printf "\nDo you acknowledge the risk and wish to proceed?"
+    printf "\nYou must type '${REDct}YES${NOct}' to continue."
+    printf "\n---------------------------------------------------\n"
 
-        // Update the HTML table cells
-        var productModelCell = document.getElementById('firmwareProductModelID');
-        if (productModelCell) {
-            productModelCell.innerHTML = FW_RouterProductID;
-        }
+    read -r response
+    if [ "$response" = "YES" ]
+    then
+        # Add or update the setting to true #
+        if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$offlineConfigFile"
+        then
+            sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"true\"/" "$offlineConfigFile"
+        else
+            # Ensure the new setting is added on a new line
+            echo "" >> "$offlineConfigFile"
+            echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"true\"" >> "$offlineConfigFile"
+        fi
+    else
+        # Add or update the setting to false #
+        if grep -q "^FW_OFFLINE_UPDATE_ACCEPT_RISK=" "$offlineConfigFile"
+        then
+            sed -i "s/^FW_OFFLINE_UPDATE_ACCEPT_RISK=.*/FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"/" "$offlineConfigFile"
+        else
+            # Ensure the new setting is added on a new line #
+            echo "" >> "$offlineConfigFile"
+            echo "FW_OFFLINE_UPDATE_ACCEPT_RISK=\"false\"" >> "$offlineConfigFile"
+        fi
+        _ClearOfflineUpdateState_ "Offline update was aborted. Exiting.\n"
+        return 1
+    fi
+    clear
+    logo
+    printf "\n---------------------------------------------------\n"
 
-        // Update the consolidated 'firmver' hidden input
-        var firmverInput = document.getElementById('firmver');
-        if (firmverInput) {
-            firmverInput.value = stripHTML(FW_RouterModelID); // Optionally strip HTML tags
-        }
-    }
+    offlineUpdateTrigger=true
+    theMenuReturnPromptMsg="$advnMenuReturnPromptStr"
 
-    // Optional: Function to strip HTML tags from a string (to store plain text in hidden input)
-    function stripHTML(html) {
-        var tmp = document.createElement("DIV");
-        tmp.innerHTML = html;
-        return tmp.textContent || tmp.innerText || "";
-    }
+    clear
+    # Create directory for downloading & extracting firmware #
+    if ! _CreateDirectory_ "$FW_ZIP_DIR"
+    then
+        _ClearOfflineUpdateState_ 1 ; return 1
+    fi
+    printf "\n---------------------------------------------------\n"
+    if "$isGNUtonFW"
+    then
+        printf "\nPlease copy your firmware update file (.w or .pkgtb) using the *original* filename to this directory:"
+    else
+        printf "\nPlease copy your firmware ZIP file (using the *original* ZIP filename) to this directory:"
+    fi
+    printf "\n[${GRNct}$FW_ZIP_DIR${NOct}]\n"
+    printf "\nPress '${GRNct}Y${NOct}' when completed, or '${REDct}N${NOct}' to cancel.\n"
+    printf "\n---------------------------------------------------\n"
+    if _WaitForYESorNO_
+    then
+        clear
+        printf "\n---------------------------------------------------\n"
+        printf "\nContinuing to the update file selection process.\n"
+        if _SelectOfflineUpdateFile_
+        then
+            if "$isGNUtonFW"
+            then
+                # Extract the filename from the path #
+                original_filename="$(basename "$selected_file")"
+                # Sanitize filename by removing problematic characters (if necessary) #
+                sanitized_filename="$(echo "$original_filename" | sed 's/[^a-zA-Z0-9._-]//g')"
+                # Extract the file extension #
+                extension="${sanitized_filename##*.}"
+                FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
+                _GnutonBuildSelection_
+                set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
+                retCode="$?"
+            else
+                set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+                retCode="$?"
+            fi
+            if [ "$retCode" -eq 0 ] && [ $# -eq 2 ] && \
+               [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
+            then
+                release_link="$2"
+                _RunFirmwareUpdateNow_
+                _ClearOfflineUpdateState_
+            else
+                Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
+                _ClearOfflineUpdateState_ 1
+                return 1
+            fi
+        else
+            _ClearOfflineUpdateState_ 1
+            return 1
+        fi
+    else
+        _ClearOfflineUpdateState_ "Offline update process was cancelled. Exiting.\n"
+        return 1
+    fi
+}
 
-    // Function to format the Firmware Version Installed
-    function formatFirmwareVersion() {
-        var fwVersionElement = document.getElementById('fwVersionInstalled');
-        if (fwVersionElement) {
-            var version = fwVersionElement.textContent.trim();
-            // Split the version string by dots
-            var parts = version.split('.');
-            if (parts.length >= 4) {
-                // Combine the first four parts without dots
-                var firstPart = parts.slice(0, 4).join('');
-                // Combine the remaining parts with dots
-                var remainingParts = parts.slice(4).join('.');
-                // Construct the formatted version
-                var formattedVersion = firstPart + '.' + remainingParts;
-                // Update the table cell with the formatted version
-                fwVersionElement.textContent = formattedVersion;
-            } else {
-                console.warn("Unexpected firmware version format:", version);
-            }
-        } else {
-            console.error("Element with id 'fwVersionInstalled' not found.");
-        }
-    }
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Jul-31] ##
+##------------------------------------------##
+_RunFirmwareUpdateNow_()
+{
+    # Double-check the directory exists before using it #
+    [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
 
-    // Modify the existing DOMContentLoaded event listener to include the new function
-    document.addEventListener("DOMContentLoaded", function() {
-        formatRouterIDs();
-        formatFirmwareVersion(); // Call the new formatting function
-    });
+    # Set up the custom log file #
+    userLOGFile="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_$(date '+%Y-%m-%d_%H_%M_%S').log"
+    touch "$userLOGFile"  ## Must do this to indicate custom log file is enabled ##
 
-    function initializeCollapsibleSections() {
-        if (typeof jQuery !== 'undefined') {
-            $('.collapsible-jquery').each(function() {
-                // Ensure sections are expanded by default
-                $(this).addClass('active');  // Add 'active' class to indicate expanded state
-                $(this).next('tbody').show();  // Make sure content is visible
+    # Check if the router model is supported OR if
+    # it has the minimum firmware version supported.
+    if "$routerModelCheckFailed"
+    then
+        Say "${REDct}WARNING:${NOct} The current router model is not supported by this script."
+        if "$inMenuMode"
+        then
+            printf "\nWould you like to uninstall the script now?"
+            if _WaitForYESorNO_
+            then
+                _DoUninstall_
+                return 0
+            else
+                Say "Uninstallation cancelled. Exiting script."
+                _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+                return 0
+            fi
+        else
+            Say "Exiting script due to unsupported router model."
+            _DoExit_ 1
+        fi
+    fi
+    if "$MinFirmwareVerCheckFailed" && ! "$offlineUpdateTrigger"
+    then
+        Say "${REDct}*WARNING*:${NOct} The current firmware version is below the minimum supported.
+Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or higher to use this script.\n"
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        return 1
+    fi
 
-                // Add a cursor pointer for better UX
-                $(this).css('cursor', 'pointer');
+    echo
+    Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
+    Say "Running the update task now... Checking for F/W updates..."
+    FlashStarted=true
 
-                // Toggle logic on click
-                $(this).on('click', function() {
-                    $(this).toggleClass('active');
-                    $(this).next('tbody').slideToggle();
-                });
-            });
-        } else {
-            console.error("jQuery is not loaded. Collapsible sections will not work.");
-        }
-    }
-    </script>
-</head>
-<body onload="initial();" class="bg">
-    <div id="TopBanner"></div>
-    <div id="Loading" class="popup_bg"></div>
-    <iframe name="hidden_frame" id="hidden_frame" src="" width="0" height="0" frameborder="0"></iframe>
+    #---------------------------------------------------------------#
+    # Check if an expected USB-attached drive is still mounted.
+    # Make a special case when USB drive has Entware installed.
+    #---------------------------------------------------------------#
+    if echo "$FW_ZIP_BASE_DIR" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)" && \
+       ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+    then
+        Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+        Say "${REDct}**ERROR**${NOct}: Required USB storage device is not connected or not mounted correctly."
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        return 1
+    fi
 
-    <form method="post" name="form" action="start_apply.htm" target="hidden_frame">
-        <input type="hidden" name="action_script" value="start_MerlinAUconfig" />
-        <input type="hidden" name="current_page" value="" />
-        <input type="hidden" name="next_page" value="" />
-        <input type="hidden" name="modified" value="0" />
-        <input type="hidden" name="action_mode" value="apply" />
-        <input type="hidden" name="action_wait" value="90" />
-        <input type="hidden" name="first_time" value="" />
-        <input type="hidden" name="SystemCmd" value="" />
-        <input type="hidden" id="http_username" value="<% nvram_get("http_username"); %>" />
-        <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get('preferred_lang'); %>" />
-        <!-- Consolidated firmver input -->
-        <input type="hidden" name="firmwarev" id="firmwarev" value="<% nvram_get('firmver'); %>" />
-        <input type="hidden" name="firmver" id="firmver" value="<% nvram_get('firmver'); %>.<% nvram_get('buildno'); %>.<% nvram_get('extendno'); %>" />
-        <input type="hidden" id="firmware_check_enable" value="<% nvram_get("firmware_check_enable"); %>" />
-        <input type="hidden" id="nvram_odmpid" value="<% nvram_get("odmpid"); %>" />
-        <input type="hidden" id="nvram_wps_modelnum" value="<% nvram_get("wps_modelnum"); %>" />
-        <input type="hidden" id="nvram_model" value="<% nvram_get("model"); %>" />
-        <input type="hidden" id="nvram_build_name" value="<% nvram_get("build_name"); %>" />
-        <input type="hidden" id="nvram_productid" value="<% nvram_get("productid"); %>" />
-        <input type="hidden" name="installedfirm" value="<% nvram_get("innerver"); %>" />
-        <input type="hidden" name="amng_custom" id="amng_custom" value="" />
+    #---------------------------------------------------------#
+    # If the expected directory path for the ZIP file is not
+    # found, we select the $HOME path instead as a temporary
+    # fallback. This should work if free RAM is >= ~150MB.
+    #---------------------------------------------------------#
+    if [ ! -d "$FW_ZIP_BASE_DIR" ]
+    then
+        Say "Expected directory path $FW_ZIP_BASE_DIR is NOT found."
+        Say "Using temporary fallback directory: /home/root"
+        "$inMenuMode" && { _WaitForYESorNO_ "Continue?" || return 1 ; }
+        # Continue #
+        FW_ZIP_BASE_DIR="/home/root"
+        FW_ZIP_DIR="${FW_ZIP_BASE_DIR}/$FW_ZIP_SUBDIR"
+        FW_ZIP_FPATH="${FW_ZIP_DIR}/${FW_FileName}.zip"
+    fi
 
-        <table class="content" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-            <tr>
-                <td width="17">&nbsp;</td>
-                <td width="202" valign="top">
-                    <div id="mainMenu"></div>
-                    <div id="subMenu"></div>
-                </td>
-                <td valign="top">
-                    <div id="tabMenu" class="submenuBlock"></div>
+    if ! node_online_status="$(_NodeActiveStatus_)"
+    then node_online_status="" 
+    else _ProcessMeshNodes_ 0
+    fi
 
-                    <table width="98%" border="0" cellpadding="0" cellspacing="0">
-                        <tr>
-                            <td valign="top">
-                                <table width="760px" cellpadding="4" cellspacing="0" class="FormTitle" style="height: 1169px;">
-                                    <tbody>
-                                        <tr style="background-color:#4D595D;">
-                                            <td valign="top">
-                                                <div>&nbsp;</div>
-                                                <div class="formfonttitle" style="text-align:center;">MerlinAU Dashboard v1.3.8</div>
-                                                <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
-                                                <div class="formfontdesc">
-                                                    This is the MerlinAU AMTM add-on integrated into the router WebUI.
-                                                </div>
-                                                <div style="line-height:10px;">&nbsp;</div>
+    local retCode  credsBase64=""
+    local currentVersionNum=""  releaseVersionNum=""
+    local current_version=""
 
+    # Create directory for downloading & extracting firmware #
+    if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
 
-                                                <!-- Parent Table to Arrange Firmware and Settings Status Side by Side -->
-                                                <table width="100%" cellpadding="0" cellspacing="0" style="border: none; background-color: transparent;">
-                                                    <tr>
-                                                        <!-- Firmware Status Column -->
-                                                        <td valign="top" width="50%" style="padding-right: 5px;">
-                                                            <!-- Firmware Status Section -->
-                                                            <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-                                                                <thead class="collapsible-jquery" id="firmwareStatusSection">
-                                                                    <tr>
-                                                                        <!-- Adjust colspan to match the number of internal tables -->
-                                                                        <td colspan="2">Firmware Status (click to expand/collapse)</td>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    <tr>
-                                                                        <!-- First internal table in the first column -->
-                                                                        <td style="vertical-align: top; width: 50%;">
-                                                                            <table style="margin: 0; text-align: left; width: 100%; border: none;">
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>F/W Product/Model ID:</strong></td>
-                                                                                    <td style="padding: 4px;" id="firmwareProductModelID"></td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>USB Storage Connected:</strong></td>
-                                                                                    <td style="padding: 4px;">NO CODE YET</td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>F/W Version Installed:</strong></td>
-                                                                                    <td style="padding: 4px;" id="fwVersionInstalled">
-                                                                                        <% nvram_get("firmver"); %>.<% nvram_get("buildno"); %>.<% nvram_get("extendno"); %>
-                                                                                    </td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>F/W Update Available:</strong></td>
-                                                                                    <td id="fwUpdateAvailable" style="padding: 4px;">NONE FOUND</td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>F/W Update Estimated Run Date:</strong></td>
-                                                                                    <td id="fwUpdateEstimatedRunDate" style="padding: 4px;">TBD</td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>Last Notificiation Date:</strong></td>
-                                                                                    <td id="fwNotificationsDate" style="padding: 4px;">TBD</td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>F/W Update Check:</strong></td>
-                                                                                    <td id="fwUpdateCheckStatus" style="padding: 4px;">Disabled</td>
-                                                                                </tr>
-                                                                            </table>
-                                                                        </td>
-                                                                    </tr>
-                                                                </tbody>
-                                                            </table>
-                                                        </td>
+    # In case ZIP directory is different from BIN directory #
+    if [ "$FW_ZIP_DIR" != "$FW_BIN_DIR" ] && \
+       ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
-                                                        <!-- Settings Status Column -->
-                                                        <td valign="top" width="50%" style="padding-left: 5px;">
-                                                            <!-- Settings Status Section -->
-                                                            <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-                                                                <thead class="collapsible-jquery" id="settingsStatusSection">
-                                                                    <tr>
-                                                                        <!-- Adjust colspan to match the number of internal tables -->
-                                                                        <td colspan="2">Settings Status (click to expand/collapse)</td>
-                                                                    </tr>
-                                                                </thead>
-                                                                <tbody>
-                                                                    <tr>
-                                                                        <!-- Second internal table in the second column -->
-                                                                        <td style="vertical-align: top; width: 50%;">
-                                                                            <table style="margin: 0; text-align: left; width: 100%; border: none;">
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>Changelog Approval:</strong></td>
-                                                                                    <td id="changelogApproval" style="padding: 4px;">Disabled</td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>Changelog Check:</strong></td>
-                                                                                    <td id="changelogCheckStatus" style="padding: 4px;">Disabled</td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>Beta-to-Release Updates:</strong></td>
-                                                                                    <td id="betaToReleaseUpdatesStatus" style="padding: 4px;">Disabled</td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>Tailscale VPN Access:</strong></td>
-                                                                                    <td id="tailscaleVPNAccessStatus" style="padding: 4px;">Disabled</td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>Auto-Backup Enabled:</strong></td>
-                                                                                    <td id="autobackupEnabledStatus" style="padding: 4px;">Disabled</td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>Auto-Updates for Script:</strong></td>
-                                                                                    <td id="autoUpdatesScriptEnabledStatus" style="padding: 4px;">Disabled</td>
-                                                                                </tr>
-                                                                                <tr>
-                                                                                    <td style="padding: 4px;"><strong>Email-Notifications:</strong></td>
-                                                                                    <td id="emailNotificationsStatus" style="padding: 4px;">Disabled</td>
-                                                                                </tr>
-                                                                            </table>
-                                                                        </td>
-                                                                    </tr>
-                                                                </tbody>
-                                                            </table>
-                                                        </td>
-                                                    </tr>
-                                                </table>
+    # Get current firmware version #
+    current_version="$(_GetCurrentFWInstalledLongVersion_)"
 
-                                                <div style="line-height:10px;">&nbsp;</div>
+    #---------------------------------------------------------#
+    # If the "F/W Update Check" in the WebGUI is disabled
+    # return without further actions. This allows users to
+    # control the "F/W Auto-Update" feature from one place.
+    # However, when running in "Menu Mode" the assumption
+    # is that the user wants to do a MANUAL Update Check
+    # regardless of the state of the "F/W Update Check."
+    #---------------------------------------------------------#
+    if ! "$offlineUpdateTrigger"
+    then
+        FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+        [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 
-                                                <!-- Actions Section -->
-                                                <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-                                                    <thead class="collapsible-jquery" id="actionsSection">
-                                                        <tr>
-                                                            <td colspan="2">Actions (click to expand/collapse)</td>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr>
-                                                            <td colspan="2">
-                                                                <div style="text-align: center; margin-top: 10px;">
-                                                                    <table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; border-collapse: collapse; background-color: transparent;">
-                                                                        <colgroup>
-                                                                            <col style="width: 33%;" />
-                                                                            <col style="width: 33%;" />
-                                                                            <col style="width: 33%;" />
-                                                                        </colgroup>
-                                                                        <tr>
-                                                                            <td style="text-align: right; border: none;">
-                                                                                <button type="button" onclick="checkFirmwareUpdate()">F/W Update Check Now</button>
-                                                                            </td>
-                                                                            <td style="text-align: center; border: none;" id="approveChangelogCell">
-                                                                                <button type="button" id="approveChangelogButton" onclick="changelogApproval()">Approve Changelog</button>
-                                                                            </td>
-                                                                            <td style="text-align: left; border: none;">
-                                                                                <button type="button" onclick="Uninstall()">Uninstall Now</button>
-                                                                            </td>
-                                                                        </tr>
-                                                                    </table>
-                                                                </div>
-                                                                <form id="actionsForm">
-                                                                    <table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
-                                                                        <colgroup>
-                                                                            <col style="width: 50%;" />
-                                                                            <col style="width: 50%;" />
-                                                                        </colgroup>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="routerPassword">Router Login Password</label></td>
-                                                                            <td><input type="password" id="routerPassword" name="routerPassword" style="width: 50%;" /></td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="fwUpdateEnabled">Enable F/W Update Check</label></td>
-                                                                            <td><input type="checkbox" id="fwUpdateEnabled" name="fwUpdateEnabled" /></td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="fwUpdatePostponement">F/W Update Postponement (0-199 days)</label></td>
-                                                                            <td><input type="number" id="fwUpdatePostponement" name="fwUpdatePostponement" min="0" max="199" style="width: 10%;" /></td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
-                                                                            <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
-                                                                        </tr>
-                                                                    </table>
-                                                                    <div style="text-align: center; margin-top: 10px;">
-                                                                        <input type="submit" onclick="SaveActionsConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
-                                                                    </div>
-                                                                </form>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
+        if [ "$FW_UpdateCheckState" -eq 0 ]
+        then
+            Say "Firmware update check is currently disabled."
+            "$inMenuMode" && _WaitForEnterKey_ || return 1
+        fi
 
-                                                <div style="line-height:10px;">&nbsp;</div>
+        #------------------------------------------------------
+        # If the "New F/W Update" flag has been set get the
+        # "New F/W Release Version" from the router itself.
+        # If no new F/W version update is available return.
+        #------------------------------------------------------
+        if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+           ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
+        then
+            Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        fi
 
-                                                <!-- Advanced Options Section -->
-                                                <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-                                                    <thead class="collapsible-jquery" id="advancedOptionsSection">
-                                                        <tr>
-                                                            <td colspan="2">Advanced Options (click to expand/collapse)</td>
-                                                        </tr>
-                                                    </thead>
-                                                    <tbody>
-                                                        <tr>
-                                                            <td colspan="2">
-                                                                <form id="advancedOptionsForm">
-                                                                    <table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
-                                                                        <colgroup>
-                                                                            <col style="width: 50%;" />
-                                                                            <col style="width: 50%;" />
-                                                                        </colgroup>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="fwUpdateDirectory">Set Directory for F/W Updates</label></td>
-                                                                            <td><input type="text" id="fwUpdateDirectory" name="fwUpdateDirectory" style="width: 50%;" /></td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="betaToReleaseUpdatesEnabled">Beta-to-Release Updates</label></td>
-                                                                            <td><input type="checkbox" id="betaToReleaseUpdatesEnabled" name="betaToReleaseUpdatesEnabled" /></td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="tailscaleVPNEnabled">Tailscale/ZeroTier VPN Access</label></td>
-                                                                            <td><input type="checkbox" id="tailscaleVPNEnabled" name="tailscaleVPNEnabled" /></td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="autobackupEnabled">Enable Auto-Backups</label></td>
-                                                                            <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="autoUpdatesScriptEnabled">Auto-Updates for Script</label></td>
-                                                                            <td><input type="checkbox" id="autoUpdatesScriptEnabled" name="autoUpdatesScriptEnabled" /></td>
-                                                                        </tr>
-                                                                        <tr id="rogFWBuildRow">
-                                                                            <td style="text-align: left;"><label for="rogFWBuildType">ROG F/W Build Type</label></td>
-                                                                            <td>
-                                                                                <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;">
-                                                                                    <option value="ROG">ROG</option>
-                                                                                    <option value="Pure">Pure</option>
-                                                                                </select>
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr id="tuffFWBuildRow">
-                                                                            <td style="text-align: left;"><label for="tuffFWBuildType">TUF F/W Build Type</label></td>
-                                                                            <td>
-                                                                                <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 20%;">
-                                                                                    <option value="TUF">TUF</option>
-                                                                                    <option value="Pure">Pure</option>
-                                                                                </select>
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
-                                                                            <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled" /></td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="emailFormat">Email Format</label></td>
-                                                                            <td>
-                                                                                <select id="emailFormat" name="emailFormat" style="width: 20%;">
-                                                                                    <option value="HTML">HTML</option>
-                                                                                    <option value="PlainText">Plain Text</option>
-                                                                                </select>
-                                                                            </td>
-                                                                        </tr>
-                                                                        <tr>
-                                                                            <td style="text-align: left;"><label for="secondaryEmail">Secondary Email for Notifications</label></td>
-                                                                            <td><input type="email" id="secondaryEmail" name="secondaryEmail" style="width: 50%;" /></td>
-                                                                        </tr>
-                                                                    </table>
-                                                                    <div style="text-align: center; margin-top: 10px;">
-                                                                        <input type="submit" onclick="SaveAdvancedConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
-                                                                    </div>
-                                                                </form>
-                                                            </td>
-                                                        </tr>
-                                                    </tbody>
-                                                </table>
-                                                <div style="margin-top:10px;text-align:center;">
-                                                    MerlinAU v1.3.8 by ExtremeFiretop &amp; Martinski W.
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    </tbody>
-                                </table>
-                            </td>
-                        </tr>
-                    </table>
-                </td>
-                <td width="10"></td>
-            </tr>
-        </table>
-    </form>
+        # Use set to read the output of the function into variables #
+        if "$isGNUtonFW"
+        then
+           Say "Using release information for Gnuton Firmware."
+           _GnutonBuildSelection_
+           md5_url="$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE" "$firmware_choice")"
+           GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+           set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
+           retCode="$?"
+        else
+           Say "Using release information for Merlin Firmware."
+           set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+           retCode="$?"
+        fi
+        if [ "$retCode" -eq 0 ] && [ $# -eq 2 ] && \
+           [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
+        then
+            release_version="$1"
+            release_link="$2"
+        else
+            Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
+        fi
 
-    <div id="footer"></div>
-</body>
-</html>
+        if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
+        then
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 0
+        fi
+    fi
+
+    # Extracting the F/W Update codebase number to use in the curl #
+    fwUpdateBaseNum="$(echo "$release_version" | cut -d'.' -f1)"
+    # Inserting dots between each number
+    dottedVersion="$(echo "$fwUpdateBaseNum" | sed 's/./&./g' | sed 's/.$//')"
+
+    ## Check for Login Credentials ##
+    credsBase64="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        return 1
+    fi
+
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2023-Dec-09] ##
+    ##---------------------------------------##
+    # Get the required memory for the firmware download and extraction
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link")"
+    if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$requiredRAM_kb" -gt 51200 ]
+    then
+        if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
+        then
+            Say "${REDct}**ERROR**${NOct}: A USB drive is required for the F/W update due to limited RAM."
+            "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+            return 1
+        fi
+    fi
+
+    freeRAM_kb="$(_GetFreeRAM_KB_)"
+    availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
+
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Jul-29] ##
+    ##----------------------------------------##
+    _RunBackupmon_
+    retCode="$?"
+
+    if [ "$retCode" -ne 0 ]
+    then
+        Say "\n${REDct}**IMPORTANT NOTICE**:${NOct}\n"
+        Say "The firmware flash has been ${REDct}CANCELLED${NOct} due to a failed backup from BACKUPMON.\n"
+        Say "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
+        Say "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        _Reset_LEDs_
+        return 1
+    fi
+
+    # Background function to create a blinking LED effect #
+    _Toggle_LEDs_ 2 & Toggle_LEDs_PID=$!
+
+    # Compare versions before deciding to download #
+    if ! "$offlineUpdateTrigger" && \
+       [ "$releaseVersionNum" -gt "$currentVersionNum" ]
+    then
+        Say "Latest release version is ${GRNct}${release_version}${NOct}."
+        Say "Downloading ${GRNct}${release_link}${NOct}"
+        echo
+
+        ##------------------------------------------##
+        ## Modified by ExtremeFiretop [2024-Apr-24] ##
+        ##------------------------------------------##
+        # Avoid error message about HSTS database #
+        wgetHstsFile="/tmp/home/root/.wget-hsts"
+        [ -s "$wgetHstsFile" ] && chmod 0644 "$wgetHstsFile"
+
+        if "$isGNUtonFW"
+        then
+            _DownloadForGnuton_
+            retCode="$?"
+        else
+            _DownloadForMerlin_
+            retCode="$?"
+        fi
+        if [ "$retCode" -ne 0 ]
+        then
+            Say "${REDct}**ERROR**${NOct}: Firmware files were not downloaded successfully."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            _Reset_LEDs_
+            return 1
+        fi
+    fi
+
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Feb-18] ##
+    ##------------------------------------------##
+    freeRAM_kb="$(_GetFreeRAM_KB_)"
+    availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
+
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Apr-21] ##
+    ##------------------------------------------##
+    if "$isGNUtonFW"
+    then
+        _CopyGnutonFiles_
+        retCode="$?"
+    else
+        _UnzipMerlin_
+        retCode="$?"
+    fi
+    if [ "$retCode" -ne 0 ]
+    then
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        _Reset_LEDs_
+        return 1
+    fi
+
+    freeRAM_kb="$(_GetFreeRAM_KB_)"
+    availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
+
+    # Navigate to the firmware directory
+    cd "$FW_BIN_DIR"
+
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Aug-11] ##
+    ##------------------------------------------##
+    if ! { "$isGNUtonFW" && "$offlineUpdateTrigger" ; }
+    then
+        if ! _ChangelogVerificationCheck_ "interactive"
+        then
+            "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+            _Reset_LEDs_
+            return 1
+        fi
+    fi
+
+    freeRAM_kb="$(_GetFreeRAM_KB_)"
+    availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
+
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Jun-04] ##
+    ##----------------------------------------##
+    pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
+
+    if [ "$fwInstalledBaseVers" -le 3004 ] && [ "$fwUpdateBaseNum" -le 3004 ]
+    then
+        # Handle upgrades from 3004 and lower #
+
+        # Detect ROG firmware file #
+        rog_file="$(ls | grep -i '_rog_')"
+
+        # Fetch the previous choice from the settings file
+        previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+        # Check if a ROG build is present
+        if [ -n "$rog_file" ]
+        then
+            # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
+            if [ "$previous_choice" = "y" ]
+            then
+                Say "ROG Build selected for flashing"
+                firmware_file="$rog_file"
+            elif [ "$previous_choice" = "n" ]
+            then
+                Say "Pure Build selected for flashing"
+                firmware_file="$pure_file"
+            elif [ "$inMenuMode" = true ]
+            then
+                printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
+                printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+                printf "Enter your choice (y/n): "
+                read -r choice
+                if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                    Say "ROG Build selected for flashing"
+                    firmware_file="$rog_file"
+                    Update_Custom_Settings "ROGBuild" "y"
+                else
+                    Say "Pure Build selected for flashing"
+                    firmware_file="$pure_file"
+                    Update_Custom_Settings "ROGBuild" "n"
+                fi
+            else
+                # Default to pure_file in non-interactive mode if no previous choice
+                Say "Pure Build selected for flashing"
+                Update_Custom_Settings "ROGBuild" "n"
+                firmware_file="$pure_file"
+            fi
+        else
+            # No ROG build found, use the pure build
+            Say "No ROG Build detected. Skipping."
+            firmware_file="$pure_file"
+        fi
+    elif [ "$fwInstalledBaseVers" -eq 3004 ] && [ "$fwUpdateBaseNum" -ge 3006 ]
+    then
+        # Handle upgrade from 3004 to 3006
+        # Fetch the previous choice from the settings file
+        previous_choice="$(Get_Custom_Setting "ROGBuild")"
+
+        # Handle upgrade from 3004 to 3006 if there is a ROG setting
+        if [ "$previous_choice" = "y" ]
+        then
+            Say "Upgrading from 3004 to 3006, ROG UI is no longer supported, auto-selecting Pure UI firmware."
+            firmware_file="$pure_file"
+            Update_Custom_Settings "ROGBuild" "n"
+        else
+            firmware_file="$pure_file"
+        fi
+    else
+        # Handle upgrades from 3006 and higher #
+        firmware_file="$pure_file"
+    fi
+
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Aug-11] ##
+    ##------------------------------------------##
+    if "$offlineUpdateTrigger"
+    then
+        if ! "$isGNUtonFW"
+        then
+            _CheckOfflineFirmwareSHA256_
+            retCode="$?"
+        elif [ -f "${FW_BIN_DIR}/${FW_FileName}.md5" ]
+        then
+            _CheckFirmwareMD5_
+            retCode="$?"
+        else
+            retCode=0  # Skip if the MD5 file does not exist
+        fi
+    else
+        if "$isGNUtonFW"
+        then
+            _CheckFirmwareMD5_
+            retCode="$?"
+        else
+            _CheckOnlineFirmwareSHA256_
+            retCode="$?"
+        fi
+    fi
+    if [ "$retCode" -ne 0 ]
+    then
+        "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+        _Reset_LEDs_
+        return 1
+    fi
+
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2024-Mar-16] ##
+    ##----------------------------------------##
+    freeRAM_kb="$(_GetFreeRAM_KB_)"
+    availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
+    check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
+
+    routerURLstr="$(_GetRouterURL_)"
+    Say "Router Web URL is: ${routerURLstr}"
+
+    if "$isInteractive"
+    then
+        printf "${GRNct}**IMPORTANT**:${NOct}\nThe firmware flash is about to start.\n"
+        printf "Press <Enter> to stop now, or type ${GRNct}Y${NOct} to continue.\n"
+        printf "Once started, the flashing process CANNOT be interrupted.\n"
+        if ! _WaitForYESorNO_ "Continue?"
+        then
+            Say "F/W Update was cancelled by user."
+            _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+            return 1
+        fi
+    fi
+
+    #------------------------------------------------------------#
+    # Restart the WebGUI to make sure nobody else is logged in
+    # so that the F/W Update can start without interruptions.
+    #------------------------------------------------------------#
+    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+    /sbin/service restart_httpd >/dev/null 2>&1 &
+    sleep 5
+
+    # Send last email notification before F/W flash #
+    _SendEMailNotification_ START_FW_UPDATE_STATUS
+
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Sep-07] ##
+    ##------------------------------------------##
+    curl_response="$(curl -k "${routerURLstr}/login.cgi" \
+    --referer "${routerURLstr}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${routerURLstr}/" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsBase64}" \
+    --cookie-jar /tmp/cookie.txt)"
+
+    if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
+    then
+        if [ -f /opt/bin/diversion ]
+        then
+            # Extract version number from Diversion
+            local DIVER_VERSION="$(grep "^VERSION=" /opt/bin/diversion | awk -F'=' '{print $2}' | tr -d ' ')"
+
+            # Adjust version format from 1.46 to 1.4.6 if needed
+            local DDOT_COUNT="$(echo "$DIVER_VERSION" | tr -cd '.' | wc -c)"
+            if [ "$DDOT_COUNT" -eq 0 ]; then
+                # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
+                DIVER_VERSION="${DIVER_VERSION}.0.0"
+            elif [ "$DDOT_COUNT" -eq 1 ]; then
+                # Check if there is only one character after the dot
+                if echo "$DIVER_VERSION" | grep -qE '^[0-9]+\.[0-9]{1}$'; then
+                    # If the version is like 5.2, convert it to 5.2.0
+                    DIVER_VERSION="${DIVER_VERSION}.0"
+                else
+                    # For versions like 5.26, insert a dot between the last two digits
+                    DIVER_VERSION="$(echo "$DIVER_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
+                fi
+            fi
+
+            # Convert version strings to comparable numbers
+            local currentDIVER_version="$(_ScriptVersionStrToNum_ "$DIVER_VERSION")"
+            local requiredDIVER_version="$(_ScriptVersionStrToNum_ "5.2.0")"
+
+            # Diversion unmount command also unloads entware services #
+            Say "Stopping Diversion service..."
+            if [ "$currentDIVER_version" -ge "$requiredDIVER_version" ]
+            then
+                /opt/bin/diversion temp_disable &
+            else
+                local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
+                if [ "$AllowVPN" = "DISABLED" ]
+                then
+                    /opt/bin/diversion unmount &
+                fi
+            fi
+            sleep 5
+        fi
+
+        #-------------------------------------------------------
+        # Stop toggling LEDs during the F/W flash to avoid
+        # modifying NVRAM during the actual flash process.
+        #-------------------------------------------------------
+        _Reset_LEDs_
+
+        ##----------------------------------------##
+        ## Modified by Martinski W. [2024-Jul-24] ##
+        ##----------------------------------------##
+        # Remove SIGHUP to allow script to continue #
+        trap '' HUP
+
+        # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
+        _EntwareServicesHandler_ stop -noskip
+
+        ##-------------------------------------##
+        ## Added by Martinski W. [2024-Sep-15] ##
+        ##-------------------------------------##
+        # Remove cron jobs from 3rd-party Add-Ons #
+        _RemoveCronJobsFromAddOns_
+
+        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+        echo
+        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
+        echo
+
+        # *WARNING*: NO MORE logging at this point & beyond #
+        /sbin/ejusb -1 0 -u 1 2>/dev/null
+
+        #----------------------------------------------------------------------------------#
+        # **IMPORTANT NOTE**:
+        # Due to the nature of 'nohup' and the specific behavior of this 'curl' request,
+        # the following 'curl' command MUST always be the last step in this block.
+        # Do NOT insert any commands after it! (unless you understand the implications).
+        #----------------------------------------------------------------------------------#
+        nohup curl -k "${routerURLstr}/upgrade.cgi" \
+        --referer "${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
+        --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+        -H 'Accept-Language: en-US,en;q=0.5' \
+        -H "Origin: ${routerURLstr}/" \
+        -F 'current_page=Advanced_FirmwareUpgrade_Content.asp' \
+        -F 'next_page=' \
+        -F 'action_mode=' \
+        -F 'action_script=' \
+        -F 'action_wait=' \
+        -F 'preferred_lang=EN' \
+        -F "firmver=${dottedVersion}" \
+        -F "file=@${firmware_file}" \
+        --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
+        curlPID=$!
+
+        #----------------------------------------------------------#
+        # In the rare case that the F/W Update gets "stuck" for
+        # some reason & the "curl" cmd never returns, we create
+        # a background child process that sleeps for 3 minutes
+        # and then kills the "curl" process if it still exists.
+        # Otherwise, this child process does nothing & returns.
+        # NORMALLY the "Curl" command returns almost instantly
+        # once the upload is complete.
+        #----------------------------------------------------------#
+        (
+           sleep 180
+           if [ "$curlPID" -gt 0 ]
+           then
+               kill -EXIT $curlPID 2>/dev/null || return
+               kill -TERM $curlPID 2>/dev/null
+           fi
+        ) &
+        wait $curlPID ; curlPID=0
+        #----------------------------------------------------------#
+        # Let's wait for 3 minutes here. If the router does not
+        # reboot by itself after the process returns, do it now.
+        #----------------------------------------------------------#
+        sleep 180
+        _ReleaseLock_
+        /sbin/service reboot
+    else
+        Say "${REDct}**ERROR**${NOct}: Router Login failed."
+        if "$inMenuMode" || "$isInteractive"
+        then
+            printf "\n${routerLoginFailureMsg}\n\n"
+            _WaitForEnterKey_
+        fi
+        _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
+        _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+        _EntwareServicesHandler_ start
+        if [ -f /opt/bin/diversion ]
+        then
+            Say "Restarting Diversion service..."
+            if [ "$currentDIVER_version" -ge "$requiredDIVER_version" ]
+            then
+                /opt/bin/diversion enable &
+            else
+                AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
+                if [ "$AllowVPN" = "DISABLED" ]
+                then
+                    Say "Unable to Restart Diversion. Please reboot to restart entware services."
+                fi
+            fi
+            sleep 5
+        fi
+    fi
+
+    "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-17] ##
+##----------------------------------------##
+_PostUpdateEmailNotification_()
+{
+   _DelPostUpdateEmailNotifyScriptHook_
+   Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
+
+   local theWaitDelaySecs=10
+   local maxWaitDelaySecs=600  #10 minutes#
+   local curWaitDelaySecs=0
+   local logMsg="Post-Reboot Update Email Notification Wait Timeout"
+   Say "START of ${logMsg}."
+
+   #--------------------------------------------------------------
+   # Wait until all services are started, including WAN & NTP
+   # so the system clock is updated/synced with correct time.
+   #--------------------------------------------------------------
+   while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   do
+      if [ "$(nvram get ntp_ready)" -eq 1 ] && \
+         [ "$(nvram get start_service_ready)" -eq 1 ] && \
+         [ "$(nvram get success_start_service)" -eq 1 ]
+      then break ; fi
+
+      if [ "$curWaitDelaySecs" -gt 0 ] && \
+         [ "$((curWaitDelaySecs % 60))" -eq 0 ]
+      then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
+
+      sleep $theWaitDelaySecs
+      curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
+   done
+
+   if [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   then Say "$logMsg [$curWaitDelaySecs sec.] succeeded."
+   else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
+   fi
+
+   Say "END of $logMsg [$$curWaitDelaySecs sec.]"
+   sleep 20  ## Let's wait a bit & proceed ##
+   _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-17] ##
+##----------------------------------------##
+_PostRebootRunNow_()
+{
+   _DelPostRebootRunScriptHook_
+
+   local theWaitDelaySecs=10
+   local maxWaitDelaySecs=600  #10 minutes#
+   local curWaitDelaySecs=0
+   local logMsg="Post-Reboot F/W Update Run Wait Timeout"
+   Say "START of ${logMsg}."
+
+   #--------------------------------------------------------------
+   # Wait until all services are started, including WAN & NTP
+   # so the system clock is updated/synced with correct time.
+   # Wait for "F/W ZIP BASE" directory to be mounted as well.
+   #--------------------------------------------------------------
+   while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   do
+      if [ -d "$FW_ZIP_BASE_DIR" ] && \
+         [ "$(nvram get ntp_ready)" -eq 1 ] && \
+         [ "$(nvram get start_service_ready)" -eq 1 ] && \
+         [ "$(nvram get success_start_service)" -eq 1 ]
+      then break ; fi
+
+      if [ "$curWaitDelaySecs" -gt 0 ] && \
+         [ "$((curWaitDelaySecs % 60))" -eq 0 ]
+      then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
+
+      sleep $theWaitDelaySecs
+      curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
+   done
+
+   if [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+   then Say "$logMsg [$curWaitDelaySecs sec.] succeeded."
+   else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
+   fi
+
+   Say "END of $logMsg [$$curWaitDelaySecs sec.]"
+   sleep 30  ## Let's wait a bit & proceed ##
+   _RunFirmwareUpdateNow_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
+_DelFWAutoUpdateHook_()
+{
+   local hookScriptFile
+
+   hookScriptFile="$hookScriptFPath"
+   if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
+
+   if grep -qE "$CRON_SCRIPT_JOB" "$hookScriptFile"
+   then
+       sed -i -e '/\/'"$ScriptFileName"' addCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       if [ $? -eq 0 ]
+       then
+           Say "Cron job hook was deleted successfully from '$hookScriptFile' script."
+       fi
+   else
+       printf "Cron job hook does not exist in '$hookScriptFile' script.\n"
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-17] ##
+##----------------------------------------##
+_AddFWAutoUpdateHook_()
+{
+   local hookScriptFile  jobHookAdded=false
+
+   hookScriptFile="$hookScriptFPath"
+   if [ ! -f "$hookScriptFile" ]
+   then
+      jobHookAdded=true
+      {
+        echo "#!/bin/sh"
+        echo "# $hookScriptFName"
+        echo "#"
+        echo "$CRON_SCRIPT_HOOK"
+      } > "$hookScriptFile"
+   #
+   elif ! grep -qE "$CRON_SCRIPT_JOB" "$hookScriptFile"
+   then
+      jobHookAdded=true
+      echo "$CRON_SCRIPT_HOOK" >> "$hookScriptFile"
+   fi
+   chmod 0755 "$hookScriptFile"
+
+   if "$jobHookAdded"
+   then Say "Cron job hook was added successfully to '$hookScriptFile' script."
+   else Say "Cron job hook already exists in '$hookScriptFile' script."
+   fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
+_AddScriptAutoUpdateHook_()
+{
+   local hookScriptFile  jobHookAdded=false
+
+   hookScriptFile="$hookScriptFPath"
+   if [ ! -f "$hookScriptFile" ]
+   then
+      jobHookAdded=true
+      {
+        echo "#!/bin/sh"
+        echo "# $hookScriptFName"
+        echo "#"
+        echo "$DAILY_SCRIPT_UPDATE_CHECK_HOOK"
+      } > "$hookScriptFile"
+   #
+   elif ! grep -qE "$DAILY_SCRIPT_UPDATE_CHECK_JOB" "$hookScriptFile"
+   then
+      jobHookAdded=true
+      echo "$DAILY_SCRIPT_UPDATE_CHECK_HOOK" >> "$hookScriptFile"
+   fi
+   chmod 0755 "$hookScriptFile"
+
+   if "$jobHookAdded"
+   then Say "Cron job hook was added successfully to '$hookScriptFile' script."
+   else Say "Cron job hook already exists in '$hookScriptFile' script."
+   fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
+_DelScriptAutoUpdateHook_()
+{
+   local hookScriptFile
+
+   hookScriptFile="$hookScriptFPath"
+   if [ ! -f "$hookScriptFile" ] ; then return 1 ; fi
+
+   if grep -qE "$DAILY_SCRIPT_UPDATE_CHECK_JOB" "$hookScriptFile"
+   then
+       sed -i -e '/\/'"$ScriptFileName"' scriptAUCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       if [ $? -eq 0 ]
+       then
+           Say "Cron job hook was deleted successfully from '$hookScriptFile' script."
+       fi
+   else
+       printf "Cron job hook does not exist in '$hookScriptFile' script.\n"
+   fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-24] ##
+##----------------------------------------##
+_DoUninstall_()
+{
+   printf "Are you sure you want to uninstall $ScriptFileName script now"
+   ! _WaitForYESorNO_ && return 0
+
+   _DelFWAutoUpdateHook_
+   _DelFWAutoUpdateCronJob_
+   _DelScriptAutoUpdateHook_
+   _DelScriptAutoUpdateCronJob_
+   _DelPostRebootRunScriptHook_
+   _DelPostUpdateEmailNotifyScriptHook_
+   _Unmount_WebUI_
+   _Auto_ServiceEvent_ delete 2>/dev/null
+
+   if rm -fr "${SETTINGS_DIR:?}" && \
+      rm -fr "${FW_BIN_BASE_DIR:?}/$ScriptDirNameD" && \
+      rm -fr "${FW_LOG_BASE_DIR:?}/$ScriptDirNameD" && \
+      rm -fr "${FW_ZIP_BASE_DIR:?}/$ScriptDirNameD" && \
+      rm -f "$ScriptFilePath"
+   then
+       Say "${GRNct}Successfully Uninstalled.${NOct}"
+   else
+       Say "${REDct}Error: Uninstallation failed.${NOct}"
+   fi
+   _DoExit_ 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-18] ##
+##-------------------------------------##
+_SetEMailFormatType_()
+{
+   local doReturnToMenu
+   local currFormatOpt  nextFormatOpt  currFormatStr
+
+   currFormatOpt="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
+   if [ -z "$currFormatOpt" ] || [ "$currFormatOpt" = "TBD" ]
+   then
+       nextFormatOpt=""
+       currFormatOpt="$sendEMailFormaType"
+   else
+       nextFormatOpt="$currFormatOpt"
+   fi
+   currFormatStr="Current Format: ${GRNct}${currFormatOpt}${NOct}"
+
+   doReturnToMenu=false
+   while true
+   do
+       printf "\n${SEPstr}"
+       printf "\nChoose the format type for email notifications:\n"
+       printf "\n  ${GRNct}1${NOct}. HTML\n"
+       printf "\n  ${GRNct}2${NOct}. Plain Text\n"
+       printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
+       printf "${SEPstr}\n"
+       printf "[$currFormatStr] Enter selection:  "
+       read -r userInput
+
+       [ -z "$userInput" ] && break
+
+       if echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       case $userInput in
+           1) nextFormatOpt="HTML" ; break
+              ;;
+           2) nextFormatOpt="Plain Text" ; break
+              ;;
+           *) echo ; _InvalidMenuSelection_
+              ;;
+       esac
+   done
+
+   "$doReturnToMenu" && return 0
+
+   if [ "$nextFormatOpt" = "$currFormatOpt" ]
+   then
+       _RunEMailNotificationTest_ && _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+       return 0
+   fi
+
+   Update_Custom_Settings FW_New_Update_EMail_FormatType "$nextFormatOpt"
+   printf "\nThe email format type was updated successfully.\n"
+
+   _RunEMailNotificationTest_
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Feb-16] ##
+##-------------------------------------##
+_SetSecondaryEMailAddress_()
+{
+   local currCC_NameOpt  currCC_AddrOpt
+   local nextCC_NameOpt  nextCC_AddrOpt
+   local currCC_NameStr="Current Name/Alias:"
+   local currCC_AddrStr="Current Address:"
+   local clearOptStr="${GRNct}c${NOct}=Clear/Remove Setting"
+   local doReturnToMenu  doClearSetting  minCharLen  maxCharLen  curCharLen
+
+   currCC_NameOpt="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
+   currCC_AddrOpt="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+
+   if [ -z "$currCC_AddrOpt" ] || [ "$currCC_AddrOpt" = "TBD" ]
+   then
+       nextCC_AddrOpt=""  currCC_AddrOpt=""
+       currCC_AddrStr="$currCC_AddrStr ${REDct}NONE${NOct}"
+   else
+       nextCC_AddrOpt="$currCC_AddrOpt"
+       currCC_AddrStr="$currCC_AddrStr ${GRNct}${currCC_AddrOpt}${NOct}"
+   fi
+
+   userInput=""
+   minCharLen=10
+   maxCharLen=64
+   doReturnToMenu=false
+   doClearSetting=false
+
+   while true
+   do
+       printf "\nEnter a secondary email address to receive email notifications.\n"
+       if [ -z "$currCC_AddrOpt" ]
+       then printf "[${theADExitStr}] [${currCC_AddrStr}]:  "
+       else printf "[${theADExitStr}] [${clearOptStr}] [${currCC_AddrStr}]:  "
+       fi
+       read -r userInput
+
+       [ -z "$userInput" ] && break
+
+       if echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       if echo "$userInput" | grep -qE "^(c|C)$"
+       then doClearSetting=true ; break ; fi
+
+       if ! echo "$userInput" | grep -qE ".+[@].+"
+       then
+           printf "\n${REDct}INVALID input.${NOct} "
+           printf "No ampersand character [${GRNct}@${NOct}] is found.\n"
+           _WaitForEnterKey_
+           clear
+           continue
+       fi
+
+       curCharLen="${#userInput}"
+       if [ "$curCharLen" -lt "$minCharLen" ] || [ "$curCharLen" -gt "$maxCharLen" ]
+       then
+           printf "\n${REDct}INVALID input length${NOct} "
+           printf "[Minimum=${GRNct}${minCharLen}${NOct}, Maximum=${GRNct}${maxCharLen}${NOct}]\n"
+           _WaitForEnterKey_
+           clear
+           continue
+       fi
+
+       nextCC_AddrOpt="$userInput"
+       break
+   done
+
+   if "$doReturnToMenu" || \
+      { [ -z "$nextCC_AddrOpt" ] && [ -z "$currCC_AddrOpt" ] ; }
+   then return 0 ; fi   ##NO Change##
+
+   if "$doClearSetting" || \
+      { [ -z "$nextCC_AddrOpt" ] && [ -n "$currCC_AddrOpt" ] ; }
+   then
+       Update_Custom_Settings FW_New_Update_EMail_CC_Name "TBD"
+       Update_Custom_Settings FW_New_Update_EMail_CC_Address "TBD"
+       echo "The secondary email address and associated name/alias were removed successfully."
+       _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+       return 0
+   fi
+
+   if [ -z "$currCC_NameOpt" ] || [ "$currCC_NameOpt" = "TBD" ]
+   then
+       currCC_NameOpt=""
+       nextCC_NameOpt="${nextCC_AddrOpt%%@*}"
+       currCC_NameStr="$currCC_NameStr ${GRNct}${nextCC_NameOpt}${NOct}"
+   else
+       nextCC_NameOpt="$currCC_NameOpt"
+       currCC_NameStr="$currCC_NameStr ${GRNct}${currCC_NameOpt}${NOct}"
+   fi
+
+   userInput=""
+   minCharLen=6
+   maxCharLen=64
+   doReturnToMenu=false
+
+   while true
+   do
+       printf "\nEnter a name or alias for the secondary email address.\n"
+       printf "[${theADExitStr}] [${currCC_NameStr}]:  "
+       read -r userInput
+
+       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then doReturnToMenu=true ; break ; fi
+
+       curCharLen="${#userInput}"
+       if [ "$curCharLen" -lt "$minCharLen" ] || [ "$curCharLen" -gt "$maxCharLen" ]
+       then
+           printf "${REDct}INVALID input length${NOct} "
+           printf "[Minimum=${GRNct}${minCharLen}${NOct}, Maximum=${GRNct}${maxCharLen}${NOct}]\n"
+           continue
+       fi
+
+       nextCC_NameOpt="$userInput"
+       break;
+   done
+
+   if [ "$nextCC_AddrOpt" = "$currCC_AddrOpt" ] && [ "$nextCC_NameOpt" = "$currCC_NameOpt" ]
+   then
+       _RunEMailNotificationTest_ && _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+       return 0
+   fi
+
+   Update_Custom_Settings FW_New_Update_EMail_CC_Name "$nextCC_NameOpt"
+   Update_Custom_Settings FW_New_Update_EMail_CC_Address "$nextCC_AddrOpt"
+   printf "\nThe secondary email address and associated name/alias were updated successfully.\n"
+
+   _RunEMailNotificationTest_
+   _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-06] ##
+##----------------------------------------##
+_ValidatePrivateIPv4Address_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^${IPv4addrs_RegEx}$" || \
+      ! echo "$1" | grep -qE "^${IPv4privt_RegEx}"
+   then return 1
+   else return 0
+   fi
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Apr-30] ##
+##------------------------------------------##
+_ProcessMeshNodes_()
+{
+    includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
+    if [ $# -eq 0 ] || [ -z "$1" ]
+    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+
+    uid=1
+    if ! node_list="$(_GetNodeIPv4List_)"
+    then node_list="" ; fi
+
+    if "$inRouterSWmode"
+    then
+        if [ -n "$node_list" ]
+        then
+            # Iterate over the list of nodes and print information for each node
+            for nodeIPv4addr in $node_list
+            do
+                ! _ValidatePrivateIPv4Address_ "$nodeIPv4addr" && continue
+                _GetNodeInfo_ "$nodeIPv4addr"
+                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
+                then
+                    Node_FW_NewUpdateVersion="NONE FOUND"
+                else
+                    _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
+                fi
+
+                # Apply extra logic if flag is '1'
+                if [ "$includeExtraLogic" -eq 1 ]; then
+                    _PrintNodeInfo "$nodeIPv4addr" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
+                    uid="$((uid + 1))"
+                fi
+            done
+            if [ -s "$tempNodeEMailList" ]; then
+                _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
+            fi
+        else
+            if [ "$includeExtraLogic" -eq 1 ]; then
+                printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
+            fi
+        fi
+    fi
+}
+
+_Mount_WebUI_
+_Auto_ServiceEvent_ create 2>/dev/null
+_Set_Version_SharedSettings_ "$SCRIPT_VERSION"
+_Create_Symlinks_
+keepZIPfile=0
+keepWfile=0
+trap '_DoCleanUp_ 0 "$keepZIPfile" "$keepWfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-28] ##
+##----------------------------------------##
+# Prevent running this script multiple times simultaneously #
+if ! _AcquireLock_
+then
+    if [ $# -eq 1 ] && [ "$1" = "resetLockFile" ]
+    then
+        _ReleaseLock_
+        Say "Lock file has now been reset. Exiting..."
+        exit 0
+    fi
+    Say "Exiting..." ; exit 1
+fi
+
+# Check if the router model is supported OR if
+# it has the minimum firmware version supported.
+check_model_support
+check_version_support
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Jan-24] ##
+##-------------------------------------##
+_CheckEMailConfigFileFromAMTM_ 0
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
+if [ $# -gt 0 ]
+then
+   inMenuMode=false
+   case $1 in
+       run_now) _RunFirmwareUpdateNow_
+           ;;
+       processNodes) _ProcessMeshNodes_ 0
+           ;;
+       addCronJob) _AddFWAutoUpdateCronJob_
+           ;;
+       scriptAUCronJob) _AddScriptAutoUpdateCronJob_
+           ;;
+       postRebootRun) _PostRebootRunNow_
+           ;;
+       postUpdateEmail) _PostUpdateEmailNotification_
+           ;;
+       about) _ShowAbout_
+           ;;
+       help) _ShowHelp_
+           ;;
+       checkupdates) _CheckForNewScriptUpdates_
+           ;;
+       forceupdate) _SCRIPTUPDATE_ force
+           ;;
+       develop) _ChangeToDev_
+           ;;
+       stable) _ChangeToStable_
+           ;;
+       uninstall) _DoUninstall_
+           ;;
+	   service_event)
+		   if [ "$3" = "MerlinAUuninstall" ]; then
+		   	   _DoUninstall_
+			   sleep 3
+		   elif [ "$3" = "MerlinAUchangelog" ]; then
+			   #_Conf_FromSettings_
+			   _ReleaseLock_
+		   elif [ "$3" = "MerlinAUcheck" ]; then
+			   _RunFirmwareUpdateNow_
+		   elif [ "$3" = "MerlinAUconfig" ]; then
+			   _Conf_FromSettings_
+		   fi
+           ;;
+       *) printf "${REDct}INVALID Parameter.${NOct}\n"
+           ;;
+   esac
+   _DoExit_ 0
+fi
+
+# Download the latest version file from the source repository #
+# to check if there's a new version update to notify the user #
+_CheckForNewScriptUpdates_
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
+then
+    _AddScriptAutoUpdateCronJob_
+fi
+
+# Check if the PREVIOUS Cron Job ID already exists #
+if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
+then  #If it exists, delete the OLD one & create a NEW one#
+    cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
+fi
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-24] ##
+##----------------------------------------##
+FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+[ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
+if [ "$FW_UpdateCheckState" -eq 1 ]
+then
+    runfwUpdateCheck=true
+
+    # Check if the F/W Update CRON job already exists #
+    if ! eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+    then
+        logo
+        # If CRON job does not exist, ask user for permission to add #
+        printf "Do you want to enable automatic firmware update checks?\n"
+        printf "This will create a CRON job to check for updates regularly.\n"
+        printf "The CRON can be disabled at anytime via the main menu.\n"
+        if _WaitForYESorNO_
+        then
+            # Add the cron job since it doesn't exist and user consented
+            printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+            if _AddFWAutoUpdateCronJob_
+            then
+                printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
+                printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+            else
+                printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+            fi
+            _AddFWAutoUpdateHook_
+        else
+            printf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
+            printf "You can enable this feature later via the main menu.\n"
+            FW_UpdateCheckState=0
+            runfwUpdateCheck=false
+            nvram set firmware_check_enable="$FW_UpdateCheckState"
+            nvram commit
+        fi
+    else
+        printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+        _AddFWAutoUpdateHook_
+    fi
+
+    # Check if there's a new F/W update available #
+    "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ] && sh $FW_UpdateCheckScript 2>&1 &
+    _WaitForEnterKey_
+fi
+
+padStr="      "
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jun-05] ##
+##----------------------------------------##
+FW_RouterProductID="${GRNct}${PRODUCT_ID}${NOct}"
+# Some Model IDs have a lower case suffix of the same Product ID #
+if [ "$PRODUCT_ID" = "$(echo "$MODEL_ID" | tr 'a-z' 'A-Z')" ]
+then FW_RouterModelID="${FW_RouterProductID}"
+else FW_RouterModelID="${FW_RouterProductID}/${GRNct}${MODEL_ID}${NOct}"
+fi
+
+FW_InstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+FW_InstalledVerStr="${GRNct}${FW_InstalledVersion}${NOct}"
+
+##-------------------------------------##
+## Added by Martinski W. [2024-May-03] ##
+##-------------------------------------##
+_list2_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1 ; fi
+   local prevIFS="$IFS"
+   IFS="$(printf '\n\t')"
+   ls $1 $2 ; retcode="$?"
+   IFS="$prevIFS"
+   return "$retcode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-May-03] ##
+##-------------------------------------##
+_GetFileSelectionIndex_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local selectStr  promptStr  numRegEx  indexNum  indexList
+   local multiIndexListOK  theAllStr="${GRNct}all${NOct}"
+
+   if [ "$1" -eq 1 ]
+   then selectStr="${GRNct}1${NOct}"
+   else selectStr="${GRNct}1${NOct}-${GRNct}${1}${NOct}"
+   fi
+
+   if [ $# -lt 2 ] || [ "$2" != "-MULTIOK" ]
+   then
+       multiIndexListOK=false
+       promptStr="Enter selection [${selectStr}] [${theLGExitStr}]?"
+   else
+       multiIndexListOK=true
+       promptStr="Enter selection [${selectStr} | ${theAllStr}] [${theLGExitStr}]?"
+   fi
+   fileIndex=0  multiIndex=false
+   numRegEx="([1-9]|[1-9][0-9])"
+
+   while true
+   do
+       printf "${promptStr}  " ; read -r userInput
+
+       if [ -z "$userInput" ] || \
+          echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       then fileIndex="NONE" ; break ; fi
+
+       if "$multiIndexListOK" && \
+          echo "$userInput" | grep -qE "^(all|All)$"
+       then fileIndex="ALL" ; break ; fi
+
+       if echo "$userInput" | grep -qE "^${numRegEx}$" && \
+          [ "$userInput" -gt 0 ] && [ "$userInput" -le "$1" ]
+       then fileIndex="$userInput" ; break ; fi
+
+       if "$multiIndexListOK" && \
+          echo "$userInput" | grep -qE "^${numRegEx}\-${numRegEx}[ ]*$"
+       then ## Index Range ##
+           index1st="$(echo "$userInput" | awk -F '-' '{print $1}')"
+           indexMax="$(echo "$userInput" | awk -F '-' '{print $2}')"
+           if [ "$index1st" -lt "$indexMax" ]  && \
+              [ "$index1st" -gt 0 ] && [ "$index1st" -le "$1" ] && \
+              [ "$indexMax" -gt 0 ] && [ "$indexMax" -le "$1" ]
+           then
+               indexNum="$index1st"
+               indexList="$indexNum"
+               while [ "$indexNum" -lt "$indexMax" ]
+               do
+                   indexNum="$((indexNum+1))"
+                   indexList="${indexList},${indexNum}"
+               done
+               userInput="$indexList"
+           fi
+       fi
+
+       if "$multiIndexListOK" && \
+          echo "$userInput" | grep -qE "^${numRegEx}(,[ ]*${numRegEx}[ ]*)+$"
+       then ## Index List ##
+           indecesOK=true
+           indexList="$(echo "$userInput" | sed 's/ //g' | sed 's/,/ /g')"
+           for theIndex in $indexList
+           do
+              if [ "$theIndex" -eq 0 ] || [ "$theIndex" -gt "$1" ]
+              then indecesOK=false ; break ; fi
+           done
+           "$indecesOK" && fileIndex="$indexList" && multiIndex=true && break
+       fi
+
+       printf "${REDct}INVALID selection.${NOct}\n"
+   done
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-May-03] ##
+##-------------------------------------##
+_GetFileSelection_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   if [ $# -lt 2 ] || [ "$2" != "-MULTIOK" ]
+   then indexType="" ; else indexType="$2" ; fi
+
+   theFilePath=""  theFileName=""  fileTemp=""
+   fileCount=0  fileIndex=0  multiIndex=false
+   local sourceDirPath="$FW_LOG_DIR"
+   local maxFileCount=20
+
+   printf "\n${1}\n[Directory: ${GRNct}${sourceDirPath}${NOct}]\n\n"
+
+   while IFS="$(printf '\n\t')" read -r backupFilePath
+   do
+       fileCount="$((fileCount+1))"
+       fileVar="file_${fileCount}_Name"
+       eval file_${fileCount}_Name="${backupFilePath##*/}"
+       printf "${GRNct}%3d${NOct}. " "$fileCount"
+       eval echo "\$${fileVar}"
+       [ "$fileCount" -ge "$maxFileCount" ] && break
+   done <<EOT
+$(_list2_ -1t "$theLogFilesMatch" 2>/dev/null)
+EOT
+
+   echo
+   _GetFileSelectionIndex_ "$fileCount" "$indexType"
+
+   if [ "$fileIndex" = "ALL" ] || [ "$fileIndex" = "NONE" ]
+   then theFilePath="$fileIndex" ; return 0 ; fi
+
+   if [ "$indexType" = "-MULTIOK" ] && "$multiIndex"
+   then
+       for index in $fileIndex
+       do
+           fileVar="file_${index}_Name"
+           eval fileTemp="\$${fileVar}"
+           if [ -z "$theFilePath" ]
+           then theFilePath="${sourceDirPath}/$fileTemp"
+           else theFilePath="${theFilePath}|${sourceDirPath}/$fileTemp"
+           fi
+       done
+   else
+       fileVar="file_${fileIndex}_Name"
+       eval theFileName="\$${fileVar}"
+       theFilePath="${sourceDirPath}/$theFileName"
+   fi
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-04] ##
+##----------------------------------------##
+_CheckForUpdateLogFiles_()
+{
+   theLogFilesMatch="${FW_LOG_DIR}/${MODEL_ID}_FW_Update_*.log"
+   theFileCount="$(_list2_ -1 "$theLogFilesMatch" 2>/dev/null | wc -l)"
+   
+   if [ ! -d "$FW_LOG_DIR" ] || [ "$theFileCount" -eq 0 ]
+   then
+       updateLogFileFound=false
+       return 1
+   fi
+   chmod 444 "${FW_LOG_DIR}/${MODEL_ID}"_FW_Update_*.log
+   updateLogFileFound=true
+   return 0
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-05] ##
+##----------------------------------------##
+_ViewUpdateLogFile_()
+{
+   local theFilePath=""  theFileCount  theLogFilesMatch  retCode
+
+   if ! _CheckForUpdateLogFiles_
+   then
+       printf "\n${REDct}**ERROR**${NOct}: Log file(s) [$theLogFilesMatch] NOT FOUND."
+       return 1
+   fi
+   printf "\n---------------------------------------------------"
+   _GetFileSelection_ "Select a log file to view:"
+
+   if [ "$theFilePath" = "NONE" ] || [ ! -f "$theFilePath" ]
+   then return 1 ; fi
+
+   printf "\nLog file to view:\n${GRNct}${theFilePath}${NOct}\n"
+   printf "\n[Press '${REDct}q${NOct}' to quit when finished]\n"
+   _WaitForEnterKey_
+   less "$theFilePath"
+
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Mar-20] ##
+##-------------------------------------##
+_SimpleNotificationDate_()
+{
+   local notifyTimeStrn  notifyTimeSecs
+   notifyTimeStrn="$(echo "$1" | sed 's/_/ /g')"
+   notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
+   echo "$(date -d @$notifyTimeSecs +"%Y-%b-%d %I:%M %p")"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Mar-27] ##
+##---------------------------------------##
+# Define a function to print information about each AiMesh node
+_PrintNodeInfo()
+{
+    local node_info="$1"
+    local node_online_status="$2"
+    local Node_FW_NewUpdateVersion="$3"
+    local uid="$4"
+
+    # Trim to first word if needed
+    local node_productid="$(echo "$node_productid" | cut -d' ' -f1)"
+    local node_version="$(echo "$Node_combinedVer" | cut -d' ' -f2)"
+    node_info="$(echo "$node_info" | cut -d' ' -f1)"
+
+    # Calculate box width based on the longest line
+    local max_length=0
+    local line length
+    for line in "${node_productid}/${node_lan_hostname}: ${node_info}" "F/W Version Installed: ${node_version}" "F/W Update Available: ${Node_FW_NewUpdateVersion}"
+    do
+        length="$(printf "%s" "$line" | awk '{print length}')"
+        [ "$length" -gt "$max_length" ] && max_length="$length"
+    done
+
+    local box_width="$((max_length + 0))"  # Adjust box padding here
+
+    # Build the horizontal line without using seq
+    local h_line=""
+    for i in $(awk "BEGIN{for(i=1;i<=$box_width;i++) print i}")
+    do
+        h_line="${h_line}─"
+    done
+
+    # Assume ANSI color codes are used but do not manually adjust padding for them.
+    if echo "$node_online_status" | grep -q "$node_info"
+    then
+        printf "\n   ┌─%s─┐" "$h_line"
+
+        # Calculate visual length and determine required padding.
+        visible_text_length="$(printf "Node ID: %s" "${uid}" | wc -m)"
+        padding="$((box_width - visible_text_length))"
+        # Ensure even padding for left and right by dividing total_padding by 2
+        left_padding="$((padding / 2))" # Add 1 to make the division round up in case of an odd number
+        printf "\n   │%*s Node ID: ${REDct}${uid}${NOct}%*s │" "$left_padding" "" "$((padding - left_padding))" ""
+
+        # Calculate visual length and determine required padding.
+        visible_text_length="$(printf "%s/%s: %s" "$node_productid" "$node_lan_hostname" "$node_info" | wc -m)"
+        padding="$((box_width - visible_text_length))"
+        printf "\n   │ %s/%s: ${GRNct}%s${NOct}%*s │" "$node_productid" "$node_lan_hostname" "$node_info" "$padding" ""
+
+        visible_text_length="$(printf "F/W Version Installed: %s" "$node_version" | wc -m)"
+        padding="$((box_width - visible_text_length))"
+        printf "\n   │ F/W Version Installed: ${GRNct}%s${NOct}%*s │" "$node_version" "$padding" ""
+
+        #
+        if [ -n "$Node_FW_NewUpdateVersion" ]
+        then
+            visible_text_length="$(printf "F/W Update Available: %s" "$Node_FW_NewUpdateVersion" | wc -m)"
+            padding="$((box_width - visible_text_length))"
+            if echo "$Node_FW_NewUpdateVersion" | grep -q "NONE FOUND"
+            then
+                printf "\n   │ F/W Update Available: ${REDct}%s${NOct}%*s │" "$Node_FW_NewUpdateVersion" "$padding" ""
+            else
+                printf "\n   │ F/W Update Available: ${GRNct}%s${NOct}%*s │" "$Node_FW_NewUpdateVersion" "$padding" ""
+            fi
+        fi
+
+        printf "\n   └─%s─┘" "$h_line"
+    else
+        visible_text_length="$(printf "Node Offline" | wc -m)"
+        total_padding="$((box_width - visible_text_length))"
+        # Ensure even padding for left and right by dividing total_padding by 2
+        left_padding="$((total_padding / 2))" # Add 1 to make the division round up in case of an odd number
+
+        printf "\n   ┌─%s─┐" "$h_line"
+        # Apply the left padding. The '%*s' uses left_padding as its width specifier to insert spaces before "Node Offline"
+        printf "\n   │%*s ${REDct}Node Offline${NOct}%*s │" "$left_padding" "" "$((total_padding - left_padding))" ""
+        printf "\n   └─%s─┘" "$h_line"
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Feb-18] ##
+##----------------------------------------##
+_InvalidMenuSelection_()
+{
+   printf "${REDct}INVALID selection.${NOct} Please try again."
+   _WaitForEnterKey_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Jul-03] ##
+##----------------------------------------##
+_ShowMainMenu_()
+{
+   local FW_NewUpdateVerStr  FW_NewUpdateVersion
+
+   #-----------------------------------------------------------#
+   # Check if router reports a new F/W update is available.
+   # If yes, modify the notification settings accordingly.
+   #-----------------------------------------------------------#
+   FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)" && \
+   [ -n "$FW_InstalledVersion" ] && [ -n "$FW_NewUpdateVersion" ] && \
+   _CheckNewUpdateFirmwareNotification_ "$FW_InstalledVersion" "$FW_NewUpdateVersion"
+
+   clear
+   logo
+   printf "${YLWct}============ By ExtremeFiretop & Martinski W. ============${NOct}\n\n"
+
+   # New Script Update Notification #
+   if [ "$scriptUpdateNotify" != "0" ]; then
+      Say "${REDct}*WARNING*:${NOct} ${scriptUpdateNotify}\n"
+   fi
+
+   # Unsupported Model Check #
+   if "$routerModelCheckFailed"
+   then
+      Say "${REDct}*WARNING*:${NOct} The current router model is not supported by this script.
+ Please uninstall.\n"
+   fi
+   if "$MinFirmwareVerCheckFailed"
+   then
+      Say "${REDct}*WARNING*:${NOct} The current firmware version is below the minimum supported.
+ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or higher to use this script.\n"
+   fi
+
+   if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+   then
+      Say "${REDct}*WARNING*:${NOct} Limited RAM detected (256MB).
+ A USB drive is required for F/W updates.\n"
+   fi
+
+   arrowStr=" ${REDct}<<---${NOct}"
+
+   _Calculate_NextRunTime_
+
+   notifyDate="$(Get_Custom_Setting "FW_New_Update_Notification_Date")"
+   if [ "$notifyDate" = "TBD" ]
+   then notificationStr="${REDct}NOT SET${NOct}"
+   else notificationStr="${GRNct}$(_SimpleNotificationDate_ "$notifyDate")${NOct}"
+   fi
+
+   if "$isGNUtonFW"
+   then FirmwareFlavor="${MAGENTAct}GNUton${NOct}"
+   else FirmwareFlavor="${BLUEct}Merlin${NOct}"
+   fi
+
+   printf "${SEPstr}"
+   if [ "$HIDE_ROUTER_SECTION" = "false" ]
+   then
+      if ! FW_NewUpdateVerStr="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+      then FW_NewUpdateVerStr="${REDct}NONE FOUND${NOct}"
+      else FW_NewUpdateVerStr="${GRNct}${FW_NewUpdateVerStr}${NOct}$arrowStr"
+      fi
+      printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelID}${padStr}(H)ide"
+      printf "\n  USB-Attached Storage Connected:  $USBConnected"
+      printf "\n  F/W Variant Configuration Found: $FirmwareFlavor"
+      printf "\n  F/W Version Currently Installed: $FW_InstalledVerStr"
+      printf "\n  F/W Update Version Available:    $FW_NewUpdateVerStr"
+      printf "\n  F/W Update Estimated Run Date:   $ExpectedFWUpdateRuntime"
+   else
+      printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelID}${padStr}(S)how"
+   fi
+   printf "\n${SEPstr}"
+
+   printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
+   printf "\n  ${GRNct}2${NOct}.  Set Router Login Credentials\n"
+
+   # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
+   FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+   [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
+   if [ "$FW_UpdateCheckState" -eq 0 ]
+   then
+       printf "\n  ${GRNct}3${NOct}.  Toggle F/W Update Check"
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]"
+   else
+       printf "\n  ${GRNct}3${NOct}.  Toggle F/W Update Check"
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]"
+   fi
+   printf "\n${padStr}[Last Notification Date: $notificationStr]\n"
+
+   printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
+   printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
+
+   local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+   if [ "$checkChangeLogSetting" = "DISABLED" ]
+   then
+       printf "\n  ${GRNct}5${NOct}.  Toggle F/W Changelog Check"
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+   else
+       printf "\n  ${GRNct}5${NOct}.  Toggle F/W Changelog Check"
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+   fi
+
+   ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+   if [ "$ChangelogApproval" = "BLOCKED" ]
+   then
+      printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
+      printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
+   elif [ "$ChangelogApproval" = "APPROVED" ]
+   then
+      printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
+      printf "\n${padStr}[Currently ${GRNct}${ChangelogApproval}${NOct}]\n"
+   fi
+
+   # Check for new script updates #
+   if [ "$scriptUpdateNotify" != "0" ]
+   then
+      printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script"
+      printf "\n${padStr}[Version ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
+   else
+      printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Script"
+      printf "\n${padStr}[No Update Available]\n"
+   fi
+
+   # Add selection for "Advanced Options" sub-menu #
+   printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
+
+   # Check for AiMesh Nodes #
+   if "$inRouterSWmode" && [ -n "$node_list" ]; then
+      printf "\n ${GRNct}mn${NOct}.  AiMesh Node(s) Info\n"
+   fi
+
+   # Add selection for "Log Options" sub-menu #
+   printf "\n ${GRNct}lo${NOct}.  Log Options Menu\n"
+
+   printf "\n  ${GRNct}e${NOct}.  Exit\n"
+   printf "${SEPstr}\n"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-25] ##
+##----------------------------------------##
+_ShowAdvancedOptionsMenu_()
+{
+   local BetaProductionSetting  VPNAccess  currentBackupOption
+   local scriptUpdateCronSched  current_build_type
+
+   clear
+   logo
+   printf "================== Advanced Options Menu =================\n"
+   printf "${SEPstr}\n"
+
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update File"
+   printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
+
+   printf "\n  ${GRNct}2${NOct}.  Set F/W Update Cron Schedule"
+   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+
+   BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
+   printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
+   if [ "$BetaProductionSetting" = "DISABLED" ]
+   then
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+   else
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
+   fi
+
+   VPNAccess="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
+   printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale/ZeroTier Access During Updates"
+   if [ "$VPNAccess" = "DISABLED" ]
+   then
+       printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
+   else
+       printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
+   fi
+
+   if [ -f "/jffs/scripts/backupmon.sh" ]
+   then
+       # Retrieve the current backup setting #
+       currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+       printf "\n ${GRNct}ab${NOct}.  Toggle Automatic Backups"
+       if [ "$currentBackupOption" = "DISABLED" ]
+       then printf "\n${padStr}[Currently ${REDct}${currentBackupOption}${NOct}]\n"
+       else printf "\n${padStr}[Currently ${GRNct}${currentBackupOption}${NOct}]\n"
+       fi
+   fi
+
+   ScriptAutoUpdateSetting="$(Get_Custom_Setting "Allow_Script_Auto_Update")"
+   printf "\n ${GRNct}au${NOct}.  Toggle Auto-Updates for MerlinAU Script"
+   if [ "$ScriptAutoUpdateSetting" = "DISABLED" ]
+   then
+       printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
+   else
+       printf "\n${padStr}[Currently ${MAGENTAct}ENABLED${NOct}]\n"
+       scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
+       printf "${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]\n"
+   fi
+
+   if "$isGNUtonFW"
+   then
+      if [ "$fwInstalledBaseVers" -le 3004 ]
+      then
+         # Retrieve the current build type setting
+         current_build_type="$(Get_Custom_Setting "TUFBuild")"
+
+         # Convert the setting to a descriptive text
+         if [ "$current_build_type" = "y" ]; then
+             current_build_type_menu="TUF Build"
+         elif [ "$current_build_type" = "n" ]; then
+             current_build_type_menu="Pure Build"
+         else
+             current_build_type_menu="NOT SET"
+         fi
+
+         if echo "$PRODUCT_ID" | grep -q "^TUF-"
+         then
+             printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+             if [ "$current_build_type_menu" = "NOT SET" ]
+             then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+             else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+             fi
+         fi
+      elif [ "$fwInstalledBaseVers" -ge 3006 ]
+      then
+          # Retrieve the current build type setting
+          local current_build_typerog="$(Get_Custom_Setting "ROGBuild")"
+
+          # Convert the setting to a descriptive text
+          if [ "$current_build_typerog" = "y" ]; then
+              current_build_type_menurog="ROG Build"
+          elif [ "$current_build_typerog" = "n" ]; then
+              current_build_type_menurog="Pure Build"
+          else
+              current_build_type_menurog="NOT SET"
+          fi
+
+          if echo "$PRODUCT_ID" | grep -q "^GT-"
+          then
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              if [ "$current_build_type_menurog" = "NOT SET" ]
+              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menurog}${NOct}]\n"
+              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menurog}${NOct}]\n"
+              fi
+          fi
+
+          # Retrieve the current build type setting
+          local current_build_typetuf="$(Get_Custom_Setting "TUFBuild")"
+
+          # Convert the setting to a descriptive text
+          if [ "$current_build_typetuf" = "y" ]; then
+              current_build_type_menutuf="TUF Build"
+          elif [ "$current_build_typetuf" = "n" ]; then
+              current_build_type_menutuf="Pure Build"
+          else
+              current_build_type_menutuf="NOT SET"
+          fi
+
+          if echo "$PRODUCT_ID" | grep -q "^TUF-"
+          then
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              if [ "$current_build_type_menutuf" = "NOT SET" ]
+              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menutuf}${NOct}]\n"
+              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menutuf}${NOct}]\n"
+              fi
+          fi
+       fi
+   else
+      if [ "$fwInstalledBaseVers" -le 3004 ]
+      then
+          # Retrieve the current build type setting
+          current_build_type="$(Get_Custom_Setting "ROGBuild")"
+
+          # Convert the setting to a descriptive text
+          if [ "$current_build_type" = "y" ]; then
+              current_build_type_menu="ROG Build"
+          elif [ "$current_build_type" = "n" ]; then
+              current_build_type_menu="Pure Build"
+          else
+              current_build_type_menu="NOT SET"
+          fi
+
+          if echo "$PRODUCT_ID" | grep -q "^GT-"
+          then
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              if [ "$current_build_type_menu" = "NOT SET" ]
+              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+              fi
+          fi
+      fi
+   fi
+
+   # Additional Email Notification Options #
+   if _CheckEMailConfigFileFromAMTM_ 0
+   then
+       # F/W Update Email Notifications #
+       if "$inRouterSWmode" 
+       then
+           printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
+       else
+           printf "\n ${GRNct}em${NOct}.  Toggle F/W Email Notifications"
+       fi
+       if "$sendEMailNotificationsFlag"
+       then
+           printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
+       else
+           printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
+       fi
+
+       if "$sendEMailNotificationsFlag"
+       then
+           # Format Types: "HTML" or "Plain Text" #
+           printf "\n ${GRNct}ef${NOct}.  Set Email Format Type"
+           printf "\n${padStr}[Current Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
+
+           # Secondary Email Address Setup for "CC" option #
+           printf "\n ${GRNct}se${NOct}.  Set Email Notifications Secondary Address"
+           if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
+           then
+               printf "\n${padStr}[Current Name/Alias: ${GRNct}${CC_NAME}${NOct}]"
+               printf "\n${padStr}[Current 2nd Address: ${GRNct}${CC_ADDRESS}${NOct}]\n"
+           else
+               echo
+           fi
+       fi
+   fi
+
+   printf "\n ${GRNct}un${NOct}.  Uninstall\n"
+   printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
+   printf "${SEPstr}\n"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Apr-02] ##
+##---------------------------------------##
+_ShowNodesMenu_()
+{
+   clear
+   logo
+   printf "================ AiMesh Node(s) Info Menu ================\n"
+   printf "${SEPstr}\n"
+
+   if ! node_online_status="$(_NodeActiveStatus_)"
+   then node_online_status="" ; fi
+
+   # Count the number of IP addresses
+   local numIPs="$(echo "$node_list" | wc -w)"
+
+   # Print the result
+   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): ${numIPs}${NOct}"
+
+   _ProcessMeshNodes_ 1
+
+   echo ""
+
+   printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
+   printf "${SEPstr}"
+}
+
+_ShowNodesMenuOptions_()
+{
+    while true
+    do
+        _ShowNodesMenu_
+        printf "\nEnter selection:  "
+        read -r nodesChoice
+        echo
+        case $nodesChoice in
+            e|exit) break
+               ;;
+            *) _InvalidMenuSelection_
+               ;;
+        esac
+    done
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-04] ##
+##----------------------------------------##
+_ShowLogOptionsMenu_()
+{
+   clear
+   logo
+   printf "==================== Log Options Menu ====================\n"
+   printf "${SEPstr}\n"
+
+   printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update Log Files"
+   printf "\n${padStr}[Current Path: ${GRNct}${FW_LOG_DIR}${NOct}]\n"
+
+   if _CheckForUpdateLogFiles_
+   then
+       printf "\n ${GRNct}lg${NOct}.  View F/W Update Log File\n"
+   fi
+
+   printf "\n ${GRNct}cl${NOct}.  View Latest F/W Changelog\n"
+
+   printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
+   printf "${SEPstr}"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-May-04] ##
+##----------------------------------------##
+_AdvancedLogsOptions_()
+{
+    while true
+    do
+        _ShowLogOptionsMenu_
+        printf "\nEnter selection:  "
+        read -r nodesChoice
+        echo
+        case $nodesChoice in
+            1) _Set_FW_UpdateLOG_DirectoryPath_
+               ;;
+           lg) if _CheckForUpdateLogFiles_
+               then
+                   while true
+                   do
+                       if _ViewUpdateLogFile_
+                       then continue ; else break ; fi
+                   done
+               else
+                   _InvalidMenuSelection_
+               fi
+               ;;
+           cl) if "$isGNUtonFW"
+               then _ManageChangelogGnuton_ "view"
+               else _ManageChangelogMerlin_ "view"
+               fi
+               ;;
+       e|exit) break
+               ;;
+            *) _InvalidMenuSelection_
+               ;;
+        esac
+    done
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Nov-18] ##
+##------------------------------------------##
+_AdvancedOptionsMenu_()
+{
+    local theUserInputStr=""
+    local offlineUpdateFlag=false
+    while true
+    do
+        _ShowAdvancedOptionsMenu_
+        _GetKeypressInput_ "Enter selection:"
+        echo
+        case "$theUserInputStr" in
+            1) _Set_FW_UpdateZIP_DirectoryPath_
+               ;;
+            2) _Set_FW_AutoUpdateCronSchedule_
+               ;;
+            3) _Toggle_FW_UpdatesFromBeta_
+               ;;
+            4) _Toggle_VPN_Access_
+               ;;
+           ab) if [ -f "/jffs/scripts/backupmon.sh" ]
+               then _Toggle_Auto_Backups_
+               else _InvalidMenuSelection_
+               fi
+               ;;
+           au) _Toggle_ScriptAutoUpdate_Config_
+               ;;
+           bt) if echo "$PRODUCT_ID" | grep -q "^TUF-"
+               then _ChangeBuildType_TUF_
+               elif [ "$fwInstalledBaseVers" -le 3004 ] && \
+                    echo "$PRODUCT_ID" | grep -q "^GT-"
+               then _ChangeBuildType_ROG_
+               elif [ "$fwInstalledBaseVers" -ge 3006 ] && "$isGNUtonFW" && \
+                    echo "$PRODUCT_ID" | grep -q "^GT-"
+               then _ChangeBuildType_ROG_
+               else _InvalidMenuSelection_
+               fi
+               ;;
+           em) if "$isEMailConfigEnabledInAMTM"
+               then _Toggle_FW_UpdateEmailNotifications_
+               else _InvalidMenuSelection_
+               fi
+               ;;
+           ef) if "$isEMailConfigEnabledInAMTM" && \
+                  "$sendEMailNotificationsFlag"
+               then _SetEMailFormatType_
+               else _InvalidMenuSelection_
+               fi
+               ;;
+           se) if "$isEMailConfigEnabledInAMTM" && \
+                  "$sendEMailNotificationsFlag"
+               then _SetSecondaryEMailAddress_
+               else _InvalidMenuSelection_
+               fi
+               ;;
+           un) _DoUninstall_ && _WaitForEnterKey_
+               ;;
+           e|E|exit) break
+               ;;
+            *) if [ -n "${offlineUpdateFlag:+OK}" ] && "$offlineUpdateFlag"
+               then
+                   _RunOfflineUpdateNow_
+                   [ "$?" -eq 2 ] && _InvalidMenuSelection_
+               else
+                   _InvalidMenuSelection_
+               fi
+               ;;
+        esac
+    done
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-25] ##
+##------------------------------------------##
+# Main Menu loop
+inMenuMode=true
+HIDE_ROUTER_SECTION=false
+if ! node_list="$(_GetNodeIPv4List_)"
+then node_list="" ; fi
+
+while true
+do
+   # Check if the directory exists again before attempting to navigate to it
+   [ -d "$FW_BIN_DIR" ] && cd "$FW_BIN_DIR"
+
+   _ShowMainMenu_
+   printf "Enter selection:  " ; read -r userChoice
+   echo
+   case $userChoice in
+       s|S|h|H)
+          if [ "$userChoice" = "s" ] || [ "$userChoice" = "S" ]; then
+              HIDE_ROUTER_SECTION=false
+          elif [ "$userChoice" = "h" ] || [ "$userChoice" = "H" ]; then
+              HIDE_ROUTER_SECTION=true
+          fi
+          ;;
+       1) _RunFirmwareUpdateNow_
+          FlashStarted=false
+          ;;
+       2) _GetLoginCredentials_
+          ;;
+       3) _Toggle_FW_UpdateCheckSetting_
+          ;;
+       4) _Set_FW_UpdatePostponementDays_
+          ;;
+       5) _toggle_change_log_check_
+          ;;
+       6) if [ "$ChangelogApproval" = "TBD" ] || [ -z "$ChangelogApproval" ]
+          then _InvalidMenuSelection_
+          else _Approve_FW_Update_
+          fi
+          ;;
+      up) _SCRIPTUPDATE_
+          ;;
+      ad) _AdvancedOptionsMenu_
+          ;;
+      mn) if "$inRouterSWmode" && [ -n "$node_list" ]
+          then _ShowNodesMenuOptions_
+          else _InvalidMenuSelection_
+          fi
+          ;;
+      lo) _AdvancedLogsOptions_
+          ;;
+      e|E|exit) _DoExit_ 0
+          ;;
+       *) _InvalidMenuSelection_
+          ;;
+   esac
+done
+
+#EOF#
