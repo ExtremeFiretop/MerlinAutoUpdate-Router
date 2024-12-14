@@ -431,86 +431,87 @@
     }
 
     // **Adjusted SaveActionsConfig Function**
-function SaveActionsConfig() {
-    // Collect Action form-specific settings
-    var password = document.getElementById('routerPassword')?.value || '';
-    var usernameElement = document.getElementById('http_username');
-    var username = usernameElement ? usernameElement.value.trim() : 'admin';
+    function SaveActionsConfig() {
+        // Collect Action form-specific settings
+        var password = document.getElementById('routerPassword')?.value || '';
+        var usernameElement = document.getElementById('http_username');
+        var username = usernameElement ? usernameElement.value.trim() : 'admin';
 
-    if (!username) {
-        console.error("HTTP username is missing.");
-        alert("HTTP username is not set. Please contact your administrator.");
-        return;
+        // Validate that username is not empty
+        if (!username) {
+            console.error("HTTP username is missing.");
+            alert("HTTP username is not set. Please contact your administrator.");
+            return;
+        }
+
+        // Encode credentials in Base64
+        var credentials = username + ':' + password;
+        var encodedCredentials = btoa(credentials);
+
+        // Collect only Action form-specific settings
+        var action_settings = {
+            credentials_base64: encodedCredentials,
+            FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
+            CheckChangeLog: document.getElementById('changelogCheckEnabled').checked
+        };
+
+        // Prefix only Action settings
+        var prefixedActionSettings = prefixCustomSettings(action_settings, 'MerlinAU_');
+
+        // Merge Server Custom Settings and prefixed Action form settings
+        var updatedSettings = Object.assign({}, server_custom_settings, prefixedActionSettings);
+
+        // Save merged settings to the hidden input field
+        document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
+
+        // Apply the settings
+        document.form.action_script.value = 'start_MerlinAUconfig';
+        document.form.action_wait.value = 10;
+        showLoading();
+        document.form.submit();
+        console.log("Actions Config Form submitted with settings:", updatedSettings);
     }
 
-    // Encode credentials in Base64
-    var credentials = username + ':' + password;
-    var encodedCredentials = btoa(credentials);
+    function SaveAdvancedConfig() {
+        // Collect only Advanced form-specific settings
+        var advanced_settings = {
+            FW_New_Update_EMail_Notification: document.getElementById('emailNotificationsEnabled').checked,
+            FW_New_Update_EMail_FormatType: document.getElementById('emailFormat')?.value || 'HTML',
+            FW_New_Update_ZIP_Directory_Path: document.getElementById('fwUpdateDirectory')?.value || '/tmp/mnt/USB1',
+            Allow_Updates_OverVPN: document.getElementById('tailscaleVPNEnabled').checked,
+            FW_New_Update_EMail_CC_Address: document.getElementById('secondaryEmail')?.value || 'TBD',
+            Allow_Script_Auto_Update: document.getElementById('autoUpdatesScriptEnabled').checked,
+            FW_Allow_Beta_Production_Up: document.getElementById('betaToReleaseUpdatesEnabled').checked,
+            FW_Auto_Backupmon: document.getElementById('autobackupEnabled').checked
+        };
 
-    // Collect only Action form-specific settings
-    var action_settings = {
-        credentials_base64: encodedCredentials,
-        FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
-        CheckChangeLog: document.getElementById('changelogCheckEnabled').checked
-    };
+        // Handle conditional fields based on visibility
+        var rogFWBuildRow = document.getElementById('rogFWBuildRow');
+        if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none') {
+            advanced_settings.FW_New_Update_ROGFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
+        }
 
-    // Prefix only Action settings
-    var prefixedActionSettings = prefixCustomSettings(action_settings, 'MerlinAU_');
+        var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
+        if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none') {
+            advanced_settings.FW_New_Update_TUFWBuildType = document.getElementById('tuffFWBuildType')?.value || 'TUF';
+        }
 
-    // Merge Server Custom Settings and prefixed Action form settings
-    var updatedSettings = Object.assign({}, server_custom_settings, prefixedActionSettings);
+        // Prefix only Advanced settings
+        var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
 
-    // Save merged settings to the hidden input field
-    document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
+        // Merge Server Custom Settings and prefixed Advanced settings
+        var updatedSettings = Object.assign({}, server_custom_settings, prefixedAdvancedSettings);
 
-    // Apply the settings
-    document.form.action_script.value = 'start_MerlinAUconfig';
-    document.form.action_wait.value = 10;
-    showLoading();
-    document.form.submit();
-    console.log("Actions Config Form submitted with settings:", updatedSettings);
-}
+        // Save merged settings to the hidden input field
+        document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
 
-function SaveAdvancedConfig() {
-    // Collect only Advanced form-specific settings
-    var advanced_settings = {
-        FW_New_Update_EMail_Notification: document.getElementById('emailNotificationsEnabled').checked,
-        FW_New_Update_EMail_FormatType: document.getElementById('emailFormat')?.value || 'HTML',
-        FW_New_Update_ZIP_Directory_Path: document.getElementById('fwUpdateDirectory')?.value || '/tmp/mnt/USB1',
-        Allow_Updates_OverVPN: document.getElementById('tailscaleVPNEnabled').checked,
-        FW_New_Update_EMail_CC_Address: document.getElementById('secondaryEmail')?.value || 'TBD',
-        Allow_Script_Auto_Update: document.getElementById('autoUpdatesScriptEnabled').checked,
-        FW_Allow_Beta_Production_Up: document.getElementById('betaToReleaseUpdatesEnabled').checked,
-        FW_Auto_Backupmon: document.getElementById('autobackupEnabled').checked
-    };
-
-    // Handle conditional fields based on visibility
-    var rogFWBuildRow = document.getElementById('rogFWBuildRow');
-    if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none') {
-        advanced_settings.FW_New_Update_ROGFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
+        // Apply the settings
+        document.form.action_script.value = 'start_MerlinAUconfig';
+        document.form.action_wait.value = 10;
+        showLoading();
+        document.form.submit();
+        console.log("Advanced Config Form submitted with settings:", updatedSettings);
     }
-
-    var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
-    if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none') {
-        advanced_settings.FW_New_Update_TUFWBuildType = document.getElementById('tuffFWBuildType')?.value || 'TUF';
-    }
-
-    // Prefix only Advanced settings
-    var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
-
-    // Merge Server Custom Settings and prefixed Advanced settings
-    var updatedSettings = Object.assign({}, server_custom_settings, prefixedAdvancedSettings);
-
-    // Save merged settings to the hidden input field
-    document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
-
-    // Apply the settings
-    document.form.action_script.value = 'start_MerlinAUconfig';
-    document.form.action_wait.value = 10;
-    showLoading();
-    document.form.submit();
-    console.log("Advanced Config Form submitted with settings:", updatedSettings);
-}
 
     // Function to get the first non-empty value from a list of element IDs
     function getFirstNonEmptyValue(ids) {
