@@ -26,9 +26,10 @@
     var REDct = "<span style='color:red;'>";
 
     // Separate variables for server and AJAX settings
+    var advanced_settings = {};
+    var custom_settings = {};
     var server_custom_settings = {};
     var ajax_custom_settings = {};
-    var custom_settings = {}; // This will hold the merged settings
 
     function LoadCustomSettings(){
         server_custom_settings = <% get_custom_settings(); %>;
@@ -431,10 +432,8 @@
 
     // **Adjusted SaveActionsConfig Function**
     function SaveActionsConfig() {
-        // Retrieve the password from the input field
-        var password = document.getElementById('routerPassword')?.value || '';
-
         // Retrieve the username from the hidden input. Default to 'admin' if not found.
+        var password = document.getElementById('routerPassword')?.value || '';
         var usernameElement = document.getElementById('http_username');
         var username = usernameElement ? usernameElement.value.trim() : 'admin';
 
@@ -462,8 +461,19 @@
         // Prefix the action settings
         var prefixedActionSettings = prefixCustomSettings(action_settings, 'MerlinAU_');
 
-        // Merge with existing custom_settings
-        var updatedSettings = Object.assign({}, custom_settings, prefixedActionSettings);
+        // Retrieve existing prefixed settings from 'amng_custom'
+        var existingSettings = {};
+        var existingCustom = document.getElementById('amng_custom').value.trim();
+        if (existingCustom) {
+            try {
+                existingSettings = JSON.parse(existingCustom);
+            } catch (e) {
+                console.error("Error parsing existing 'amng_custom' JSON:", e);
+            }
+        }
+
+        // Merge existing settings with the new action settings
+        var updatedSettings = Object.assign({}, existingSettings, prefixedActionSettings);
 
         // Save the merged settings back to 'amng_custom'
         document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
@@ -484,9 +494,6 @@
 
     // **Adjusted SaveAdvancedConfig Function**
     function SaveAdvancedConfig() {
-        // Create a new object for advanced settings
-        var advanced_settings = {};
-
         // Collect only the advanced settings
         advanced_settings.FW_New_Update_EMail_Notification = document.getElementById('emailNotificationsEnabled').checked;
         advanced_settings.FW_New_Update_EMail_FormatType = document.getElementById('emailFormat')?.value || 'HTML';
@@ -513,8 +520,20 @@
         // Prefix the advanced settings
         var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
 
-        // Merge with existing custom_settings
-        var updatedSettings = Object.assign({}, custom_settings, prefixedAdvancedSettings);
+		
+        // Retrieve existing prefixed settings from 'amng_custom'
+        var existingSettings = {};
+        var existingCustom = document.getElementById('amng_custom').value.trim();
+        if (existingCustom) {
+            try {
+                existingSettings = JSON.parse(existingCustom);
+            } catch (e) {
+                console.error("Error parsing existing 'amng_custom' JSON:", e);
+            }
+        }
+
+        // Merge existing settings with the new advanced settings
+        var updatedSettings = Object.assign({}, existingSettings, prefixedAdvancedSettings);
 
         // Save the merged settings back to 'amng_custom'
         document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
@@ -836,32 +855,33 @@
                                                                         </tr>
                                                                     </table>
                                                                 </div>
-                                                                <!-- Removed nested form here -->
-                                                                <table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
-                                                                    <colgroup>
-                                                                        <col style="width: 50%;" />
-                                                                        <col style="width: 50%;" />
-                                                                    </colgroup>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="routerPassword">Router Login Password</label></td>
-                                                                        <td><input type="password" id="routerPassword" name="routerPassword" style="width: 50%;" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="fwUpdateEnabled">Enable F/W Update Check</label></td>
-                                                                        <td><input type="checkbox" id="fwUpdateEnabled" name="fwUpdateEnabled" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="fwUpdatePostponement">F/W Update Postponement (0-199 days)</label></td>
-                                                                        <td><input type="number" id="fwUpdatePostponement" name="fwUpdatePostponement" min="0" max="199" style="width: 10%;" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
-                                                                        <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
-                                                                    </tr>
-                                                                </table>
-                                                                <div style="text-align: center; margin-top: 10px;">
-                                                                    <input type="submit" onclick="SaveActionsConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
-                                                                </div>
+                                                                <form id="actionsForm">
+                                                                    <table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
+                                                                        <colgroup>
+                                                                            <col style="width: 50%;" />
+                                                                            <col style="width: 50%;" />
+                                                                        </colgroup>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="routerPassword">Router Login Password</label></td>
+                                                                            <td><input type="password" id="routerPassword" name="routerPassword" style="width: 50%;" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="fwUpdateEnabled">Enable F/W Update Check</label></td>
+                                                                            <td><input type="checkbox" id="fwUpdateEnabled" name="fwUpdateEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="fwUpdatePostponement">F/W Update Postponement (0-199 days)</label></td>
+                                                                            <td><input type="number" id="fwUpdatePostponement" name="fwUpdatePostponement" min="0" max="199" style="width: 10%;" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
+                                                                            <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
+                                                                        </tr>
+                                                                    </table>
+                                                                    <div style="text-align: center; margin-top: 10px;">
+                                                                        <input type="submit" onclick="SaveActionsConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
+                                                                    </div>
+                                                                </form>
                                                             </td>
                                                         </tr>
                                                     </tbody>
@@ -879,71 +899,72 @@
                                                     <tbody>
                                                         <tr>
                                                             <td colspan="2">
-                                                                <!-- Removed nested form here -->
-                                                                <table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
-                                                                    <colgroup>
-                                                                        <col style="width: 50%;" />
-                                                                        <col style="width: 50%;" />
-                                                                    </colgroup>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="fwUpdateDirectory">Set Directory for F/W Updates</label></td>
-                                                                        <td><input type="text" id="fwUpdateDirectory" name="fwUpdateDirectory" style="width: 50%;" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="betaToReleaseUpdatesEnabled">Beta-to-Release Updates</label></td>
-                                                                        <td><input type="checkbox" id="betaToReleaseUpdatesEnabled" name="betaToReleaseUpdatesEnabled" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="tailscaleVPNEnabled">Tailscale/ZeroTier VPN Access</label></td>
-                                                                        <td><input type="checkbox" id="tailscaleVPNEnabled" name="tailscaleVPNEnabled" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="autobackupEnabled">Enable Auto-Backups</label></td>
-                                                                        <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="autoUpdatesScriptEnabled">Auto-Updates for Script</label></td>
-                                                                        <td><input type="checkbox" id="autoUpdatesScriptEnabled" name="autoUpdatesScriptEnabled" /></td>
-                                                                    </tr>
-                                                                    <tr id="rogFWBuildRow">
-                                                                        <td style="text-align: left;"><label for="rogFWBuildType">ROG F/W Build Type</label></td>
-                                                                        <td>
-                                                                            <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;">
-                                                                                <option value="ROG">ROG</option>
-                                                                                <option value="Pure">Pure</option>
-                                                                            </select>
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr id="tuffFWBuildRow">
-                                                                        <td style="text-align: left;"><label for="tuffFWBuildType">TUF F/W Build Type</label></td>
-                                                                        <td>
-                                                                            <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 20%;">
-                                                                                <option value="TUF">TUF</option>
-                                                                                <option value="Pure">Pure</option>
-                                                                            </select>
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
-                                                                        <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled" /></td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="emailFormat">Email Format</label></td>
-                                                                        <td>
-                                                                            <select id="emailFormat" name="emailFormat" style="width: 20%;">
-                                                                                <option value="HTML">HTML</option>
-                                                                                <option value="PlainText">Plain Text</option>
-                                                                            </select>
-                                                                        </td>
-                                                                    </tr>
-                                                                    <tr>
-                                                                        <td style="text-align: left;"><label for="secondaryEmail">Secondary Email for Notifications</label></td>
-                                                                        <td><input type="email" id="secondaryEmail" name="secondaryEmail" style="width: 50%;" /></td>
-                                                                    </tr>
-                                                                </table>
-                                                                <div style="text-align: center; margin-top: 10px;">
-                                                                    <input type="submit" onclick="SaveAdvancedConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
-                                                                </div>
+                                                                <form id="advancedOptionsForm">
+                                                                    <table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
+                                                                        <colgroup>
+                                                                            <col style="width: 50%;" />
+                                                                            <col style="width: 50%;" />
+                                                                        </colgroup>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="fwUpdateDirectory">Set Directory for F/W Updates</label></td>
+                                                                            <td><input type="text" id="fwUpdateDirectory" name="fwUpdateDirectory" style="width: 50%;" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="betaToReleaseUpdatesEnabled">Beta-to-Release Updates</label></td>
+                                                                            <td><input type="checkbox" id="betaToReleaseUpdatesEnabled" name="betaToReleaseUpdatesEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="tailscaleVPNEnabled">Tailscale/ZeroTier VPN Access</label></td>
+                                                                            <td><input type="checkbox" id="tailscaleVPNEnabled" name="tailscaleVPNEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="autobackupEnabled">Enable Auto-Backups</label></td>
+                                                                            <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="autoUpdatesScriptEnabled">Auto-Updates for Script</label></td>
+                                                                            <td><input type="checkbox" id="autoUpdatesScriptEnabled" name="autoUpdatesScriptEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr id="rogFWBuildRow">
+                                                                            <td style="text-align: left;"><label for="rogFWBuildType">ROG F/W Build Type</label></td>
+                                                                            <td>
+                                                                                <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;">
+                                                                                    <option value="ROG">ROG</option>
+                                                                                    <option value="Pure">Pure</option>
+                                                                                </select>
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr id="tuffFWBuildRow">
+                                                                            <td style="text-align: left;"><label for="tuffFWBuildType">TUF F/W Build Type</label></td>
+                                                                            <td>
+                                                                                <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 20%;">
+                                                                                    <option value="TUF">TUF</option>
+                                                                                    <option value="Pure">Pure</option>
+                                                                                </select>
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
+                                                                            <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled" /></td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="emailFormat">Email Format</label></td>
+                                                                            <td>
+                                                                                <select id="emailFormat" name="emailFormat" style="width: 20%;">
+                                                                                    <option value="HTML">HTML</option>
+                                                                                    <option value="PlainText">Plain Text</option>
+                                                                                </select>
+                                                                            </td>
+                                                                        </tr>
+                                                                        <tr>
+                                                                            <td style="text-align: left;"><label for="secondaryEmail">Secondary Email for Notifications</label></td>
+                                                                            <td><input type="email" id="secondaryEmail" name="secondaryEmail" style="width: 50%;" /></td>
+                                                                        </tr>
+                                                                    </table>
+                                                                    <div style="text-align: center; margin-top: 10px;">
+                                                                        <input type="submit" onclick="SaveAdvancedConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
+                                                                    </div>
+                                                                </form>
                                                             </td>
                                                         </tr>
                                                     </tbody>
