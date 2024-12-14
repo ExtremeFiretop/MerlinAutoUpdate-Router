@@ -280,6 +280,9 @@
 
                 console.log("Custom Settings Loaded via AJAX:", custom_settings);
 
+                // **Initialize 'amng_custom' with existing settings**
+                document.getElementById('amng_custom').value = JSON.stringify(custom_settings);
+
                 // Initialize fields with the loaded settings
                 initializeFields();
             }
