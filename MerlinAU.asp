@@ -227,6 +227,22 @@
                 }
             }
 
+            // **New Logic to Update "F/W Variant Detected" Based on "extendno"**
+            var extendnoElement = document.getElementById('extendno');
+            var extendno = extendnoElement ? extendnoElement.value.trim() : '';
+
+            var fwVariantDetectedElement = document.getElementById('fwVariantDetected');
+
+            if (fwVariantDetectedElement) {
+                if (/gnuton/i.test(extendno)) { // Case-insensitive check for "gnuton"
+                    fwVariantDetectedElement.textContent = "Gnuton";
+                } else {
+                    fwVariantDetectedElement.textContent = "Merlin";
+                }
+            } else {
+                console.error("Element with id 'fwVariantDetected' not found.");
+            }
+
             // Call the visibility handler
             handleROGFWBuildTypeVisibility();
 
@@ -641,6 +657,7 @@
         <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get('preferred_lang'); %>" />
         <!-- Consolidated firmver input -->
         <input type="hidden" name="firmwarev" id="firmwarev" value="<% nvram_get('firmver'); %>" />
+        <input type="hidden" name="extendno" id="extendno" value="<% nvram_get('extendno'); %>" />
         <input type="hidden" name="firmver" id="firmver" value="<% nvram_get('firmver'); %>.<% nvram_get('buildno'); %>.<% nvram_get('extendno'); %>" />
         <input type="hidden" id="firmware_check_enable" value="<% nvram_get("firmware_check_enable"); %>" />
         <input type="hidden" id="nvram_odmpid" value="<% nvram_get("odmpid"); %>" />
@@ -700,8 +717,8 @@
                                                                                     <td style="padding: 4px;" id="firmwareProductModelID"></td>
                                                                                 </tr>
                                                                                 <tr>
-                                                                                    <td style="padding: 4px;"><strong>USB Storage Connected:</strong></td>
-                                                                                    <td style="padding: 4px;">NO CODE YET</td>
+                                                                                    <td style="padding: 4px;"><strong>F/W Variant Detected:</strong></td>
+                                                                                    <td style="padding: 4px;" id="fwVariantDetected">Unknown</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>F/W Version Installed:</strong></td>
