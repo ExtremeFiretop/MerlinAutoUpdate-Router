@@ -243,9 +243,6 @@
                 setTimeout(get_conf_file, 1000); // Retry after 1 second
             },
             success: function(data) {
-                // Initialize an empty object to store AJAX settings
-                ajax_custom_settings = {};
-
                 // Tokenize the data while respecting quoted values
                 var tokens = tokenize(data);
 
@@ -316,7 +313,7 @@
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
-                ajax_custom_settings.FW_New_Update_Notifications_Date = value;
+                fwUpdateEstimatedRunDate = value;  // We don't want to save it the custom_settings; only as-is for displaying it.
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
@@ -454,12 +451,13 @@
         // Encode the combined string into Base64
         var encodedCredentials = btoa(credentials);
 
-        // Merge any new action-specific settings
-        var action_settings = {
-            credentials_base64: encodedCredentials,
-            FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
-            CheckChangeLog: document.getElementById('changelogCheckEnabled').checked
-        };
+        // Create a new object for action settings
+        var action_settings = {};
+
+        // Assign action-specific settings
+        action_settings.credentials_base64 = encodedCredentials;
+        action_settings.FW_New_Update_Postponement_Days = document.getElementById('fwUpdatePostponement')?.value || '0';
+        action_settings.CheckChangeLog = document.getElementById('changelogCheckEnabled').checked;
 
         // Prefix the action settings
         var prefixedActionSettings = prefixCustomSettings(action_settings, 'MerlinAU_');
@@ -487,16 +485,17 @@
     // **Adjusted SaveAdvancedConfig Function**
     function SaveAdvancedConfig() {
         // Create a new object for advanced settings
-        var advanced_settings = {
-            FW_New_Update_EMail_Notification: document.getElementById('emailNotificationsEnabled').checked,
-            FW_New_Update_EMail_FormatType: document.getElementById('emailFormat')?.value || 'HTML',
-            FW_New_Update_ZIP_Directory_Path: document.getElementById('fwUpdateDirectory')?.value || '/tmp/mnt/USB1',
-            Allow_Updates_OverVPN: document.getElementById('tailscaleVPNEnabled').checked,
-            FW_New_Update_EMail_CC_Address: document.getElementById('secondaryEmail')?.value || 'TBD',
-            Allow_Script_Auto_Update: document.getElementById('autoUpdatesScriptEnabled').checked,
-            FW_Allow_Beta_Production_Up: document.getElementById('betaToReleaseUpdatesEnabled').checked,
-            FW_Auto_Backupmon: document.getElementById('autobackupEnabled').checked
-        };
+        var advanced_settings = {};
+
+        // Collect only the advanced settings
+        advanced_settings.FW_New_Update_EMail_Notification = document.getElementById('emailNotificationsEnabled').checked;
+        advanced_settings.FW_New_Update_EMail_FormatType = document.getElementById('emailFormat')?.value || 'HTML';
+        advanced_settings.FW_New_Update_ZIP_Directory_Path = document.getElementById('fwUpdateDirectory')?.value || '/tmp/mnt/USB1';
+        advanced_settings.Allow_Updates_OverVPN = document.getElementById('tailscaleVPNEnabled').checked;
+        advanced_settings.FW_New_Update_EMail_CC_Address = document.getElementById('secondaryEmail')?.value || 'TBD';
+        advanced_settings.Allow_Script_Auto_Update = document.getElementById('autoUpdatesScriptEnabled').checked;
+        advanced_settings.FW_Allow_Beta_Production_Up = document.getElementById('betaToReleaseUpdatesEnabled').checked;
+        advanced_settings.FW_Auto_Backupmon = document.getElementById('autobackupEnabled').checked;
 
         // Handle conditional fields based on visibility
         var rogFWBuildRow = document.getElementById('rogFWBuildRow');
