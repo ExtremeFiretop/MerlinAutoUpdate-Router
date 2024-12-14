@@ -780,7 +780,7 @@
                                                                             <table style="margin: 0; text-align: left; width: 100%; border: none;">
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Changelog Approval:</strong></td>
-                                                                                    <td id="changelogApproval" style="padding: 4px;">DISABLED</td>
+                                                                                    <td id="changelogApproval" style="padding: 4px;">Disabled</td>
                                                                                 </tr>
                                                                                 <tr>
                                                                                     <td style="padding: 4px;"><strong>Changelog Check:</strong></td>
