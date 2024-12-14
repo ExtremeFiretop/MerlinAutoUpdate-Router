@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Dec-01
+# Last Modified: 2024-Dec-13
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.8
+readonly SCRIPT_VERSION=1.4.0
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -79,6 +79,7 @@ readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 readonly SHAREDSETTINGSFILE="/jffs/addons/custom_settings.txt"
 readonly TMPFILE="/tmp/MerlinAU_settings.txt"
 readonly WEBDIR="/www/user/$ScriptDirNameD"
+readonly PAGE_FILE="$ADDON_DIR/MerlinAU.asp"
 
 # Give FIRST priority to built-in binaries over any other #
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
@@ -1498,6 +1499,106 @@ then
    rm -fr "${FW_LOG_DIR:?}"
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Mount_WebUI_(){
+	Say "Mounting WebUI tab for $SCRIPT_NAME"
+
+    # Check if the WebUI is already installed
+    if [ -f "$SHAREDSETTINGSFILE" ]; then
+        # Extract the page associated with MerlinAU_uiPage
+        existing_page=$(grep "^MerlinAU_uiPage" "$SHAREDSETTINGSFILE" | awk '{print $2}')
+        
+        # If an existing page is found and matches the current page, skip installation
+        if [ -n "$existing_page" ]; then
+            Say "WebUI for $SCRIPT_NAME is already mounted as $existing_page"
+            return 0
+        fi
+    fi
+
+	# Check if the firmware supports addons
+	nvram get rc_support | grep -q am_addons
+	if [ $? != 0 ]; then
+	    Say "$SCRIPT_NAME" "This firmware does not support addons!"
+	    _DoExit_ 1
+	fi
+
+	# Obtain the first available mount point in $am_webui_page
+	am_get_webui_page $PAGE_FILE
+
+	if [ "$am_webui_page" = "none" ]; then
+    	Say "$SCRIPT_NAME" "Unable to install $SCRIPT_NAME"
+    	_DoExit_ 1
+	fi
+
+	# Store the page name for later use (e.g., in uninstall scripts)
+	echo "MerlinAU_uiPage $am_webui_page" > "$SHAREDSETTINGSFILE"
+
+	# Copy custom page to the user's WebUI directory
+	cp "$PAGE_FILE" "/www/user/$am_webui_page"
+				
+	# Copy menuTree.js if not already copied, so we can modify it
+	if [ ! -f /tmp/menuTree.js ]; then
+		cp /www/require/modules/menuTree.js /tmp/
+		mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+	fi
+
+	# Insert link at the end of the Tools menu		
+	sed -i "/url: \"Advanced_FirmwareUpgrade_Content.asp\", tabName:/a {url: \"$am_webui_page\", tabName: \"$SCRIPT_NAME\"}," /tmp/menuTree.js
+		
+	# Remount menuTree.js to apply changes
+	umount /www/require/modules/menuTree.js 2>/dev/null
+	mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+	Say "Mounted $SCRIPT_NAME WebUI page as $PAGE_FILE"
+    return 0
+}
+
+_Unmount_WebUI_(){
+	Say "Unmounting WebUI tab for $SCRIPT_NAME"
+
+	# Load the page name we stored during install
+	if [ -f "$SHAREDSETTINGSFILE" ]; then
+    	am_webui_page=$(grep "^MerlinAU_uiPage" "$SHAREDSETTINGSFILE" | awk '{print $2}')
+    else
+        # If not stored, try to extract it from /tmp/menuTree.js
+        if [ -f "/tmp/menuTree.js" ]; then
+            am_webui_page=$(grep 'tabName: "MerlinAU"' /tmp/menuTree.js | sed -n 's/.*url: "\([^"]*\)".*/\1/p')
+        else
+            Say "$ADDON_NAME" "Unable to find menuTree.js to derive the WebUI page."
+            _DoExit_ 1
+        fi
+    fi
+
+	if [ -z "$am_webui_page" ] || [ "$am_webui_page" = "none" ]; then
+    	Say "$ADDON_NAME" "No assigned page found to uninstall."
+    	_DoExit_ 1
+	fi
+
+	# Remove just our entry from menuTree.js, but do not unmount others may depend on it
+	if [ -f /tmp/menuTree.js ]; then
+    	sed -i "/url: \"$am_webui_page\", tabName: \"$ADDON_NAME\"/d" /tmp/menuTree.js
+	fi
+
+	# Remove our custom page (only if still mounted and safe to do so)
+	if [ -f "/www/user/$am_webui_page" ]; then
+    	rm -f "/www/user/$am_webui_page"
+	fi
+
+    # **Remove the specific line from SHAREDSETTINGSFILE instead of deleting PAGE_NAME_FILE**
+    if [ -f "$SHAREDSETTINGSFILE" ]; then
+        sed -i "/^MerlinAU_uiPage\s\+$am_webui_page$/d" "$SHAREDSETTINGSFILE"
+    fi
+
+	# Remount menuTree.js to apply changes
+	umount /www/require/modules/menuTree.js
+	mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+
+	/sbin/service restart_httpd >/dev/null 2>&1 &
+
+	Say "$ADDON_NAME" "Uninstalled successfully (preserving other add-ons' entries)."
+}
 
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Dec-13] ##
@@ -7786,6 +7887,7 @@ _DoUninstall_()
    _DelScriptAutoUpdateCronJob_
    _DelPostRebootRunScriptHook_
    _DelPostUpdateEmailNotifyScriptHook_
+   _Unmount_WebUI_
    _Auto_ServiceEvent_ delete 2>/dev/null
 
    if rm -fr "${SETTINGS_DIR:?}" && \
@@ -8054,6 +8156,7 @@ _ProcessMeshNodes_()
     fi
 }
 
+_Mount_WebUI_
 _Auto_ServiceEvent_ create 2>/dev/null
 _Set_Version_SharedSettings_ "$SCRIPT_VERSION"
 _Create_Symlinks_
