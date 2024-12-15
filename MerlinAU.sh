@@ -1553,7 +1553,6 @@ _Mount_WebUI_(){
 	umount /www/require/modules/menuTree.js 2>/dev/null
 	mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
 	Say "Mounted $SCRIPT_NAME WebUI page as $PAGE_FILE"
-    return 0
 }
 
 _Unmount_WebUI_(){
@@ -8172,10 +8171,6 @@ _ProcessMeshNodes_()
     fi
 }
 
-_Mount_WebUI_
-_Auto_ServiceEvent_ create 2>/dev/null
-_Set_Version_SharedSettings_ "$SCRIPT_VERSION"
-_Create_Symlinks_
 keepZIPfile=0
 keepWfile=0
 trap '_DoCleanUp_ 0 "$keepZIPfile" "$keepWfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
@@ -8197,6 +8192,10 @@ fi
 
 # Check if the router model is supported OR if
 # it has the minimum firmware version supported.
+_Mount_WebUI_
+_Auto_ServiceEvent_ create 2>/dev/null
+_Set_Version_SharedSettings_ "$SCRIPT_VERSION"
+_Create_Symlinks_
 check_model_support
 check_version_support
 
