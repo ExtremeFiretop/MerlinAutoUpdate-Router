@@ -8177,6 +8177,10 @@ _ProcessMeshNodes_()
     fi
 }
 
+_Mount_WebUI_
+_Auto_ServiceEvent_ create 2>/dev/null
+_Set_Version_SharedSettings_ "$SCRIPT_VERSION"
+_Create_Symlinks_
 keepZIPfile=0
 keepWfile=0
 trap '_DoCleanUp_ 0 "$keepZIPfile" "$keepWfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
@@ -8200,11 +8204,6 @@ fi
 # it has the minimum firmware version supported.
 check_model_support
 check_version_support
-
-_Mount_WebUI_
-_Auto_ServiceEvent_ create 2>/dev/null
-_Set_Version_SharedSettings_ "$SCRIPT_VERSION"
-_Create_Symlinks_
 
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Jan-24] ##
