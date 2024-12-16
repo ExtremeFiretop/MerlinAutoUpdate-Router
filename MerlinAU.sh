@@ -8201,6 +8201,7 @@ then
 fi
 
 _Set_Version_SharedSettings_ "$SCRIPT_VERSION"
+_Create_Symlinks_
 _Mount_WebUI_
 _Auto_ServiceEvent_ create 2>/dev/null
 
