@@ -4665,9 +4665,7 @@ _Calculate_NextRunTime_()
 ##----------------------------------------##
 _AddFWAutoUpdateCronJob_()
 {
-
    local newSchedule  newSetting  retCode=1
-
    if [ $# -gt 0 ] && [ -n "$1" ]
    then
        newSetting=true
