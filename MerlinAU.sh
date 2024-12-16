@@ -1505,16 +1505,19 @@ fi
 ## Added by ExtremeFiretop [2024-Dec-13] ##
 ##---------------------------------------##
 _Mount_WebUI_(){
+	local existing_page=""
+
 	Say "Mounting WebUI tab for $SCRIPT_NAME"
 
     # Check if the WebUI is already installed
-    # try to extract it from /tmp/menuTree.js
-    if [ -f "/tmp/menuTree.js" ]; then
-        existing_page=$(grep 'tabName: "MerlinAU"' /tmp/menuTree.js | sed -n 's/.*url: "\([^"]*\)".*/\1/p')
+    if [ -f "/tmp/menuTree.js" ] 
+    then
+        existing_page="$(grep 'tabName: "MerlinAU"' '/tmp/menuTree.js' | sed -n 's/.*url: "\([^"]*\)".*/\1/p')"
     fi
 
     # If an existing page is found, skip installation
-    if [ -n "$existing_page" ]; then
+    if [ -n "$existing_page" ]
+    then
         Say "WebUI for $SCRIPT_NAME is already mounted as $existing_page"
         return 0
     fi
@@ -1554,7 +1557,7 @@ _Mount_WebUI_(){
 
 	# Insert link at the end of the Tools menu		
 	sed -i "/url: \"Advanced_FirmwareUpgrade_Content.asp\", tabName:/a {url: \"$am_webui_page\", tabName: \"$SCRIPT_NAME\"}," /tmp/menuTree.js
-		
+	
 	# Remount menuTree.js to apply changes
 	umount /www/require/modules/menuTree.js 2>/dev/null
 	mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
@@ -1712,6 +1715,7 @@ _Conf_FromSettings_(){
             Say "No updated settings from WebUI found, no merge into $SETTINGSFILE necessary"
         fi
     fi
+    return 0
 }
 
 ##------------------------------------------##
@@ -4661,7 +4665,9 @@ _Calculate_NextRunTime_()
 ##----------------------------------------##
 _AddFWAutoUpdateCronJob_()
 {
+
    local newSchedule  newSetting  retCode=1
+
    if [ $# -gt 0 ] && [ -n "$1" ]
    then
        newSetting=true
@@ -8197,7 +8203,6 @@ then
 fi
 
 _Set_Version_SharedSettings_ "$SCRIPT_VERSION"
-_Create_Symlinks_
 _Mount_WebUI_
 _Auto_ServiceEvent_ create 2>/dev/null
 
@@ -8245,15 +8250,15 @@ then
        uninstall) _DoUninstall_
            ;;
 	   service_event)
-		   if [ "$3" = "MerlinAUuninstall" ]; then
+		   if [ "$2" = "start" ] && echo "$3" = "MerlinAUuninstall" ]
+		   then
 		   	   _DoUninstall_
 			   sleep 3
-		   elif [ "$3" = "MerlinAUchangelog" ]; then
-			   #_Conf_FromSettings_
-			   _ReleaseLock_
-		   elif [ "$3" = "MerlinAUcheck" ]; then
+		   elif [ "$2" = "start" ] && echo "$3" = "MerlinAUcheck" ]
+ 		   then
 			   _RunFirmwareUpdateNow_
-		   elif [ "$3" = "MerlinAUconfig" ]; then
+		   elif [ "$2" = "start" ] && echo "$3" = "MerlinAUconfig" ]
+		   then
 			   _Conf_FromSettings_
 		   fi
            ;;
