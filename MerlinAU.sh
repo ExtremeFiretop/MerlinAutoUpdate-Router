@@ -1508,15 +1508,15 @@ _Mount_WebUI_(){
 	Say "Mounting WebUI tab for $SCRIPT_NAME"
 
     # Check if the WebUI is already installed
-    if [ -f "$SHAREDSETTINGSFILE" ]; then
-        # Extract the page associated with MerlinAU_uiPage
-        existing_page=$(grep "^MerlinAU_uiPage" "$SHAREDSETTINGSFILE" | awk '{print $2}')
-        
-        # If an existing page is found and matches the current page, skip installation
-        if [ -n "$existing_page" ]; then
-            Say "WebUI for $SCRIPT_NAME is already mounted as $existing_page"
-            return 0
-        fi
+    # try to extract it from /tmp/menuTree.js
+    if [ -f "/tmp/menuTree.js" ]; then
+        existing_page=$(grep 'tabName: "MerlinAU"' /tmp/menuTree.js | sed -n 's/.*url: "\([^"]*\)".*/\1/p')
+    fi
+
+    # If an existing page is found, skip installation
+    if [ -n "$existing_page" ]; then
+        Say "WebUI for $SCRIPT_NAME is already mounted as $existing_page"
+        return 0
     fi
 
 	# Check if the firmware supports addons
@@ -1534,8 +1534,14 @@ _Mount_WebUI_(){
     	_DoExit_ 1
 	fi
 
-	# Store the page name for later use (e.g., in uninstall scripts)
-	echo "MerlinAU_uiPage $am_webui_page" >> "$SHAREDSETTINGSFILE"
+    # Store or update the page name for later use (e.g., in uninstall scripts)
+    if grep -q "^MerlinAU_uiPage" "$SHAREDSETTINGSFILE"; then
+        # Replace the existing line with the new value
+        sed -i "s/^MerlinAU_uiPage.*/MerlinAU_uiPage $am_webui_page/" "$SHAREDSETTINGSFILE"
+    else
+        # Append the new line if it doesn't exist
+        echo "MerlinAU_uiPage $am_webui_page" >> "$SHAREDSETTINGSFILE"
+    fi
 
 	# Copy custom page to the user's WebUI directory
 	cp "$PAGE_FILE" "/www/user/$am_webui_page"
