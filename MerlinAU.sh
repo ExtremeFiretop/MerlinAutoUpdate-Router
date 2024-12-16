@@ -8249,14 +8249,14 @@ then
        uninstall) _DoUninstall_
            ;;
 	   service_event)
-		   if [ "$2" = "start" ] && echo "$3" = "MerlinAUuninstall" ]
+		   if [ "$2" = "start" ] && [ "$3" = "MerlinAUuninstall" ]
 		   then
 		   	   _DoUninstall_
 			   sleep 3
-		   elif [ "$2" = "start" ] && echo "$3" = "MerlinAUcheck" ]
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUcheck" ]
  		   then
 			   _RunFirmwareUpdateNow_
-		   elif [ "$2" = "start" ] && echo "$3" = "MerlinAUconfig" ]
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
 		   then
 			   _Conf_FromSettings_
 		   fi
