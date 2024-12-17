@@ -1753,8 +1753,11 @@ _SCRIPTUPDATE_()
 
        if _DownloadScriptFiles_
        then
-           _Set_Version_SharedSettings_ "$SCRIPT_VERSION"
-           _Create_Symlinks_
+           if "$inRouterSWmode"
+           then
+               _Set_Version_SharedSettings_ "$SCRIPT_VERSION"
+               _Create_Symlinks_
+           fi
            echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
            _ReleaseLock_
            chmod 755 "$ScriptFilePath"
@@ -1782,8 +1785,11 @@ _SCRIPTUPDATE_()
 
           if _DownloadScriptFiles_
           then
-              _Set_Version_SharedSettings_ "$DLRepoVersion"
-              _Create_Symlinks_
+              if "$inRouterSWmode"
+              then
+               _Set_Version_SharedSettings_ "$DLRepoVersion"
+               _Create_Symlinks_
+              fi
               chmod 755 "$ScriptFilePath"
               echo
               echo -e "${CYANct}Download successful!${NOct}"
@@ -1811,8 +1817,11 @@ _SCRIPTUPDATE_()
               echo
               echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
               echo -e "${CYANct}Update successful! Restarting script...${NOct}"
-              _Create_Symlinks_
-              _Set_Version_SharedSettings_ "$DLRepoVersion"
+              if "$inRouterSWmode"
+              then
+                  _Set_Version_SharedSettings_ "$DLRepoVersion"
+                  _Create_Symlinks_
+              fi
               _ReleaseLock_
               chmod 755 "$ScriptFilePath"
               exec "$ScriptFilePath"  # Re-execute the updated script #
