@@ -8200,10 +8200,13 @@ then
     Say "Exiting..." ; exit 1
 fi
 
+if "$inRouterSWmode"
+then
 _Set_Version_SharedSettings_ "$SCRIPT_VERSION"
 _Create_Symlinks_
 _Mount_WebUI_
 _Auto_ServiceEvent_ create 2>/dev/null
+fi
 
 # Check if the router model is supported OR if
 # it has the minimum firmware version supported.
