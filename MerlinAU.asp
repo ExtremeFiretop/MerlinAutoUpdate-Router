@@ -21,9 +21,10 @@
     <script type="text/javascript" src="/validator.js"></script>
     <script type="text/javascript">
     // Define color formatting
-    var GRNct = "<span style='color:cyan;'>";
-    var NOct = "</span>";
+    var CYANct = "<span style='color:cyan;'>";
     var REDct = "<span style='color:red;'>";
+    var GRNct = "<span style='color:green;'>";
+    var NOct = "</span>";
 
     // Separate variables for server and AJAX settings
     var advanced_settings = {};
@@ -149,7 +150,7 @@
 
             // Handle fwNotificationsDate as a date
             if (fwNotificationsDate && custom_settings.FW_New_Update_Notifications_Date) {
-                fwNotificationsDate.innerHTML = GRNct + custom_settings.FW_New_Update_Notifications_Date + NOct;
+                fwNotificationsDate.innerHTML = CYANct + custom_settings.FW_New_Update_Notifications_Date + NOct;
             } else if (fwNotificationsDate) {
                 fwNotificationsDate.innerHTML = REDct + "TBD" + NOct;
             }
@@ -176,7 +177,7 @@
                     fwUpdateAvailableElement.innerHTML = REDct + "NONE FOUND" + NOct;
                     isFwUpdateAvailable = false; // No update available
                 } else if (fwUpdateAvailable && fwUpdateAvailableNormalized !== fwVersionInstalledNormalized) {
-                    fwUpdateAvailableElement.innerHTML = GRNct + fwUpdateAvailable + NOct;
+                    fwUpdateAvailableElement.innerHTML = CYANct + fwUpdateAvailable + NOct;
                     isFwUpdateAvailable = true; // Update is available
                 } else {
                     fwUpdateAvailableElement.innerHTML = REDct + "NONE FOUND" + NOct;
@@ -189,7 +190,7 @@
             // **Update fwUpdateEstimatedRunDate Based on fwUpdateAvailable**
             if (fwUpdateEstimatedRunDateElement) {
                 if (isFwUpdateAvailable && fwUpdateEstimatedRunDateElement.textContent.trim() !== '') {
-                    fwUpdateEstimatedRunDateElement.innerHTML = GRNct + fwUpdateEstimatedRunDateElement.textContent.trim() + NOct;
+                    fwUpdateEstimatedRunDateElement.innerHTML = CYANct + fwUpdateEstimatedRunDateElement.textContent.trim() + NOct;
                 } else {
                     fwUpdateEstimatedRunDateElement.innerHTML = REDct + "TBD" + NOct;
                 }
@@ -204,7 +205,7 @@
                 } else if (approvalStatus === "BLOCKED") {
                     changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
                 } else if (approvalStatus === "APPROVED") {
-                    changelogApprovalElement.innerHTML = GRNct + approvalStatus + NOct;
+                    changelogApprovalElement.innerHTML = CYANct + approvalStatus + NOct;
                 } else {
                     // Handle unexpected values gracefully
                     changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
@@ -235,9 +236,9 @@
 
             if (fwVariantDetectedElement) {
                 if (/gnuton/i.test(extendno)) { // Case-insensitive check for "gnuton"
-                    fwVariantDetectedElement.textContent = "Gnuton";
+                    fwVariantDetectedElement.innerHTML = CYANct + "Gnuton" + NOct;
                 } else {
-                    fwVariantDetectedElement.textContent = "Merlin";
+                    fwVariantDetectedElement.innerHTML = CYANct + "Merlin" + NOct;
                 }
             } else {
                 console.error("Element with id 'fwVariantDetected' not found.");
@@ -408,7 +409,7 @@
         var element = document.getElementById(elementId);
         if (element) {
             if (isEnabled) {
-                element.innerHTML = GRNct + "Enabled" + NOct;
+                element.innerHTML = CYANct + "Enabled" + NOct;
             } else {
                 element.innerHTML = REDct + "Disabled" + NOct;
             }
@@ -554,7 +555,7 @@
         var PRODUCT_ID = getFirstNonEmptyValue(productKeys);
 
         // Construct FW_RouterProductID with formatting
-        var FW_RouterProductID = GRNct + PRODUCT_ID + NOct;
+        var FW_RouterProductID = CYANct + PRODUCT_ID + NOct;
 
         // Convert MODEL_ID to uppercase for comparison
         var MODEL_ID_UPPER = MODEL_ID.toUpperCase();
@@ -564,7 +565,7 @@
         if (PRODUCT_ID === MODEL_ID_UPPER) {
             FW_RouterModelID = FW_RouterProductID;
         } else {
-            FW_RouterModelID = FW_RouterProductID + "/" + GRNct + MODEL_ID + NOct;
+            FW_RouterModelID = FW_RouterProductID + "/" + CYANct + MODEL_ID + NOct;
         }
 
         // Update the HTML table cells
@@ -651,13 +652,10 @@
         <input type="hidden" name="modified" value="0" />
         <input type="hidden" name="action_mode" value="apply" />
         <input type="hidden" name="action_wait" value="90" />
-        <input type="hidden" name="first_time" value="" />
-        <input type="hidden" name="SystemCmd" value="" />
         <input type="hidden" id="http_username" value="<% nvram_get("http_username"); %>" />
-        <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get('preferred_lang'); %>" />
+        <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>" />
         <!-- Consolidated firmver input -->
-        <input type="hidden" name="firmwarev" id="firmwarev" value="<% nvram_get('firmver'); %>" />
-        <input type="hidden" name="extendno" id="extendno" value="<% nvram_get('extendno'); %>" />
+        <input type="hidden" name="extendno" id="extendno" value="<% nvram_get("extendno"); %>" />
         <input type="hidden" name="firmver" id="firmver" value="<% nvram_get('firmver'); %>.<% nvram_get('buildno'); %>.<% nvram_get('extendno'); %>" />
         <input type="hidden" id="firmware_check_enable" value="<% nvram_get("firmware_check_enable"); %>" />
         <input type="hidden" id="nvram_odmpid" value="<% nvram_get("odmpid"); %>" />
