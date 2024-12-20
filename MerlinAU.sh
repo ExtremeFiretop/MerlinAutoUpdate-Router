@@ -1561,7 +1561,7 @@ _Mount_WebUI_(){
 	# Remount menuTree.js to apply changes
 	umount /www/require/modules/menuTree.js 2>/dev/null
 	mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
-	Say "Mounted $SCRIPT_NAME WebUI page as $am_get_webui_page"
+	Say "Mounted $SCRIPT_NAME WebUI page as $am_webui_page"
 }
 
 _Unmount_WebUI_(){
