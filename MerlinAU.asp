@@ -729,7 +729,7 @@
                                                                                     <td id="fwUpdateAvailable" style="padding: 4px;">NONE FOUND</td>
                                                                                 </tr>
                                                                                 <tr>
-                                                                                    <td style="padding: 4px;"><strong>F/W Update Estimated Date:</strong></td>
+                                                                                    <td style="padding: 4px;"><strong>Estimated Update Time:</strong></td>
                                                                                     <td id="fwUpdateEstimatedRunDate" style="padding: 4px;">TBD</td>
                                                                                 </tr>
                                                                                 <tr>
