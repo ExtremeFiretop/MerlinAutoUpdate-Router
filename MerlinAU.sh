@@ -1748,18 +1748,35 @@ _Auto_ServiceEvent_(){
 ## Added by ExtremeFiretop [2024-Dec-13] ##
 ##---------------------------------------##
 _Set_Version_SharedSettings_(){
-	if [ -f "$SHAREDSETTINGSFILE" ]; then
-		if [ "$(grep -c "MerlinAU_version" $SHAREDSETTINGSFILE)" -gt 0 ]; then
-			if [ "$1" != "$(grep "MerlinAU_version" /jffs/addons/custom_settings.txt | cut -f2 -d' ')" ]; then
-				sed -i "s/MerlinAU_version.*/MerlinAU_version $1/" "$SHAREDSETTINGSFILE"
+
+	if [ -z "$1" ] ; then echo ; return 1; fi
+
+	if [ "$1" = "add" ]; then
+
+		if [ -z "$2" ] ; then echo ; return 1; fi
+
+		if [ -f "$SHAREDSETTINGSFILE" ]; then
+			if grep -q "MerlinAU_version" "$SHAREDSETTINGSFILE"; then
+				if [ "$2" != "$(grep "MerlinAU_version" "$SHAREDSETTINGSFILE" | cut -f2 -d' ')" ]; then
+					sed -i "s/MerlinAU_version.*/MerlinAU_version $2/" "$SHAREDSETTINGSFILE"
+				fi
+			else
+				echo "MerlinAU_version $2" >> "$SHAREDSETTINGSFILE"
 			fi
 		else
-			echo "MerlinAU_version $1" >> "$SHAREDSETTINGSFILE"
+			echo "MerlinAU_version $2" >> "$SHAREDSETTINGSFILE"
 		fi
-	else
-		echo "MerlinAU_version $1" >> "$SHAREDSETTINGSFILE"
-	fi
 
+	elif [ "$1" = "remove" ]; then
+		if [ -f "$SHAREDSETTINGSFILE" ]; then
+			if grep -q "MerlinAU_version" "$SHAREDSETTINGSFILE"; then
+				sed -i "/MerlinAU_version/d" "$SHAREDSETTINGSFILE"
+			fi
+		fi
+
+	else
+		return 1
+	fi
 }
 
 ##---------------------------------------##
@@ -1855,7 +1872,7 @@ _SCRIPTUPDATE_()
        then
            if "$inRouterSWmode"
            then
-               _Set_Version_SharedSettings_ "$SCRIPT_VERSION"
+               _Set_Version_SharedSettings_ add "$SCRIPT_VERSION"
                _Create_Symlinks_
            fi
            echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
@@ -1887,7 +1904,7 @@ _SCRIPTUPDATE_()
           then
               if "$inRouterSWmode"
               then
-               _Set_Version_SharedSettings_ "$DLRepoVersion"
+               _Set_Version_SharedSettings_ add "$DLRepoVersion"
                _Create_Symlinks_
               fi
               chmod 755 "$ScriptFilePath"
@@ -1919,7 +1936,7 @@ _SCRIPTUPDATE_()
               echo -e "${CYANct}Update successful! Restarting script...${NOct}"
               if "$inRouterSWmode"
               then
-                  _Set_Version_SharedSettings_ "$DLRepoVersion"
+                  _Set_Version_SharedSettings_ add "$DLRepoVersion"
                   _Create_Symlinks_
               fi
               _ReleaseLock_
@@ -8021,8 +8038,12 @@ _DoUninstall_()
    _DelScriptAutoUpdateCronJob_
    _DelPostRebootRunScriptHook_
    _DelPostUpdateEmailNotifyScriptHook_
-   _Unmount_WebUI_
-   _Auto_ServiceEvent_ delete 2>/dev/null
+   if "$inRouterSWmode"
+   then
+      _Unmount_WebUI_
+      _Auto_ServiceEvent_ delete 2>/dev/null
+      _Set_Version_SharedSettings_ remove
+   fi
 
    if rm -fr "${SETTINGS_DIR:?}" && \
       rm -fr "${FW_BIN_BASE_DIR:?}/$ScriptDirNameD" && \
@@ -8309,9 +8330,12 @@ then
     Say "Exiting..." ; exit 1
 fi
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
 if "$inRouterSWmode"
 then
-_Set_Version_SharedSettings_ "$SCRIPT_VERSION"
+_Set_Version_SharedSettings_ add "$SCRIPT_VERSION"
 _Create_Symlinks_
 _Mount_WebUI_
 _Auto_ServiceEvent_ create 2>/dev/null
