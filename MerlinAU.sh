@@ -990,6 +990,7 @@ Get_Custom_Setting()
             "FW_Allow_Beta_Production_Up" | \
             "FW_Auto_Backupmon" | \
             "Allow_Script_Auto_Update" | \
+            "FW_New_Update_EMail_Notification" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -1002,7 +1003,6 @@ Get_Custom_Setting()
             "FW_New_Update_ZIP_Directory_Path" | \
             "FW_New_Update_LOG_Directory_Path" | \
             "FW_New_Update_LOG_Preferred_Path" | \
-            "FW_New_Update_EMail_Notification" | \
             "FW_New_Update_EMail_FormatType" | \
             "FW_New_Update_EMail_CC_Name" | \
             "FW_New_Update_EMail_CC_Address")
@@ -1742,7 +1742,7 @@ _Create_Symlinks_(){
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Dec-13] ##
 ##---------------------------------------##
-_Conf_FromSettings_(){
+_Config_FromSettings_(){
     if [ -f "$SHAREDSETTINGSFILE" ]; then
         # Check for MerlinAU_ entries excluding 'version' and 'uiPage'
         if [ "$(grep "MerlinAU_" "$SHAREDSETTINGSFILE" | grep -Ev "version|uiPage" -c)" -gt 0 ]; then
@@ -2290,7 +2290,7 @@ _CheckEMailConfigFileFromAMTM_()
 _SendEMailNotification_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ]  || \
-   ! "$sendEMailNotificationsFlag" || \
+   [ "$sendEMailNotificationsFlag" != "ENABLED" ] || \
    ! _CheckEMailConfigFileFromAMTM_ 1
    then return 1 ; fi
 
@@ -6467,7 +6467,7 @@ _CheckTimeToUpdateFirmware_()
 ##-------------------------------------##
 _RunEMailNotificationTest_()
 {
-   ! "$sendEMailNotificationsFlag" && return 1
+   [ "$sendEMailNotificationsFlag" != "ENABLED" ] && return 1
    local retCode=1
 
    if _WaitForYESorNO_ "\nWould you like to run a test of the email notification?"
@@ -6485,12 +6485,12 @@ _Toggle_FW_UpdateEmailNotifications_()
 {
    local emailNotificationEnabled  emailNotificationNewStateStr
 
-   if "$sendEMailNotificationsFlag"
+   if [ "$sendEMailNotificationsFlag" = "ENABLED" ];
    then
-       emailNotificationEnabled=true
+       emailNotificationEnabled="ENABLED"
        emailNotificationNewStateStr="${REDct}DISABLE${NOct}"
    else
-       emailNotificationEnabled=false
+       emailNotificationEnabled="DISABLED"
        emailNotificationNewStateStr="${GRNct}ENABLE${NOct}"
    fi
 
@@ -6502,10 +6502,10 @@ _Toggle_FW_UpdateEmailNotifications_()
 
    if "$emailNotificationEnabled"
    then
-       sendEMailNotificationsFlag=false
+       sendEMailNotificationsFlag="DISABLED"
        emailNotificationNewStateStr="${REDct}DISABLED${NOct}"
    else
-       sendEMailNotificationsFlag=true
+       sendEMailNotificationsFlag="ENABLED"
        emailNotificationNewStateStr="${GRNct}ENABLED${NOct}"
    fi
 
@@ -8338,7 +8338,7 @@ then
 			   _RunFirmwareUpdateNow_
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
 		   then
-			   _Conf_FromSettings_
+			   _Config_FromSettings_
 		   fi
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
@@ -9025,14 +9025,14 @@ _ShowAdvancedOptionsMenu_()
        else
            printf "\n ${GRNct}em${NOct}.  Toggle F/W Email Notifications"
        fi
-       if "$sendEMailNotificationsFlag"
+       if [ "$sendEMailNotificationsFlag" = "ENABLED" ];
        then
            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
        else
            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
        fi
 
-       if "$sendEMailNotificationsFlag"
+       if [ "$sendEMailNotificationsFlag" = "ENABLED" ];
        then
            # Format Types: "HTML" or "Plain Text" #
            printf "\n ${GRNct}ef${NOct}.  Set Email Format Type"
@@ -9206,13 +9206,13 @@ _AdvancedOptionsMenu_()
                fi
                ;;
            ef) if "$isEMailConfigEnabledInAMTM" && \
-                  "$sendEMailNotificationsFlag"
+                  [ "$sendEMailNotificationsFlag" = "ENABLED" ]
                then _SetEMailFormatType_
                else _InvalidMenuSelection_
                fi
                ;;
            se) if "$isEMailConfigEnabledInAMTM" && \
-                  "$sendEMailNotificationsFlag"
+                  [ "$sendEMailNotificationsFlag" = "ENABLED" ]
                then _SetSecondaryEMailAddress_
                else _InvalidMenuSelection_
                fi
