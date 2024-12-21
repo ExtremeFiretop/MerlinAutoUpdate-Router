@@ -122,7 +122,7 @@ fi
 # to send email notifications *IF* enabled by the user.
 #-------------------------------------------------------#
 readonly FW_UpdateEMailFormatTypeDefault=HTML
-readonly FW_UpdateEMailNotificationDefault=false
+readonly FW_UpdateEMailNotificationDefault="DISABLED"
 readonly amtmMailDirPath="/jffs/addons/amtm/mail"
 readonly amtmMailConfFile="${amtmMailDirPath}/email.conf"
 readonly amtmMailPswdFile="${amtmMailDirPath}/emailpw.enc"
@@ -862,7 +862,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Notification_Date TBD"
          echo "FW_New_Update_Notification_Vers TBD"
          echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays"
-         echo "FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault"
+         echo "FW_New_Update_EMail_Notification $FW_UpdateEMailNotificationDefault"
          echo "FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\""
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
@@ -1369,6 +1369,78 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 }
 
 _Init_Custom_Settings_Config_
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-20] ##
+##---------------------------------------##
+_migrate_settings_() {
+    # Function to migrate specific settings from old values to new standardized values.
+
+    ### Migrate ROGBuild Setting ###
+    # Retrieve the current value of ROGBuild
+    ROGBuild_Value="$(Get_Custom_Setting ROGBuild)"
+    
+    if [ "$ROGBuild_Value" = "Not existing" ]; then
+        Say "ROGBuild setting does not exist. No migration needed."
+    else
+        case "$ROGBuild_Value" in
+            y|Y)
+                New_ROGBuild_Value="ENABLED"
+                ;;
+            n|N)
+                New_ROGBuild_Value="DISABLED"
+                ;;
+            *)
+                Say "ROGBuild has a migrated value: '$ROGBuild_Value'. Skipping migration for this setting."
+                New_ROGBuild_Value=""
+                ;;
+        esac
+
+        # Update the ROGBuild setting if a valid new value was determined
+        if [ -n "$New_ROGBuild_Value" ]; then
+            Update_Custom_Settings ROGBuild "$New_ROGBuild_Value"
+            if [ $? -eq 0 ]; then
+                Say "ROGBuild setting successfully migrated to '$New_ROGBuild_Value'."
+            else
+                Say "Error occurred while migrating ROGBuild setting to '$New_ROGBuild_Value'."
+            fi
+        fi
+    fi
+
+    ### Migrate FW_New_Update_EMail_Notification Setting ###
+    # Retrieve the current value of FW_New_Update_EMail_Notification
+    EMailNotif_Value="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
+    
+    if [ "$EMailNotif_Value" = "Not existing" ]; then
+        Say "FW_New_Update_EMail_Notification setting does not exist. No migration needed."
+    else
+        case "$EMailNotif_Value" in
+            true|TRUE|True)
+                New_EMailNotif_Value="ENABLED"
+                ;;
+            false|FALSE|False)
+                New_EMailNotif_Value="DISABLED"
+                ;;
+            *)
+                Say "FW_New_Update_EMail_Notification has a migrated value: '$EMailNotif_Value'. Skipping migration for this setting."
+                New_EMailNotif_Value=""
+                ;;
+        esac
+
+        if [ -n "$New_EMailNotif_Value" ]; then
+            sed -i "/^FW_New_Update_EMail_Notification=/c\FW_New_Update_EMail_Notification $New_EMailNotif_Value" "$SETTINGSFILE"
+            if [ $? -eq 0 ]; then
+                Say "FW_New_Update_EMail_Notification has been updated to $New_EMailNotif_Value."
+            else
+                Say "Failed to update FW_New_Update_EMail_Notification in the settings file."
+            fi
+        fi
+    fi
+
+}
+
+# Execute the migration function
+_migrate_settings_
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jun-03] ##
