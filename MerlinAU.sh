@@ -898,9 +898,9 @@ _Init_Custom_Settings_Config_()
        sed -i "3 i FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" "$SETTINGSFILE"
        retCode=1
    fi
-   if ! grep -q "^FW_New_Update_EMail_Notification=" "$SETTINGSFILE"
+   if ! grep -q "^FW_New_Update_EMail_Notification " "$SETTINGSFILE"
    then
-       sed -i "4 i FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault" "$SETTINGSFILE"
+       sed -i "4 i FW_New_Update_EMail_Notification $FW_UpdateEMailNotificationDefault" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_EMail_FormatType=" "$SETTINGSFILE"
@@ -1067,6 +1067,7 @@ Update_Custom_Settings()
         "FW_Allow_Beta_Production_Up" | \
         "FW_Auto_Backupmon" | \
         "Allow_Script_Auto_Update" | \
+        "FW_New_Update_EMail_Notification" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]
@@ -1091,7 +1092,6 @@ Update_Custom_Settings()
         "FW_New_Update_ZIP_Directory_Path" | \
         "FW_New_Update_LOG_Directory_Path" | \
         "FW_New_Update_LOG_Preferred_Path" | \
-        "FW_New_Update_EMail_Notification" | \
         "FW_New_Update_EMail_FormatType" | \
         "FW_New_Update_EMail_CC_Name" | \
         "FW_New_Update_EMail_CC_Address")
@@ -1118,10 +1118,6 @@ Update_Custom_Settings()
             elif [ "$setting_type" = "FW_New_Update_Expected_Run_Date" ]
             then
                 FW_UpdateExpectedRunDate="$setting_value"
-            #
-            elif [ "$setting_type" = "FW_New_Update_EMail_Notification" ]
-            then
-                sendEMailNotificationsFlag="$setting_value"
             #
             elif [ "$setting_type" = "FW_New_Update_EMail_FormatType" ]
             then
@@ -1368,8 +1364,6 @@ _Set_FW_UpdateZIP_DirectoryPath_()
    return 0
 }
 
-_Init_Custom_Settings_Config_
-
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Dec-20] ##
 ##---------------------------------------##
@@ -1441,6 +1435,8 @@ _migrate_settings_() {
 
 # Execute the migration function
 _migrate_settings_
+
+_Init_Custom_Settings_Config_
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jun-03] ##
