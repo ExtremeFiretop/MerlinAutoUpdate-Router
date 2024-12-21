@@ -1367,9 +1367,33 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Dec-20] ##
 ##---------------------------------------##
+## This function is meant to be temporary
+## We should be safe to remove it after 3 months, or 5 version releases.
+## Whichever comes first. Similar to the first migration function removed in v1.0.9
 _migrate_settings_() {
-    # Function to migrate specific settings from old values to new standardized values.
 
+    # Function to downlod WebUI if not already existing post update. (For old versions without a WebUI)
+    local WebUI_path="$SETTINGS_DIR/${SCRIPT_NAME}.asp"
+    
+    # Check if the file exists
+    if [ ! -f "$WebUI_path" ]; then
+        Say "File not found: $WebUI_path. Downloading..."
+        
+        # Attempt to download the file using curl
+        curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.asp" -o "$WebUI_path"
+        
+        # Check if the download succeeded
+        if [ $? -eq 0 ]; then
+            Say "File downloaded successfully to $WebUI_path."
+        else
+            Say "Failed to download the file. Please check the URL or your network connection."
+            return 1
+        fi
+    else
+        Say "File already exists: $WebUI_path. No action needed."
+    fi
+
+    # Function to migrate specific settings from old values to new standardized values.
     ### Migrate ROGBuild Setting ###
     # Retrieve the current value of ROGBuild
     ROGBuild_Value="$(Get_Custom_Setting ROGBuild)"
