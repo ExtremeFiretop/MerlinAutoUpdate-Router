@@ -1385,7 +1385,7 @@ _migrate_settings_() {
                 New_ROGBuild_Value="DISABLED"
                 ;;
             *)
-                Say "ROGBuild has a migrated value: '$New_ROGBuild_Value'. Skipping migration for this setting."
+                Say "ROGBuild has a unknown value: '$ROGBuild_Value'. Skipping migration for this setting."
                 New_ROGBuild_Value=""
                 ;;
         esac
@@ -1416,7 +1416,7 @@ _migrate_settings_() {
                 New_TUFBuild_Value="DISABLED"
                 ;;
             *)
-                Say "TUFBuild has a migrated value: '$New_TUFBuild_Value'. Skipping migration for this setting."
+                Say "TUFBuild has a unknown value: '$TUFBuild_Value'. Skipping migration for this setting."
                 New_TUFBuild_Value=""
                 ;;
         esac
@@ -1436,8 +1436,8 @@ _migrate_settings_() {
     # Retrieve the current value of FW_New_Update_EMail_Notification from the settings file
     EMailNotif_Value=$(grep '^FW_New_Update_EMail_Notification=' "$SETTINGSFILE" | cut -d'=' -f2 | tr -d '"')
     
-    if [ "$EMailNotif_Value" = "Not existing" ]; then
-        Say "FW_New_Update_EMail_Notification setting does not exist. No migration needed."
+    if [ -z "$EMailNotif_Value" ]; then
+        Say "Already migrated. No migration needed."
     else
         case "$EMailNotif_Value" in
             true|TRUE|True)
@@ -1447,7 +1447,7 @@ _migrate_settings_() {
                 New_EMailNotif_Value="DISABLED"
                 ;;
             *)
-                Say "FW_New_Update_EMail_Notification has a migrated value: '$EMailNotif_Value'. Skipping migration for this setting."
+                Say "FW_New_Update_EMail_Notification has a unknown value: '$EMailNotif_Value'. Skipping migration for this setting."
                 New_EMailNotif_Value=""
                 ;;
         esac
