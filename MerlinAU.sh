@@ -1402,8 +1402,8 @@ _migrate_settings_() {
     fi
 
     ### Migrate FW_New_Update_EMail_Notification Setting ###
-    # Retrieve the current value of FW_New_Update_EMail_Notification
-    EMailNotif_Value="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
+    # Retrieve the current value of FW_New_Update_EMail_Notification from the settings file
+    EMailNotif_Value=$(grep '^FW_New_Update_EMail_Notification=' "$SETTINGSFILE" | cut -d'=' -f2 | tr -d '"')
     
     if [ "$EMailNotif_Value" = "Not existing" ]; then
         Say "FW_New_Update_EMail_Notification setting does not exist. No migration needed."
