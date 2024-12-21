@@ -111,11 +111,11 @@
         let fwUpdateCheckStatus = document.getElementById('fwUpdateCheckStatus');
 
         // Determine if firmware update check is enabled based on the hidden input value
-        let isFwUpdateEnabled = (firmwareCheckEnableValue === '1');
+        let isFwUpdateEnabled = (firmwareCheckEnableValue === '1') ? 'ENABLED' : 'DISABLED';
 
         // Set the checkbox state
         if (fwUpdateEnabled) {
-            fwUpdateEnabled.checked = isFwUpdateEnabled;
+            fwUpdateEnabled.checked = (isFwUpdateEnabled === 'ENABLED');
         }
 
         // Update the Firmware Status display
@@ -132,21 +132,33 @@
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.FW_New_Update_ROGFWBuildType || 'ROG';
             if (tuffFWBuildType) tuffFWBuildType.value = custom_settings.FW_New_Update_TUFWBuildType || 'TUF';
 
-            if (changelogCheckEnabled) changelogCheckEnabled.checked = parseBoolean(custom_settings.CheckChangeLog);
-            if (emailNotificationsEnabled) emailNotificationsEnabled.checked = parseBoolean(custom_settings.FW_New_Update_EMail_Notification);
-            if (autobackupEnabled) autobackupEnabled.checked = parseBoolean(custom_settings.FW_Auto_Backupmon);
-            if (tailscaleVPNEnabled) tailscaleVPNEnabled.checked = parseBoolean(custom_settings.Allow_Updates_OverVPN);
-            if (autoUpdatesScriptEnabled) autoUpdatesScriptEnabled.checked = parseBoolean(custom_settings.Allow_Script_Auto_Update);
-            if (betaToReleaseUpdatesEnabled) betaToReleaseUpdatesEnabled.checked = parseBoolean(custom_settings.FW_Allow_Beta_Production_Up);
+            if (changelogCheckEnabled) {
+                changelogCheckEnabled.checked = (custom_settings.CheckChangeLog === 'ENABLED');
+            }
+            if (emailNotificationsEnabled) {
+                emailNotificationsEnabled.checked = (custom_settings.FW_New_Update_EMail_Notification === 'ENABLED');
+            }
+            if (autobackupEnabled) {
+                autobackupEnabled.checked = (custom_settings.FW_Auto_Backupmon === 'ENABLED');
+            }
+            if (tailscaleVPNEnabled) {
+                tailscaleVPNEnabled.checked = (custom_settings.Allow_Updates_OverVPN === 'ENABLED');
+            }
+            if (autoUpdatesScriptEnabled) {
+                autoUpdatesScriptEnabled.checked = (custom_settings.Allow_Script_Auto_Update === 'ENABLED');
+            }
+            if (betaToReleaseUpdatesEnabled) {
+                betaToReleaseUpdatesEnabled.checked = (custom_settings.FW_Allow_Beta_Production_Up === 'ENABLED');
+            }
             if (fwUpdateDirectory) fwUpdateDirectory.value = custom_settings.FW_New_Update_ZIP_Directory_Path || '';
 
             // Update Settings Status Table
-            setStatus('changelogCheckStatus', parseBoolean(custom_settings.CheckChangeLog));
-            setStatus('betaToReleaseUpdatesStatus', parseBoolean(custom_settings.FW_Allow_Beta_Production_Up));
-            setStatus('tailscaleVPNAccessStatus', parseBoolean(custom_settings.Allow_Updates_OverVPN));
-            setStatus('autobackupEnabledStatus', parseBoolean(custom_settings.FW_Auto_Backupmon));
-            setStatus('autoUpdatesScriptEnabledStatus', parseBoolean(custom_settings.Allow_Script_Auto_Update));
-            setStatus('emailNotificationsStatus', parseBoolean(custom_settings.FW_New_Update_EMail_Notification));
+            setStatus('changelogCheckStatus', custom_settings.CheckChangeLog);
+            setStatus('betaToReleaseUpdatesStatus', custom_settings.FW_Allow_Beta_Production_Up);
+            setStatus('tailscaleVPNAccessStatus', custom_settings.Allow_Updates_OverVPN);
+            setStatus('autobackupEnabledStatus', custom_settings.FW_Auto_Backupmon);
+            setStatus('autoUpdatesScriptEnabledStatus', custom_settings.Allow_Script_Auto_Update);
+            setStatus('emailNotificationsStatus', custom_settings.FW_New_Update_EMail_Notification);
 
             // Handle fwNotificationsDate as a date
             if (fwNotificationsDate && custom_settings.FW_New_Update_Notifications_Date) {
@@ -215,7 +227,7 @@
             // **Control "Approve Changelog" Button Visibility**
             var approveChangelogButton = document.getElementById('approveChangelogButton');
             if (approveChangelogButton) {
-                var isChangelogCheckEnabled = custom_settings.CheckChangeLog;
+                var isChangelogCheckEnabled = (custom_settings.CheckChangeLog === 'ENABLED');
                 var changelogApprovalValue = custom_settings.FW_New_Update_Changelog_Approval;
 
                 // Condition: Show button only if
@@ -335,7 +347,7 @@
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
-                ajax_custom_settings.FW_New_Update_EMail_Notification = parseBoolean(value);
+                ajax_custom_settings.FW_New_Update_EMail_Notification = convertToStatus(value);
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_FORMATTYPE':
@@ -347,7 +359,7 @@
                 break;
 
             case keyUpper === 'ALLOW_UPDATES_OVERVPN':
-                ajax_custom_settings.Allow_Updates_OverVPN = parseBoolean(value);
+                ajax_custom_settings.Allow_Updates_OverVPN = convertToStatus(value);
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_CC_ADDRESS':
@@ -355,11 +367,11 @@
                 break;
 
             case keyUpper === 'CHECKCHANGELOG':
-                ajax_custom_settings.CheckChangeLog = parseBoolean(value);
+                ajax_custom_settings.CheckChangeLog = convertToStatus(value);
                 break;
 
             case keyUpper === 'ALLOW_SCRIPT_AUTO_UPDATE':
-                ajax_custom_settings.Allow_Script_Auto_Update = parseBoolean(value);
+                ajax_custom_settings.Allow_Script_Auto_Update = convertToStatus(value);
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_CHANGELOG_APPROVAL':
@@ -367,11 +379,11 @@
                 break;
 
             case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
-                ajax_custom_settings.FW_Allow_Beta_Production_Up = parseBoolean(value);
+                ajax_custom_settings.FW_Allow_Beta_Production_Up = convertToStatus(value);
                 break;
 
             case keyUpper === 'FW_AUTO_BACKUPMON':
-                ajax_custom_settings.FW_Auto_Backupmon = parseBoolean(value);
+                ajax_custom_settings.FW_Auto_Backupmon = convertToStatus(value);
                 break;
 
             case keyUpper === 'CREDENTIALS_BASE64':
@@ -385,11 +397,12 @@
                 break;
 
             case keyUpper === 'ROGBUILD':
-                ajax_custom_settings.FW_New_Update_ROGFWBuildType = parseBoolean(value) ? 'ROG' : 'Pure';
+                ajax_custom_settings.FW_New_Update_ROGFWBuildType = (value === 'ENABLED') ? 'ROG' : 'Pure';
                 break;
 
+
             case keyUpper === 'TUFBUILD':
-                ajax_custom_settings.FW_New_Update_TUFWBuildType = parseBoolean(value) ? 'TUF' : 'Pure';
+                ajax_custom_settings.FW_New_Update_TUFWBuildType = (value === 'ENABLED') ? 'TUF' : 'Pure';
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
@@ -408,9 +421,12 @@
     function setStatus(elementId, isEnabled) {
         var element = document.getElementById(elementId);
         if (element) {
-            if (isEnabled) {
+            if (isEnabled === 'ENABLED') {
                 element.innerHTML = CYANct + "Enabled" + NOct;
+            } else if (isEnabled === 'DISABLED') {
+                element.innerHTML = REDct + "Disabled" + NOct;
             } else {
+                console.warn(`Unexpected value for ${elementId}: ${isEnabled}. Defaulting to Disabled.`);
                 element.innerHTML = REDct + "Disabled" + NOct;
             }
         }
@@ -422,12 +438,12 @@
         document.form.current_page.value = window.location.pathname.substring(1);
     }
 
-    function parseBoolean(value) {
-        if (typeof value === 'boolean') return value;
+    function convertToStatus(value) {
+        if (typeof value === 'boolean') return value ? 'ENABLED' : 'DISABLED';
         if (typeof value === 'string') {
-            return value.toLowerCase() === 'true' || value.toLowerCase() === 'enabled';
+            return (value.toLowerCase() === 'true' || value.toLowerCase() === 'enabled') ? 'ENABLED' : 'DISABLED';
         }
-        return false;
+        return 'DISABLED';
     }
 
     function initial() {
@@ -469,7 +485,7 @@
         var action_settings = {
             credentials_base64: encodedCredentials,
             FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
-            CheckChangeLog: document.getElementById('changelogCheckEnabled').checked
+            CheckChangeLog: document.getElementById('changelogCheckEnabled').checked ? 'ENABLED' : 'DISABLED'
         };
 
         // Prefix only Action settings
@@ -492,14 +508,14 @@
     function SaveAdvancedConfig() {
         // Collect only Advanced form-specific settings
         var advanced_settings = {
-            FW_New_Update_EMail_Notification: document.getElementById('emailNotificationsEnabled').checked,
+            FW_New_Update_EMail_Notification: document.getElementById('emailNotificationsEnabled').checked ? 'ENABLED' : 'DISABLED',
             FW_New_Update_EMail_FormatType: document.getElementById('emailFormat')?.value || 'HTML',
             FW_New_Update_ZIP_Directory_Path: document.getElementById('fwUpdateDirectory')?.value || '/tmp/mnt/USB1',
-            Allow_Updates_OverVPN: document.getElementById('tailscaleVPNEnabled').checked,
+            Allow_Updates_OverVPN: document.getElementById('tailscaleVPNEnabled').checked ? 'ENABLED' : 'DISABLED',
             FW_New_Update_EMail_CC_Address: document.getElementById('secondaryEmail')?.value || 'TBD',
-            Allow_Script_Auto_Update: document.getElementById('autoUpdatesScriptEnabled').checked,
-            FW_Allow_Beta_Production_Up: document.getElementById('betaToReleaseUpdatesEnabled').checked,
-            FW_Auto_Backupmon: document.getElementById('autobackupEnabled').checked
+            Allow_Script_Auto_Update: document.getElementById('autoUpdatesScriptEnabled').checked ? 'ENABLED' : 'DISABLED',
+            FW_Allow_Beta_Production_Up: document.getElementById('betaToReleaseUpdatesEnabled').checked ? 'ENABLED' : 'DISABLED',
+            FW_Auto_Backupmon: document.getElementById('autobackupEnabled').checked ? 'ENABLED' : 'DISABLED'
         };
 
         // Handle conditional fields based on visibility
