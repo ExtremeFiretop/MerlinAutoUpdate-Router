@@ -4163,7 +4163,7 @@ _ChangeBuildType_ROG_()
    # Use Get_Custom_Setting to retrieve the previous choice
    previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
-   # If the previous choice is not set, default to 'n'
+   # If the previous choice is not set, default to 'DISABLED'
    if [ "$previous_choice" = "TBD" ]; then
        previous_choice="DISABLED"
    fi
