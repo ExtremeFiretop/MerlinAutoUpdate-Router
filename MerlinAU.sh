@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Dec-13
+# Last Modified: 2024-Dec-21
 ###################################################################
 set -u
 
@@ -69,9 +69,9 @@ readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 readonly ScriptDirNameD="${ScriptFNameTag}.d"
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 readonly ADDONS_PATH="/jffs/addons"
 readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
@@ -115,7 +115,7 @@ then
 fi
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-02] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 #-------------------------------------------------------#
 # We'll use the built-in AMTM email configuration file
@@ -849,9 +849,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-27] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -970,9 +970,9 @@ _Init_Custom_Settings_Config_()
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-27] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 Get_Custom_Setting()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
@@ -1019,9 +1019,9 @@ Get_Custom_Setting()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-30] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _GetAllNodeSettings_()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -1046,9 +1046,9 @@ _GetAllNodeSettings_()
     echo "$setting_value"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-27] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -1818,7 +1818,7 @@ _Config_FromSettings_(){
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 _SCRIPTUPDATE_()
 {
@@ -1830,6 +1830,7 @@ _SCRIPTUPDATE_()
 
       curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
       curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
+      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.asp" -o "$SETTINGS_DIR"
 
       if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
       then
@@ -2315,9 +2316,9 @@ _CheckEMailConfigFileFromAMTM_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-05] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _SendEMailNotification_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ]  || \
@@ -4093,7 +4094,7 @@ _Toggle_Auto_Backups_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-18] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 _ChangeBuildType_TUF_()
 {
@@ -4153,7 +4154,7 @@ _ChangeBuildType_TUF_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-18] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 _ChangeBuildType_ROG_()
 {
@@ -6493,9 +6494,9 @@ _CheckTimeToUpdateFirmware_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Feb-16] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _RunEMailNotificationTest_()
 {
    [ "$sendEMailNotificationsFlag" != "ENABLED" ] && return 1
@@ -6509,9 +6510,9 @@ _RunEMailNotificationTest_()
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-16] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _Toggle_FW_UpdateEmailNotifications_()
 {
    local emailNotificationEnabled  emailNotificationNewStateStr
@@ -6927,7 +6928,7 @@ _SelectOfflineUpdateFile_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-18] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 _GnutonBuildSelection_()
 {
@@ -7511,9 +7512,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Jun-04] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Dec-21] ##
+    ##------------------------------------------##
     pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
 
     if [ "$fwInstalledBaseVers" -le 3004 ] && [ "$fwUpdateBaseNum" -le 3004 ]
@@ -8006,9 +8007,9 @@ _DelScriptAutoUpdateHook_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _DoUninstall_()
 {
    printf "Are you sure you want to uninstall $ScriptFileName script now"
@@ -8327,7 +8328,7 @@ check_version_support
 _CheckEMailConfigFileFromAMTM_ 0
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 if [ $# -gt 0 ]
 then
@@ -8892,9 +8893,9 @@ _ShowMainMenu_()
    printf "${SEPstr}\n"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-25] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
    local BetaProductionSetting  VPNAccess  currentBackupOption
@@ -9193,7 +9194,7 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 _AdvancedOptionsMenu_()
 {
