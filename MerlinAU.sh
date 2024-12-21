@@ -1374,7 +1374,7 @@ _migrate_settings_() {
     # Retrieve the current value of ROGBuild
     ROGBuild_Value="$(Get_Custom_Setting ROGBuild)"
     
-    if [ "$ROGBuild_Value" = "Not existing" ]; then
+    if [ "$ROGBuild_Value" = "TBD" ]; then
         Say "ROGBuild setting does not exist. No migration needed."
     else
         case "$ROGBuild_Value" in
@@ -1385,7 +1385,7 @@ _migrate_settings_() {
                 New_ROGBuild_Value="DISABLED"
                 ;;
             *)
-                Say "ROGBuild has a migrated value: '$ROGBuild_Value'. Skipping migration for this setting."
+                Say "ROGBuild has a migrated value: '$New_ROGBuild_Value'. Skipping migration for this setting."
                 New_ROGBuild_Value=""
                 ;;
         esac
@@ -1397,6 +1397,37 @@ _migrate_settings_() {
                 Say "ROGBuild setting successfully migrated to '$New_ROGBuild_Value'."
             else
                 Say "Error occurred while migrating ROGBuild setting to '$New_ROGBuild_Value'."
+            fi
+        fi
+    fi
+
+    ### Migrate TUFBuild Setting ###
+    # Retrieve the current value of TUFBuild
+    TUFBuild_Value="$(Get_Custom_Setting TUFBuild)"
+
+    if [ "$TUFBuild_Value" = "TBD" ]; then
+        Say "TUFBuild setting does not exist. No migration needed."
+    else
+        case "$TUFBuild_Value" in
+            y|Y)
+                New_TUFBuild_Value="ENABLED"
+                ;;
+            n|N)
+                New_TUFBuild_Value="DISABLED"
+                ;;
+            *)
+                Say "TUFBuild has a migrated value: '$New_TUFBuild_Value'. Skipping migration for this setting."
+                New_TUFBuild_Value=""
+                ;;
+        esac
+
+        # Update the TUFBuild setting if a valid new value was determined
+        if [ -n "$New_TUFBuild_Value" ]; then
+            Update_Custom_Settings TUFBuild "$New_TUFBuild_Value"
+            if [ $? -eq 0 ]; then
+                Say "TUFBuild setting successfully migrated to '$New_TUFBuild_Value'."
+            else
+                Say "Error occurred while migrating TUFBuild setting to '$New_TUFBuild_Value'."
             fi
         fi
     fi
@@ -4072,13 +4103,13 @@ _ChangeBuildType_TUF_()
    # Use Get_Custom_Setting to retrieve the previous choice
    previous_choice="$(Get_Custom_Setting "TUFBuild")"
 
-   # If the previous choice is not set, default to 'n'
+   # If the previous choice is not set, default to 'DSIABLED'
    if [ "$previous_choice" = "TBD" ]; then
-       previous_choice="n"
+       previous_choice="DISABLED"
    fi
 
    # Convert previous choice to a descriptive text
-   if [ "$previous_choice" = "y" ]; then
+   if [ "$previous_choice" = "ENABLED" ]; then
        display_choice="TUF Build"
    else
        display_choice="Pure Build"
@@ -4104,9 +4135,9 @@ _ChangeBuildType_TUF_()
        then doReturnToMenu=true ; break ; fi
 
        case $choice in
-           1) buildtypechoice="y" ; break
+           1) buildtypechoice="ENABLED" ; break
               ;;
-           2) buildtypechoice="n" ; break
+           2) buildtypechoice="DISABLED" ; break
               ;;
            *) echo ; _InvalidMenuSelection_
               ;;
@@ -4134,11 +4165,11 @@ _ChangeBuildType_ROG_()
 
    # If the previous choice is not set, default to 'n'
    if [ "$previous_choice" = "TBD" ]; then
-       previous_choice="n"
+       previous_choice="DISABLED"
    fi
 
    # Convert previous choice to a descriptive text
-   if [ "$previous_choice" = "y" ]; then
+   if [ "$previous_choice" = "ENABLED" ]; then
        display_choice="ROG Build"
    else
        display_choice="Pure Build"
@@ -4164,9 +4195,9 @@ _ChangeBuildType_ROG_()
        then doReturnToMenu=true ; break ; fi
 
        case $choice in
-           1) buildtypechoice="y" ; break
+           1) buildtypechoice="ENABLED" ; break
               ;;
-           2) buildtypechoice="n" ; break
+           2) buildtypechoice="DISASLED" ; break
               ;;
            *) echo ; _InvalidMenuSelection_
               ;;
@@ -6906,11 +6937,11 @@ _GnutonBuildSelection_()
         # Fetch the previous choice from the settings file
         local previous_choice="$(Get_Custom_Setting "TUFBuild")"
 
-        if [ "$previous_choice" = "y" ]
+        if [ "$previous_choice" = "ENABLED" ]
         then
             echo "TUF Build selected for flashing"
             firmware_choice="tuf"
-        elif [ "$previous_choice" = "n" ]
+        elif [ "$previous_choice" = "DISABLED" ]
         then
             echo "Pure Build selected for flashing"
             firmware_choice="pure"
@@ -6924,27 +6955,27 @@ _GnutonBuildSelection_()
             then
                 echo "TUF Build selected for flashing"
                 firmware_choice="tuf"
-                Update_Custom_Settings "TUFBuild" "y"
+                Update_Custom_Settings "TUFBuild" "ENABLED"
             else
                 echo "Pure Build selected for flashing"
                 firmware_choice="pure"
-                Update_Custom_Settings "TUFBuild" "n"
+                Update_Custom_Settings "TUFBuild" "DISABLED"
             fi
         else
             echo "Defaulting to Pure Build due to non-interactive mode."
             firmware_choice="pure"
-            Update_Custom_Settings "TUFBuild" "n"
+            Update_Custom_Settings "TUFBuild" "DISABLED"
         fi
    elif echo "$PRODUCT_ID" | grep -q "^GT-"
    then
         # Fetch the previous choice from the settings file
         local previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
-        if [ "$previous_choice" = "y" ]
+        if [ "$previous_choice" = "ENABLED" ]
         then
             echo "ROG Build selected for flashing"
             firmware_choice="rog"
-        elif [ "$previous_choice" = "n" ]
+        elif [ "$previous_choice" = "DISABLED" ]
         then
             echo "Pure Build selected for flashing"
             firmware_choice="pure"
@@ -6958,16 +6989,16 @@ _GnutonBuildSelection_()
             then
                 echo "ROG Build selected for flashing"
                 firmware_choice="rog"
-                Update_Custom_Settings "ROGBuild" "y"
+                Update_Custom_Settings "ROGBuild" "ENABLED"
             else
                 echo "Pure Build selected for flashing"
                 firmware_choice="pure"
-                Update_Custom_Settings "ROGBuild" "n"
+                Update_Custom_Settings "ROGBuild" "DISABLED"
             fi
         else
             echo "Defaulting to Pure Build due to non-interactive mode."
             firmware_choice="pure"
-            Update_Custom_Settings "ROGBuild" "n"
+            Update_Custom_Settings "ROGBuild" "DISABLED"
         fi
    else
         # If not a TUF model, process as usual
@@ -7499,11 +7530,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         if [ -n "$rog_file" ]
         then
             # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
-            if [ "$previous_choice" = "y" ]
+            if [ "$previous_choice" = "ENABLED" ]
             then
                 Say "ROG Build selected for flashing"
                 firmware_file="$rog_file"
-            elif [ "$previous_choice" = "n" ]
+            elif [ "$previous_choice" = "DISABLED" ]
             then
                 Say "Pure Build selected for flashing"
                 firmware_file="$pure_file"
@@ -7516,16 +7547,16 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
                 if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
                     Say "ROG Build selected for flashing"
                     firmware_file="$rog_file"
-                    Update_Custom_Settings "ROGBuild" "y"
+                    Update_Custom_Settings "ROGBuild" "ENABLED"
                 else
                     Say "Pure Build selected for flashing"
                     firmware_file="$pure_file"
-                    Update_Custom_Settings "ROGBuild" "n"
+                    Update_Custom_Settings "ROGBuild" "DISABLED"
                 fi
             else
                 # Default to pure_file in non-interactive mode if no previous choice
                 Say "Pure Build selected for flashing"
-                Update_Custom_Settings "ROGBuild" "n"
+                Update_Custom_Settings "ROGBuild" "DISABLED"
                 firmware_file="$pure_file"
             fi
         else
@@ -7540,11 +7571,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
         # Handle upgrade from 3004 to 3006 if there is a ROG setting
-        if [ "$previous_choice" = "y" ]
+        if [ "$previous_choice" = "ENABLED" ]
         then
             Say "Upgrading from 3004 to 3006, ROG UI is no longer supported, auto-selecting Pure UI firmware."
             firmware_file="$pure_file"
-            Update_Custom_Settings "ROGBuild" "n"
+            Update_Custom_Settings "ROGBuild" "DISABLED"
         else
             firmware_file="$pure_file"
         fi
@@ -8929,9 +8960,9 @@ _ShowAdvancedOptionsMenu_()
          current_build_type="$(Get_Custom_Setting "TUFBuild")"
 
          # Convert the setting to a descriptive text
-         if [ "$current_build_type" = "y" ]; then
+         if [ "$current_build_type" = "ENABLED" ]; then
              current_build_type_menu="TUF Build"
-         elif [ "$current_build_type" = "n" ]; then
+         elif [ "$current_build_type" = "DISABLED" ]; then
              current_build_type_menu="Pure Build"
          else
              current_build_type_menu="NOT SET"
@@ -8951,9 +8982,9 @@ _ShowAdvancedOptionsMenu_()
           local current_build_typerog="$(Get_Custom_Setting "ROGBuild")"
 
           # Convert the setting to a descriptive text
-          if [ "$current_build_typerog" = "y" ]; then
+          if [ "$current_build_typerog" = "ENABLED" ]; then
               current_build_type_menurog="ROG Build"
-          elif [ "$current_build_typerog" = "n" ]; then
+          elif [ "$current_build_typerog" = "DISABLED" ]; then
               current_build_type_menurog="Pure Build"
           else
               current_build_type_menurog="NOT SET"
@@ -8972,9 +9003,9 @@ _ShowAdvancedOptionsMenu_()
           local current_build_typetuf="$(Get_Custom_Setting "TUFBuild")"
 
           # Convert the setting to a descriptive text
-          if [ "$current_build_typetuf" = "y" ]; then
+          if [ "$current_build_typetuf" = "ENABLED" ]; then
               current_build_type_menutuf="TUF Build"
-          elif [ "$current_build_typetuf" = "n" ]; then
+          elif [ "$current_build_typetuf" = "DISABLED" ]; then
               current_build_type_menutuf="Pure Build"
           else
               current_build_type_menutuf="NOT SET"
@@ -8996,9 +9027,9 @@ _ShowAdvancedOptionsMenu_()
           current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
           # Convert the setting to a descriptive text
-          if [ "$current_build_type" = "y" ]; then
+          if [ "$current_build_type" = "ENABLED" ]; then
               current_build_type_menu="ROG Build"
-          elif [ "$current_build_type" = "n" ]; then
+          elif [ "$current_build_type" = "DISABLED" ]; then
               current_build_type_menu="Pure Build"
           else
               current_build_type_menu="NOT SET"
