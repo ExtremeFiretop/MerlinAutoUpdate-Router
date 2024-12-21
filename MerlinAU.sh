@@ -6500,7 +6500,7 @@ _Toggle_FW_UpdateEmailNotifications_()
        return 1
    fi
 
-   if "$emailNotificationEnabled"
+   if [ "$emailNotificationEnabled" = "ENABLED" ];
    then
        sendEMailNotificationsFlag="DISABLED"
        emailNotificationNewStateStr="${REDct}DISABLED${NOct}"
