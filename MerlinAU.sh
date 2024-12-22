@@ -5075,9 +5075,9 @@ _TranslateCronSchedHR_()
            infoStrDAYS="every $freqNumDAYW days of the week, in every month"
        elif echo "$theCronDAYW" | grep -qE "[,-]"
        then
-           infoStrDAYS="days $theCronDAYW of the week, in every month"
+           infoStrDAYS="days ${theCronDAYW}, in every month"
        else
-           infoStrDAYS="day $theCronDAYW of the week, in every month"
+           infoStrDAYS="day ${theCronDAYW}, in every month"
        fi
    elif [ "$theCronDAYM" != "*" ]
    then
@@ -5107,7 +5107,7 @@ _TranslateCronSchedHR_()
    else
        hasFreqMINS=false ; freqNumMINS=""
    fi
-   if [ "$theCronHOUR" = "*" ] && [ "$theCronMINS" -eq 0 ]
+   if [ "$theCronHOUR" = "*" ] && [ "$theCronMINS" = "0" ]
    then
        schedInfoStr="Every hour"
    elif [ "$theCronHOUR" = "*" ] && [ "$theCronMINS" = "*" ]
@@ -5116,7 +5116,7 @@ _TranslateCronSchedHR_()
    elif [ "$theCronHOUR" = "*" ] && _IsValidNumber_ "$theCronMINS"
    then
        schedInfoStr="Every hour at minute $theCronMINS"
-   elif "$hasFreqHOUR" && [ "$theCronMINS" -eq 0 ]
+   elif "$hasFreqHOUR" && [ "$theCronMINS" = "0" ]
    then
        schedInfoStr="Every $freqNumHOUR hours"
    elif "$hasFreqHOUR" && [ "$theCronMINS" = "*" ]
@@ -5145,12 +5145,12 @@ _TranslateCronSchedHR_()
        schedInfoStr="$theCronHOUR, every $freqNumMINS minutes"
    elif [ "$theCronHOUR" = "*" ]
    then
-       schedInfoStr="Every hour,  Minutes: $theCronMINS"
+       schedInfoStr="Every hour, Minutes: $theCronMINS"
    elif [ "$theCronMINS" = "*" ]
    then
        schedInfoStr="$theCronHOUR, every minute"
    else
-       schedInfoStr="$theCronHOUR,  Minutes: $theCronMINS"
+       schedInfoStr="$theCronHOUR, Minutes: $theCronMINS"
    fi
    echo "${schedInfoStr}, $infoStrDAYS"
 }
@@ -5493,9 +5493,19 @@ _ShowCronMenuHeader_()
 _GetCronScheduleInputDAYofMONTH_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
-   local oldSchedDAYM="$1"  newSchedDAYM
+   local oldSchedDAYM  newSchedDAYM  oldSchedDAYHR
+
+   _GetSchedDaysHR_()
+   {
+      local cruDAYS="$1"
+      [ "$1" = "*" ] && cruDAYS="Every day"
+      echo "$cruDAYS"
+   }
 
    newSchedDAYM=""
+   oldSchedDAYM="$1"
+   oldSchedDAYHR="$(_GetSchedDaysHR_ "$1")"
+
    while true
    do
        _ShowCronMenuHeader_
@@ -5507,7 +5517,7 @@ _GetCronScheduleInputDAYofMONTH_()
        printf "   ${GRNct}*/7${NOct}=Every 7 days   ${GRNct}*/10${NOct}=Every 10 days  ${GRNct}*/15${NOct}=Every 15 days\n"
 
        printf "\n[${menuCancelAndExitStr}]\n"
-       printf "\nEnter ${GRNct}DAYS of the MONTH${NOct} [1-31] ${GRNct}${oldSchedDAYM}${NOct}?: "
+       printf "\nEnter ${GRNct}DAYS of the MONTH${NOct} [1-31] ${GRNct}${oldSchedDAYHR}${NOct}?: "
        read -r newSchedDAYM
        if [ -z "$newSchedDAYM" ]
        then
@@ -5531,9 +5541,26 @@ _GetCronScheduleInputDAYofMONTH_()
 _GetCronScheduleInputDAYofWEEK_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
-   local oldSchedDAYW="$1"  newSchedDAYW
+   local oldSchedDAYW  newSchedDAYW  oldSchedDAYHR
+
+   _DayOfWeekNumToDayName_()
+   { echo "$1" | sed 's/0/Sun/;s/1/Mon/;s/2/Tue/;s/3/Wed/;s/4/Thu/;s/5/Fri/;s/6/Sat/;' ; }
+
+   _GetSchedDaysHR_()
+   {
+      local cruDAYS="$1"
+      if [ "$1" = "*" ]
+      then cruDAYS="Every day"
+      elif ! echo "$1" | grep -qE "^[*]/.*"
+      then cruDAYS="$(_DayOfWeekNumToDayName_ "$1")" 
+      fi
+      echo "$cruDAYS"
+   }
 
    newSchedDAYW=""
+   oldSchedDAYW="$1"
+   oldSchedDAYHR="$(_GetSchedDaysHR_ "$1")"
+
    while true
    do
        _ShowCronMenuHeader_
@@ -5547,7 +5574,7 @@ _GetCronScheduleInputDAYofWEEK_()
        printf "   ${GRNct}6,0${NOct}=Sat,Sun   ${GRNct}1,3,5${NOct}=Mon,Wed,Fri   ${GRNct}2,4${NOct}=Tue,Thu\n"
 
        printf "\n[${menuCancelAndExitStr}] [${menuSavedThenExitStr}] [${menuReturnToBeginStr}]\n"
-       printf "\nEnter ${GRNct}DAYS of the WEEK${NOct} [0-6] ${GRNct}${oldSchedDAYW}${NOct}?: "
+       printf "\nEnter ${GRNct}DAYS of the WEEK${NOct} [0-6] ${GRNct}${oldSchedDAYHR}${NOct}?: "
        read -r newSchedDAYW
        if [ -z "$newSchedDAYW" ]
        then
@@ -8959,7 +8986,8 @@ _ShowAdvancedOptionsMenu_()
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
    printf "\n  ${GRNct}2${NOct}.  Set F/W Update Cron Schedule"
-   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]\n"
+   printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]"
+   printf "\n${padStr}[${GRNct}%s${NOct}]\n" "$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
 
    BetaProductionSetting="$(Get_Custom_Setting "FW_Allow_Beta_Production_Up")"
    printf "\n  ${GRNct}3${NOct}.  Toggle Beta-to-Release F/W Updates"
