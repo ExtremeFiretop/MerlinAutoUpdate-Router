@@ -7046,6 +7046,14 @@ _RunBackupmon_()
     if [ -f "/jffs/scripts/backupmon.sh" ]
     then
         local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+        # Default to ENABLED if the setting is empty
+        if [ -z "$current_backup_settings" ]
+        then
+            Update_Custom_Settings "FW_Auto_Backupmon" "ENABLED"
+            current_backup_settings="ENABLED"
+        fi
+
         if [ "$current_backup_settings" = "ENABLED" ]
         then
             # Extract version number from backupmon.sh
@@ -7102,6 +7110,11 @@ _RunBackupmon_()
             echo ""
         fi
     else
+        local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+        if [ -n "$current_backup_settings" ]
+        then
+            Delete_Custom_Settings "FW_Auto_Backupmon"
+        fi
         Say "Backup script (BACKUPMON) is not installed. Skipping backup."
         echo ""
     fi
@@ -8966,15 +8979,31 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
    fi
 
-   if [ -f "/jffs/scripts/backupmon.sh" ]
-   then
-       # Retrieve the current backup setting #
+   # Check if the file /jffs/scripts/backupmon.sh exists
+   if [ -f "/jffs/scripts/backupmon.sh" ]; then
+       # Retrieve the current backup setting
        currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
+       # If the setting is empty, add it to the configuration file
+       if [ -z "$currentBackupOption" ]; then
+           Update_Custom_Settings "FW_Auto_Backupmon" "ENABLED"
+           currentBackupOption="ENABLED"
+       fi
+
+       # Display the backup option toggle menu
        printf "\n ${GRNct}ab${NOct}.  Toggle Automatic Backups"
-       if [ "$currentBackupOption" = "DISABLED" ]
-       then printf "\n${padStr}[Currently ${REDct}${currentBackupOption}${NOct}]\n"
-       else printf "\n${padStr}[Currently ${GRNct}${currentBackupOption}${NOct}]\n"
+       if [ "$currentBackupOption" = "DISABLED" ]; then
+           printf "\n${padStr}[Currently ${REDct}${currentBackupOption}${NOct}]\n"
+       else
+           printf "\n${padStr}[Currently ${GRNct}${currentBackupOption}${NOct}]\n"
+       fi
+   else
+       # If the file does not exist, check the configuration setting
+       currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+       # If the configuration setting exists, delete it
+       if [ -n "$currentBackupOption" ]; then
+           Delete_Custom_Settings "FW_Auto_Backupmon"
        fi
    fi
 
