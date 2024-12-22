@@ -8613,7 +8613,8 @@ _ShowAdvancedOptionsMenu_()
    else
        printf "\n${padStr}[Currently ${MAGENTAct}ENABLED${NOct}]\n"
        scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
-       printf "${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]\n"
+       printf "${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]"
+       printf "\n${padStr}[${GRNct}%s${NOct}]\n" "$(_TranslateCronSchedHR_ "$scriptUpdateCronSched")"
    fi
 
    if "$isGNUtonFW"
