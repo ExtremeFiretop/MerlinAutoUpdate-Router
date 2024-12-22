@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Dec-21
+# Last Modified: 2024-Dec-22
 ###################################################################
 set -u
 
@@ -8556,7 +8556,7 @@ _ShowMainMenu_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-20] ##
+## Modified by Martinski W. [2024-Dec-22] ##
 ##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -8611,9 +8611,8 @@ _ShowAdvancedOptionsMenu_()
    then
        printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
    else
-       printf "\n${padStr}[Currently ${MAGENTAct}ENABLED${NOct}]\n"
        scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
-       printf "${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]"
+       printf "\n${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]"
        printf "\n${padStr}[${GRNct}%s${NOct}]\n" "$(_TranslateCronSchedHR_ "$scriptUpdateCronSched")"
    fi
 
