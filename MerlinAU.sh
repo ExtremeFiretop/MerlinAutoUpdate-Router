@@ -872,9 +872,7 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_EMail_CC_Address=TBD"
          echo "CheckChangeLog ENABLED"
          echo "Allow_Updates_OverVPN DISABLED"
-         echo "FW_New_Update_Changelog_Approval=TBD"
          echo "FW_Allow_Beta_Production_Up ENABLED"
-         echo "FW_Auto_Backupmon ENABLED"
          echo "Allow_Script_Auto_Update DISABLED"
          echo "Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\""
       } > "$SETTINGSFILE"
@@ -944,11 +942,6 @@ _Init_Custom_Settings_Config_()
        sed -i "12 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
-   if ! grep -q "^FW_Auto_Backupmon " "$SETTINGSFILE"
-   then
-       sed -i "13 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
-       retCode=1
-   fi
    if ! grep -q "^Allow_Script_Auto_Update " "$SETTINGSFILE"
    then
        sed -i "14 i Allow_Script_Auto_Update DISABLED" "$SETTINGSFILE"
@@ -957,11 +950,6 @@ _Init_Custom_Settings_Config_()
    if ! grep -q "^Script_Update_Cron_Job_SchedDays=" "$SETTINGSFILE"
    then
        sed -i "15 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$SETTINGSFILE"
-       retCode=1
-   fi
-   if ! grep -q "^FW_New_Update_Changelog_Approval=" "$SETTINGSFILE"
-   then
-       sed -i "16 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
        retCode=1
    fi
    dos2unix "$SETTINGSFILE"
