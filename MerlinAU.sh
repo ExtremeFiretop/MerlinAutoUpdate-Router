@@ -5487,9 +5487,9 @@ _ShowCronMenuHeader_()
    printf "${SEPstr}\n"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Nov-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-20] ##
+##----------------------------------------##
 _GetCronScheduleInputDAYofMONTH_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -5535,9 +5535,9 @@ _GetCronScheduleInputDAYofMONTH_()
    return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Nov-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-20] ##
+##----------------------------------------##
 _GetCronScheduleInputDAYofWEEK_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -9043,7 +9043,8 @@ _ShowAdvancedOptionsMenu_()
    else
        printf "\n${padStr}[Currently ${MAGENTAct}ENABLED${NOct}]\n"
        scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
-       printf "${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]\n"
+       printf "${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]"
+       printf "\n${padStr}[${GRNct}%s${NOct}]\n" "$(_TranslateCronSchedHR_ "$scriptUpdateCronSched")"
    fi
 
    if "$isGNUtonFW"
