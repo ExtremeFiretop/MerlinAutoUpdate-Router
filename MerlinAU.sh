@@ -8459,6 +8459,7 @@ then
 			   OldScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
 			   OldPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 			   _Config_FromSettings_
+			   sleep 2
 			   NewPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 			   NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
 			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
@@ -8466,9 +8467,9 @@ then
 			   if [ "$currentChangelogValue" = "DISABLED" ] && [ -n "$currentChangelogApproval" ];
 			   then
 			       Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
-			   elif [ "$currentChangelogValue" = "ENABLED" ] && [ -z "$currentChangelogApproval" ];
+			   elif [ "$currentChangelogValue" = "ENABLED" ] && [ "$currentChangelogApproval" = "TBD" ];
 			   then
-			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+			       Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 			   fi
 			   if [ "$NewPostponeValue" != "$OldPostponeValue" ];
 			   then
