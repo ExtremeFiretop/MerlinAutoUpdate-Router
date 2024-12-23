@@ -604,6 +604,55 @@
         console.log("Advanced Config Form submitted with settings:", updatedSettings);
     }
 
+    function Uninstall() {
+        console.log("Uninstalling MerlinAU...");
+
+        // Confirm uninstall
+        if (!confirm("Are you sure you want to completely uninstall MerlinAU?")) {
+            return;
+        }
+
+        document.form.action_script.value = 'start_MerlinAUuninstall';
+        document.form.action_wait.value = 10;
+
+        showLoading();
+        document.form.submit();
+    }
+
+    function changelogApproval() {
+        console.log("Approving Changelog...");
+
+        // confirm with the user
+        if (!confirm("Are you sure you want to approve this changelog?")) {
+            return;
+        }
+
+        document.form.action_script.value = 'start_MerlinAUapprovechangelog';
+        document.form.action_wait.value = 10;
+
+        showLoading();
+        document.form.submit();
+    }
+
+    function checkFirmwareUpdate() {
+        console.log("Initiating F/W Update Check...");
+    
+        // ask for user confirmation
+        if (!confirm("NOTE: If you have no postpone set; the firmware could flash NOW!\nThis means logging you out of the WebUI and rebooting the router. Check for updates now?")) {
+            return;
+        }
+
+        // Set the script action and any additional hidden fields
+        document.form.action_script.value = 'start_MerlinAUcheckupdate';
+        document.form.action_wait.value = 60;
+
+        // Show the loading overlay (if you use one)
+        showLoading();
+
+        // Submit the form
+        document.form.submit();
+    }
+
     // Function to get the first non-empty value from a list of element IDs
     function getFirstNonEmptyValue(ids) {
         for (var i = 0; i < ids.length; i++) {
