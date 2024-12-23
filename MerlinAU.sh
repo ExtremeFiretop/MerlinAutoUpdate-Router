@@ -1641,7 +1641,7 @@ _Mount_WebUI_(){
 	# Obtain the first available mount point in $am_webui_page
 	am_get_webui_page $PAGE_FILE
 
-	if [ "$am_webui_page" = "none" ]; then
+	if [ -z "$am_webui_page" ] || [ "$am_webui_page" = "none" ]; then
     	Say "$SCRIPT_NAME" "Unable to install $SCRIPT_NAME"
     	_DoExit_ 1
 	fi
@@ -1678,35 +1678,35 @@ _Unmount_WebUI_(){
 
 	# Load the page name we stored during install
 	if [ -f "$SHAREDSETTINGSFILE" ]; then
-    	am_webui_page=$(grep "^MerlinAU_uiPage" "$SHAREDSETTINGSFILE" | awk '{print $2}')
+    	webui_page=$(grep "^MerlinAU_uiPage" "$SHAREDSETTINGSFILE" | awk '{print $2}')
     else
         # If not stored, try to extract it from /tmp/menuTree.js
         if [ -f "/tmp/menuTree.js" ]; then
-            am_webui_page=$(grep 'tabName: "MerlinAU"' /tmp/menuTree.js | sed -n 's/.*url: "\([^"]*\)".*/\1/p')
+            webui_page=$(grep 'tabName: "MerlinAU"' /tmp/menuTree.js | sed -n 's/.*url: "\([^"]*\)".*/\1/p')
         else
-            Say "$ADDON_NAME" "Unable to find menuTree.js to derive the WebUI page."
+            Say "$SCRIPT_NAME" "Unable to find menuTree.js to derive the WebUI page."
             _DoExit_ 1
         fi
     fi
 
-	if [ -z "$am_webui_page" ] || [ "$am_webui_page" = "none" ]; then
-    	Say "$ADDON_NAME" "No assigned page found to uninstall."
+	if [ -z "$webui_page" ]; then
+    	Say "$SCRIPT_NAME" "No assigned page found to uninstall."
     	_DoExit_ 1
 	fi
 
 	# Remove just our entry from menuTree.js, but do not unmount others may depend on it
 	if [ -f /tmp/menuTree.js ]; then
-    	sed -i "/url: \"$am_webui_page\", tabName: \"$ADDON_NAME\"/d" /tmp/menuTree.js
+    	sed -i "/url: \"$webui_page\", tabName: \"$SCRIPT_NAME\"/d" /tmp/menuTree.js
 	fi
 
 	# Remove our custom page (only if still mounted and safe to do so)
-	if [ -f "/www/user/$am_webui_page" ]; then
-    	rm -f "/www/user/$am_webui_page"
+	if [ -f "/www/user/$webui_page" ]; then
+    	rm -f "/www/user/$webui_page"
 	fi
 
     # **Remove the specific line from SHAREDSETTINGSFILE instead of deleting PAGE_NAME_FILE**
     if [ -f "$SHAREDSETTINGSFILE" ]; then
-        sed -i "/^MerlinAU_uiPage\s\+$am_webui_page$/d" "$SHAREDSETTINGSFILE"
+        sed -i "/^MerlinAU_uiPage\s\+$webui_page$/d" "$SHAREDSETTINGSFILE"
     fi
 
 	# Remount menuTree.js to apply changes
@@ -1715,7 +1715,7 @@ _Unmount_WebUI_(){
 
 	/sbin/service restart_httpd >/dev/null 2>&1 &
 
-	Say "$ADDON_NAME" "Uninstalled successfully (preserving other add-ons' entries)."
+	Say "$SCRIPT_NAME" "Uninstalled successfully (preserving other add-ons' entries)."
 }
 
 ##---------------------------------------##
