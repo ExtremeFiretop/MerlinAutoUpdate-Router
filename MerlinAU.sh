@@ -7080,7 +7080,7 @@ _RunBackupmon_()
         local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
         # Default to ENABLED if the setting is empty
-        if [ -z "$current_backup_settings" ]
+        if [ "$current_backup_settings" = "TBD"]
         then
             Update_Custom_Settings "FW_Auto_Backupmon" "ENABLED"
             current_backup_settings="ENABLED"
@@ -7143,7 +7143,7 @@ _RunBackupmon_()
         fi
     else
         local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-        if [ -n "$current_backup_settings" ]
+        if [ "$current_backup_settings" != "TBD"]
         then
             Delete_Custom_Settings "FW_Auto_Backupmon"
         fi
@@ -9056,7 +9056,7 @@ _ShowAdvancedOptionsMenu_()
        currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
        # If the setting is empty, add it to the configuration file
-       if [ -z "$currentBackupOption" ]; then
+       if [ "$currentBackupOption" = "TBD"]; then
            Update_Custom_Settings "FW_Auto_Backupmon" "ENABLED"
            currentBackupOption="ENABLED"
        fi
@@ -9073,7 +9073,7 @@ _ShowAdvancedOptionsMenu_()
        currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
        # If the configuration setting exists, delete it
-       if [ -n "$currentBackupOption" ]; then
+       if [ "$currentBackupOption" != "TBD"]; then
            Delete_Custom_Settings "FW_Auto_Backupmon"
        fi
    fi
