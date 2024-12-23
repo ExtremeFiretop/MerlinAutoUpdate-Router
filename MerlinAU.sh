@@ -9041,9 +9041,8 @@ _ShowAdvancedOptionsMenu_()
    then
        printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
    else
-       printf "\n${padStr}[Currently ${MAGENTAct}ENABLED${NOct}]\n"
        scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
-       printf "${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]"
+       printf "\n${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]"
        printf "\n${padStr}[${GRNct}%s${NOct}]\n" "$(_TranslateCronSchedHR_ "$scriptUpdateCronSched")"
    fi
 
