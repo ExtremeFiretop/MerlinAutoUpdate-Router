@@ -127,7 +127,7 @@
         // Safe value assignments
         if (custom_settings) {
             if (routerPassword) routerPassword.value = custom_settings.routerPassword || '';
-            if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.FW_New_Update_Postponement_Days || '7';
+            if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.FW_New_Update_Postponement_Days || '15';
             if (secondaryEmail) secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address || '';
             if (emailFormat) emailFormat.value = custom_settings.FW_New_Update_EMail_FormatType || 'HTML';
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.FW_New_Update_ROGFWBuildType || 'ROG';
