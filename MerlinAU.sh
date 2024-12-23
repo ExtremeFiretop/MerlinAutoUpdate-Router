@@ -8470,7 +8470,7 @@ then
 			   then
 			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
 			   fi
-			   if [ "$NewPostponeValue" != "$OldPostponeValue" ]; then
+			   if [ "$NewPostponeValue" != "$OldPostponeValue" ];
 			   then
 			       _Calculate_NextRunTime_
 			   fi
