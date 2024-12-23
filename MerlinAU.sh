@@ -8457,13 +8457,13 @@ then
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
 		   then
 			   _Config_FromSettings_
-               currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
-               if [ "$currentChangelogValue" = "DISABLED" ]
-               then
-                   Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
-               else
-                   Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
-		       fi
+			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+			   if [ "$currentChangelogValue" = "DISABLED" ]
+			   then
+			       Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
+			   else
+			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+			   fi
 		   fi
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
