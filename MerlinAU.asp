@@ -224,19 +224,26 @@
                 }
             }
 
-            // **Control "Approve Changelog" Button Visibility**
+            // **Control "Approve Changelog" Button State**
             var approveChangelogButton = document.getElementById('approveChangelogButton');
             if (approveChangelogButton) {
                 var isChangelogCheckEnabled = (custom_settings.CheckChangeLog === 'ENABLED');
                 var changelogApprovalValue = custom_settings.FW_New_Update_Changelog_Approval;
 
-                // Condition: Show button only if
+                // Always display the button
+                approveChangelogButton.style.display = 'inline-block';
+
+                // Condition: Enable button only if
                 // 1. Changelog Check is enabled
                 // 2. Changelog Approval is neither empty nor "TBD"
                 if (isChangelogCheckEnabled && changelogApprovalValue && changelogApprovalValue !== 'TBD') {
-                    approveChangelogButton.style.display = 'inline-block'; // Show the button
+                    approveChangelogButton.disabled = false; // Enable the button
+                    approveChangelogButton.style.opacity = '1'; // Fully opaque
+                    approveChangelogButton.style.cursor = 'pointer'; // Pointer cursor for enabled state
                 } else {
-                    approveChangelogButton.style.display = 'none'; // Hide the button
+                    approveChangelogButton.disabled = true; // Disable the button
+                    approveChangelogButton.style.opacity = '0.5'; // Grayed out appearance
+                    approveChangelogButton.style.cursor = 'not-allowed'; // Indicate disabled state
                 }
             }
 
