@@ -8456,11 +8456,11 @@ then
 			   _RunFirmwareUpdateNow_
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
 		   then
-		       OldScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
-		       OldPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+			   OldScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+			   OldPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 			   _Config_FromSettings_
-		       NewPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
-		       NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+			   NewPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+			   NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
 			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
 			   currentChangelogApproval="$(Get_Custom_Setting FW_New_Update_Changelog_Approval)"
 			   if [ "$currentChangelogValue" = "DISABLED" ] && [ -n "$currentChangelogApproval" ];
@@ -8484,9 +8484,9 @@ then
 			        if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
 			        then
 			            if _AddScriptAutoUpdateCronJob_
-                        then
-                            _AddScriptAutoUpdateHook_
-                        fi
+			            then
+			                _AddScriptAutoUpdateHook_
+			            fi
 		            fi
 		       fi
 		   fi
