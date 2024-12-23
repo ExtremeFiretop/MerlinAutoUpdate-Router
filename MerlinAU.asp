@@ -139,6 +139,19 @@
                 emailNotificationsEnabled.checked = (custom_settings.FW_New_Update_EMail_Notification === 'ENABLED');
             }
             if (autobackupEnabled) {
+                if (custom_settings.hasOwnProperty('FW_Auto_Backupmon')) {
+                    // If the setting exists, enable the checkbox and set its state
+                    autobackupEnabled.disabled = false;
+                    autobackupEnabled.checked = (custom_settings.FW_Auto_Backupmon === 'ENABLED');
+                    autobackupEnabled.style.opacity = '1'; // Fully opaque
+                } else {
+                    // If the setting is missing, disable and gray out the checkbox
+                    autobackupEnabled.disabled = true;
+                    autobackupEnabled.checked = false; // Optionally uncheck
+                    autobackupEnabled.style.opacity = '0.5'; // Grayed out appearance
+                }
+            }
+            if (autobackupEnabled) {
                 autobackupEnabled.checked = (custom_settings.FW_Auto_Backupmon === 'ENABLED');
             }
             if (tailscaleVPNEnabled) {
