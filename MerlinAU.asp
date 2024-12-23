@@ -843,13 +843,13 @@
                                                                         </colgroup>
                                                                         <tr>
                                                                             <td style="text-align: right; border: none;">
-                                                                                <button type="button" onclick="checkFirmwareUpdate()">F/W Update Check Now</button>
+                                                                                <button type="button" onclick="checkFirmwareUpdate()">F/W Update Check</button>
                                                                             </td>
                                                                             <td style="text-align: center; border: none;" id="approveChangelogCell">
                                                                                 <button type="button" id="approveChangelogButton" onclick="changelogApproval()">Approve Changelog</button>
                                                                             </td>
                                                                             <td style="text-align: left; border: none;">
-                                                                                <button type="button" onclick="Uninstall()">Uninstall Now</button>
+                                                                                <button type="button" onclick="Uninstall()">Uninstall</button>
                                                                             </td>
                                                                         </tr>
                                                                     </table>
