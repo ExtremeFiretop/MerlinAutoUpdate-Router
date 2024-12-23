@@ -8449,7 +8449,7 @@ then
 		   then
 		   	   _DoUninstall_
 			   sleep 3
-		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUchangelog" ] 
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUapprovechangelog" ] 
 		   then
 			   local currentApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
 			   if [ "$currentApprovalStatus" = "BLOCKED" ]
@@ -8459,7 +8459,7 @@ then
 			   then
 			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
 			   fi
-		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUcheck" ]
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUcheckupdate" ]
  		   then
 			   _RunFirmwareUpdateNow_
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
