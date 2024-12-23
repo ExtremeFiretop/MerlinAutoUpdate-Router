@@ -8444,11 +8444,16 @@ then
            ;;
        uninstall) _DoUninstall_
            ;;
-	   service_event)
+       service_event)
 		   if [ "$2" = "start" ] && [ "$3" = "MerlinAUuninstall" ]
 		   then
 		   	   _DoUninstall_
 			   sleep 3
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUchangelog" ] 
+		   then
+			   # Approve Changelog Logic
+			   # _ReleaseLock_
+               echo ""
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUcheck" ]
  		   then
 			   _RunFirmwareUpdateNow_
