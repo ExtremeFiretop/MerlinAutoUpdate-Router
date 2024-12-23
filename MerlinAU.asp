@@ -121,6 +121,7 @@
         // Update the Firmware Status display
         if (fwUpdateCheckStatus) {
             setStatus('fwUpdateCheckStatus', isFwUpdateEnabled);
+            custom_settings.fwUpdateEnabled
         }
 
         // Safe value assignments
@@ -131,7 +132,6 @@
             if (emailFormat) emailFormat.value = custom_settings.FW_New_Update_EMail_FormatType || 'HTML';
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.FW_New_Update_ROGFWBuildType || 'ROG';
             if (tuffFWBuildType) tuffFWBuildType.value = custom_settings.FW_New_Update_TUFWBuildType || 'TUF';
-            if (fwUpdateEnabled) fwUpdateEnabled.checked = custom_settings.fwUpdateEnabled || '';
 
             if (changelogCheckEnabled) {
                 changelogCheckEnabled.checked = (custom_settings.CheckChangeLog === 'ENABLED');
@@ -503,7 +503,7 @@
         var action_settings = {
             credentials_base64: encodedCredentials,
             FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
-            CheckChangeLog: document.getElementById('changelogCheckEnabled').checked ? 'ENABLED' : 'DISABLED'
+            CheckChangeLog: document.getElementById('changelogCheckEnabled').checked ? 'ENABLED' : 'DISABLED',
             fwUpdateEnabled: document.getElementById('fwUpdateEnabled').checked ? 'ENABLED' : 'DISABLED'
         };
         // Prefix only Action settings
