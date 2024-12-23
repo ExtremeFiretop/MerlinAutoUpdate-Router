@@ -6344,10 +6344,10 @@ _CheckNewUpdateFirmwareNotification_()
        Update_Custom_Settings FW_New_Update_Notification_Date TBD
        Update_Custom_Settings FW_New_Update_Notification_Vers TBD
        Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
-       local currentChangelogValue="$(Get_Custom_Setting "CheckChangeLog")"
+       local currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
        if [ "$currentChangelogValue" = "ENABLED" ]
        then
-          Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+          Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
           return 1
        fi
    fi
@@ -7894,10 +7894,10 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
-   local currentChangelogValue="$(Get_Custom_Setting "CheckChangeLog")"
+   local currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
    if [ "$currentChangelogValue" = "ENABLED" ]
    then
-      Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+      Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
       return 1
    fi
 
@@ -8457,6 +8457,13 @@ then
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
 		   then
 			   _Config_FromSettings_
+               currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+               if [ "$currentChangelogValue" = "DISABLED" ]
+               then
+                   Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
+               else
+                   Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+		       fi
 		   fi
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
