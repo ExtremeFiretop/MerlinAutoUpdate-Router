@@ -1457,9 +1457,9 @@ _migrate_settings_() {
         if [ -n "$New_EMailNotif_Value" ]; then
             sed -i "/^FW_New_Update_EMail_Notification=/c\FW_New_Update_EMail_Notification $New_EMailNotif_Value" "$SETTINGSFILE"
             if [ $? -eq 0 ]; then
-                Say "FW_New_Update_EMail_Notification setting successfully migrated to $New_EMailNotif_Value."
+                Say "EMail_Notification setting successfully migrated to $New_EMailNotif_Value."
             else
-                Say "Error occurred while migrating FW_New_Update_EMail_Notification setting to $New_EMailNotif_Value."
+                Say "Error occurred while migrating EMail_Notification setting to $New_EMailNotif_Value."
             fi
         fi
     fi
