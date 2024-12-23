@@ -8453,7 +8453,7 @@ then
 		   then
 			   # Approve Changelog Logic
 			   # _ReleaseLock_
-               echo ""
+			   echo ""
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUcheck" ]
  		   then
 			   _RunFirmwareUpdateNow_
