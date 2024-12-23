@@ -126,11 +126,12 @@
         // Safe value assignments
         if (custom_settings) {
             if (routerPassword) routerPassword.value = custom_settings.routerPassword || '';
-            if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.FW_New_Update_Postponement_Days || '0';
+            if (fwUpdatePostponement) fwUpdatePostponement.value = custom_settings.FW_New_Update_Postponement_Days || '7';
             if (secondaryEmail) secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address || '';
             if (emailFormat) emailFormat.value = custom_settings.FW_New_Update_EMail_FormatType || 'HTML';
             if (rogFWBuildType) rogFWBuildType.value = custom_settings.FW_New_Update_ROGFWBuildType || 'ROG';
             if (tuffFWBuildType) tuffFWBuildType.value = custom_settings.FW_New_Update_TUFWBuildType || 'TUF';
+            if (fwUpdateEnabled) fwUpdateEnabled.checked = custom_settings.fwUpdateEnabled);
 
             if (changelogCheckEnabled) {
                 changelogCheckEnabled.checked = (custom_settings.CheckChangeLog === 'ENABLED');
@@ -503,8 +504,8 @@
             credentials_base64: encodedCredentials,
             FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
             CheckChangeLog: document.getElementById('changelogCheckEnabled').checked ? 'ENABLED' : 'DISABLED'
+            fwUpdateEnabled: document.getElementById('fwUpdateEnabled').checked ? 'ENABLED' : 'DISABLED'
         };
-
         // Prefix only Action settings
         var prefixedActionSettings = prefixCustomSettings(action_settings, 'MerlinAU_');
 
@@ -685,6 +686,7 @@
         <input type="hidden" name="modified" value="0" />
         <input type="hidden" name="action_mode" value="apply" />
         <input type="hidden" name="action_wait" value="90" />
+        <input type="hidden" name="first_time" value="">
         <input type="hidden" id="http_username" value="<% nvram_get("http_username"); %>" />
         <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>" />
         <!-- Consolidated firmver input -->
