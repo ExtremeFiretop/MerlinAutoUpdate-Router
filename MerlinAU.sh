@@ -8457,17 +8457,17 @@ then
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
 		   then
 			   OldScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+			   OldChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
 			   OldPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 			   _Config_FromSettings_
 			   sleep 1
 			   NewPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 			   NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
 			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
-			   currentChangelogApproval="$(Get_Custom_Setting FW_New_Update_Changelog_Approval)"
-			   if [ "$currentChangelogValue" = "DISABLED" ] && [ "$currentChangelogApproval" != "TBD" ];
+			   if [ "$currentChangelogValue" = "DISABLED" ] && [ "$OldChangelogValue" = "ENABLED" ];
 			   then
 			       Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
-			   elif [ "$currentChangelogValue" = "ENABLED" ] && [ "$currentChangelogApproval" = "TBD" ];
+			   elif [ "$currentChangelogValue" = "ENABLED" ] && [ "$OldChangelogValue" = "DISABLED" ];
 			   then
 			       Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
 			   fi
