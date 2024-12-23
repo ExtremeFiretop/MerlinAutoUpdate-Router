@@ -7894,11 +7894,12 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
-    if [ "$currentChangelogValue" = "ENABLED" ]
-    then
-       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
-       return 1
-    fi
+   local currentChangelogValue="$(Get_Custom_Setting "CheckChangeLog")"
+   if [ "$currentChangelogValue" = "ENABLED" ]
+   then
+      Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+      return 1
+   fi
 
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=600  #10 minutes#
@@ -8943,7 +8944,7 @@ _ShowMainMenu_()
    fi
 
    ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-   if [ -n "$ChangelogApproval" ] && [ "$ChangelogApproval" = "BLOCKED" ];
+   if [ -n "$ChangelogApproval" ] && [ "$ChangelogApproval" = "BLOCKED" ]
    then
       printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
       printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
