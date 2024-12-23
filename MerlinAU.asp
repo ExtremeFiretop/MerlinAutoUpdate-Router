@@ -759,7 +759,7 @@
                                         <tr style="background-color:#4D595D;">
                                             <td valign="top">
                                                 <div>&nbsp;</div>
-                                                <div class="formfonttitle" style="text-align:center;">MerlinAU Dashboard v1.3.8</div>
+                                                <div class="formfonttitle" style="text-align:center;">MerlinAU Dashboard v1.4.0</div>
                                                 <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
                                                 <div class="formfontdesc">
                                                     This is the MerlinAU AMTM add-on integrated into the router WebUI.
@@ -1021,7 +1021,7 @@
                                                     </tbody>
                                                 </table>
                                                 <div style="margin-top:10px;text-align:center;">
-                                                    MerlinAU v1.3.8 by ExtremeFiretop &amp; Martinski W.
+                                                    MerlinAU v1.4.0 by ExtremeFiretop &amp; Martinski W.
                                                 </div>
                                             </td>
                                         </tr>
