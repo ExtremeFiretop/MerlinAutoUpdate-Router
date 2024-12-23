@@ -4003,7 +4003,7 @@ _toggle_change_log_check_()
         if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
         then
             Update_Custom_Settings "CheckChangeLog" "DISABLED"
-            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+            Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
             printf "Changelog verification check is now ${REDct}DISABLED.${NOct}\n"
         else
             printf "Changelog verification check remains ${GRNct}ENABLED.${NOct}\n"
@@ -4013,6 +4013,7 @@ _toggle_change_log_check_()
         if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
         then
             Update_Custom_Settings "CheckChangeLog" "ENABLED"
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
             printf "Changelog verification check is now ${GRNct}ENABLED.${NOct}\n"
         else
             printf "Changelog verification check remains ${REDct}DISABLED.${NOct}\n"
@@ -6343,8 +6344,12 @@ _CheckNewUpdateFirmwareNotification_()
        Update_Custom_Settings FW_New_Update_Notification_Date TBD
        Update_Custom_Settings FW_New_Update_Notification_Vers TBD
        Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
-       Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
-       return 1
+       local currentChangelogValue="$(Get_Custom_Setting "CheckChangeLog")"
+       if [ "$currentChangelogValue" = "ENABLED" ]
+       then
+          Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+          return 1
+       fi
    fi
 
    fwNewUpdateNotificationVers="$(Get_Custom_Setting FW_New_Update_Notification_Vers TBD)"
@@ -7889,7 +7894,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
-   Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
+    if [ "$currentChangelogValue" = "ENABLED" ]
+    then
+       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+       return 1
+    fi
 
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=600  #10 minutes#
@@ -8934,7 +8943,7 @@ _ShowMainMenu_()
    fi
 
    ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-   if [ "$ChangelogApproval" = "BLOCKED" ]
+   if [ -n "$ChangelogApproval" ] && [ "$ChangelogApproval" = "BLOCKED" ];
    then
       printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
       printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
