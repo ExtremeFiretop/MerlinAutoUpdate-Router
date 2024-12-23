@@ -8464,7 +8464,7 @@ then
 			   NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
 			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
 			   currentChangelogApproval="$(Get_Custom_Setting FW_New_Update_Changelog_Approval)"
-			   if [ "$currentChangelogValue" = "DISABLED" ] && [ -n "$currentChangelogApproval" ];
+			   if [ "$currentChangelogValue" = "DISABLED" ] && [ "$currentChangelogApproval" != "TBD" ];
 			   then
 			       Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
 			   elif [ "$currentChangelogValue" = "ENABLED" ] && [ "$currentChangelogApproval" = "TBD" ];
@@ -8977,7 +8977,7 @@ _ShowMainMenu_()
    fi
 
    ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-   if [ -n "$ChangelogApproval" ] && [ "$ChangelogApproval" = "BLOCKED" ]
+   if [ "$currentChangelogApproval" != "TBD" ] && [ "$ChangelogApproval" = "BLOCKED" ]
    then
       printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
       printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
