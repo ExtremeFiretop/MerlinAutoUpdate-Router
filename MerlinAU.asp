@@ -151,9 +151,6 @@
                     autobackupEnabled.style.opacity = '0.5'; // Grayed out appearance
                 }
             }
-            if (autobackupEnabled) {
-                autobackupEnabled.checked = (custom_settings.FW_Auto_Backupmon === 'ENABLED');
-            }
             if (tailscaleVPNEnabled) {
                 tailscaleVPNEnabled.checked = (custom_settings.Allow_Updates_OverVPN === 'ENABLED');
             }
