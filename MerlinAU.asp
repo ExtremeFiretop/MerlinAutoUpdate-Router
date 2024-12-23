@@ -167,7 +167,6 @@
             setStatus('changelogCheckStatus', custom_settings.CheckChangeLog);
             setStatus('betaToReleaseUpdatesStatus', custom_settings.FW_Allow_Beta_Production_Up);
             setStatus('tailscaleVPNAccessStatus', custom_settings.Allow_Updates_OverVPN);
-            setStatus('autobackupEnabledStatus', custom_settings.FW_Auto_Backupmon);
             setStatus('autoUpdatesScriptEnabledStatus', custom_settings.Allow_Script_Auto_Update);
             setStatus('emailNotificationsStatus', custom_settings.FW_New_Update_EMail_Notification);
 
@@ -483,6 +482,9 @@
 
     // **Adjusted SaveActionsConfig Function**
     function SaveActionsConfig() {
+        // Clear amng_custom before saving
+        document.getElementById('amng_custom').value = '';
+
         // Collect Action form-specific settings
         var password = document.getElementById('routerPassword')?.value || '';
         var usernameElement = document.getElementById('http_username');
@@ -509,6 +511,26 @@
         // Prefix only Action settings
         var prefixedActionSettings = prefixCustomSettings(action_settings, 'MerlinAU_');
 
+        // ***** FIX BUG WHERE MerlinAU_FW_Auto_Backupmon is saved from the wrong button *****
+        // ***** Only when the Advanced Options section is saved first, and then Actions Section is saved second *****
+        var ADVANCED_KEYS = [
+            "MerlinAU_FW_Auto_Backupmon",
+            "MerlinAU_FW_Allow_Beta_Production_Up",
+            "MerlinAU_FW_New_Update_ZIP_Directory_Path",
+            "MerlinAU_FW_New_Update_EMail_Notification",
+            "MerlinAU_FW_New_Update_EMail_FormatType",
+            "MerlinAU_FW_New_Update_EMail_CC_Address",
+            "MerlinAU_Allow_Updates_OverVPN",
+            "MerlinAU_Allow_Script_Auto_Update",
+            "MerlinAU_FW_New_Update_ROGFWBuildType",
+            "MerlinAU_FW_New_Update_TUFWBuildType"
+        ];
+        ADVANCED_KEYS.forEach(function (key) {
+            if (server_custom_settings.hasOwnProperty(key)) {
+                delete server_custom_settings[key];
+            }
+        });
+
         // Merge Server Custom Settings and prefixed Action form settings
         var updatedSettings = Object.assign({}, server_custom_settings, prefixedActionSettings);
 
@@ -524,6 +546,9 @@
     }
 
     function SaveAdvancedConfig() {
+        // Clear amng_custom before saving
+        document.getElementById('amng_custom').value = '';
+
         // Collect only Advanced form-specific settings
         var advanced_settings = {
             FW_New_Update_EMail_Notification: document.getElementById('emailNotificationsEnabled').checked ? 'ENABLED' : 'DISABLED',
