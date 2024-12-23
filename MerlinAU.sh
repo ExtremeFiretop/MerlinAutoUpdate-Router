@@ -8456,16 +8456,39 @@ then
 			   _RunFirmwareUpdateNow_
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
 		   then
+		       OldScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+		       OldPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 			   _Config_FromSettings_
+		       NewPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+		       NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
 			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
 			   currentChangelogApproval="$(Get_Custom_Setting FW_New_Update_Changelog_Approval)"
-			   if [ "$currentChangelogValue" = "DISABLED" ]
+			   if [ "$currentChangelogValue" = "DISABLED" ] && [ -n "$currentChangelogApproval" ];
 			   then
 			       Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
 			   elif [ "$currentChangelogValue" = "ENABLED" ] && [ -z "$currentChangelogApproval" ];
 			   then
 			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
 			   fi
+			   if [ "$NewPostponeValue" != "$OldPostponeValue" ]; then
+			   then
+			       _Calculate_NextRunTime_
+			   fi
+			   if [ "$OldScriptUpdateValue" = "ENABLED" ] && [ "$NewScriptUpdateValue" = "DISABLED" ];
+			   then
+			       _DelScriptAutoUpdateHook_
+			       _DelScriptAutoUpdateCronJob_
+			   elif [ "$OldScriptUpdateValue" = "DISABLED" ] && [ "$NewScriptUpdateValue" = "ENABLED" ];
+			   then
+			        scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
+			        if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
+			        then
+			            if _AddScriptAutoUpdateCronJob_
+                        then
+                            _AddScriptAutoUpdateHook_
+                        fi
+		            fi
+		       fi
 		   fi
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
