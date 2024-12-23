@@ -8459,7 +8459,7 @@ then
 			   OldScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
 			   OldPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 			   _Config_FromSettings_
-			   sleep 2
+			   sleep 1
 			   NewPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 			   NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
 			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
