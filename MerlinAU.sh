@@ -8458,10 +8458,12 @@ then
 		   then
 			   _Config_FromSettings_
 			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+			   currentChangelogApproval="$(Get_Custom_Setting FW_New_Update_Changelog_Approval)"
 			   if [ "$currentChangelogValue" = "DISABLED" ]
 			   then
 			       Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
-			   else
+			   elif [ "$currentChangelogValue" = "ENABLED" ] && [ -z "$currentChangelogApproval" ];
+			   then
 			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
 			   fi
 		   fi
