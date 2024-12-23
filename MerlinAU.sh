@@ -1375,8 +1375,6 @@ _migrate_settings_() {
             Say "Failed to download the file. Please check the URL or your network connection."
             return 1
         fi
-    else
-        Say "File already exists: $PAGE_FILE. No action needed."
     fi
 
     # Function to migrate specific settings from old values to new standardized values.
@@ -1384,9 +1382,7 @@ _migrate_settings_() {
     # Retrieve the current value of ROGBuild
     ROGBuild_Value="$(Get_Custom_Setting ROGBuild)"
     
-    if [ "$ROGBuild_Value" = "TBD" ]; then
-        Say "ROGBuild setting does not exist. No migration needed."
-    else
+    if [ "$ROGBuild_Value" != "TBD" ]; then
         case "$ROGBuild_Value" in
             y|Y)
                 New_ROGBuild_Value="ENABLED"
@@ -1415,9 +1411,7 @@ _migrate_settings_() {
     # Retrieve the current value of TUFBuild
     TUFBuild_Value="$(Get_Custom_Setting TUFBuild)"
 
-    if [ "$TUFBuild_Value" = "TBD" ]; then
-        Say "TUFBuild setting does not exist. No migration needed."
-    else
+    if [ "$TUFBuild_Value" != "TBD" ]; then
         case "$TUFBuild_Value" in
             y|Y)
                 New_TUFBuild_Value="ENABLED"
@@ -1446,9 +1440,7 @@ _migrate_settings_() {
     # Retrieve the current value of FW_New_Update_EMail_Notification from the settings file
     EMailNotif_Value=$(grep '^FW_New_Update_EMail_Notification=' "$SETTINGSFILE" | cut -d'=' -f2 | tr -d '"')
     
-    if [ -z "$EMailNotif_Value" ]; then
-        Say "Already migrated. No migration needed."
-    else
+    if [ -n "$EMailNotif_Value" ]; then
         case "$EMailNotif_Value" in
             true|TRUE|True)
                 New_EMailNotif_Value="ENABLED"
@@ -1465,9 +1457,9 @@ _migrate_settings_() {
         if [ -n "$New_EMailNotif_Value" ]; then
             sed -i "/^FW_New_Update_EMail_Notification=/c\FW_New_Update_EMail_Notification $New_EMailNotif_Value" "$SETTINGSFILE"
             if [ $? -eq 0 ]; then
-                Say "FW_New_Update_EMail_Notification has been updated to $New_EMailNotif_Value."
+                Say "FW_New_Update_EMail_Notification setting successfully migrated to $New_EMailNotif_Value."
             else
-                Say "Failed to update FW_New_Update_EMail_Notification in the settings file."
+                Say "Error occurred while migrating FW_New_Update_EMail_Notification setting to $New_EMailNotif_Value."
             fi
         fi
     fi
@@ -1616,8 +1608,6 @@ fi
 _Mount_WebUI_(){
 	local existing_page=""
 
-	Say "Mounting WebUI tab for $SCRIPT_NAME"
-
     # Check if the WebUI is already installed
     if [ -f "/tmp/menuTree.js" ] 
     then
@@ -1627,7 +1617,6 @@ _Mount_WebUI_(){
     # If an existing page is found, skip installation
     if [ -n "$existing_page" ]
     then
-        Say "WebUI for $SCRIPT_NAME is already mounted as $existing_page"
         return 0
     fi
 
@@ -1670,7 +1659,6 @@ _Mount_WebUI_(){
 	# Remount menuTree.js to apply changes
 	umount /www/require/modules/menuTree.js 2>/dev/null
 	mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
-	Say "Mounted $SCRIPT_NAME WebUI page as $am_webui_page"
 }
 
 _Unmount_WebUI_(){
