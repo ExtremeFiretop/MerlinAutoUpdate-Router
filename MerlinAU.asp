@@ -211,7 +211,7 @@
             // **Handle Changelog Approval Display**
             var changelogApprovalElement = document.getElementById('changelogApproval');
             if (changelogApprovalElement) {
-                var approvalStatus = custom_settings.hasOwnProperty('FW_New_Update_Changelog_Approval') ? custom_settings.FW_New_Update_Changelog_Approval : "DISABLED"; // Default to "DISABLED" if missing
+                var approvalStatus = custom_settings.hasOwnProperty('FW_New_Update_Changelog_Approval') ? custom_settings.FW_New_Update_Changelog_Approval : "Disabled"; // Default to "Disabled" if missing
                 if (approvalStatus === "TBD") {
                     changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct;
                 } else if (approvalStatus === "BLOCKED") {
