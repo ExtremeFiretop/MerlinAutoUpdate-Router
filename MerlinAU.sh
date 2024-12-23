@@ -8451,14 +8451,14 @@ then
 			   sleep 3
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUchangelog" ] 
 		   then
-    		   local currentApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-    		   if [ "$currentApprovalStatus" = "BLOCKED" ]
-    		   then
-    		        Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
-    		   elif [ "$currentApprovalStatus" = "APPROVED" ]
-    		   then
-    		        Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
-    		   fi
+			   local currentApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+			   if [ "$currentApprovalStatus" = "BLOCKED" ]
+			   then
+			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+			   elif [ "$currentApprovalStatus" = "APPROVED" ]
+			   then
+			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+			   fi
 		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUcheck" ]
  		   then
 			   _RunFirmwareUpdateNow_
