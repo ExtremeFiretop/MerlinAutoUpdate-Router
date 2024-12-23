@@ -482,7 +482,7 @@
 
     // **Adjusted SaveActionsConfig Function**
     function SaveActionsConfig() {
-        // Clear amng_custom before saving
+        // Clear amng_custom for any existing content before saving
         document.getElementById('amng_custom').value = '';
 
         // Collect Action form-specific settings
@@ -546,10 +546,11 @@
     }
 
     function SaveAdvancedConfig() {
-        // Clear amng_custom before saving
+        // Clear amng_custom for any existing content before saving
         document.getElementById('amng_custom').value = '';
 
-        // Collect only Advanced form-specific settings
+        // ***** FIX BUG WHERE MerlinAU_FW_Auto_Backupmon is saved from the wrong button *****
+        // ***** Only when the Advanced Options section is saved first, and then Actions Section is saved second *****
         var advanced_settings = {
             FW_New_Update_EMail_Notification: document.getElementById('emailNotificationsEnabled').checked ? 'ENABLED' : 'DISABLED',
             FW_New_Update_EMail_FormatType: document.getElementById('emailFormat')?.value || 'HTML',
@@ -574,6 +575,19 @@
 
         // Prefix only Advanced settings
         var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
+
+        // ***** NEW CODE: REMOVE ACTION KEYS *****
+        var ACTION_KEYS = [
+            "MerlinAU_credentials_base64",
+            "MerlinAU_FW_New_Update_Postponement_Days",
+            "MerlinAU_CheckChangeLog",
+            "MerlinAU_fwUpdateEnabled"
+        ];
+        ACTION_KEYS.forEach(function (key) {
+            if (server_custom_settings.hasOwnProperty(key)) {
+                delete server_custom_settings[key];
+            }
+        });
 
         // Merge Server Custom Settings and prefixed Advanced settings
         var updatedSettings = Object.assign({}, server_custom_settings, prefixedAdvancedSettings);
