@@ -168,6 +168,7 @@
             setStatus('betaToReleaseUpdatesStatus', custom_settings.FW_Allow_Beta_Production_Up);
             setStatus('tailscaleVPNAccessStatus', custom_settings.Allow_Updates_OverVPN);
             setStatus('autoUpdatesScriptEnabledStatus', custom_settings.Allow_Script_Auto_Update);
+            setStatus('autobackupEnabledStatus', custom_settings.FW_Auto_Backupmon);
             setStatus('emailNotificationsStatus', custom_settings.FW_New_Update_EMail_Notification);
 
             // Handle fwNotificationsDate as a date
