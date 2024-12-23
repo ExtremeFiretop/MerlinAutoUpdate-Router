@@ -80,7 +80,7 @@ readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
 readonly SHAREDSETTINGSFILE="/jffs/addons/custom_settings.txt"
 readonly TMPFILE="/tmp/MerlinAU_settings.txt"
 readonly WEBDIR="/www/user/$ScriptDirNameD"
-readonly PAGE_FILE="$SETTINGS_DIR/MerlinAU.asp"
+readonly PAGE_FILE="$SETTINGS_DIR/${SCRIPT_NAME}.asp"
 
 # Give FIRST priority to built-in binaries over any other #
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
@@ -1360,25 +1360,23 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 ## Whichever comes first. Similar to the first migration function removed in v1.0.9
 _migrate_settings_() {
 
-    # Function to downlod WebUI if not already existing post update. (For old versions without a WebUI)
-    local WebUI_path="$SETTINGS_DIR/${SCRIPT_NAME}.asp"
-    
+    # Function to downlod WebUI if not already existing post update. (For old versions without a WebUI)   
     # Check if the file exists
-    if [ ! -f "$WebUI_path" ]; then
-        Say "File not found: $WebUI_path. Downloading..."
+    if [ ! -f "$PAGE_FILE" ]; then
+        Say "File not found: $PAGE_FILE. Downloading..."
         
         # Attempt to download the file using curl
-        curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.asp" -o "$WebUI_path"
+        curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.asp" -o "$PAGE_FILE"
         
         # Check if the download succeeded
         if [ $? -eq 0 ]; then
-            Say "File downloaded successfully to $WebUI_path."
+            Say "File downloaded successfully to $PAGE_FILE."
         else
             Say "Failed to download the file. Please check the URL or your network connection."
             return 1
         fi
     else
-        Say "File already exists: $WebUI_path. No action needed."
+        Say "File already exists: $PAGE_FILE. No action needed."
     fi
 
     # Function to migrate specific settings from old values to new standardized values.
