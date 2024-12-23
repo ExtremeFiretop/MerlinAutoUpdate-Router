@@ -944,13 +944,13 @@
                                                                         </colgroup>
                                                                         <tr>
                                                                             <td style="text-align: right; border: none;">
-                                                                                <button type="button" onclick="checkFirmwareUpdate()">F/W Update Check</button>
+                                                                                <input type="submit" onclick="checkFirmwareUpdate(); return false;" value="F/W Update Check" class="button_gen savebutton" name="button">
                                                                             </td>
                                                                             <td style="text-align: center; border: none;" id="approveChangelogCell">
-                                                                                <button type="button" id="approveChangelogButton" onclick="changelogApproval()">Approve Changelog</button>
+                                                                                <input type="submit" id="approveChangelogButton" onclick="changelogApproval(); return false;" value="Approve Changelog" class="button_gen savebutton" name="button">
                                                                             </td>
                                                                             <td style="text-align: left; border: none;">
-                                                                                <button type="button" onclick="Uninstall()">Uninstall</button>
+                                                                                <input type="submit" onclick="Uninstall(); return false;" value="Uninstall" class="button_gen savebutton" name="button">
                                                                             </td>
                                                                         </tr>
                                                                     </table>
