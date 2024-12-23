@@ -8977,7 +8977,7 @@ _ShowMainMenu_()
    fi
 
    ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-   if [ "$currentChangelogApproval" != "TBD" ] && [ "$ChangelogApproval" = "BLOCKED" ]
+   if [ "$ChangelogApproval" != "TBD" ] && [ "$ChangelogApproval" = "BLOCKED" ]
    then
       printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
       printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
