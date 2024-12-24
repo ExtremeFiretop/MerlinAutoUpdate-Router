@@ -150,9 +150,6 @@
             if (changelogCheckEnabled) {
                 changelogCheckEnabled.checked = (custom_settings.CheckChangeLog === 'ENABLED');
             }
-            if (emailNotificationsEnabled) {
-                emailNotificationsEnabled.checked = (custom_settings.FW_New_Update_EMail_Notification === 'ENABLED');
-            }
             if (autobackupEnabled) {
                 if (custom_settings.hasOwnProperty('FW_Auto_Backupmon')) {
                     // If the setting exists, enable the checkbox and set its state
@@ -164,6 +161,28 @@
                     autobackupEnabled.disabled = true;
                     autobackupEnabled.checked = false; // Optionally uncheck
                     autobackupEnabled.style.opacity = '0.5'; // Grayed out appearance
+                }
+            }
+            if (emailNotificationsEnabled && emailFormat && secondaryEmail) {
+                // Check if 'FW_New_Update_EMail_Notification' is present in custom_settings
+                if (custom_settings.hasOwnProperty('FW_New_Update_EMail_Notification')) {
+                    // If the setting exists, enable the checkbox and controls
+                    emailNotificationsEnabled.disabled = false;
+                    emailNotificationsEnabled.checked = (custom_settings.FW_New_Update_EMail_Notification === 'ENABLED');
+                    emailNotificationsEnabled.style.opacity = '1';
+                    emailFormat.disabled = false;
+                    emailFormat.style.opacity = '1';
+                    secondaryEmail.disabled = false;
+                    secondaryEmail.style.opacity = '1';
+                } else {
+                    // If the setting is missing, disable and gray out the checkbox, dropdown, and email input
+                    emailNotificationsEnabled.disabled = true;
+                    emailNotificationsEnabled.checked = false;
+                    emailNotificationsEnabled.style.opacity = '0.5';
+                    emailFormat.disabled = true;
+                    emailFormat.style.opacity = '0.5';
+                    secondaryEmail.disabled = true;
+                    secondaryEmail.style.opacity = '0.5';
                 }
             }
             if (tailscaleVPNEnabled) {
@@ -564,34 +583,71 @@
         // Clear amng_custom for any existing content before saving
         document.getElementById('amng_custom').value = '';
 
-        // ***** FIX BUG WHERE MerlinAU_FW_Auto_Backupmon is saved from the wrong button *****
-        // ***** Only when the Advanced Options section is saved first, and then Actions Section is saved second *****
-        var advanced_settings = {
-            FW_New_Update_EMail_Notification: document.getElementById('emailNotificationsEnabled').checked ? 'ENABLED' : 'DISABLED',
-            FW_New_Update_EMail_FormatType: document.getElementById('emailFormat')?.value || 'HTML',
-            FW_New_Update_ZIP_Directory_Path: document.getElementById('fwUpdateDirectory')?.value || '/tmp/mnt/USB1',
-            Allow_Updates_OverVPN: document.getElementById('tailscaleVPNEnabled').checked ? 'ENABLED' : 'DISABLED',
-            FW_New_Update_EMail_CC_Address: document.getElementById('secondaryEmail')?.value || 'TBD',
-            Allow_Script_Auto_Update: document.getElementById('autoUpdatesScriptEnabled').checked ? 'ENABLED' : 'DISABLED',
-            FW_Allow_Beta_Production_Up: document.getElementById('betaToReleaseUpdatesEnabled').checked ? 'ENABLED' : 'DISABLED',
-            FW_Auto_Backupmon: document.getElementById('autobackupEnabled').checked ? 'ENABLED' : 'DISABLED'
-        };
+        // 1) F/W Update Email Notifications - only if not disabled
+        let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
+        let emailFormat = document.getElementById('emailFormat');
+        let secondaryEmail = document.getElementById('secondaryEmail');
 
-        // Handle conditional fields based on visibility
-        var rogFWBuildRow = document.getElementById('rogFWBuildRow');
-        if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none') {
-            advanced_settings.FW_New_Update_ROGFWBuildType = document.getElementById('rogFWBuildType')?.value || 'ROG';
+        if (emailNotificationsEnabled && !emailNotificationsEnabled.disabled) {
+            // The box is enabled, so we save these fields
+            advanced_settings.FW_New_Update_EMail_Notification = emailNotificationsEnabled.checked ? 'ENABLED' : 'DISABLED';
         }
 
-        var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
-        if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none') {
-            advanced_settings.FW_New_Update_TUFWBuildType = document.getElementById('tuffFWBuildType')?.value || 'TUF';
+        if (emailFormat && !emailFormat.disabled) {
+            advanced_settings.FW_New_Update_EMail_FormatType = emailFormat.value || 'HTML';
+        }
+
+        if (secondaryEmail && !secondaryEmail.disabled) {
+            advanced_settings.FW_New_Update_EMail_CC_Address = secondaryEmail.value || 'TBD';
+        }
+
+        // 2) F/W Update Directory - always saved (or up to your requirements)
+        let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
+        if (fwUpdateDirectory) {
+            advanced_settings.FW_New_Update_ZIP_Directory_Path = fwUpdateDirectory.value || '/tmp/mnt/USB1';
+        }
+
+        // 3) Tailscale/ZeroTier VPN Access - only if not disabled
+        let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
+        if (tailscaleVPNEnabled && !tailscaleVPNEnabled.disabled) {
+            advanced_settings.Allow_Updates_OverVPN = tailscaleVPNEnabled.checked ? 'ENABLED' : 'DISABLED';
+        }
+
+        // 4) Auto-Updates for Script - only if not disabled
+        let autoUpdatesScriptEnabled = document.getElementById('autoUpdatesScriptEnabled');
+        if (autoUpdatesScriptEnabled && !autoUpdatesScriptEnabled.disabled) {
+            advanced_settings.Allow_Script_Auto_Update = autoUpdatesScriptEnabled.checked ? 'ENABLED' : 'DISABLED';
+        }
+
+        // 5) Beta-to-Release Updates - only if not disabled
+        let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
+        if (betaToReleaseUpdatesEnabled && !betaToReleaseUpdatesEnabled.disabled) {
+            advanced_settings.FW_Allow_Beta_Production_Up = betaToReleaseUpdatesEnabled.checked ? 'ENABLED' : 'DISABLED';
+        }
+
+        // 6) Auto-Backup - only if not disabled
+        let autobackupEnabled = document.getElementById('autobackupEnabled');
+        if (autobackupEnabled && !autobackupEnabled.disabled) {
+            advanced_settings.FW_Auto_Backupmon = autobackupEnabled.checked ? 'ENABLED' : 'DISABLED';
+        }
+
+        // 7) ROG/TUF F/W Build Type - handle conditional rows if visible
+        let rogFWBuildRow = document.getElementById('rogFWBuildRow');
+        let rogFWBuildType = document.getElementById('rogFWBuildType');
+        if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none' && rogFWBuildType) {
+            advanced_settings.FW_New_Update_ROGFWBuildType = rogFWBuildType.value || 'ROG';
+        }
+
+        let tufFWBuildRow = document.getElementById('tuffFWBuildRow');
+        let tuffFWBuildType = document.getElementById('tuffFWBuildType');
+        if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none' && tuffFWBuildType) {
+            advanced_settings.FW_New_Update_TUFWBuildType = tuffFWBuildType.value || 'TUF';
         }
 
         // Prefix only Advanced settings
         var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
 
-        // ***** NEW CODE: REMOVE ACTION KEYS *****
+        // Remove any action keys from server_custom_settings to avoid overwriting
         var ACTION_KEYS = [
             "MerlinAU_credentials_base64",
             "MerlinAU_FW_New_Update_Postponement_Days",
