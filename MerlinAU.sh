@@ -1801,7 +1801,7 @@ _Config_FromSettings_(){
             
             while IFS='' read -r line || [ -n "$line" ]; do
                 SETTINGNAME="$(echo "$line" | cut -f1 -d'=')"
-                SETTINGVALUE="$(echo "$line" | cut -f2- -d'=' | sed "s/=/ /g")"
+                SETTINGVALUE="$(echo "$line" | cut -f2- -d'=')"
                 Update_Custom_Settings "$SETTINGNAME" "$SETTINGVALUE"
             done < "$TMPFILE"
 
