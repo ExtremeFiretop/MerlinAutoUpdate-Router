@@ -8397,7 +8397,7 @@ then
         Update_Custom_Settings FW_New_Update_EMail_Notification "DISABLED"
     fi
 else
-    Delete_Custom_Settings FW_New_Update_EMail_Notification
+    Delete_Custom_Settings "FW_New_Update_EMail_Notification"
 fi
 
 ##------------------------------------------##
