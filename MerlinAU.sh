@@ -8400,6 +8400,25 @@ else
     Delete_Custom_Settings "FW_New_Update_EMail_Notification"
 fi
 
+# Check if the file /jffs/scripts/backupmon.sh exists
+if [ -f "/jffs/scripts/backupmon.sh" ]; then
+    # Retrieve the current backup setting
+    local currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+    # If the setting is empty, add it to the configuration file
+    if [ "$currentBackupOption" = "TBD" ]; then
+        Update_Custom_Settings FW_Auto_Backupmon "ENABLED"
+        currentBackupOption="ENABLED"
+    fi
+else
+    # If the file does not exist, check the configuration setting
+    currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+    # If the configuration setting exists, delete it
+    if [ "$currentBackupOption" != "TBD" ]; then
+        Delete_Custom_Settings "FW_Auto_Backupmon"
+    fi
+fi
+
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
@@ -9059,27 +9078,13 @@ _ShowAdvancedOptionsMenu_()
    # Check if the file /jffs/scripts/backupmon.sh exists
    if [ -f "/jffs/scripts/backupmon.sh" ]; then
        # Retrieve the current backup setting
-        local currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-       # If the setting is empty, add it to the configuration file
-       if [ "$currentBackupOption" = "TBD" ]; then
-           Update_Custom_Settings FW_Auto_Backupmon "ENABLED"
-           currentBackupOption="ENABLED"
-       fi
+        currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
        # Display the backup option toggle menu
        printf "\n ${GRNct}ab${NOct}.  Toggle Automatic Backups"
-       if [ "$currentBackupOption" = "DISABLED" ]; then
-           printf "\n${padStr}[Currently ${REDct}${currentBackupOption}${NOct}]\n"
-       else
-           printf "\n${padStr}[Currently ${GRNct}${currentBackupOption}${NOct}]\n"
-       fi
-   else
-       # If the file does not exist, check the configuration setting
-       currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-
-       # If the configuration setting exists, delete it
-       if [ "$currentBackupOption" != "TBD" ]; then
-           Delete_Custom_Settings "FW_Auto_Backupmon"
+       if [ "$currentBackupOption" = "DISABLED" ]
+       then printf "\n${padStr}[Currently ${REDct}${currentBackupOption}${NOct}]\n"
+       else printf "\n${padStr}[Currently ${GRNct}${currentBackupOption}${NOct}]\n"
        fi
    fi
 
