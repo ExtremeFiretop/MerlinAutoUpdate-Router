@@ -477,7 +477,6 @@
             } else if (isEnabled === 'DISABLED') {
                 element.innerHTML = REDct + "Disabled" + NOct;
             } else {
-                console.warn(`Unexpected value for ${elementId}: ${isEnabled}. Defaulting to Disabled.`);
                 element.innerHTML = REDct + "Disabled" + NOct;
             }
         }
