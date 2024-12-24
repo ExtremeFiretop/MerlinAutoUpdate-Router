@@ -11,7 +11,6 @@
     <link rel="icon" href="images/favicon.png" />
     <link rel="stylesheet" type="text/css" href="index_style.css" />
     <link rel="stylesheet" type="text/css" href="form_style.css" />
-    <link rel="stylesheet" type="text/css" href="icon.css" />
     <!-- Other meta tags and links -->
     <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
     <!-- Existing scripts -->
