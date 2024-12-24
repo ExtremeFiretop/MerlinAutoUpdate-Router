@@ -8455,11 +8455,20 @@ then
 			   OldScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
 			   OldChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
 			   OldPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+			   OldEmailValue="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
 			   _Config_FromSettings_
 			   sleep 1
 			   NewPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
 			   NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
 			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+			   NewEmailValue="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+
+			   # Compare old vs. new values and action something else
+			   if [ "$OldEmailValue" != "$NewEmailValue" ]
+			   then
+			       NewnameAlias="${NewEmailValue%%@*}"
+			       Update_Custom_Settings FW_New_Update_EMail_CC_Name "${NewnameAlias}"
+			   fi
 			   if [ "$currentChangelogValue" = "DISABLED" ] && [ "$OldChangelogValue" = "ENABLED" ];
 			   then
 			       Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
