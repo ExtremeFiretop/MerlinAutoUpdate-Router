@@ -8401,11 +8401,13 @@ else
 fi
 
 # Check if the file /jffs/scripts/backupmon.sh exists
-if [ -f "/jffs/scripts/backupmon.sh" ]; then
+if [ -f "/jffs/scripts/backupmon.sh" ]
+then
     # Retrieve the current backup setting
-    local currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+    currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
     # If the setting is empty, add it to the configuration file
-    if [ "$currentBackupOption" = "TBD" ]; then
+    if [ "$currentBackupOption" = "TBD" ]
+    then
         Update_Custom_Settings FW_Auto_Backupmon "ENABLED"
         currentBackupOption="ENABLED"
     fi
@@ -8414,7 +8416,8 @@ else
     currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
     # If the configuration setting exists, delete it
-    if [ "$currentBackupOption" != "TBD" ]; then
+    if [ "$currentBackupOption" != "TBD" ]
+    then
         Delete_Custom_Settings "FW_Auto_Backupmon"
     fi
 fi
