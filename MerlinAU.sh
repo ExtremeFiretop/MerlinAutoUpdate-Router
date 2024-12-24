@@ -9190,7 +9190,7 @@ _ShowAdvancedOptionsMenu_()
        fi
        if [ "$sendEMailNotificationsFlag" = "ENABLED" ];
        then
-           printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
+           printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
        else
            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
        fi
