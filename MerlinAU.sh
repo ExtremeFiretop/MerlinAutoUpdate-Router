@@ -8393,28 +8393,28 @@ check_version_support
 ##-------------------------------------##
 if _CheckEMailConfigFileFromAMTM_ 0
 then
-    if [ "$sendEMailNotificationsFlag" = "TBD" ]; then
+    if [ "$sendEMailNotificationsFlag" = "TBD" ]
+    then
         Update_Custom_Settings FW_New_Update_EMail_Notification "$FW_UpdateEMailNotificationDefault"
     fi
 else
-    Delete_Custom_Settings "FW_New_Update_EMail_Notification"
+    if [ "$sendEMailNotificationsFlag" != "TBD" ]
+    then
+        Delete_Custom_Settings "FW_New_Update_EMail_Notification"
+    fi
 fi
 
+# Retrieve the current backup setting
+currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 # Check if the file /jffs/scripts/backupmon.sh exists
 if [ -f "/jffs/scripts/backupmon.sh" ]
 then
-    # Retrieve the current backup setting
-    currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
     # If the setting is empty, add it to the configuration file
     if [ "$currentBackupOption" = "TBD" ]
     then
         Update_Custom_Settings FW_Auto_Backupmon "ENABLED"
-        currentBackupOption="ENABLED"
     fi
 else
-    # If the file does not exist, check the configuration setting
-    currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-
     # If the configuration setting exists, delete it
     if [ "$currentBackupOption" != "TBD" ]
     then
@@ -9079,7 +9079,8 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    # Check if the file /jffs/scripts/backupmon.sh exists
-   if [ -f "/jffs/scripts/backupmon.sh" ]; then
+   if [ -f "/jffs/scripts/backupmon.sh" ]
+   then
        # Retrieve the current backup setting
        currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
