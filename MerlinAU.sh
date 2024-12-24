@@ -1864,8 +1864,8 @@ _SCRIPTUPDATE_()
        then
            if "$inRouterSWmode"
            then
-               _Set_Version_SharedSettings_ add "$SCRIPT_VERSION"
-               _Create_Symlinks_
+                _Set_Version_SharedSettings_ add "$SCRIPT_VERSION"
+                _Create_Symlinks_
            fi
            echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
            _ReleaseLock_
@@ -1896,8 +1896,8 @@ _SCRIPTUPDATE_()
           then
               if "$inRouterSWmode"
               then
-               _Set_Version_SharedSettings_ add "$DLRepoVersion"
-               _Create_Symlinks_
+                    _Set_Version_SharedSettings_ add "$DLRepoVersion"
+                    _Create_Symlinks_
               fi
               chmod 755 "$ScriptFilePath"
               echo
@@ -8377,10 +8377,10 @@ fi
 ##---------------------------------------##
 if "$inRouterSWmode"
 then
-_Set_Version_SharedSettings_ add "$SCRIPT_VERSION"
-_Create_Symlinks_
-_Mount_WebUI_
-_Auto_ServiceEvent_ create 2>/dev/null
+    _Set_Version_SharedSettings_ add "$SCRIPT_VERSION"
+    _Create_Symlinks_
+    _Mount_WebUI_
+    _Auto_ServiceEvent_ create 2>/dev/null
 fi
 
 # Check if the router model is supported OR if
@@ -8394,7 +8394,7 @@ check_version_support
 if _CheckEMailConfigFileFromAMTM_ 0
 then
     if [ "$sendEMailNotificationsFlag" = "TBD" ]; then
-        Update_Custom_Settings FW_New_Update_EMail_Notification "DISABLED"
+        Update_Custom_Settings FW_New_Update_EMail_Notification "$FW_UpdateEMailNotificationDefault"
     fi
 else
     Delete_Custom_Settings "FW_New_Update_EMail_Notification"
@@ -9081,7 +9081,7 @@ _ShowAdvancedOptionsMenu_()
    # Check if the file /jffs/scripts/backupmon.sh exists
    if [ -f "/jffs/scripts/backupmon.sh" ]; then
        # Retrieve the current backup setting
-        currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+       currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
        # Display the backup option toggle menu
        printf "\n ${GRNct}ab${NOct}.  Toggle Automatic Backups"
