@@ -272,7 +272,6 @@
 
             // **Update fwUpdateEstimatedRunDate Based on fwUpdateAvailable**
             if (fwUpdateEstimatedRunDateElement) {
-                // Suppose you also have a variable `fwUpdateEstimatedRunDate` somewhere
                 if (isFwUpdateAvailable && fwUpdateAvailable !== '') {
                     fwUpdateEstimatedRunDateElement.innerHTML = CYANct + fwUpdateEstimatedRunDate + NOct;
                 } else {
