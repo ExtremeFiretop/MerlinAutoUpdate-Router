@@ -46,6 +46,29 @@
         eyeDiv.style.backgroundSize = 'contain';
     }
 
+    // Converts a version string like "1.5.14" => 1005014 numerically.
+    function versionStrToNum(verStr) {
+        // If it's empty or null, treat as zero
+        if (!verStr) return 0;
+
+        // Example: remove everything after the first non-numeric-and-dot character:
+        verStr = verStr.split(/[^\d.]/, 1)[0]; // e.g. "3006.102.1.alpha1" => "3006.102.1"
+
+        // Split by '.' and parse up to 3 (or 4, etc.) segments
+        let parts = verStr.split('.');
+        let major = parseInt(parts[0], 10) || 0;
+        let minor = parseInt(parts[1], 10) || 0;
+        let patch = parseInt(parts[2], 10) || 0;
+        // if you want a 4th segment, parse it similarly, e.g. let build = parseInt(parts[3],10) || 0;
+
+        // Combine into a single integer. For 3 segments:
+        // major * 1,000,000 + minor * 1,000 + patch
+        // So "1.5.14" => (1 * 1,000,000) + (5 * 1,000) + 14 => 1005014
+        let verNum = (major * 1000000) + (minor * 1000) + patch;
+
+        return verNum;
+    }
+
     function LoadCustomSettings(){
         server_custom_settings = <% get_custom_settings(); %>;
         console.log("Server Custom Settings Loaded:", server_custom_settings);
@@ -224,18 +247,22 @@
                 var fwUpdateAvailable = FW_New_Update_Available
                 var fwVersionInstalled = fwVersionInstalledElement.textContent.trim();
 
-                // Optional: Normalize version strings for accurate comparison
-                var fwUpdateAvailableNormalized = fwUpdateAvailable.toLowerCase();
-                var fwVersionInstalledNormalized = fwVersionInstalled.toLowerCase();
+                // Convert both to numeric forms
+                var verNumAvailable = versionStrToNum(fwUpdateAvailable);
+                var verNumInstalled = versionStrToNum(fwVersionInstalled);
 
-                // Compare versions and update the DOM accordingly
-                if (fwUpdateAvailableNormalized === 'tbd') {
+                // If verNumAvailable is 0, maybe treat as "NONE FOUND"
+                if (verNumAvailable === 0) {
                     fwUpdateAvailableElement.innerHTML = REDct + "NONE FOUND" + NOct;
-                    isFwUpdateAvailable = false; // No update available
-                } else if (fwUpdateAvailable && fwUpdateAvailableNormalized !== fwVersionInstalledNormalized) {
+                    isFwUpdateAvailable = false;
+                }
+                else if (verNumAvailable > verNumInstalled) {
+                    // That means the available version is higher
                     fwUpdateAvailableElement.innerHTML = CYANct + fwUpdateAvailable + NOct;
                     isFwUpdateAvailable = true; // Update is available
-                } else {
+                } 
+                else {
+                    // verNumAvailable <= verNumInstalled => no update
                     fwUpdateAvailableElement.innerHTML = REDct + "NONE FOUND" + NOct;
                     isFwUpdateAvailable = false; // No update available
                 }
@@ -245,6 +272,7 @@
 
             // **Update fwUpdateEstimatedRunDate Based on fwUpdateAvailable**
             if (fwUpdateEstimatedRunDateElement) {
+                // Suppose you also have a variable `fwUpdateEstimatedRunDate` somewhere
                 if (isFwUpdateAvailable && fwUpdateAvailable !== '') {
                     fwUpdateEstimatedRunDateElement.innerHTML = CYANct + fwUpdateEstimatedRunDate + NOct;
                 } else {
