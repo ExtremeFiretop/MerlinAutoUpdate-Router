@@ -38,10 +38,10 @@
 
         if (passInput.type === 'password') {
           passInput.type = 'text';
-          eyeDiv.style.background = "url('/images/icon-visible@2x.png') no-repeat center";
+          eyeDiv.style.background = "url('/images/icon-invisible@2x.png') no-repeat center";
         } else {
           passInput.type = 'password';
-          eyeDiv.style.background = "url('/images/icon-invisible@2x.png') no-repeat center";
+          eyeDiv.style.background = "url('/images/icon-visible@2x.png') no-repeat center";
         }
         eyeDiv.style.backgroundSize = 'contain';
     }
@@ -980,7 +980,7 @@
                                                                             <td>
                                                                                 <div style="display: inline-block;">
                                                                                     <input type="password" id="routerPassword" name="routerPassword" placeholder="Enter password" style="width: 172px; display: inline-block;" />
-                                                                                    <div id="eyeToggle" onclick="togglePassword();" style="display: inline-block; margin-left: 5px; vertical-align: middle; width:24px; height:24px; background:url('/images/icon-invisible@2x.png') no-repeat center; background-size: contain; cursor: pointer;"></div>
+                                                                                    <div id="eyeToggle" onclick="togglePassword();" style="display: inline-block; margin-left: 5px; vertical-align: middle; width:24px; height:24px; background:url('/images/icon-visible@2x.png') no-repeat center; background-size: contain; cursor: pointer;"></div>
                                                                                 </div>
                                                                             </td>
                                                                         </tr>
