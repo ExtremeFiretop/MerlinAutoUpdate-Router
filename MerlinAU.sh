@@ -862,7 +862,6 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Notification_Date TBD"
          echo "FW_New_Update_Notification_Vers TBD"
          echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays"
-         echo "FW_New_Update_EMail_Notification $FW_UpdateEMailNotificationDefault"
          echo "FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\""
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
@@ -894,11 +893,6 @@ _Init_Custom_Settings_Config_()
    if ! grep -q "^FW_New_Update_Postponement_Days=" "$SETTINGSFILE"
    then
        sed -i "3 i FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" "$SETTINGSFILE"
-       retCode=1
-   fi
-   if ! grep -q "^FW_New_Update_EMail_Notification " "$SETTINGSFILE"
-   then
-       sed -i "4 i FW_New_Update_EMail_Notification $FW_UpdateEMailNotificationDefault" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_EMail_FormatType=" "$SETTINGSFILE"
@@ -8397,7 +8391,16 @@ check_version_support
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Jan-24] ##
 ##-------------------------------------##
-_CheckEMailConfigFileFromAMTM_ 0
+if _CheckEMailConfigFileFromAMTM_ 0
+then
+    CurrentNotificationValue="($Get_Custom_Setting FW_New_Update_EMail_Notification)"
+    if [ "$CurrentNotificationValue" = "TBD" ]; then
+        Update_Custom_Settings FW_New_Update_EMail_Notification "DISABLED"
+        currentBackupOption="ENABLED"
+    fi
+else
+    Delete_Custom_Settings FW_New_Update_EMail_Notification
+fi
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Dec-21] ##
