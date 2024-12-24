@@ -8393,10 +8393,8 @@ check_version_support
 ##-------------------------------------##
 if _CheckEMailConfigFileFromAMTM_ 0
 then
-    CurrentNotificationValue="($Get_Custom_Setting FW_New_Update_EMail_Notification)"
-    if [ "$CurrentNotificationValue" = "TBD" ]; then
+    if [ "$sendEMailNotificationsFlag" = "TBD" ]; then
         Update_Custom_Settings FW_New_Update_EMail_Notification "DISABLED"
-        currentBackupOption="ENABLED"
     fi
 else
     Delete_Custom_Settings FW_New_Update_EMail_Notification
