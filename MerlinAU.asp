@@ -221,7 +221,7 @@
             var isFwUpdateAvailable = false; // Initialize the flag
 
             if (fwUpdateAvailableElement && fwVersionInstalledElement) {
-                var fwUpdateAvailable = custom_settings.FW_New_Update_Available ? custom_settings.FW_New_Update_Available.trim() : '';
+                var fwUpdateAvailable = FW_New_Update_Available
                 var fwVersionInstalled = fwVersionInstalledElement.textContent.trim();
 
                 // Optional: Normalize version strings for accurate comparison
@@ -245,8 +245,8 @@
 
             // **Update fwUpdateEstimatedRunDate Based on fwUpdateAvailable**
             if (fwUpdateEstimatedRunDateElement) {
-                if (isFwUpdateAvailable && fwUpdateEstimatedRunDateElement.textContent.trim() !== '') {
-                    fwUpdateEstimatedRunDateElement.innerHTML = CYANct + fwUpdateEstimatedRunDateElement.textContent.trim() + NOct;
+                if (isFwUpdateAvailable && fwUpdateAvailable !== '') {
+                    fwUpdateEstimatedRunDateElement.innerHTML = CYANct + fwUpdateEstimatedRunDate + NOct;
                 } else {
                     fwUpdateEstimatedRunDateElement.innerHTML = REDct + "TBD" + NOct;
                 }
@@ -411,6 +411,10 @@
 
             case keyUpper === 'ALLOW_UPDATES_OVERVPN':
                 ajax_custom_settings.Allow_Updates_OverVPN = convertToStatus(value);
+                break;
+
+            case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_VERS':
+                FW_New_Update_Available = value.trim();
                 break;
 
             case keyUpper === 'FW_NEW_UPDATE_EMAIL_CC_ADDRESS':
