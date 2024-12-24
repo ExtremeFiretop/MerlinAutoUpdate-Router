@@ -32,6 +32,20 @@
     var server_custom_settings = {};
     var ajax_custom_settings = {};
 
+    function togglePassword() {
+        const passInput = document.getElementById('routerPassword');
+        const eyeDiv = document.getElementById('eyeToggle');
+
+        if (passInput.type === 'password') {
+          passInput.type = 'text';
+          eyeDiv.style.background = "url('/images/icon-visible@2x.png') no-repeat center";
+        } else {
+          passInput.type = 'password';
+          eyeDiv.style.background = "url('/images/icon-invisible@2x.png') no-repeat center";
+        }
+        eyeDiv.style.backgroundSize = 'contain';
+    }
+
     function LoadCustomSettings(){
         server_custom_settings = <% get_custom_settings(); %>;
         console.log("Server Custom Settings Loaded:", server_custom_settings);
@@ -963,7 +977,12 @@
                                                                         </colgroup>
                                                                         <tr>
                                                                             <td style="text-align: left;"><label for="routerPassword">Router Login Password</label></td>
-                                                                            <td><input type="password" id="routerPassword" name="routerPassword" style="width: 50%;" /></td>
+                                                                            <td>
+                                                                                <div style="display: inline-block;">
+                                                                                    <input type="password" id="routerPassword" name="routerPassword" placeholder="Enter password" style="width: 172px; display: inline-block;" />
+                                                                                    <div id="eyeToggle" onclick="togglePassword();" style="display: inline-block; margin-left: 5px; vertical-align: middle; width:24px; height:24px; background:url('/images/icon-invisible@2x.png') no-repeat center; background-size: contain; cursor: pointer;"></div>
+                                                                                </div>
+                                                                            </td>
                                                                         </tr>
                                                                         <tr>
                                                                             <td style="text-align: left;"><label for="fwUpdateEnabled">Enable F/W Update Check</label></td>
