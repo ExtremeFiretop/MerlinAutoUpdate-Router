@@ -52,7 +52,8 @@
         if (!verStr) return 0;
 
         // Example: remove everything after the first non-numeric-and-dot character:
-        verStr = verStr.split(/[^\d.]/, 1)[0]; // e.g. "3006.102.1.alpha1" => "3006.102.1"
+        verStr = verStr.split(/[^\d.]/, 1)[0];
+         // e.g. "3006.102.1.alpha1" => "3006.102.1"
 
         // Split by '.' and parse up to 3 (or 4, etc.) segments
         let parts = verStr.split('.');
