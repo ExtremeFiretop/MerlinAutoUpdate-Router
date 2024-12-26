@@ -934,22 +934,22 @@ _Init_Custom_Settings_Config_()
    fi
    if ! grep -q "^Allow_Updates_OverVPN " "$SETTINGSFILE"
    then
-       sed -i "10 i Allow_Updates_OverVPN DISABLED" "$SETTINGSFILE"
+       sed -i "11 i Allow_Updates_OverVPN DISABLED" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_Allow_Beta_Production_Up " "$SETTINGSFILE"
    then
-       sed -i "11 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
+       sed -i "12 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^Allow_Script_Auto_Update " "$SETTINGSFILE"
    then
-       sed -i "12 i Allow_Script_Auto_Update DISABLED" "$SETTINGSFILE"
+       sed -i "13 i Allow_Script_Auto_Update DISABLED" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^Script_Update_Cron_Job_SchedDays=" "$SETTINGSFILE"
    then
-       sed -i "13 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$SETTINGSFILE"
+       sed -i "14 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$SETTINGSFILE"
        retCode=1
    fi
    dos2unix "$SETTINGSFILE"
