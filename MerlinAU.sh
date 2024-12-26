@@ -7874,10 +7874,10 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
-   local currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
    if [ "$currentChangelogValue" = "ENABLED" ]
    then
-      Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
+      Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
       return 1
    fi
 
