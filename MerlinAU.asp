@@ -143,23 +143,23 @@
         let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
         let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
 
-        // Read the firmware_check_enable value from the hidden input
-        let firmwareCheckEnableValue = document.getElementById('firmware_check_enable').value.trim();
+        // Instead of reading from firmware_check_enable, read from the custom_settings
+        let storedFwUpdateEnabled = custom_settings.fwUpdateEnabled || 'DISABLED'; 
+        // fallback to 'DISABLED' if custom_settings.fwUpdateEnabled is missing
+
+        // Get the checkbox and status elements
         let fwUpdateEnabled = document.getElementById('fwUpdateEnabled');
         let fwUpdateCheckStatus = document.getElementById('fwUpdateCheckStatus');
 
-        // Determine if firmware update check is enabled based on the hidden input value
-        let isFwUpdateEnabled = (firmwareCheckEnableValue === '1') ? 'ENABLED' : 'DISABLED';
-
-        // Set the checkbox state
+        // Set the checkbox state based on "ENABLED" vs. "DISABLED" vs. "TBD"
         if (fwUpdateEnabled) {
-            fwUpdateEnabled.checked = (isFwUpdateEnabled === 'ENABLED');
+            fwUpdateEnabled.checked = (storedFwUpdateEnabled === 'ENABLED');
         }
 
         // Update the Firmware Status display
         if (fwUpdateCheckStatus) {
-            setStatus('fwUpdateCheckStatus', isFwUpdateEnabled);
-            custom_settings.fwUpdateEnabled
+            // Pass the raw string ('ENABLED', 'DISABLED', or 'TBD') to our setStatus function
+            setStatus('fwUpdateCheckStatus', storedFwUpdateEnabled);
         }
 
         // Safe value assignments
@@ -453,6 +453,10 @@
                 ajax_custom_settings.CheckChangeLog = convertToStatus(value);
                 break;
 
+            case keyUpper === 'FWUPDATEENABLED':
+                ajax_custom_settings.fwUpdateEnabled = convertToStatus(value);
+                break;
+
             case keyUpper === 'ALLOW_SCRIPT_AUTO_UPDATE':
                 ajax_custom_settings.Allow_Script_Auto_Update = convertToStatus(value);
                 break;
@@ -501,15 +505,24 @@
     }
 
     // Helper function to set status with color
-    function setStatus(elementId, isEnabled) {
+    function setStatus(elementId, statusValue) {
         var element = document.getElementById(elementId);
         if (element) {
-            if (isEnabled === 'ENABLED') {
-                element.innerHTML = CYANct + "Enabled" + NOct;
-            } else if (isEnabled === 'DISABLED') {
-                element.innerHTML = REDct + "Disabled" + NOct;
-            } else {
-                element.innerHTML = REDct + "Disabled" + NOct;
+            switch (statusValue) {
+                case 'ENABLED':
+                    element.innerHTML = CYANct + "Enabled" + NOct;
+                    break;
+                case 'DISABLED':
+                    element.innerHTML = REDct + "Disabled" + NOct;
+                    break;
+                case 'TBD':
+                    // Decide how you want to color/label this
+                    element.innerHTML = REDct + "TBD" + NOct; 
+                    break;
+                default:
+                    // Fallback if some unexpected string appears
+                    element.innerHTML = REDct + "Disabled" + NOct;
+                    break;
             }
         }
     }
@@ -882,7 +895,6 @@
         <!-- Consolidated firmver input -->
         <input type="hidden" name="extendno" id="extendno" value="<% nvram_get("extendno"); %>" />
         <input type="hidden" name="firmver" id="firmver" value="<% nvram_get('firmver'); %>.<% nvram_get('buildno'); %>.<% nvram_get('extendno'); %>" />
-        <input type="hidden" id="firmware_check_enable" value="<% nvram_get("firmware_check_enable"); %>" />
         <input type="hidden" id="nvram_odmpid" value="<% nvram_get("odmpid"); %>" />
         <input type="hidden" id="nvram_wps_modelnum" value="<% nvram_get("wps_modelnum"); %>" />
         <input type="hidden" id="nvram_model" value="<% nvram_get("model"); %>" />
