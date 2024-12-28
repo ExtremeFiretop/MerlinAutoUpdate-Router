@@ -8431,70 +8431,40 @@ else
     fi
 fi
 
-# Check if the PREVIOUS Cron Job ID already exists #
-if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
-then  #If it exists, delete the OLD one & create a NEW one#
-    cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
-fi
-
-#----------------------------------------##
-## Modified by Martinski W. [2024-Nov-24] ##
-##----------------------------------------##
-
-# Retrieve custom setting for automatic firmware update checks
-fwUpdateCheckState="$(Get_Custom_Setting "fwUpdateEnabled")"
-# Expected values: "ENABLED", "TBD", "DISABLED" (or fallback)
-
-# Always start with a default of "false" (do not run checks by default)
-runfwUpdateCheck=false
-
-# Get the current F/W update checking state from NVRAM (for reference)
-FW_UpdateCheckState="$(nvram get firmware_check_enable)"
-[ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
-
-###############################################################################
-# Priority is given to $fwUpdateCheckState. The NVRAM variable is updated only
-# after we've decided what to do based on the custom setting.
-###############################################################################
-
-# 1) "ENABLED": Automatically enable checks (no user prompt)
-if [ "$fwUpdateCheckState" = "ENABLED" ]; then
-
-    # If the Cron job doesn't exist, add it
-    if ! eval "$cronListCmd" | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"; then
-        printf "Auto-enabling cron job '${GRNct}${CRON_JOB_TAG}${NOct}'...\n"
-        if _AddFWAutoUpdateCronJob_; then
-            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
-            cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
-            printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
-        else
-            printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
-        fi
-    else
-        printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+_ConfirmCronJobEntry_()
+{
+    # Check if the PREVIOUS Cron Job ID already exists #
+    if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
+    then  #If it exists, delete the OLD one & create a NEW one#
+        cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
     fi
 
-    # Add any hooks needed for auto-update
-    _AddFWAutoUpdateHook_
+    #----------------------------------------##
+    ## Modified by Martinski W. [2024-Nov-24] ##
+    ##----------------------------------------##
 
-    # Mark the internal state as enabled
-    runfwUpdateCheck=true
-    FW_UpdateCheckState=1
-    nvram set firmware_check_enable="$FW_UpdateCheckState"
-    nvram commit
+    # Retrieve custom setting for automatic firmware update checks
+    fwUpdateCheckState="$(Get_Custom_Setting "fwUpdateEnabled")"
+    # Expected values: "ENABLED", "TBD", "DISABLED" (or fallback)
 
-# 2) "TBD": Prompt the user (original behavior)
-elif [ "$fwUpdateCheckState" = "TBD" ]; then
-    logo
+    # Always start with a default of "false" (do not run checks by default)
+    runfwUpdateCheck=false
 
-    printf "Do you want to enable automatic firmware update checks?\n"
-    printf "This will create a CRON job to check for updates regularly.\n"
-    printf "The CRON can be disabled at any time via the main menu.\n"
+    # Get the current F/W update checking state from NVRAM (for reference)
+    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
 
-    if _WaitForYESorNO_; then
-        # User said YES -> enable checks
-        printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+    ###############################################################################
+    # Priority is given to $fwUpdateCheckState. The NVRAM variable is updated only
+    # after we've decided what to do based on the custom setting.
+    ###############################################################################
+
+    # 1) "ENABLED": Automatically enable checks (no user prompt)
+    if [ "$fwUpdateCheckState" = "ENABLED" ]; then
+
+        # If the Cron job doesn't exist, add it
         if ! eval "$cronListCmd" | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"; then
+            printf "Auto-enabling cron job '${GRNct}${CRON_JOB_TAG}${NOct}'...\n"
             if _AddFWAutoUpdateCronJob_; then
                 printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
                 cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
@@ -8506,72 +8476,105 @@ elif [ "$fwUpdateCheckState" = "TBD" ]; then
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
         fi
 
+        # Add any hooks needed for auto-update
         _AddFWAutoUpdateHook_
 
-        # Update internal states
+        # Mark the internal state as enabled
         runfwUpdateCheck=true
         FW_UpdateCheckState=1
-        Update_Custom_Settings "fwUpdateEnabled" "ENABLED"
         nvram set firmware_check_enable="$FW_UpdateCheckState"
         nvram commit
 
-    else
-        # User said NO -> disable checks
-        printf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
-        printf "You can enable this feature later via the main menu.\n"
+    # 2) "TBD": Prompt the user (original behavior)
+    elif [ "$fwUpdateCheckState" = "TBD" ]; then
+        logo
+
+        printf "Do you want to enable automatic firmware update checks?\n"
+        printf "This will create a CRON job to check for updates regularly.\n"
+        printf "The CRON can be disabled at any time via the main menu.\n"
+
+        if _WaitForYESorNO_; then
+            # User said YES -> enable checks
+            printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+            if ! eval "$cronListCmd" | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"; then
+                if _AddFWAutoUpdateCronJob_; then
+                    printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                    cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
+                    printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+                else
+                    printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+                fi
+            else
+                printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+            fi
+
+            _AddFWAutoUpdateHook_
+
+            # Update internal states
+            runfwUpdateCheck=true
+            FW_UpdateCheckState=1
+            Update_Custom_Settings "fwUpdateEnabled" "ENABLED"
+            nvram set firmware_check_enable="$FW_UpdateCheckState"
+            nvram commit
+
+        else
+            # User said NO -> disable checks
+            printf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
+            printf "You can enable this feature later via the main menu.\n"
+
+            runfwUpdateCheck=false
+            FW_UpdateCheckState=0
+            Update_Custom_Settings "fwUpdateEnabled" "DISABLED"
+            nvram set firmware_check_enable="$FW_UpdateCheckState"
+            nvram commit
+
+            # Remove anything that might have existed
+            _DelFWAutoUpdateHook_
+            _DelFWAutoUpdateCronJob_
+        fi
+        _WaitForEnterKey_
+
+    # 3) "DISABLED": Perform the disable steps (same as _Toggle_FW_UpdateCheckSetting_)
+    elif [ "$fwUpdateCheckState" = "DISABLED" ]; then
+
+        printf "Firmware update checks have been ${REDct}DISABLED${NOct}.\n"
 
         runfwUpdateCheck=false
         FW_UpdateCheckState=0
         Update_Custom_Settings "fwUpdateEnabled" "DISABLED"
+
+        # Remove any hooks or cron jobs
+        _DelFWAutoUpdateHook_
+        _DelFWAutoUpdateCronJob_
+
         nvram set firmware_check_enable="$FW_UpdateCheckState"
         nvram commit
 
-        # Remove anything that might have existed
+    # 4) Unknown/fallback -> treat as DISABLED
+    else
+
+        printf "Unknown fwUpdateEnabled value: '%s'. Disabling firmware checks.\n" "$fwUpdateCheckState"
+
+        runfwUpdateCheck=false
+        FW_UpdateCheckState=0
+        Update_Custom_Settings "fwUpdateEnabled" "DISABLED"
+
         _DelFWAutoUpdateHook_
         _DelFWAutoUpdateCronJob_
+
+        nvram set firmware_check_enable="$FW_UpdateCheckState"
+        nvram commit
+
     fi
-    _WaitForEnterKey_
 
-# 3) "DISABLED": Perform the disable steps (same as _Toggle_FW_UpdateCheckSetting_)
-elif [ "$fwUpdateCheckState" = "DISABLED" ]; then
-
-    printf "Firmware update checks have been ${REDct}DISABLED${NOct}.\n"
-
-    runfwUpdateCheck=false
-    FW_UpdateCheckState=0
-    Update_Custom_Settings "fwUpdateEnabled" "DISABLED"
-
-    # Remove any hooks or cron jobs
-    _DelFWAutoUpdateHook_
-    _DelFWAutoUpdateCronJob_
-
-    nvram set firmware_check_enable="$FW_UpdateCheckState"
-    nvram commit
-
-# 4) Unknown/fallback -> treat as DISABLED
-else
-
-    printf "Unknown fwUpdateEnabled value: '%s'. Disabling firmware checks.\n" "$fwUpdateCheckState"
-
-    runfwUpdateCheck=false
-    FW_UpdateCheckState=0
-    Update_Custom_Settings "fwUpdateEnabled" "DISABLED"
-
-    _DelFWAutoUpdateHook_
-    _DelFWAutoUpdateCronJob_
-
-    nvram set firmware_check_enable="$FW_UpdateCheckState"
-    nvram commit
-
-fi
-
-############################################################################
-# Finally, if runfwUpdateCheck is true and the script is present, run it in
-# the background, then wait for user to press Enter.
-############################################################################
-if "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ]; then
-    sh "$FW_UpdateCheckScript" 2>&1 &
-fi
+    ############################################################################
+    # Finally, if runfwUpdateCheck is true and the script is present, run it in
+    # the background, then wait for user to press Enter.
+    ############################################################################
+    if "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ]; then
+        sh "$FW_UpdateCheckScript" 2>&1 &
+    fi
+}
 
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Dec-21] ##
@@ -8669,6 +8672,7 @@ then
 			            fi
 		            fi
 		       fi
+		       _ConfirmCronJobEntry_
 		   fi
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
@@ -8688,6 +8692,8 @@ if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
 then
     _AddScriptAutoUpdateCronJob_
 fi
+
+_ConfirmCronJobEntry_
 
 padStr="      "
 
