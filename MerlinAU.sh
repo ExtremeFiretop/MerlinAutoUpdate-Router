@@ -8431,130 +8431,6 @@ else
     fi
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
-##------------------------------------------##
-if [ $# -gt 0 ]
-then
-   inMenuMode=false
-   case $1 in
-       run_now) _RunFirmwareUpdateNow_
-           ;;
-       processNodes) _ProcessMeshNodes_ 0
-           ;;
-       addCronJob) _AddFWAutoUpdateCronJob_
-           ;;
-       scriptAUCronJob) _AddScriptAutoUpdateCronJob_
-           ;;
-       postRebootRun) _PostRebootRunNow_
-           ;;
-       postUpdateEmail) _PostUpdateEmailNotification_
-           ;;
-       about) _ShowAbout_
-           ;;
-       help) _ShowHelp_
-           ;;
-       checkupdates) _CheckForNewScriptUpdates_
-           ;;
-       forceupdate) _SCRIPTUPDATE_ force
-           ;;
-       develop) _ChangeToDev_
-           ;;
-       stable) _ChangeToStable_
-           ;;
-       uninstall) _DoUninstall_
-           ;;
-       service_event)
-		   if [ "$2" = "start" ] && [ "$3" = "MerlinAUuninstall" ]
-		   then
-		   	   _DoUninstall_
-			   sleep 3
-		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUapprovechangelog" ] 
-		   then
-			   local currentApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-			   if [ "$currentApprovalStatus" = "BLOCKED" ]
-			   then
-			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
-			   elif [ "$currentApprovalStatus" = "APPROVED" ]
-			   then
-			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
-			   fi
-		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUcheckupdate" ]
- 		   then
-			   _RunFirmwareUpdateNow_
-		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
-		   then
-			   OldScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
-			   OldChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
-			   OldPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
-			   OldEmailValue="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
-			   _Config_FromSettings_
-			   sleep 1
-			   NewPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
-			   NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
-			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
-			   NewEmailValue="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
-
-			   # Compare old vs. new values and action something else
-			   if [ "$OldEmailValue" != "$NewEmailValue" ]
-			   then
-			       NewnameAlias="${NewEmailValue%%@*}"
-			       Update_Custom_Settings FW_New_Update_EMail_CC_Name "${NewnameAlias}"
-			   fi
-			   if [ "$currentChangelogValue" = "DISABLED" ] && [ "$OldChangelogValue" = "ENABLED" ];
-			   then
-			       Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
-			   elif [ "$currentChangelogValue" = "ENABLED" ] && [ "$OldChangelogValue" = "DISABLED" ];
-			   then
-			       Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
-			   fi
-			   if [ "$NewPostponeValue" != "$OldPostponeValue" ];
-			   then
-			       _Calculate_NextRunTime_
-			   fi
-			   if [ "$OldScriptUpdateValue" = "ENABLED" ] && [ "$NewScriptUpdateValue" = "DISABLED" ];
-			   then
-			       _DelScriptAutoUpdateHook_
-			       _DelScriptAutoUpdateCronJob_
-			   elif [ "$OldScriptUpdateValue" = "DISABLED" ] && [ "$NewScriptUpdateValue" = "ENABLED" ];
-			   then
-			        scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
-			        if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
-			        then
-			            if _AddScriptAutoUpdateCronJob_
-			            then
-			                _AddScriptAutoUpdateHook_
-			            fi
-		            fi
-		       fi
-		   fi
-           ;;
-       *) printf "${REDct}INVALID Parameter.${NOct}\n"
-           ;;
-   esac
-   _DoExit_ 0
-fi
-
-# Download the latest version file from the source repository #
-# to check if there's a new version update to notify the user #
-_CheckForNewScriptUpdates_
-
-##-------------------------------------##
-## Added by Martinski W. [2024-Nov-24] ##
-##-------------------------------------##
-if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
-then
-    _AddScriptAutoUpdateCronJob_
-fi
-
-# Check if the PREVIOUS Cron Job ID already exists #
-if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
-then  #If it exists, delete the OLD one & create a NEW one#
-    cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
-fi
-
-#!/bin/sh
-
 #----------------------------------------##
 ## Modified by Martinski W. [2024-Nov-24] ##
 ##----------------------------------------##
@@ -8689,6 +8565,128 @@ fi
 ############################################################################
 if "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ]; then
     sh "$FW_UpdateCheckScript" 2>&1 &
+fi
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
+if [ $# -gt 0 ]
+then
+   inMenuMode=false
+   case $1 in
+       run_now) _RunFirmwareUpdateNow_
+           ;;
+       processNodes) _ProcessMeshNodes_ 0
+           ;;
+       addCronJob) _AddFWAutoUpdateCronJob_
+           ;;
+       scriptAUCronJob) _AddScriptAutoUpdateCronJob_
+           ;;
+       postRebootRun) _PostRebootRunNow_
+           ;;
+       postUpdateEmail) _PostUpdateEmailNotification_
+           ;;
+       about) _ShowAbout_
+           ;;
+       help) _ShowHelp_
+           ;;
+       checkupdates) _CheckForNewScriptUpdates_
+           ;;
+       forceupdate) _SCRIPTUPDATE_ force
+           ;;
+       develop) _ChangeToDev_
+           ;;
+       stable) _ChangeToStable_
+           ;;
+       uninstall) _DoUninstall_
+           ;;
+       service_event)
+		   if [ "$2" = "start" ] && [ "$3" = "MerlinAUuninstall" ]
+		   then
+		   	   _DoUninstall_
+			   sleep 3
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUapprovechangelog" ] 
+		   then
+			   local currentApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+			   if [ "$currentApprovalStatus" = "BLOCKED" ]
+			   then
+			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+			   elif [ "$currentApprovalStatus" = "APPROVED" ]
+			   then
+			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+			   fi
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUcheckupdate" ]
+ 		   then
+			   _RunFirmwareUpdateNow_
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
+		   then
+			   OldScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+			   OldChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+			   OldPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+			   OldEmailValue="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+			   _Config_FromSettings_
+			   sleep 1
+			   NewPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+			   NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+			   NewEmailValue="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+
+			   # Compare old vs. new values and action something else
+			   if [ "$OldEmailValue" != "$NewEmailValue" ]
+			   then
+			       NewnameAlias="${NewEmailValue%%@*}"
+			       Update_Custom_Settings FW_New_Update_EMail_CC_Name "${NewnameAlias}"
+			   fi
+			   if [ "$currentChangelogValue" = "DISABLED" ] && [ "$OldChangelogValue" = "ENABLED" ];
+			   then
+			       Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
+			   elif [ "$currentChangelogValue" = "ENABLED" ] && [ "$OldChangelogValue" = "DISABLED" ];
+			   then
+			       Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
+			   fi
+			   if [ "$NewPostponeValue" != "$OldPostponeValue" ];
+			   then
+			       _Calculate_NextRunTime_
+			   fi
+			   if [ "$OldScriptUpdateValue" = "ENABLED" ] && [ "$NewScriptUpdateValue" = "DISABLED" ];
+			   then
+			       _DelScriptAutoUpdateHook_
+			       _DelScriptAutoUpdateCronJob_
+			   elif [ "$OldScriptUpdateValue" = "DISABLED" ] && [ "$NewScriptUpdateValue" = "ENABLED" ];
+			   then
+			        scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
+			        if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
+			        then
+			            if _AddScriptAutoUpdateCronJob_
+			            then
+			                _AddScriptAutoUpdateHook_
+			            fi
+		            fi
+		       fi
+		   fi
+           ;;
+       *) printf "${REDct}INVALID Parameter.${NOct}\n"
+           ;;
+   esac
+   _DoExit_ 0
+fi
+
+# Download the latest version file from the source repository #
+# to check if there's a new version update to notify the user #
+_CheckForNewScriptUpdates_
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
+then
+    _AddScriptAutoUpdateCronJob_
+fi
+
+# Check if the PREVIOUS Cron Job ID already exists #
+if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
+then  #If it exists, delete the OLD one & create a NEW one#
+    cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
 fi
 
 padStr="      "
