@@ -8431,6 +8431,12 @@ else
     fi
 fi
 
+# Check if the PREVIOUS Cron Job ID already exists #
+if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
+then  #If it exists, delete the OLD one & create a NEW one#
+    cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
+fi
+
 #----------------------------------------##
 ## Modified by Martinski W. [2024-Nov-24] ##
 ##----------------------------------------##
@@ -8681,12 +8687,6 @@ _CheckForNewScriptUpdates_
 if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
 then
     _AddScriptAutoUpdateCronJob_
-fi
-
-# Check if the PREVIOUS Cron Job ID already exists #
-if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
-then  #If it exists, delete the OLD one & create a NEW one#
-    cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
 fi
 
 padStr="      "
