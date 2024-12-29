@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Dec-21
+# Last Modified: 2024-Dec-28
 ###################################################################
 set -u
 
@@ -8663,15 +8663,15 @@ then
 			       _DelScriptAutoUpdateCronJob_
 			   elif [ "$OldScriptUpdateValue" = "DISABLED" ] && [ "$NewScriptUpdateValue" = "ENABLED" ];
 			   then
-			        scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
-			        if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
-			        then
-			            if _AddScriptAutoUpdateCronJob_
-			            then
-			                _AddScriptAutoUpdateHook_
-			            fi
-		            fi
-		       fi
+			       scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
+			       if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
+			       then
+			           if _AddScriptAutoUpdateCronJob_
+			           then
+			               _AddScriptAutoUpdateHook_
+			           fi
+			       fi
+			   fi
 		       _ConfirmCronJobEntry_
 		   fi
            ;;
