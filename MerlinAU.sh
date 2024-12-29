@@ -1705,7 +1705,7 @@ _Unmount_WebUI_(){
 
 	/sbin/service restart_httpd >/dev/null 2>&1 &
 
-	Say "$SCRIPT_NAME" "Uninstalled successfully (preserving other add-ons' entries)."
+	Say "$SCRIPT_NAME Uninstalled successfully (preserving other add-ons' entries)."
 }
 
 ##---------------------------------------##
