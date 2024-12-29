@@ -1705,7 +1705,7 @@ _Unmount_WebUI_(){
 
 	/sbin/service restart_httpd >/dev/null 2>&1 &
 
-	Say "${GRNct}SCRIPT_NAME WebUI unmounted successfully (preserving other add-ons' entries)."
+	Say "${GRNct}$SCRIPT_NAME WebUI unmounted successfully (preserving other add-ons' entries)."
 }
 
 ##---------------------------------------##
@@ -7984,10 +7984,10 @@ _DelFWAutoUpdateHook_()
        sed -i -e '/\/'"$ScriptFileName"' addCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
        if [ $? -eq 0 ]
        then
-           Say "Cron job hook was deleted successfully from '$hookScriptFile' script."
+           Say "F/W Update cron job hook was deleted successfully from '$hookScriptFile' script."
        fi
    else
-       printf "Cron job hook does not exist in '$hookScriptFile' script.\n"
+       printf "F/W Update cron job hook does not exist in '$hookScriptFile' script.\n"
    fi
 }
 
@@ -8068,10 +8068,10 @@ _DelScriptAutoUpdateHook_()
        sed -i -e '/\/'"$ScriptFileName"' scriptAUCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
        if [ $? -eq 0 ]
        then
-           Say "Cron job hook was deleted successfully from '$hookScriptFile' script."
+           Say "ScriptAU cron job hook was deleted successfully from '$hookScriptFile' script."
        fi
    else
-       printf "Cron job hook does not exist in '$hookScriptFile' script.\n"
+       printf "ScriptAU cron job hook does not exist in '$hookScriptFile' script.\n"
    fi
 }
 
