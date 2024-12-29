@@ -2022,7 +2022,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-26] ##
+## Modified by ExtremeFiretop [2024-Dec-28] ##
 ##------------------------------------------##
 _CreateEMailContent_()
 {
@@ -2045,8 +2045,8 @@ _CreateEMailContent_()
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
 
-   #Remove any suffix starting with "-" or "_" to avoid version comparison failures#
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/[-_].*$//')"
+   # Remove "_rog" or "_tuf" or -gHASHVALUES or -Gnuton* suffix to avoid version comparison failures #
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10}|-gnuton[0-9]+)$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -8672,7 +8672,7 @@ then
 			           fi
 			       fi
 			   fi
-		       _ConfirmCronJobEntry_
+			   _ConfirmCronJobEntry_
 		   fi
            ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
