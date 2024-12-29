@@ -1365,14 +1365,14 @@ _migrate_settings_() {
     # Function to downlod WebUI if not already existing post update. (For old versions without a WebUI)   
     # Check if the file exists
     if [ ! -f "$PAGE_FILE" ]; then
-        Say "File not found: $PAGE_FILE. Downloading..."
+        Say "WebUI .asp not found post-update: $PAGE_FILE. Downloading..."
         
         # Attempt to download the file using curl
         curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.asp" -o "$PAGE_FILE"
         
         # Check if the download succeeded
         if [ $? -eq 0 ]; then
-            Say "File downloaded successfully to $PAGE_FILE."
+            Say "WebUI .asp downloaded successfully to $PAGE_FILE."
         else
             Say "Failed to download the file. Please check the URL or your network connection."
             return 1
@@ -1705,7 +1705,7 @@ _Unmount_WebUI_(){
 
 	/sbin/service restart_httpd >/dev/null 2>&1 &
 
-	Say "$SCRIPT_NAME Uninstalled successfully (preserving other add-ons' entries)."
+	Say "${GRNct}SCRIPT_NAME WebUI unmounted successfully (preserving other add-ons' entries)."
 }
 
 ##---------------------------------------##
@@ -1737,7 +1737,7 @@ _Auto_ServiceEvent_(){
 				STARTUPLINECOUNT=$(grep -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)
 				
 				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
-					sed -i -e '/# '"${SCRIPT_NAME}".sh'/d' /jffs/scripts/service-event
+					sed -i -e '/# '"${SCRIPT_NAME}"'/d' /jffs/scripts/service-event
 				fi
 			fi
 		;;
