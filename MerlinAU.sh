@@ -1686,8 +1686,8 @@ _CreateEMailContent_()
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
 
-   #Remove any suffix starting with "-" or "_" to avoid version comparison failures#
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/[-_].*$//')"
+   # Remove "_rog" or "_tuf" or -gHASHVALUES or -Gnuton* suffix to avoid version comparison failure, can't remove all for proper beta and alpha comparison #
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10}|-gnuton[0-9]+)$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -8722,7 +8722,7 @@ _ShowAdvancedOptionsMenu_()
        fi
        if "$sendEMailNotificationsFlag"
        then
-           printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}, Format: ${GRNct}${sendEMailFormaType}${NOct}]\n"
+           printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}\n"
        else
            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
        fi
