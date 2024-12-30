@@ -1569,10 +1569,6 @@ then
     /usr/bin/find -L "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
 fi
 
-if [ ! -d "$WEBDIR" ]; then
-	mkdir -p "$WEBDIR"
-fi
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jan-27] ##
 ##----------------------------------------##
@@ -1783,6 +1779,10 @@ _Set_Version_SharedSettings_(){
 ## Added by ExtremeFiretop [2024-Dec-13] ##
 ##---------------------------------------##
 _Create_Symlinks_(){
+	if [ ! -d "$WEBDIR" ]; then
+		mkdir -p "$WEBDIR"
+	fi
+
 	rm -rf "${WEBDIR:?}/"* 2>/dev/null
 	ln -s "$SETTINGSFILE" "$WEBDIR/custom_settings.htm" 2>/dev/null
 }
