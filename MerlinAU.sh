@@ -1780,7 +1780,7 @@ _Set_Version_SharedSettings_(){
 ##---------------------------------------##
 _Create_Symlinks_(){
 	if [ ! -d "$WEBDIR" ]; then
-		mkdir -p "$WEBDIR"
+	    mkdir -p "$WEBDIR"
 	fi
 
 	rm -rf "${WEBDIR:?}/"* 2>/dev/null
@@ -6566,7 +6566,7 @@ _Toggle_FW_UpdateEmailNotifications_()
 {
    local emailNotificationEnabled  emailNotificationNewStateStr
 
-   if [ "$sendEMailNotificationsFlag" = "ENABLED" ]
+   if [ $sendEMailNotificationsFlag = "ENABLED" ]
    then
        emailNotificationEnabled="ENABLED"
        emailNotificationNewStateStr="${REDct}DISABLE${NOct}"
@@ -6581,7 +6581,7 @@ _Toggle_FW_UpdateEmailNotifications_()
        return 1
    fi
 
-   if [ "$emailNotificationEnabled" = "ENABLED" ];
+   if [ $emailNotificationEnabled = "ENABLED" ];
    then
        sendEMailNotificationsFlag="DISABLED"
        emailNotificationNewStateStr="${REDct}DISABLED${NOct}"
@@ -9318,14 +9318,14 @@ _ShowAdvancedOptionsMenu_()
        else
            printf "\n ${GRNct}em${NOct}.  Toggle F/W Email Notifications"
        fi
-       if [ "$sendEMailNotificationsFlag" = "ENABLED" ]
+       if [ $sendEMailNotificationsFlag = "ENABLED" ]
        then
            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
        else
            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
        fi
 
-       if [ "$sendEMailNotificationsFlag" = "ENABLED" ]
+       if [ $sendEMailNotificationsFlag = "ENABLED" ]
        then
            # Format Types: "HTML" or "Plain Text" #
            printf "\n ${GRNct}ef${NOct}.  Set Email Format Type"
