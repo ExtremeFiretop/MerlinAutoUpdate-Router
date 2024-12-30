@@ -6566,7 +6566,7 @@ _Toggle_FW_UpdateEmailNotifications_()
 {
    local emailNotificationEnabled  emailNotificationNewStateStr
 
-   if [ "$sendEMailNotificationsFlag" = "ENABLED" ];
+   if [ "$sendEMailNotificationsFlag" = "ENABLED" ]
    then
        emailNotificationEnabled="ENABLED"
        emailNotificationNewStateStr="${REDct}DISABLE${NOct}"
@@ -8539,6 +8539,7 @@ _ConfirmCronJobEntry_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
             Update_Custom_Settings "fwUpdateEnabled" "ENABLED"
             _AddFWAutoUpdateHook_
+            runfwUpdateCheck=true
         fi
 
     # 3) "DISABLED": Perform the disable steps (same as _Toggle_FW_UpdateCheckSetting_)
@@ -9188,10 +9189,10 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
    fi
 
-   # Check if the file /jffs/scripts/backupmon.sh exists
+   # Check if the file /jffs/scripts/backupmon.sh exists #
    if [ -f "/jffs/scripts/backupmon.sh" ]
    then
-       # Retrieve the current backup setting
+       # Retrieve the current backup setting #
        currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
        # Display the backup option toggle menu
@@ -9317,14 +9318,14 @@ _ShowAdvancedOptionsMenu_()
        else
            printf "\n ${GRNct}em${NOct}.  Toggle F/W Email Notifications"
        fi
-       if [ "$sendEMailNotificationsFlag" = "ENABLED" ];
+       if [ "$sendEMailNotificationsFlag" = "ENABLED" ]
        then
            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
        else
            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
        fi
 
-       if [ "$sendEMailNotificationsFlag" = "ENABLED" ];
+       if [ "$sendEMailNotificationsFlag" = "ENABLED" ]
        then
            # Format Types: "HTML" or "Plain Text" #
            printf "\n ${GRNct}ef${NOct}.  Set Email Format Type"
