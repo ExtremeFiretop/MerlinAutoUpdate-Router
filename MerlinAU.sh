@@ -1500,13 +1500,21 @@ fi
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Dec-31] ##
 ##-------------------------------------##
-# Temporary function used to migrate to future new script version #
+newGUIversionNum="$(_ScriptVersionStrToNum_ '1.4.0')"
+# Temporary code used to migrate to future new script version #
 _CheckForNewGUIVersionUpdate_()
 {
-   local newGUIversionNum  retCode
-   newGUIversionNum="$(_ScriptVersionStrToNum_ '1.4.0')"
-   if [ "$ScriptVersionNum" -lt "$newGUIversionNum" ] && \
-      [ "$DLRepoVersionNum" -ge "$newGUIversionNum" ]
+   local retCode  theScriptVerNum   urlScriptVerNum
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then
+       theScriptVerNum="$ScriptVersionNum"
+       urlScriptVerNum="$DLRepoVersionNum"
+   else
+       theScriptVerNum="$(_ScriptVersionStrToNum_ "$1")"
+       urlScriptVerNum="$(_ScriptVersionStrToNum_ "$2")"
+   fi
+   if [ "$theScriptVerNum" -lt "$newGUIversionNum" ] && \
+      [ "$urlScriptVerNum" -ge "$newGUIversionNum" ]
    then retCode=0
    else retCode=1
    fi
@@ -1518,7 +1526,7 @@ _CheckForNewGUIVersionUpdate_()
 ##----------------------------------------##
 _SCRIPTUPDATE_()
 {
-   local urlScriptVers  preScriptVers  extraParam=""
+   local urlScriptVers  theScriptVers  extraParam=""
 
    _DownloadScriptFiles_()
    {
@@ -1543,8 +1551,8 @@ _SCRIPTUPDATE_()
    if [ $# -gt 0 ] && [ "$1" = "force" ]
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
-       preScriptVers="$SCRIPT_VERSION"
-       [ -s "$SCRIPTVERPATH" ] && preScriptVers="$(cat "$SCRIPTVERPATH")"
+       theScriptVers="$SCRIPT_VERSION"
+       [ -s "$SCRIPTVERPATH" ] && theScriptVers="$(cat "$SCRIPTVERPATH")"
        urlScriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
        printf "${CYANct}Downloading latest version ($urlScriptVers) of ${SCRIPT_NAME}${NOct}\n"
 
@@ -1552,7 +1560,8 @@ _SCRIPTUPDATE_()
        then
            printf "${CYANct}$SCRIPT_NAME successfully updated.${NOct}\n\n"
            sleep 1
-           if [ $# -gt 1 ] && [ "$2" = "newgui" ] && [ "$urlScriptVers" != "$preScriptVers" ]
+           if [ $# -gt 1 ] && [ "$2" = "newgui" ] && \
+              _CheckForNewGUIVersionUpdate_ "$theScriptVers" "$urlScriptVers"
            then extraParam="forceupdate" ; fi
            _ReleaseLock_
            exec "$ScriptFilePath" $extraParam
