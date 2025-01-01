@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Dec-22
+# Last Modified: 2024-Dec-31
 ###################################################################
 set -u
 
@@ -36,8 +36,13 @@ readonly CL_URL_3006="${FW_SFURL_BASE}/Documentation/Changelog-3006.txt/download
 
 readonly high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-31] ##
+##----------------------------------------##
 # For new script version updates from source repository #
 DLRepoVersion=""
+DLRepoVersionNum=""
+ScriptVersionNum=""
 scriptUpdateNotify=0
 
 ##------------------------------------------##
@@ -1492,16 +1497,32 @@ then
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2024-Dec-31] ##
+##-------------------------------------##
+# Temporary function used to migrate to future new script version #
+_CheckForNewGUIVersionUpdate_()
+{
+   local newGUIversionNum  retCode
+   newGUIversionNum="$(_ScriptVersionStrToNum_ '1.4.0')"
+   if [ "$ScriptVersionNum" -lt "$newGUIversionNum" ] && \
+      [ "$DLRepoVersionNum" -ge "$newGUIversionNum" ]
+   then retCode=0
+   else retCode=1
+   fi
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-31] ##
+##----------------------------------------##
 _SCRIPTUPDATE_()
 {
-   local scriptVers  ScriptFileDL="${ScriptFilePath}.DL"
+   local urlScriptVers  preScriptVers  extraParam=""
 
    _DownloadScriptFiles_()
    {
-      local retCode
+      local retCode  ScriptFileDL="${ScriptFilePath}.DL"
 
       curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
       curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
@@ -1521,21 +1542,26 @@ _SCRIPTUPDATE_()
 
    if [ $# -gt 0 ] && [ "$1" = "force" ]
    then
-       echo -e "${CYANct}Force downloading latest version...${NOct}"
-       scriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
-       echo -e "${CYANct}Downloading latest version ($scriptVers) of ${SCRIPT_NAME}${NOct}"
+       printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
+       preScriptVers="$SCRIPT_VERSION"
+       [ -s "$SCRIPTVERPATH" ] && preScriptVers="$(cat "$SCRIPTVERPATH")"
+       urlScriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
+       printf "${CYANct}Downloading latest version ($urlScriptVers) of ${SCRIPT_NAME}${NOct}\n"
 
        if _DownloadScriptFiles_
        then
-           echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
+           printf "${CYANct}$SCRIPT_NAME successfully updated.${NOct}\n\n"
+           sleep 1
+           if [ $# -gt 1 ] && [ "$2" = "newgui" ] && [ "$urlScriptVers" != "$preScriptVers" ]
+           then extraParam="forceupdate" ; fi
            _ReleaseLock_
-           chmod 755 "$ScriptFilePath"
-           exec "$ScriptFilePath"
+           exec "$ScriptFilePath" $extraParam
+           exit 0
        fi
-       return
+       return 0
    fi
 
-   _CheckForNewScriptUpdates_
+   ! _CheckForNewScriptUpdates_ && return 1
 
    clear
    logo
@@ -1549,21 +1575,17 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
       if _WaitForYESorNO_
       then
-          printf "\n\n"
-          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
+          printf "\n\n${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}\n"
 
           if _DownloadScriptFiles_
           then
-              echo
-              echo -e "${CYANct}Download successful!${NOct}"
-              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-              echo
+              printf "\n${CYANct}Download successful!${NOct}\n"
+              printf "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
           fi
           _WaitForEnterKey_
           return
       else
-          printf "\n\n"
-          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
+          printf "\n\n${GRNct}Exiting Script Update Utility...${NOct}\n"
           sleep 1
           return
       fi
@@ -1572,39 +1594,36 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
       if _WaitForYESorNO_
       then
-          printf "\n\n"
-          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
+          printf "\n\n${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}\n"
 
           if _DownloadScriptFiles_
           then
-              echo
-              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-              echo -e "${CYANct}Update successful! Restarting script...${NOct}"
+              printf "\n$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
+              printf "${CYANct}Update successful! Restarting script...${NOct}\n"
+              _CheckForNewGUIVersionUpdate_ && extraParam="forceupdate"
               _ReleaseLock_
-              chmod 755 "$ScriptFilePath"
-              exec "$ScriptFilePath"  # Re-execute the updated script #
-              exit 0  # This line will not be executed due to above exec #
+              exec "$ScriptFilePath" $extraParam
+              exit 0
           else
               _WaitForEnterKey_
               return
           fi
       else
-          printf "\n\n"
-          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
+          printf "\n\n${GRNct}Exiting Script Update Utility...${NOct}\n"
           sleep 1
           return
       fi
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-31] ##
+##----------------------------------------##
 _CheckForNewScriptUpdates_()
 {
-   local DLRepoVersionNum  ScriptVersionNum
+   local extraParam=""
 
-   echo ""
+   echo
    [ -s "$SCRIPTVERPATH" ] && DLRepoVersion="$(cat "$SCRIPTVERPATH")"
    rm -f "$SCRIPTVERPATH"
 
@@ -1626,19 +1645,20 @@ _CheckForNewScriptUpdates_()
    DLRepoVersionNum="$(_ScriptVersionStrToNum_ "$DLRepoVersion")"
    ScriptVersionNum="$(_ScriptVersionStrToNum_ "$SCRIPT_VERSION")"
 
-   # Version comparison
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
       scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
-      Say "$(date +'%b %d %Y %X') $myLAN_HostName ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
+      Say "$myLAN_HostName - A new script version update (v$DLRepoVersion) is available to download."
       if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
       then
-         _SCRIPTUPDATE_ force
+          _CheckForNewGUIVersionUpdate_ && extraParam="newgui"
+          _SCRIPTUPDATE_ force $extraParam
       fi
    else
       scriptUpdateNotify=0
    fi
+   return 0
 }
 
 ##----------------------------------------------##
@@ -8002,13 +8022,13 @@ check_version_support
 ##-------------------------------------##
 _CheckEMailConfigFileFromAMTM_ 0
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
-if [ $# -gt 0 ]
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-31] ##
+##----------------------------------------##
+if [ $# -gt 0 ] && [ -n "$1" ]
 then
    inMenuMode=false
-   case $1 in
+   case "$1" in
        run_now) _RunFirmwareUpdateNow_
            ;;
        processNodes) _ProcessMeshNodes_ 0
@@ -8027,7 +8047,7 @@ then
            ;;
        checkupdates) _CheckForNewScriptUpdates_
            ;;
-       forceupdate) _SCRIPTUPDATE_ force
+       forceupdate) _SCRIPTUPDATE_ force "$([ $# -gt 1 ] && echo "$2" || echo)"
            ;;
        develop) _ChangeToDev_
            ;;
