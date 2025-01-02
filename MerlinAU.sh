@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Dec-31
+# Last Modified: 2025-Jan-01
 ###################################################################
 set -u
 
@@ -475,9 +475,9 @@ Toggle_LEDs_PID=""
 FW_UpdateCheckState="TBD"
 FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 
-##--------------------------------------##
-## Added by Martinski W. [22023-Nov-24] ##
-##--------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2023-Nov-24] ##
+##-------------------------------------##
 #---------------------------------------------------------#
 # The USB-attached drives can have multiple partitions
 # with different file systems (NTFS, ext3, ext4, etc.),
@@ -1521,8 +1521,27 @@ _CheckForNewGUIVersionUpdate_()
    return "$retCode"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-01] ##
+##-------------------------------------##
+_CurlFileDownload_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1 ; fi
+   local retCode  tempFilePathDL="${2}.DL.TMP"
+
+   curl -LSs --retry 4 --retry-delay 5 --retry-connrefused \
+        "$1" -o "$tempFilePathDL"
+   if [ $? -ne 0 ] && [ ! -s "$tempFilePathDL" ] || \
+      grep -iq "^404: Not Found" "$tempFilePathDL"
+   then rm -f "$tempFilePathDL" ; retCode=1
+   else mv -f "$tempFilePathDL" "$2" ; retCode=0
+   fi
+   return "$retCode"
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-31] ##
+## Modified by Martinski W. [2025-Jan-01] ##
 ##----------------------------------------##
 _SCRIPTUPDATE_()
 {
@@ -1530,20 +1549,20 @@ _SCRIPTUPDATE_()
 
    _DownloadScriptFiles_()
    {
-      local retCode  ScriptFileDL="${ScriptFilePath}.DL"
-
-      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
-      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
-
-      if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
+      local retCode
+      if _CurlFileDownload_ "${SCRIPT_URL_REPO}/version.txt" "$SCRIPTVERPATH"
       then
-          mv -f "$ScriptFileDL" "$ScriptFilePath"
-          chmod 755 "$ScriptFilePath"
-          retCode=0
+          retCode=0 ; chmod 664 "$SCRIPTVERPATH"
       else
-          rm -f "$ScriptFileDL"
-          printf "\n${REDct}Download failed.${NOct}\n"
           retCode=1
+          Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
+      fi
+      if _CurlFileDownload_ "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" "$ScriptFilePath"
+      then
+          retCode=0 ; chmod 755 "$ScriptFilePath"
+      else
+          retCode=1
+          Say "${REDct}**ERROR**${NOct}: Unable to download latest script file for $SCRIPT_NAME."
       fi
       return "$retCode"
    }
@@ -1558,8 +1577,9 @@ _SCRIPTUPDATE_()
 
        if _DownloadScriptFiles_
        then
-           printf "${CYANct}$SCRIPT_NAME successfully updated.${NOct}\n\n"
+           printf "${CYANct}$SCRIPT_NAME was successfully updated.${NOct}\n\n"
            sleep 1
+           [ -s "$SCRIPTVERPATH" ] && urlScriptVers="$(cat "$SCRIPTVERPATH")"
            if [ $# -gt 1 ] && [ "$2" = "newgui" ] && \
               _CheckForNewGUIVersionUpdate_ "$theScriptVers" "$urlScriptVers"
            then extraParam="forceupdate" ; fi
@@ -1584,7 +1604,7 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
       if _WaitForYESorNO_
       then
-          printf "\n\n${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}\n"
+          printf "\n\n${CYANct}Downloading $SCRIPT_NAME $DLRepoVersion version.${NOct}\n"
 
           if _DownloadScriptFiles_
           then
@@ -1603,12 +1623,13 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
       if _WaitForYESorNO_
       then
-          printf "\n\n${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}\n"
+          printf "\n\n${CYANct}Downloading $SCRIPT_NAME $DLRepoVersion version.${NOct}\n"
 
           if _DownloadScriptFiles_
           then
               printf "\n$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
               printf "${CYANct}Update successful! Restarting script...${NOct}\n"
+              sleep 1
               _CheckForNewGUIVersionUpdate_ && extraParam="forceupdate"
               _ReleaseLock_
               exec "$ScriptFilePath" $extraParam
@@ -1626,27 +1647,28 @@ _SCRIPTUPDATE_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-31] ##
+## Modified by Martinski W. [2025-Jan-01] ##
 ##----------------------------------------##
 _CheckForNewScriptUpdates_()
 {
    local extraParam=""
 
    echo
+   DLRepoVersion="$SCRIPT_VERSION"
    [ -s "$SCRIPTVERPATH" ] && DLRepoVersion="$(cat "$SCRIPTVERPATH")"
    rm -f "$SCRIPTVERPATH"
 
-   # Download the latest version file from the source repository
-   curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
+   if ! _CurlFileDownload_ "${SCRIPT_URL_REPO}/version.txt" "$SCRIPTVERPATH"
+   then
+       Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
+       scriptUpdateNotify=0
+       return 1
+   fi
 
-   if [ $? -ne 0 ] || [ ! -s "$SCRIPTVERPATH" ]
-   then scriptUpdateNotify=0 ; return 1 ; fi
-
-   # Read in its contents for the current version file
    DLRepoVersion="$(cat "$SCRIPTVERPATH")"
    if [ -z "$DLRepoVersion" ]
    then
-       echo "Variable for downloaded version is empty."
+       Say "${REDct}**ERROR**${NOct}: Variable for downloaded version is empty."
        scriptUpdateNotify=0
        return 1
    fi
@@ -1656,16 +1678,16 @@ _CheckForNewScriptUpdates_()
 
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
-      scriptUpdateNotify="New script update available.
+       scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
-      Say "$myLAN_HostName - A new script version update (v$DLRepoVersion) is available to download."
-      if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
-      then
-          _CheckForNewGUIVersionUpdate_ && extraParam="newgui"
-          _SCRIPTUPDATE_ force $extraParam
-      fi
+       Say "$myLAN_HostName - A new script version update (v$DLRepoVersion) is available to download."
+       if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
+       then
+           _CheckForNewGUIVersionUpdate_ && extraParam="newgui"
+           _SCRIPTUPDATE_ force $extraParam
+       fi
    else
-      scriptUpdateNotify=0
+       scriptUpdateNotify=0
    fi
    return 0
 }
@@ -3124,7 +3146,7 @@ _GetNodeInfo_()
         return 1
     fi
 
-    # Perform login request
+    # Perform login request #
     curl -s -k "${NodeURLstr}/login.cgi" \
     --referer "${NodeURLstr}/Main_Login.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -3142,7 +3164,7 @@ _GetNodeInfo_()
         return 1
     fi
 
-    # Run the curl command to retrieve the HTML content
+    # Retrieve the HTML content #
     htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
@@ -3182,7 +3204,7 @@ _GetNodeInfo_()
     # Combine extracted information into one string #
     Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
 
-    # Perform logout request
+    # Perform logout request #
     curl -s -k "${NodeURLstr}/Logout.asp" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
@@ -7088,9 +7110,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
-    # Extracting the F/W Update codebase number to use in the curl #
+    # Extracting the F/W Update codebase number #
     fwUpdateBaseNum="$(echo "$release_version" | cut -d'.' -f1)"
-    # Inserting dots between each number
+    # Inserting dots between each number #
     dottedVersion="$(echo "$fwUpdateBaseNum" | sed 's/./&./g' | sed 's/.$//')"
 
     ## Check for Login Credentials ##
