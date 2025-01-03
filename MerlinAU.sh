@@ -4,12 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-01
+# Last Modified: 2024-Jan-01
 ###################################################################
 set -u
 
+source /usr/sbin/helper.sh
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.9
+readonly SCRIPT_VERSION=1.4.0
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -73,14 +74,18 @@ readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 readonly ScriptDirNameD="${ScriptFNameTag}.d"
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 readonly ADDONS_PATH="/jffs/addons"
 readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+readonly SHAREDSETTINGSFILE="/jffs/addons/custom_settings.txt"
+readonly TMPFILE="/tmp/MerlinAU_settings.txt"
+readonly WEBDIR="/www/user/$ScriptDirNameD"
+readonly PAGE_FILE="$SETTINGS_DIR/${SCRIPT_NAME}.asp"
 
 # Give FIRST priority to built-in binaries over any other #
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
@@ -115,14 +120,14 @@ then
 fi
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-02] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 #-------------------------------------------------------#
 # We'll use the built-in AMTM email configuration file
 # to send email notifications *IF* enabled by the user.
 #-------------------------------------------------------#
 readonly FW_UpdateEMailFormatTypeDefault=HTML
-readonly FW_UpdateEMailNotificationDefault=false
+readonly FW_UpdateEMailNotificationDefault="DISABLED"
 readonly amtmMailDirPath="/jffs/addons/amtm/mail"
 readonly amtmMailConfFile="${amtmMailDirPath}/email.conf"
 readonly amtmMailPswdFile="${amtmMailDirPath}/emailpw.enc"
@@ -849,9 +854,9 @@ else
     readonly FW_Update_LOG_BASE_DefaultDIR="$ADDONS_PATH"
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-27] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _Init_Custom_Settings_Config_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -862,7 +867,6 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_Notification_Date TBD"
          echo "FW_New_Update_Notification_Vers TBD"
          echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays"
-         echo "FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault"
          echo "FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\""
          echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\""
          echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\""
@@ -871,10 +875,9 @@ _Init_Custom_Settings_Config_()
          echo "FW_New_Update_EMail_CC_Name=TBD"
          echo "FW_New_Update_EMail_CC_Address=TBD"
          echo "CheckChangeLog ENABLED"
+         echo "fwUpdateEnabled TBD"
          echo "Allow_Updates_OverVPN DISABLED"
-         echo "FW_New_Update_Changelog_Approval=TBD"
          echo "FW_Allow_Beta_Production_Up ENABLED"
-         echo "FW_Auto_Backupmon ENABLED"
          echo "Allow_Script_Auto_Update DISABLED"
          echo "Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\""
       } > "$SETTINGSFILE"
@@ -898,40 +901,40 @@ _Init_Custom_Settings_Config_()
        sed -i "3 i FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" "$SETTINGSFILE"
        retCode=1
    fi
-   if ! grep -q "^FW_New_Update_EMail_Notification=" "$SETTINGSFILE"
-   then
-       sed -i "4 i FW_New_Update_EMail_Notification=$FW_UpdateEMailNotificationDefault" "$SETTINGSFILE"
-       retCode=1
-   fi
    if ! grep -q "^FW_New_Update_EMail_FormatType=" "$SETTINGSFILE"
    then
-       sed -i "5 i FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\"" "$SETTINGSFILE"
+       sed -i "4 i FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_Cron_Job_Schedule=" "$SETTINGSFILE"
    then
-       sed -i "6 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$SETTINGSFILE"
+       sed -i "5 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_ZIP_Directory_Path=" "$SETTINGSFILE"
    then
-       sed -i "7 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
+       sed -i "6 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_LOG_Directory_Path=" "$SETTINGSFILE"
    then
-       sed -i "8 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
+       sed -i "7 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_LOG_Preferred_Path=" "$SETTINGSFILE"
    then
        preferredPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
-       sed -i "9 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$SETTINGSFILE"
+       sed -i "8 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^CheckChangeLog " "$SETTINGSFILE"
    then
-       sed -i "10 i CheckChangeLog ENABLED" "$SETTINGSFILE"
+       sed -i "9 i CheckChangeLog ENABLED" "$SETTINGSFILE"
+       retCode=1
+   fi
+   if ! grep -q "^fwUpdateEnabled " "$SETTINGSFILE"
+   then
+       sed -i "10 i fwUpdateEnabled TBD" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^Allow_Updates_OverVPN " "$SETTINGSFILE"
@@ -944,24 +947,14 @@ _Init_Custom_Settings_Config_()
        sed -i "12 i FW_Allow_Beta_Production_Up ENABLED" "$SETTINGSFILE"
        retCode=1
    fi
-   if ! grep -q "^FW_Auto_Backupmon " "$SETTINGSFILE"
-   then
-       sed -i "13 i FW_Auto_Backupmon ENABLED" "$SETTINGSFILE"
-       retCode=1
-   fi
    if ! grep -q "^Allow_Script_Auto_Update " "$SETTINGSFILE"
    then
-       sed -i "14 i Allow_Script_Auto_Update DISABLED" "$SETTINGSFILE"
+       sed -i "13 i Allow_Script_Auto_Update DISABLED" "$SETTINGSFILE"
        retCode=1
    fi
    if ! grep -q "^Script_Update_Cron_Job_SchedDays=" "$SETTINGSFILE"
    then
-       sed -i "15 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$SETTINGSFILE"
-       retCode=1
-   fi
-   if ! grep -q "^FW_New_Update_Changelog_Approval=" "$SETTINGSFILE"
-   then
-       sed -i "16 i FW_New_Update_Changelog_Approval=TBD" "$SETTINGSFILE"
+       sed -i "14 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$SETTINGSFILE"
        retCode=1
    fi
    dos2unix "$SETTINGSFILE"
@@ -970,9 +963,9 @@ _Init_Custom_Settings_Config_()
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-27] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 Get_Custom_Setting()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]; then echo "**ERROR**"; return 1; fi
@@ -986,10 +979,12 @@ Get_Custom_Setting()
             "ROGBuild" | "TUFBuild" | \
             "credentials_base64" | \
             "CheckChangeLog" | \
+            "fwUpdateEnabled" | \
             "Allow_Updates_OverVPN" | \
             "FW_Allow_Beta_Production_Up" | \
             "FW_Auto_Backupmon" | \
             "Allow_Script_Auto_Update" | \
+            "FW_New_Update_EMail_Notification" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
                 setting_value="$(grep "^${setting_type} " "$SETTINGSFILE" | awk -F ' ' '{print $2}')"
@@ -1002,7 +997,6 @@ Get_Custom_Setting()
             "FW_New_Update_ZIP_Directory_Path" | \
             "FW_New_Update_LOG_Directory_Path" | \
             "FW_New_Update_LOG_Preferred_Path" | \
-            "FW_New_Update_EMail_Notification" | \
             "FW_New_Update_EMail_FormatType" | \
             "FW_New_Update_EMail_CC_Name" | \
             "FW_New_Update_EMail_CC_Address")
@@ -1019,9 +1013,9 @@ Get_Custom_Setting()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-30] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _GetAllNodeSettings_()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -1046,9 +1040,9 @@ _GetAllNodeSettings_()
     echo "$setting_value"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-27] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 Update_Custom_Settings()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] ; then return 1 ; fi
@@ -1063,10 +1057,12 @@ Update_Custom_Settings()
         "ROGBuild" | "TUFBuild" | \
         "credentials_base64" | \
         "CheckChangeLog" | \
+        "fwUpdateEnabled" | \
         "Allow_Updates_OverVPN" | \
         "FW_Allow_Beta_Production_Up" | \
         "FW_Auto_Backupmon" | \
         "Allow_Script_Auto_Update" | \
+        "FW_New_Update_EMail_Notification" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
             if [ -f "$SETTINGSFILE" ]
@@ -1091,7 +1087,6 @@ Update_Custom_Settings()
         "FW_New_Update_ZIP_Directory_Path" | \
         "FW_New_Update_LOG_Directory_Path" | \
         "FW_New_Update_LOG_Preferred_Path" | \
-        "FW_New_Update_EMail_Notification" | \
         "FW_New_Update_EMail_FormatType" | \
         "FW_New_Update_EMail_CC_Name" | \
         "FW_New_Update_EMail_CC_Address")
@@ -1118,10 +1113,6 @@ Update_Custom_Settings()
             elif [ "$setting_type" = "FW_New_Update_Expected_Run_Date" ]
             then
                 FW_UpdateExpectedRunDate="$setting_value"
-            #
-            elif [ "$setting_type" = "FW_New_Update_EMail_Notification" ]
-            then
-                sendEMailNotificationsFlag="$setting_value"
             #
             elif [ "$setting_type" = "FW_New_Update_EMail_FormatType" ]
             then
@@ -1368,6 +1359,123 @@ _Set_FW_UpdateZIP_DirectoryPath_()
    return 0
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-20] ##
+##---------------------------------------##
+## This function is meant to be temporary
+## We should be safe to remove it after 3 months, or 5 version releases.
+## Whichever comes first. Similar to the first migration function removed in v1.0.9
+_migrate_settings_() {
+
+    # Function to downlod WebUI if not already existing post update. (For old versions without a WebUI)   
+    # Check if the file exists
+    if [ ! -f "$PAGE_FILE" ]; then
+        Say "WebUI .asp not found post-update: $PAGE_FILE. Downloading..."
+        
+        # Attempt to download the file using curl
+        curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.asp" -o "$PAGE_FILE"
+        
+        # Check if the download succeeded
+        if [ $? -eq 0 ]; then
+            Say "WebUI .asp downloaded successfully to $PAGE_FILE."
+        else
+            Say "Failed to download the file. Please check the URL or your network connection."
+            return 1
+        fi
+    fi
+
+    # Function to migrate specific settings from old values to new standardized values.
+    ### Migrate ROGBuild Setting ###
+    # Retrieve the current value of ROGBuild
+    ROGBuild_Value="$(Get_Custom_Setting ROGBuild)"
+    
+    if [ "$ROGBuild_Value" != "TBD" ]; then
+        case "$ROGBuild_Value" in
+            y|Y)
+                New_ROGBuild_Value="ENABLED"
+                ;;
+            n|N)
+                New_ROGBuild_Value="DISABLED"
+                ;;
+            *)
+                Say "ROGBuild has a unknown value: '$ROGBuild_Value'. Skipping migration for this setting."
+                New_ROGBuild_Value=""
+                ;;
+        esac
+
+        # Update the ROGBuild setting if a valid new value was determined
+        if [ -n "$New_ROGBuild_Value" ]; then
+            Update_Custom_Settings ROGBuild "$New_ROGBuild_Value"
+            if [ $? -eq 0 ]; then
+                Say "ROGBuild setting successfully migrated to '$New_ROGBuild_Value'."
+            else
+                Say "Error occurred while migrating ROGBuild setting to '$New_ROGBuild_Value'."
+            fi
+        fi
+    fi
+
+    ### Migrate TUFBuild Setting ###
+    # Retrieve the current value of TUFBuild
+    TUFBuild_Value="$(Get_Custom_Setting TUFBuild)"
+
+    if [ "$TUFBuild_Value" != "TBD" ]; then
+        case "$TUFBuild_Value" in
+            y|Y)
+                New_TUFBuild_Value="ENABLED"
+                ;;
+            n|N)
+                New_TUFBuild_Value="DISABLED"
+                ;;
+            *)
+                Say "TUFBuild has a unknown value: '$TUFBuild_Value'. Skipping migration for this setting."
+                New_TUFBuild_Value=""
+                ;;
+        esac
+
+        # Update the TUFBuild setting if a valid new value was determined
+        if [ -n "$New_TUFBuild_Value" ]; then
+            Update_Custom_Settings TUFBuild "$New_TUFBuild_Value"
+            if [ $? -eq 0 ]; then
+                Say "TUFBuild setting successfully migrated to '$New_TUFBuild_Value'."
+            else
+                Say "Error occurred while migrating TUFBuild setting to '$New_TUFBuild_Value'."
+            fi
+        fi
+    fi
+
+    ### Migrate FW_New_Update_EMail_Notification Setting ###
+    # Retrieve the current value of FW_New_Update_EMail_Notification from the settings file
+    EMailNotif_Value=$(grep '^FW_New_Update_EMail_Notification=' "$SETTINGSFILE" | cut -d'=' -f2 | tr -d '"')
+    
+    if [ -n "$EMailNotif_Value" ]; then
+        case "$EMailNotif_Value" in
+            true|TRUE|True)
+                New_EMailNotif_Value="ENABLED"
+                ;;
+            false|FALSE|False)
+                New_EMailNotif_Value="DISABLED"
+                ;;
+            *)
+                Say "FW_New_Update_EMail_Notification has a unknown value: '$EMailNotif_Value'. Skipping migration for this setting."
+                New_EMailNotif_Value=""
+                ;;
+        esac
+
+        if [ -n "$New_EMailNotif_Value" ]; then
+            sed -i "/^FW_New_Update_EMail_Notification=/c\FW_New_Update_EMail_Notification $New_EMailNotif_Value" "$SETTINGSFILE"
+            if [ $? -eq 0 ]; then
+                Say "EMail_Notification setting successfully migrated to $New_EMailNotif_Value."
+            else
+                Say "Error occurred while migrating EMail_Notification setting to $New_EMailNotif_Value."
+            fi
+        fi
+    fi
+
+}
+
+# Execute the migration function
+_migrate_settings_
+
 _Init_Custom_Settings_Config_
 
 ##------------------------------------------##
@@ -1497,6 +1605,240 @@ then
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Mount_WebUI_(){
+	local existing_page=""
+
+    # Check if the WebUI is already installed
+    if [ -f "/tmp/menuTree.js" ] 
+    then
+        existing_page="$(grep 'tabName: "MerlinAU"' '/tmp/menuTree.js' | sed -n 's/.*url: "\([^"]*\)".*/\1/p')"
+    fi
+
+    # If an existing page is found, skip installation
+    if [ -n "$existing_page" ]
+    then
+        return 0
+    fi
+
+	# Check if the firmware supports addons
+	nvram get rc_support | grep -q am_addons
+	if [ $? != 0 ]; then
+	    Say "$SCRIPT_NAME" "This firmware does not support addons!"
+	    _DoExit_ 1
+	fi
+
+	# Obtain the first available mount point in $am_webui_page
+	am_get_webui_page $PAGE_FILE
+
+	if [ -z "$am_webui_page" ] || [ "$am_webui_page" = "none" ]; then
+    	Say "$SCRIPT_NAME" "Unable to install $SCRIPT_NAME"
+    	_DoExit_ 1
+	fi
+
+    # Store or update the page name for later use (e.g., in uninstall scripts)
+    if grep -q "^MerlinAU_uiPage" "$SHAREDSETTINGSFILE"; then
+        # Replace the existing line with the new value
+        sed -i "s/^MerlinAU_uiPage.*/MerlinAU_uiPage $am_webui_page/" "$SHAREDSETTINGSFILE"
+    else
+        # Append the new line if it doesn't exist
+        echo "MerlinAU_uiPage $am_webui_page" >> "$SHAREDSETTINGSFILE"
+    fi
+
+	# Copy custom page to the user's WebUI directory
+	cp "$PAGE_FILE" "/www/user/$am_webui_page"
+				
+	# Copy menuTree.js if not already copied, so we can modify it
+	if [ ! -f /tmp/menuTree.js ]; then
+		cp /www/require/modules/menuTree.js /tmp/
+		mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+	fi
+
+	# Insert link at the end of the Tools menu		
+	sed -i "/url: \"Advanced_FirmwareUpgrade_Content.asp\", tabName:/a {url: \"$am_webui_page\", tabName: \"$SCRIPT_NAME\"}," /tmp/menuTree.js
+	
+	# Remount menuTree.js to apply changes
+	umount /www/require/modules/menuTree.js 2>/dev/null
+	mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+}
+
+_Unmount_WebUI_(){
+	Say "Unmounting WebUI tab for $SCRIPT_NAME"
+
+	# Load the page name we stored during install
+	if [ -f "$SHAREDSETTINGSFILE" ]; then
+    	webui_page=$(grep "^MerlinAU_uiPage" "$SHAREDSETTINGSFILE" | awk '{print $2}')
+    else
+        # If not stored, try to extract it from /tmp/menuTree.js
+        if [ -f "/tmp/menuTree.js" ]; then
+            webui_page=$(grep 'tabName: "MerlinAU"' /tmp/menuTree.js | sed -n 's/.*url: "\([^"]*\)".*/\1/p')
+        else
+            Say "$SCRIPT_NAME" "Unable to find menuTree.js to derive the WebUI page."
+            _DoExit_ 1
+        fi
+    fi
+
+	if [ -z "$webui_page" ]; then
+    	Say "$SCRIPT_NAME" "No assigned page found to uninstall."
+    	_DoExit_ 1
+	fi
+
+	# Remove just our entry from menuTree.js, but do not unmount others may depend on it
+	if [ -f /tmp/menuTree.js ]; then
+    	sed -i "/url: \"$webui_page\", tabName: \"$SCRIPT_NAME\"/d" /tmp/menuTree.js
+	fi
+
+	# Remove our custom page (only if still mounted and safe to do so)
+	if [ -f "/www/user/$webui_page" ]; then
+    	rm -f "/www/user/$webui_page"
+	fi
+
+    # **Remove the specific line from SHAREDSETTINGSFILE instead of deleting PAGE_NAME_FILE**
+    if [ -f "$SHAREDSETTINGSFILE" ]; then
+        sed -i "/^MerlinAU_uiPage\s\+$webui_page$/d" "$SHAREDSETTINGSFILE"
+    fi
+
+	# Remount menuTree.js to apply changes
+	umount /www/require/modules/menuTree.js
+	mount -o bind /tmp/menuTree.js /www/require/modules/menuTree.js
+
+	/sbin/service restart_httpd >/dev/null 2>&1 &
+
+	Say "${GRNct}$SCRIPT_NAME WebUI unmounted successfully (preserving other add-ons' entries)."
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Auto_ServiceEvent_(){
+	case $1 in
+		create)
+			if [ -f /jffs/scripts/service-event ]; then
+				STARTUPLINECOUNT=$(grep -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)
+				STARTUPLINECOUNTEX=$(grep -cx 'if echo "$2" | /bin/grep -q "'"${SCRIPT_NAME}".sh'"; then { /jffs/scripts/'"$SCRIPT_NAME"' service_event "$@" & }; fi # '"$SCRIPT_NAME" /jffs/scripts/service-event)
+				
+				if [ "$STARTUPLINECOUNT" -gt 1 ] || { [ "$STARTUPLINECOUNTEX" -eq 0 ] && [ "$STARTUPLINECOUNT" -gt 0 ]; }; then
+					sed -i -e '/# '"$SCRIPT_NAME"'/d' /jffs/scripts/service-event
+				fi
+				
+				if [ "$STARTUPLINECOUNTEX" -eq 0 ]; then
+					echo 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME"'"; then { /jffs/scripts/'"${SCRIPT_NAME}".sh' service_event "$@" & }; fi # '"$SCRIPT_NAME" >> /jffs/scripts/service-event
+				fi
+			else
+				echo "#!/bin/sh" > /jffs/scripts/service-event
+				echo "" >> /jffs/scripts/service-event
+				echo 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME"'"; then { /jffs/scripts/'"${SCRIPT_NAME}".sh' service_event "$@" & }; fi # '"$SCRIPT_NAME" >> /jffs/scripts/service-event
+				chmod 0755 /jffs/scripts/service-event
+			fi
+		;;
+		delete)
+			if [ -f /jffs/scripts/service-event ]; then
+				STARTUPLINECOUNT=$(grep -c '# '"$SCRIPT_NAME" /jffs/scripts/service-event)
+				
+				if [ "$STARTUPLINECOUNT" -gt 0 ]; then
+					sed -i -e '/# '"${SCRIPT_NAME}"'/d' /jffs/scripts/service-event
+				fi
+			fi
+		;;
+	esac
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Set_Version_SharedSettings_(){
+
+	if [ -z "$1" ] ; then echo ; return 1; fi
+
+	if [ "$1" = "add" ]; then
+
+		if [ -z "$2" ] ; then echo ; return 1; fi
+
+		if [ -f "$SHAREDSETTINGSFILE" ]; then
+			if grep -q "MerlinAU_version" "$SHAREDSETTINGSFILE"; then
+				if [ "$2" != "$(grep "MerlinAU_version" "$SHAREDSETTINGSFILE" | cut -f2 -d' ')" ]; then
+					sed -i "s/MerlinAU_version.*/MerlinAU_version $2/" "$SHAREDSETTINGSFILE"
+				fi
+			else
+				echo "MerlinAU_version $2" >> "$SHAREDSETTINGSFILE"
+			fi
+		else
+			echo "MerlinAU_version $2" >> "$SHAREDSETTINGSFILE"
+		fi
+
+	elif [ "$1" = "remove" ]; then
+		if [ -f "$SHAREDSETTINGSFILE" ]; then
+			if grep -q "MerlinAU_version" "$SHAREDSETTINGSFILE"; then
+				sed -i "/MerlinAU_version/d" "$SHAREDSETTINGSFILE"
+			fi
+		fi
+
+	else
+		return 1
+	fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Create_Symlinks_(){
+	if [ ! -d "$WEBDIR" ]; then
+	    mkdir -p "$WEBDIR"
+	fi
+
+	rm -rf "${WEBDIR:?}/"* 2>/dev/null
+	ln -s "$SETTINGSFILE" "$WEBDIR/custom_settings.htm" 2>/dev/null
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+_Config_FromSettings_(){
+    if [ -f "$SHAREDSETTINGSFILE" ]; then
+        # Check for MerlinAU_ entries excluding 'version' and 'uiPage'
+        if [ "$(grep "MerlinAU_" "$SHAREDSETTINGSFILE" | grep -Ev "version|uiPage" -c)" -gt 0 ]; then
+            Say "Updated settings from WebUI found, merging into $SETTINGSFILE"
+            cp -a "$SETTINGSFILE" "${SETTINGSFILE}.bak"
+            
+            # Extract MerlinAU_ entries excluding 'version' and 'uiPage'
+            grep "MerlinAU_" "$SHAREDSETTINGSFILE" | grep -Ev "version|uiPage" > "$TMPFILE"
+            sed -i "s/MerlinAU_//g;s/ /=/g" "$TMPFILE"
+            
+            while IFS='' read -r line || [ -n "$line" ]; do
+                SETTINGNAME="$(echo "$line" | cut -f1 -d'=')"
+                SETTINGVALUE="$(echo "$line" | cut -f2- -d'=')"
+                Update_Custom_Settings "$SETTINGNAME" "$SETTINGVALUE"
+            done < "$TMPFILE"
+
+            # Handle MerlinAU_uiPage separately if needed
+            grep 'MerlinAU_uiPage' "$SHAREDSETTINGSFILE" > "$TMPFILE"
+            
+            # Handle MerlinAU_version separately if needed
+            grep 'MerlinAU_version' "$SHAREDSETTINGSFILE" >> "$TMPFILE"
+            
+            # Remove all MerlinAU_ entries including 'uiPage' and 'version'
+            sed -i "\\~MerlinAU~d" "$SHAREDSETTINGSFILE"
+            
+            # Reconstruct the SHAREDSETTINGSFILE without excluded entries
+            mv "$SHAREDSETTINGSFILE" "$SHAREDSETTINGSFILE.bak"
+            cat "$SHAREDSETTINGSFILE.bak" "$TMPFILE" > "$SHAREDSETTINGSFILE"
+            
+            # Clean up temporary files
+            rm -f "$TMPFILE"
+            rm -f "$SHAREDSETTINGSFILE.bak"
+            
+            _Create_Symlinks_
+                    
+            Say "Merge of updated settings from WebUI completed successfully"
+        else
+            Say "No updated settings from WebUI found, no merge into $SETTINGSFILE necessary"
+        fi
+    fi
+    return 0
+}
+
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Dec-31] ##
 ##-------------------------------------##
@@ -1564,6 +1906,13 @@ _SCRIPTUPDATE_()
           retCode=1
           Say "${REDct}**ERROR**${NOct}: Unable to download latest script file for $SCRIPT_NAME."
       fi
+      if _CurlFileDownload_ "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.asp" "$SETTINGS_DIR"
+      then
+          retCode=0 ; chmod 755 "$SETTINGS_DIR"
+      else
+          retCode=1
+          Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI file for $SCRIPT_NAME."
+      fi
       return "$retCode"
    }
 
@@ -1577,6 +1926,11 @@ _SCRIPTUPDATE_()
 
        if _DownloadScriptFiles_
        then
+           if "$inRouterSWmode"
+           then
+                  _Set_Version_SharedSettings_ add "$DLRepoVersion"
+                  _Create_Symlinks_
+           fi
            printf "${CYANct}$SCRIPT_NAME was successfully updated.${NOct}\n\n"
            sleep 1
            [ -s "$SCRIPTVERPATH" ] && urlScriptVers="$(cat "$SCRIPTVERPATH")"
@@ -1594,6 +1948,7 @@ _SCRIPTUPDATE_()
 
    clear
    logo
+
    printf "\n${YLWct}Script Update Utility${NOct}\n\n"
    printf "${CYANct}Version Currently Installed:  ${YLWct}${SCRIPT_VERSION}${NOct}\n"
    printf "${CYANct}Update Version Available Now: ${YLWct}${DLRepoVersion}${NOct}\n\n"
@@ -1608,6 +1963,11 @@ _SCRIPTUPDATE_()
 
           if _DownloadScriptFiles_
           then
+              if "$inRouterSWmode"
+              then
+                    _Set_Version_SharedSettings_ add "$DLRepoVersion"
+                    _Create_Symlinks_
+              fi
               printf "\n${CYANct}Download successful!${NOct}\n"
               printf "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
           fi
@@ -1627,6 +1987,11 @@ _SCRIPTUPDATE_()
 
           if _DownloadScriptFiles_
           then
+              if "$inRouterSWmode"
+              then
+                  _Set_Version_SharedSettings_ add "$DLRepoVersion"
+                  _Create_Symlinks_
+              fi
               printf "\n$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
               printf "${CYANct}Update successful! Restarting script...${NOct}\n"
               sleep 1
@@ -1714,7 +2079,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-26] ##
+## Modified by ExtremeFiretop [2024-Dec-28] ##
 ##------------------------------------------##
 _CreateEMailContent_()
 {
@@ -2025,13 +2390,13 @@ _CheckEMailConfigFileFromAMTM_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-05] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _SendEMailNotification_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ]  || \
-   ! "$sendEMailNotificationsFlag" || \
+   [ "$sendEMailNotificationsFlag" != "ENABLED" ] || \
    ! _CheckEMailConfigFileFromAMTM_ 1
    then return 1 ; fi
 
@@ -3683,7 +4048,7 @@ _toggle_change_log_check_()
         if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
         then
             Update_Custom_Settings "CheckChangeLog" "DISABLED"
-            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+            Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
             printf "Changelog verification check is now ${REDct}DISABLED.${NOct}\n"
         else
             printf "Changelog verification check remains ${GRNct}ENABLED.${NOct}\n"
@@ -3693,6 +4058,7 @@ _toggle_change_log_check_()
         if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
         then
             Update_Custom_Settings "CheckChangeLog" "ENABLED"
+            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
             printf "Changelog verification check is now ${GRNct}ENABLED.${NOct}\n"
         else
             printf "Changelog verification check remains ${REDct}DISABLED.${NOct}\n"
@@ -3803,7 +4169,7 @@ _Toggle_Auto_Backups_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-18] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 _ChangeBuildType_TUF_()
 {
@@ -3813,13 +4179,13 @@ _ChangeBuildType_TUF_()
    # Use Get_Custom_Setting to retrieve the previous choice
    previous_choice="$(Get_Custom_Setting "TUFBuild")"
 
-   # If the previous choice is not set, default to 'n'
+   # If the previous choice is not set, default to 'DSIABLED'
    if [ "$previous_choice" = "TBD" ]; then
-       previous_choice="n"
+       previous_choice="DISABLED"
    fi
 
    # Convert previous choice to a descriptive text
-   if [ "$previous_choice" = "y" ]; then
+   if [ "$previous_choice" = "ENABLED" ]; then
        display_choice="TUF Build"
    else
        display_choice="Pure Build"
@@ -3845,9 +4211,9 @@ _ChangeBuildType_TUF_()
        then doReturnToMenu=true ; break ; fi
 
        case $choice in
-           1) buildtypechoice="y" ; break
+           1) buildtypechoice="ENABLED" ; break
               ;;
-           2) buildtypechoice="n" ; break
+           2) buildtypechoice="DISABLED" ; break
               ;;
            *) echo ; _InvalidMenuSelection_
               ;;
@@ -3863,7 +4229,7 @@ _ChangeBuildType_TUF_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-18] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 _ChangeBuildType_ROG_()
 {
@@ -3873,13 +4239,13 @@ _ChangeBuildType_ROG_()
    # Use Get_Custom_Setting to retrieve the previous choice
    previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
-   # If the previous choice is not set, default to 'n'
+   # If the previous choice is not set, default to 'DISABLED'
    if [ "$previous_choice" = "TBD" ]; then
-       previous_choice="n"
+       previous_choice="DISABLED"
    fi
 
    # Convert previous choice to a descriptive text
-   if [ "$previous_choice" = "y" ]; then
+   if [ "$previous_choice" = "ENABLED" ]; then
        display_choice="ROG Build"
    else
        display_choice="Pure Build"
@@ -3905,9 +4271,9 @@ _ChangeBuildType_ROG_()
        then doReturnToMenu=true ; break ; fi
 
        case $choice in
-           1) buildtypechoice="y" ; break
+           1) buildtypechoice="ENABLED" ; break
               ;;
-           2) buildtypechoice="n" ; break
+           2) buildtypechoice="DISASLED" ; break
               ;;
            *) echo ; _InvalidMenuSelection_
               ;;
@@ -6023,8 +6389,12 @@ _CheckNewUpdateFirmwareNotification_()
        Update_Custom_Settings FW_New_Update_Notification_Date TBD
        Update_Custom_Settings FW_New_Update_Notification_Vers TBD
        Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
-       Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
-       return 1
+       local currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+       if [ "$currentChangelogValue" = "ENABLED" ]
+       then
+          Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
+          return 1
+       fi
    fi
 
    fwNewUpdateNotificationVers="$(Get_Custom_Setting FW_New_Update_Notification_Vers TBD)"
@@ -6230,12 +6600,12 @@ _CheckTimeToUpdateFirmware_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Feb-16] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _RunEMailNotificationTest_()
 {
-   ! "$sendEMailNotificationsFlag" && return 1
+   [ "$sendEMailNotificationsFlag" != "ENABLED" ] && return 1
    local retCode=1
 
    if _WaitForYESorNO_ "\nWould you like to run a test of the email notification?"
@@ -6246,19 +6616,19 @@ _RunEMailNotificationTest_()
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-16] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _Toggle_FW_UpdateEmailNotifications_()
 {
    local emailNotificationEnabled  emailNotificationNewStateStr
 
-   if "$sendEMailNotificationsFlag"
+   if [ "$sendEMailNotificationsFlag" = "ENABLED" ]
    then
-       emailNotificationEnabled=true
+       emailNotificationEnabled="ENABLED"
        emailNotificationNewStateStr="${REDct}DISABLE${NOct}"
    else
-       emailNotificationEnabled=false
+       emailNotificationEnabled="DISABLED"
        emailNotificationNewStateStr="${GRNct}ENABLE${NOct}"
    fi
 
@@ -6268,12 +6638,12 @@ _Toggle_FW_UpdateEmailNotifications_()
        return 1
    fi
 
-   if "$emailNotificationEnabled"
+   if [ "$emailNotificationEnabled" = "ENABLED" ];
    then
-       sendEMailNotificationsFlag=false
+       sendEMailNotificationsFlag="DISABLED"
        emailNotificationNewStateStr="${REDct}DISABLED${NOct}"
    else
-       sendEMailNotificationsFlag=true
+       sendEMailNotificationsFlag="ENABLED"
        emailNotificationNewStateStr="${GRNct}ENABLED${NOct}"
    fi
 
@@ -6309,12 +6679,14 @@ _Toggle_FW_UpdateCheckSetting_()
        runfwUpdateCheck=false
        FW_UpdateCheckState=0
        fwUpdateCheckNewStateStr="${REDct}DISABLED${NOct}"
+       Update_Custom_Settings "fwUpdateEnabled" "DISABLED"
        _DelFWAutoUpdateHook_
        _DelFWAutoUpdateCronJob_
    else
        [ -x "$FW_UpdateCheckScript" ] && runfwUpdateCheck=true
        FW_UpdateCheckState=1
        fwUpdateCheckNewStateStr="${GRNct}ENABLED${NOct}"
+       Update_Custom_Settings "fwUpdateEnabled" "ENABLED"
        if _AddFWAutoUpdateCronJob_
        then
            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
@@ -6664,7 +7036,7 @@ _SelectOfflineUpdateFile_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-18] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 _GnutonBuildSelection_()
 {
@@ -6674,11 +7046,11 @@ _GnutonBuildSelection_()
         # Fetch the previous choice from the settings file
         local previous_choice="$(Get_Custom_Setting "TUFBuild")"
 
-        if [ "$previous_choice" = "y" ]
+        if [ "$previous_choice" = "ENABLED" ]
         then
             echo "TUF Build selected for flashing"
             firmware_choice="tuf"
-        elif [ "$previous_choice" = "n" ]
+        elif [ "$previous_choice" = "DISABLED" ]
         then
             echo "Pure Build selected for flashing"
             firmware_choice="pure"
@@ -6692,27 +7064,27 @@ _GnutonBuildSelection_()
             then
                 echo "TUF Build selected for flashing"
                 firmware_choice="tuf"
-                Update_Custom_Settings "TUFBuild" "y"
+                Update_Custom_Settings "TUFBuild" "ENABLED"
             else
                 echo "Pure Build selected for flashing"
                 firmware_choice="pure"
-                Update_Custom_Settings "TUFBuild" "n"
+                Update_Custom_Settings "TUFBuild" "DISABLED"
             fi
         else
             echo "Defaulting to Pure Build due to non-interactive mode."
             firmware_choice="pure"
-            Update_Custom_Settings "TUFBuild" "n"
+            Update_Custom_Settings "TUFBuild" "DISABLED"
         fi
    elif echo "$PRODUCT_ID" | grep -q "^GT-"
    then
         # Fetch the previous choice from the settings file
         local previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
-        if [ "$previous_choice" = "y" ]
+        if [ "$previous_choice" = "ENABLED" ]
         then
             echo "ROG Build selected for flashing"
             firmware_choice="rog"
-        elif [ "$previous_choice" = "n" ]
+        elif [ "$previous_choice" = "DISABLED" ]
         then
             echo "Pure Build selected for flashing"
             firmware_choice="pure"
@@ -6726,16 +7098,16 @@ _GnutonBuildSelection_()
             then
                 echo "ROG Build selected for flashing"
                 firmware_choice="rog"
-                Update_Custom_Settings "ROGBuild" "y"
+                Update_Custom_Settings "ROGBuild" "ENABLED"
             else
                 echo "Pure Build selected for flashing"
                 firmware_choice="pure"
-                Update_Custom_Settings "ROGBuild" "n"
+                Update_Custom_Settings "ROGBuild" "DISABLED"
             fi
         else
             echo "Defaulting to Pure Build due to non-interactive mode."
             firmware_choice="pure"
-            Update_Custom_Settings "ROGBuild" "n"
+            Update_Custom_Settings "ROGBuild" "DISABLED"
         fi
    else
         # If not a TUF model, process as usual
@@ -6753,6 +7125,14 @@ _RunBackupmon_()
     if [ -f "/jffs/scripts/backupmon.sh" ]
     then
         local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+
+        # Default to ENABLED if the setting is empty
+        if [ "$current_backup_settings" = "TBD" ]
+        then
+            Update_Custom_Settings "FW_Auto_Backupmon" "ENABLED"
+            current_backup_settings="ENABLED"
+        fi
+
         if [ "$current_backup_settings" = "ENABLED" ]
         then
             # Extract version number from backupmon.sh
@@ -6809,6 +7189,11 @@ _RunBackupmon_()
             echo ""
         fi
     else
+        local current_backup_settings="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+        if [ "$current_backup_settings" != "TBD" ]
+        then
+            Delete_Custom_Settings "FW_Auto_Backupmon"
+        fi
         Say "Backup script (BACKUPMON) is not installed. Skipping backup."
         echo ""
     fi
@@ -7248,9 +7633,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Jun-04] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2024-Dec-21] ##
+    ##------------------------------------------##
     pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
 
     if [ "$fwInstalledBaseVers" -le 3004 ] && [ "$fwUpdateBaseNum" -le 3004 ]
@@ -7267,11 +7652,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         if [ -n "$rog_file" ]
         then
             # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
-            if [ "$previous_choice" = "y" ]
+            if [ "$previous_choice" = "ENABLED" ]
             then
                 Say "ROG Build selected for flashing"
                 firmware_file="$rog_file"
-            elif [ "$previous_choice" = "n" ]
+            elif [ "$previous_choice" = "DISABLED" ]
             then
                 Say "Pure Build selected for flashing"
                 firmware_file="$pure_file"
@@ -7284,16 +7669,16 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
                 if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
                     Say "ROG Build selected for flashing"
                     firmware_file="$rog_file"
-                    Update_Custom_Settings "ROGBuild" "y"
+                    Update_Custom_Settings "ROGBuild" "ENABLED"
                 else
                     Say "Pure Build selected for flashing"
                     firmware_file="$pure_file"
-                    Update_Custom_Settings "ROGBuild" "n"
+                    Update_Custom_Settings "ROGBuild" "DISABLED"
                 fi
             else
                 # Default to pure_file in non-interactive mode if no previous choice
                 Say "Pure Build selected for flashing"
-                Update_Custom_Settings "ROGBuild" "n"
+                Update_Custom_Settings "ROGBuild" "DISABLED"
                 firmware_file="$pure_file"
             fi
         else
@@ -7308,11 +7693,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
         # Handle upgrade from 3004 to 3006 if there is a ROG setting
-        if [ "$previous_choice" = "y" ]
+        if [ "$previous_choice" = "ENABLED" ]
         then
             Say "Upgrading from 3004 to 3006, ROG UI is no longer supported, auto-selecting Pure UI firmware."
             firmware_file="$pure_file"
-            Update_Custom_Settings "ROGBuild" "n"
+            Update_Custom_Settings "ROGBuild" "DISABLED"
         else
             firmware_file="$pure_file"
         fi
@@ -7556,7 +7941,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 _PostUpdateEmailNotification_()
 {
    _DelPostUpdateEmailNotifyScriptHook_
-   Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
+   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+   if [ "$currentChangelogValue" = "ENABLED" ]
+   then
+      Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+   fi
 
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=600  #10 minutes#
@@ -7652,10 +8041,10 @@ _DelFWAutoUpdateHook_()
        sed -i -e '/\/'"$ScriptFileName"' addCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
        if [ $? -eq 0 ]
        then
-           Say "Cron job hook was deleted successfully from '$hookScriptFile' script."
+           Say "F/W Update cron job hook was deleted successfully from '$hookScriptFile' script."
        fi
    else
-       printf "Cron job hook does not exist in '$hookScriptFile' script.\n"
+       printf "F/W Update cron job hook does not exist in '$hookScriptFile' script.\n"
    fi
 }
 
@@ -7736,16 +8125,16 @@ _DelScriptAutoUpdateHook_()
        sed -i -e '/\/'"$ScriptFileName"' scriptAUCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
        if [ $? -eq 0 ]
        then
-           Say "Cron job hook was deleted successfully from '$hookScriptFile' script."
+           Say "ScriptAU cron job hook was deleted successfully from '$hookScriptFile' script."
        fi
    else
-       printf "Cron job hook does not exist in '$hookScriptFile' script.\n"
+       printf "ScriptAU cron job hook does not exist in '$hookScriptFile' script.\n"
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
 _DoUninstall_()
 {
    printf "Are you sure you want to uninstall $ScriptFileName script now"
@@ -7757,6 +8146,12 @@ _DoUninstall_()
    _DelScriptAutoUpdateCronJob_
    _DelPostRebootRunScriptHook_
    _DelPostUpdateEmailNotifyScriptHook_
+   if "$inRouterSWmode"
+   then
+      _Unmount_WebUI_
+      _Auto_ServiceEvent_ delete 2>/dev/null
+      _Set_Version_SharedSettings_ remove
+   fi
 
    if rm -fr "${SETTINGS_DIR:?}" && \
       rm -fr "${FW_BIN_BASE_DIR:?}/$ScriptDirNameD" && \
@@ -8043,6 +8438,17 @@ then
     Say "Exiting..." ; exit 1
 fi
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2024-Dec-13] ##
+##---------------------------------------##
+if "$inRouterSWmode"
+then
+    _Set_Version_SharedSettings_ add "$SCRIPT_VERSION"
+    _Create_Symlinks_
+    _Mount_WebUI_
+    _Auto_ServiceEvent_ create 2>/dev/null
+fi
+
 # Check if the router model is supported OR if
 # it has the minimum firmware version supported.
 check_model_support
@@ -8051,7 +8457,189 @@ check_version_support
 ##-------------------------------------##
 ## Added by Martinski W. [2024-Jan-24] ##
 ##-------------------------------------##
-_CheckEMailConfigFileFromAMTM_ 0
+if _CheckEMailConfigFileFromAMTM_ 0
+then
+    if [ "$sendEMailNotificationsFlag" = "TBD" ]
+    then
+        Update_Custom_Settings FW_New_Update_EMail_Notification "$FW_UpdateEMailNotificationDefault"
+    fi
+else
+    if [ "$sendEMailNotificationsFlag" != "TBD" ]
+    then
+        Delete_Custom_Settings "FW_New_Update_EMail_Notification"
+    fi
+fi
+
+# Retrieve the current backup setting
+currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+# Check if the file /jffs/scripts/backupmon.sh exists
+if [ -f "/jffs/scripts/backupmon.sh" ]
+then
+    # If the setting is empty, add it to the configuration file
+    if [ "$currentBackupOption" = "TBD" ]
+    then
+        Update_Custom_Settings FW_Auto_Backupmon "ENABLED"
+    fi
+else
+    # If the configuration setting exists, delete it
+    if [ "$currentBackupOption" != "TBD" ]
+    then
+        Delete_Custom_Settings "FW_Auto_Backupmon"
+    fi
+fi
+
+_ConfirmCronJobEntry_()
+{
+    # Check if the PREVIOUS Cron Job ID already exists #
+    if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
+    then  #If it exists, delete the OLD one & create a NEW one#
+        cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
+    fi
+
+    #----------------------------------------##
+    ## Modified by Martinski W. [2024-Nov-24] ##
+    ##----------------------------------------##
+
+    # Retrieve custom setting for automatic firmware update checks
+    fwUpdateCheckState="$(Get_Custom_Setting "fwUpdateEnabled")"
+    # Expected values: "ENABLED", "TBD", "DISABLED" (or fallback)
+
+    # Always start with a default of "false" (do not run checks by default)
+    runfwUpdateCheck=false
+
+    # Get the current F/W update checking state from NVRAM (for reference)
+    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
+    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
+
+    ###############################################################################
+    # Priority is given to $fwUpdateCheckState. The NVRAM variable is updated only
+    # after we've decided what to do based on the custom setting.
+    ###############################################################################
+
+    # 1) "ENABLED": Automatically enable checks (no user prompt)
+    if [ "$fwUpdateCheckState" = "ENABLED" ]; then
+
+        # If the Cron job doesn't exist, add it
+        if ! eval "$cronListCmd" | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"; then
+            printf "Auto-enabling cron job '${GRNct}${CRON_JOB_TAG}${NOct}'...\n"
+            if _AddFWAutoUpdateCronJob_; then
+                printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
+                printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+            else
+                printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+            fi
+        else
+            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+        fi
+
+        # Add any hooks needed for auto-update
+        _AddFWAutoUpdateHook_
+
+        # Mark the internal state as enabled
+        runfwUpdateCheck=true
+        FW_UpdateCheckState=1
+        nvram set firmware_check_enable="$FW_UpdateCheckState"
+        nvram commit
+
+    # 2) "TBD": Prompt the user (original behavior)
+    elif [ "$fwUpdateCheckState" = "TBD" ]; then
+        # Check if the F/W Update CRON job already exists #
+        if ! eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+        then
+            logo
+            printf "Do you want to enable automatic firmware update checks?\n"
+            printf "This will create a CRON job to check for updates regularly.\n"
+            printf "The CRON can be disabled at any time via the main menu.\n"
+
+            if _WaitForYESorNO_; then
+                # User said YES -> enable checks
+                printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+                if ! eval "$cronListCmd" | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"; then
+                    if _AddFWAutoUpdateCronJob_; then
+                        printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                        cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
+                        printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+                    else
+                        printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+                    fi
+                else
+                    printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+                fi
+
+                _AddFWAutoUpdateHook_
+
+                # Update internal states
+                runfwUpdateCheck=true
+                FW_UpdateCheckState=1
+                Update_Custom_Settings "fwUpdateEnabled" "ENABLED"
+                nvram set firmware_check_enable="$FW_UpdateCheckState"
+                nvram commit
+
+            else
+                # User said NO -> disable checks
+                printf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
+                printf "You can enable this feature later via the main menu.\n"
+
+                runfwUpdateCheck=false
+                FW_UpdateCheckState=0
+                Update_Custom_Settings "fwUpdateEnabled" "DISABLED"
+                nvram set firmware_check_enable="$FW_UpdateCheckState"
+                nvram commit
+
+                # Remove anything that might have existed
+                _DelFWAutoUpdateHook_
+                _DelFWAutoUpdateCronJob_
+            fi
+            _WaitForEnterKey_
+        else
+            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+            Update_Custom_Settings "fwUpdateEnabled" "ENABLED"
+            _AddFWAutoUpdateHook_
+            runfwUpdateCheck=true
+        fi
+
+    # 3) "DISABLED": Perform the disable steps (same as _Toggle_FW_UpdateCheckSetting_)
+    elif [ "$fwUpdateCheckState" = "DISABLED" ]; then
+
+        printf "Firmware update checks have been ${REDct}DISABLED${NOct}.\n"
+
+        runfwUpdateCheck=false
+        FW_UpdateCheckState=0
+        Update_Custom_Settings "fwUpdateEnabled" "DISABLED"
+
+        # Remove any hooks or cron jobs
+        _DelFWAutoUpdateHook_
+        _DelFWAutoUpdateCronJob_
+
+        nvram set firmware_check_enable="$FW_UpdateCheckState"
+        nvram commit
+
+    # 4) Unknown/fallback -> treat as DISABLED
+    else
+
+        printf "Unknown fwUpdateEnabled value: '%s'. Disabling firmware checks.\n" "$fwUpdateCheckState"
+
+        runfwUpdateCheck=false
+        FW_UpdateCheckState=0
+        Update_Custom_Settings "fwUpdateEnabled" "DISABLED"
+
+        _DelFWAutoUpdateHook_
+        _DelFWAutoUpdateCronJob_
+
+        nvram set firmware_check_enable="$FW_UpdateCheckState"
+        nvram commit
+
+    fi
+
+    ############################################################################
+    # Finally, if runfwUpdateCheck is true and the script is present, run it in
+    # the background, then wait for user to press Enter.
+    ############################################################################
+    if "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ]; then
+        sh "$FW_UpdateCheckScript" 2>&1 &
+    fi
+}
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Dec-31] ##
@@ -8086,6 +8674,72 @@ then
            ;;
        uninstall) _DoUninstall_
            ;;
+       service_event)
+		   if [ "$2" = "start" ] && [ "$3" = "MerlinAUuninstall" ]
+		   then
+		   	   _DoUninstall_
+			   sleep 3
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUapprovechangelog" ] 
+		   then
+			   local currentApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+			   if [ "$currentApprovalStatus" = "BLOCKED" ]
+			   then
+			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+			   elif [ "$currentApprovalStatus" = "APPROVED" ]
+			   then
+			       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+			   fi
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUcheckupdate" ]
+ 		   then
+			   _RunFirmwareUpdateNow_
+		   elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
+		   then
+			   OldScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+			   OldChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+			   OldPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+			   OldEmailValue="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+			   _Config_FromSettings_
+			   sleep 1
+			   NewPostponeValue="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+			   NewScriptUpdateValue="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+			   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+			   NewEmailValue="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+
+			   # Compare old vs. new values and action something else
+			   if [ "$OldEmailValue" != "$NewEmailValue" ]
+			   then
+			       NewnameAlias="${NewEmailValue%%@*}"
+			       Update_Custom_Settings FW_New_Update_EMail_CC_Name "${NewnameAlias}"
+			   fi
+			   if [ "$currentChangelogValue" = "DISABLED" ] && [ "$OldChangelogValue" = "ENABLED" ];
+			   then
+			       Delete_Custom_Settings "FW_New_Update_Changelog_Approval"
+			   elif [ "$currentChangelogValue" = "ENABLED" ] && [ "$OldChangelogValue" = "DISABLED" ];
+			   then
+			       Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
+			   fi
+			   if [ "$NewPostponeValue" != "$OldPostponeValue" ];
+			   then
+			       _Calculate_NextRunTime_
+			   fi
+			   if [ "$OldScriptUpdateValue" = "ENABLED" ] && [ "$NewScriptUpdateValue" = "DISABLED" ];
+			   then
+			       _DelScriptAutoUpdateHook_
+			       _DelScriptAutoUpdateCronJob_
+			   elif [ "$OldScriptUpdateValue" = "DISABLED" ] && [ "$NewScriptUpdateValue" = "ENABLED" ];
+			   then
+			       scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
+			       if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
+			       then
+			           if _AddScriptAutoUpdateCronJob_
+			           then
+			               _AddScriptAutoUpdateHook_
+			           fi
+			       fi
+			   fi
+			   _ConfirmCronJobEntry_
+		   fi
+           ;;
        *) printf "${REDct}INVALID Parameter.${NOct}\n"
            ;;
    esac
@@ -8104,59 +8758,7 @@ then
     _AddScriptAutoUpdateCronJob_
 fi
 
-# Check if the PREVIOUS Cron Job ID already exists #
-if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
-then  #If it exists, delete the OLD one & create a NEW one#
-    cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
-fi
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-24] ##
-##----------------------------------------##
-FW_UpdateCheckState="$(nvram get firmware_check_enable)"
-[ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
-if [ "$FW_UpdateCheckState" -eq 1 ]
-then
-    runfwUpdateCheck=true
-
-    # Check if the F/W Update CRON job already exists #
-    if ! eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
-    then
-        logo
-        # If CRON job does not exist, ask user for permission to add #
-        printf "Do you want to enable automatic firmware update checks?\n"
-        printf "This will create a CRON job to check for updates regularly.\n"
-        printf "The CRON can be disabled at anytime via the main menu.\n"
-        if _WaitForYESorNO_
-        then
-            # Add the cron job since it doesn't exist and user consented
-            printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
-            if _AddFWAutoUpdateCronJob_
-            then
-                printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
-                cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
-                printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
-            else
-                printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
-            fi
-            _AddFWAutoUpdateHook_
-        else
-            printf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
-            printf "You can enable this feature later via the main menu.\n"
-            FW_UpdateCheckState=0
-            runfwUpdateCheck=false
-            nvram set firmware_check_enable="$FW_UpdateCheckState"
-            nvram commit
-        fi
-    else
-        printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
-        _AddFWAutoUpdateHook_
-    fi
-
-    # Check if there's a new F/W update available #
-    "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ] && sh $FW_UpdateCheckScript 2>&1 &
-    _WaitForEnterKey_
-fi
+_ConfirmCronJobEntry_
 
 padStr="      "
 
@@ -8571,7 +9173,7 @@ _ShowMainMenu_()
    fi
 
    ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-   if [ "$ChangelogApproval" = "BLOCKED" ]
+   if [ "$ChangelogApproval" != "TBD" ] && [ "$ChangelogApproval" = "BLOCKED" ]
    then
       printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
       printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
@@ -8644,11 +9246,13 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
    fi
 
+   # Check if the file /jffs/scripts/backupmon.sh exists #
    if [ -f "/jffs/scripts/backupmon.sh" ]
    then
        # Retrieve the current backup setting #
        currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
 
+       # Display the backup option toggle menu
        printf "\n ${GRNct}ab${NOct}.  Toggle Automatic Backups"
        if [ "$currentBackupOption" = "DISABLED" ]
        then printf "\n${padStr}[Currently ${REDct}${currentBackupOption}${NOct}]\n"
@@ -8675,9 +9279,9 @@ _ShowAdvancedOptionsMenu_()
          current_build_type="$(Get_Custom_Setting "TUFBuild")"
 
          # Convert the setting to a descriptive text
-         if [ "$current_build_type" = "y" ]; then
+         if [ "$current_build_type" = "ENABLED" ]; then
              current_build_type_menu="TUF Build"
-         elif [ "$current_build_type" = "n" ]; then
+         elif [ "$current_build_type" = "DISABLED" ]; then
              current_build_type_menu="Pure Build"
          else
              current_build_type_menu="NOT SET"
@@ -8697,9 +9301,9 @@ _ShowAdvancedOptionsMenu_()
           local current_build_typerog="$(Get_Custom_Setting "ROGBuild")"
 
           # Convert the setting to a descriptive text
-          if [ "$current_build_typerog" = "y" ]; then
+          if [ "$current_build_typerog" = "ENABLED" ]; then
               current_build_type_menurog="ROG Build"
-          elif [ "$current_build_typerog" = "n" ]; then
+          elif [ "$current_build_typerog" = "DISABLED" ]; then
               current_build_type_menurog="Pure Build"
           else
               current_build_type_menurog="NOT SET"
@@ -8718,9 +9322,9 @@ _ShowAdvancedOptionsMenu_()
           local current_build_typetuf="$(Get_Custom_Setting "TUFBuild")"
 
           # Convert the setting to a descriptive text
-          if [ "$current_build_typetuf" = "y" ]; then
+          if [ "$current_build_typetuf" = "ENABLED" ]; then
               current_build_type_menutuf="TUF Build"
-          elif [ "$current_build_typetuf" = "n" ]; then
+          elif [ "$current_build_typetuf" = "DISABLED" ]; then
               current_build_type_menutuf="Pure Build"
           else
               current_build_type_menutuf="NOT SET"
@@ -8742,9 +9346,9 @@ _ShowAdvancedOptionsMenu_()
           current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
           # Convert the setting to a descriptive text
-          if [ "$current_build_type" = "y" ]; then
+          if [ "$current_build_type" = "ENABLED" ]; then
               current_build_type_menu="ROG Build"
-          elif [ "$current_build_type" = "n" ]; then
+          elif [ "$current_build_type" = "DISABLED" ]; then
               current_build_type_menu="Pure Build"
           else
               current_build_type_menu="NOT SET"
@@ -8771,14 +9375,14 @@ _ShowAdvancedOptionsMenu_()
        else
            printf "\n ${GRNct}em${NOct}.  Toggle F/W Email Notifications"
        fi
-       if "$sendEMailNotificationsFlag"
+       if [ "$sendEMailNotificationsFlag" = "ENABLED" ]
        then
            printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
        else
            printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
        fi
 
-       if "$sendEMailNotificationsFlag"
+       if [ "$sendEMailNotificationsFlag" = "ENABLED" ]
        then
            # Format Types: "HTML" or "Plain Text" #
            printf "\n ${GRNct}ef${NOct}.  Set Email Format Type"
@@ -8908,7 +9512,7 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
 ##------------------------------------------##
 _AdvancedOptionsMenu_()
 {
@@ -8952,13 +9556,13 @@ _AdvancedOptionsMenu_()
                fi
                ;;
            ef) if "$isEMailConfigEnabledInAMTM" && \
-                  "$sendEMailNotificationsFlag"
+                  [ "$sendEMailNotificationsFlag" = "ENABLED" ]
                then _SetEMailFormatType_
                else _InvalidMenuSelection_
                fi
                ;;
            se) if "$isEMailConfigEnabledInAMTM" && \
-                  "$sendEMailNotificationsFlag"
+                  [ "$sendEMailNotificationsFlag" = "ENABLED" ]
                then _SetSecondaryEMailAddress_
                else _InvalidMenuSelection_
                fi
