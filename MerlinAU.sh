@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2024-Dec-28
+# Last Modified: 2024-Jan-01
 ###################################################################
 set -u
 
@@ -37,8 +37,13 @@ readonly CL_URL_3006="${FW_SFURL_BASE}/Documentation/Changelog-3006.txt/download
 
 readonly high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-31] ##
+##----------------------------------------##
 # For new script version updates from source repository #
 DLRepoVersion=""
+DLRepoVersionNum=""
+ScriptVersionNum=""
 scriptUpdateNotify=0
 
 ##------------------------------------------##
@@ -475,9 +480,9 @@ Toggle_LEDs_PID=""
 FW_UpdateCheckState="TBD"
 FW_UpdateCheckScript="/usr/sbin/webs_update.sh"
 
-##--------------------------------------##
-## Added by Martinski W. [22023-Nov-24] ##
-##--------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2023-Nov-24] ##
+##-------------------------------------##
 #---------------------------------------------------------#
 # The USB-attached drives can have multiple partitions
 # with different file systems (NTFS, ext3, ext4, etc.),
@@ -1834,59 +1839,104 @@ _Config_FromSettings_(){
     return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2024-Dec-31] ##
+##-------------------------------------##
+newGUIversionNum="$(_ScriptVersionStrToNum_ '1.4.0')"
+# Temporary code used to migrate to future new script version #
+_CheckForNewGUIVersionUpdate_()
+{
+   local retCode  theScriptVerNum   urlScriptVerNum
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then
+       theScriptVerNum="$ScriptVersionNum"
+       urlScriptVerNum="$DLRepoVersionNum"
+   else
+       theScriptVerNum="$(_ScriptVersionStrToNum_ "$1")"
+       urlScriptVerNum="$(_ScriptVersionStrToNum_ "$2")"
+   fi
+   if [ "$theScriptVerNum" -lt "$newGUIversionNum" ] && \
+      [ "$urlScriptVerNum" -ge "$newGUIversionNum" ]
+   then retCode=0
+   else retCode=1
+   fi
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-01] ##
+##-------------------------------------##
+_CurlFileDownload_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1 ; fi
+   local retCode  tempFilePathDL="${2}.DL.TMP"
+
+   curl -LSs --retry 4 --retry-delay 5 --retry-connrefused \
+        "$1" -o "$tempFilePathDL"
+   if [ $? -ne 0 ] && [ ! -s "$tempFilePathDL" ] || \
+      grep -iq "^404: Not Found" "$tempFilePathDL"
+   then rm -f "$tempFilePathDL" ; retCode=1
+   else mv -f "$tempFilePathDL" "$2" ; retCode=0
+   fi
+   return "$retCode"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-31] ##
+##----------------------------------------##
 _SCRIPTUPDATE_()
 {
-   local scriptVers  ScriptFileDL="${ScriptFilePath}.DL"
+   local urlScriptVers  theScriptVers  extraParam=""
 
    _DownloadScriptFiles_()
    {
       local retCode
-
-      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
-      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" -o "$ScriptFileDL"
-      curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.asp" -o "$SETTINGS_DIR"
-
-      if [ $? -eq 0 ] && [ -s "$ScriptFileDL" ]
+      if _CurlFileDownload_ "${SCRIPT_URL_REPO}/version.txt" "$SCRIPTVERPATH"
       then
-          mv -f "$ScriptFileDL" "$ScriptFilePath"
-          chmod 755 "$ScriptFilePath"
-          retCode=0
+          retCode=0 ; chmod 664 "$SCRIPTVERPATH"
       else
-          rm -f "$ScriptFileDL"
-          printf "\n${REDct}Download failed.${NOct}\n"
           retCode=1
+          Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
+      fi
+      if _CurlFileDownload_ "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" "$ScriptFilePath"
+      then
+          retCode=0 ; chmod 755 "$ScriptFilePath"
+      else
+          retCode=1
+          Say "${REDct}**ERROR**${NOct}: Unable to download latest script file for $SCRIPT_NAME."
       fi
       return "$retCode"
    }
 
    if [ $# -gt 0 ] && [ "$1" = "force" ]
    then
-       echo -e "${CYANct}Force downloading latest version...${NOct}"
-       scriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
-       echo -e "${CYANct}Downloading latest version ($scriptVers) of ${SCRIPT_NAME}${NOct}"
+       printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
+       theScriptVers="$SCRIPT_VERSION"
+       [ -s "$SCRIPTVERPATH" ] && theScriptVers="$(cat "$SCRIPTVERPATH")"
+       urlScriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
+       printf "${CYANct}Downloading latest version ($urlScriptVers) of ${SCRIPT_NAME}${NOct}\n"
 
        if _DownloadScriptFiles_
        then
-           if "$inRouterSWmode"
-           then
-                _Set_Version_SharedSettings_ add "$SCRIPT_VERSION"
-                _Create_Symlinks_
-           fi
-           echo -e "${CYANct}$SCRIPT_NAME successfully updated.${NOct}"
+           printf "${CYANct}$SCRIPT_NAME was successfully updated.${NOct}\n\n"
+           sleep 1
+           [ -s "$SCRIPTVERPATH" ] && urlScriptVers="$(cat "$SCRIPTVERPATH")"
+           if [ $# -gt 1 ] && [ "$2" = "newgui" ] && \
+              _CheckForNewGUIVersionUpdate_ "$theScriptVers" "$urlScriptVers"
+           then extraParam="forceupdate" ; fi
            _ReleaseLock_
-           chmod 755 "$ScriptFilePath"
-           exec "$ScriptFilePath"
+           exec "$ScriptFilePath" $extraParam
+           exit 0
        fi
-       return
+       return 0
    fi
 
-   _CheckForNewScriptUpdates_
+   ! _CheckForNewScriptUpdates_ && return 1
 
    clear
    logo
+
    printf "\n${YLWct}Script Update Utility${NOct}\n\n"
    printf "${CYANct}Version Currently Installed:  ${YLWct}${SCRIPT_VERSION}${NOct}\n"
    printf "${CYANct}Update Version Available Now: ${YLWct}${DLRepoVersion}${NOct}\n\n"
@@ -1897,8 +1947,7 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
       if _WaitForYESorNO_
       then
-          printf "\n\n"
-          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
+          printf "\n\n${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}\n"
 
           if _DownloadScriptFiles_
           then
@@ -1909,15 +1958,14 @@ _SCRIPTUPDATE_()
               fi
               chmod 755 "$ScriptFilePath"
               echo
-              echo -e "${CYANct}Download successful!${NOct}"
-              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
+              printf "\n${CYANct}Download successful!${NOct}\n"
+              printf "\n\n${CYANct}Downloading $SCRIPT_NAME $DLRepoVersion version.${NOct}\n"
               echo
           fi
           _WaitForEnterKey_
           return
       else
-          printf "\n\n"
-          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
+          printf "\n\n${GRNct}Exiting Script Update Utility...${NOct}\n"
           sleep 1
           return
       fi
@@ -1927,48 +1975,53 @@ _SCRIPTUPDATE_()
       if _WaitForYESorNO_
       then
           printf "\n\n"
-          echo -e "${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}"
+          printf "\n\n${CYANct}Downloading $SCRIPT_NAME $DLRepoVersion version.${NOct}\n"
 
           if _DownloadScriptFiles_
           then
-              echo
-              echo -e "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v$DLRepoVersion"
-              echo -e "${CYANct}Update successful! Restarting script...${NOct}"
               if "$inRouterSWmode"
               then
                   _Set_Version_SharedSettings_ add "$DLRepoVersion"
                   _Create_Symlinks_
               fi
+              printf "\n$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
+              printf "${CYANct}Update successful! Restarting script...${NOct}\n"
+              sleep 1
+              _CheckForNewGUIVersionUpdate_ && extraParam="forceupdate"
               _ReleaseLock_
-              chmod 755 "$ScriptFilePath"
-              exec "$ScriptFilePath"  # Re-execute the updated script #
-              exit 0  # This line will not be executed due to above exec #
+              exec "$ScriptFilePath" $extraParam
+              exit 0
           else
               _WaitForEnterKey_
               return
           fi
       else
-          printf "\n\n"
-          echo -e "${GRNct}Exiting Script Update Utility...${NOct}"
+          printf "\n\n${GRNct}Exiting Script Update Utility...${NOct}\n"
           sleep 1
           return
       fi
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-01] ##
+##----------------------------------------##
 _CheckForNewScriptUpdates_()
 {
-   local DLRepoVersionNum  ScriptVersionNum
+   local extraParam=""
 
-   echo ""
+   echo
+   DLRepoVersion="$SCRIPT_VERSION"
    [ -s "$SCRIPTVERPATH" ] && DLRepoVersion="$(cat "$SCRIPTVERPATH")"
    rm -f "$SCRIPTVERPATH"
 
    # Download the latest version file from the source repository
-   curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt" -o "$SCRIPTVERPATH"
+   if ! _CurlFileDownload_ "${SCRIPT_URL_REPO}/version.txt" "$SCRIPTVERPATH"
+   then
+       Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
+       scriptUpdateNotify=0
+       return 1
+   fi
 
    if [ $? -ne 0 ] || [ ! -s "$SCRIPTVERPATH" ]
    then scriptUpdateNotify=0 ; return 1 ; fi
@@ -1977,7 +2030,7 @@ _CheckForNewScriptUpdates_()
    DLRepoVersion="$(cat "$SCRIPTVERPATH")"
    if [ -z "$DLRepoVersion" ]
    then
-       echo "Variable for downloaded version is empty."
+       Say "${REDct}**ERROR**${NOct}: Variable for downloaded version is empty."
        scriptUpdateNotify=0
        return 1
    fi
@@ -1985,19 +2038,20 @@ _CheckForNewScriptUpdates_()
    DLRepoVersionNum="$(_ScriptVersionStrToNum_ "$DLRepoVersion")"
    ScriptVersionNum="$(_ScriptVersionStrToNum_ "$SCRIPT_VERSION")"
 
-   # Version comparison
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
    then
-      scriptUpdateNotify="New script update available.
+       scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
-      Say "$(date +'%b %d %Y %X') $myLAN_HostName ${ScriptFNameTag}_[$$] - INFO: A new script update (v$DLRepoVersion) is available to download."
-      if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
-      then
-         _SCRIPTUPDATE_ force
-      fi
+       Say "$myLAN_HostName - A new script version update (v$DLRepoVersion) is available to download."
+       if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
+       then
+           _CheckForNewGUIVersionUpdate_ && extraParam="newgui"
+           _SCRIPTUPDATE_ force $extraParam
+       fi
    else
-      scriptUpdateNotify=0
+       scriptUpdateNotify=0
    fi
+   return 0
 }
 
 ##----------------------------------------------##
@@ -3454,7 +3508,7 @@ _GetNodeInfo_()
         return 1
     fi
 
-    # Perform login request
+    # Perform login request #
     curl -s -k "${NodeURLstr}/login.cgi" \
     --referer "${NodeURLstr}/Main_Login.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -3472,7 +3526,7 @@ _GetNodeInfo_()
         return 1
     fi
 
-    # Run the curl command to retrieve the HTML content
+    # Retrieve the HTML content #
     htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
@@ -3512,7 +3566,7 @@ _GetNodeInfo_()
     # Combine extracted information into one string #
     Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
 
-    # Perform logout request
+    # Perform logout request #
     curl -s -k "${NodeURLstr}/Logout.asp" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
@@ -7438,9 +7492,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
-    # Extracting the F/W Update codebase number to use in the curl #
+    # Extracting the F/W Update codebase number #
     fwUpdateBaseNum="$(echo "$release_version" | cut -d'.' -f1)"
-    # Inserting dots between each number
+    # Inserting dots between each number #
     dottedVersion="$(echo "$fwUpdateBaseNum" | sed 's/./&./g' | sed 's/.$//')"
 
     ## Check for Login Credentials ##
@@ -8584,13 +8638,13 @@ _ConfirmCronJobEntry_()
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
-##------------------------------------------##
-if [ $# -gt 0 ]
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-31] ##
+##----------------------------------------##
+if [ $# -gt 0 ] && [ -n "$1" ]
 then
    inMenuMode=false
-   case $1 in
+   case "$1" in
        run_now) _RunFirmwareUpdateNow_
            ;;
        processNodes) _ProcessMeshNodes_ 0
@@ -8609,7 +8663,7 @@ then
            ;;
        checkupdates) _CheckForNewScriptUpdates_
            ;;
-       forceupdate) _SCRIPTUPDATE_ force
+       forceupdate) _SCRIPTUPDATE_ force "$([ $# -gt 1 ] && echo "$2" || echo)"
            ;;
        develop) _ChangeToDev_
            ;;
