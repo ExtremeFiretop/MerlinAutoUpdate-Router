@@ -1906,6 +1906,13 @@ _SCRIPTUPDATE_()
           retCode=1
           Say "${REDct}**ERROR**${NOct}: Unable to download latest script file for $SCRIPT_NAME."
       fi
+      if _CurlFileDownload_ "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.asp" "$SETTINGS_DIR"
+      then
+          retCode=0 ; chmod 755 "$SETTINGS_DIR"
+      else
+          retCode=1
+          Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI file for $SCRIPT_NAME."
+      fi
       return "$retCode"
    }
 
