@@ -1883,7 +1883,7 @@ _CurlFileDownload_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-31] ##
+## Modified by Martinski W. [2025-Jan-01] ##
 ##----------------------------------------##
 _SCRIPTUPDATE_()
 {
@@ -1947,7 +1947,7 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
       if _WaitForYESorNO_
       then
-          printf "\n\n${CYANct}Downloading $SCRIPT_NAME ${CYANct}v${DLRepoVersion}${NOct}\n"
+          printf "\n\n${CYANct}Downloading $SCRIPT_NAME $DLRepoVersion version.${NOct}\n"
 
           if _DownloadScriptFiles_
           then
@@ -1956,11 +1956,8 @@ _SCRIPTUPDATE_()
                     _Set_Version_SharedSettings_ add "$DLRepoVersion"
                     _Create_Symlinks_
               fi
-              chmod 755 "$ScriptFilePath"
-              echo
               printf "\n${CYANct}Download successful!${NOct}\n"
-              printf "\n\n${CYANct}Downloading $SCRIPT_NAME $DLRepoVersion version.${NOct}\n"
-              echo
+              printf "$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
           fi
           _WaitForEnterKey_
           return
@@ -1974,7 +1971,6 @@ _SCRIPTUPDATE_()
       echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
       if _WaitForYESorNO_
       then
-          printf "\n\n"
           printf "\n\n${CYANct}Downloading $SCRIPT_NAME $DLRepoVersion version.${NOct}\n"
 
           if _DownloadScriptFiles_
@@ -2015,7 +2011,6 @@ _CheckForNewScriptUpdates_()
    [ -s "$SCRIPTVERPATH" ] && DLRepoVersion="$(cat "$SCRIPTVERPATH")"
    rm -f "$SCRIPTVERPATH"
 
-   # Download the latest version file from the source repository
    if ! _CurlFileDownload_ "${SCRIPT_URL_REPO}/version.txt" "$SCRIPTVERPATH"
    then
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
@@ -2023,10 +2018,6 @@ _CheckForNewScriptUpdates_()
        return 1
    fi
 
-   if [ $? -ne 0 ] || [ ! -s "$SCRIPTVERPATH" ]
-   then scriptUpdateNotify=0 ; return 1 ; fi
-
-   # Read in its contents for the current version file
    DLRepoVersion="$(cat "$SCRIPTVERPATH")"
    if [ -z "$DLRepoVersion" ]
    then
@@ -2099,7 +2090,7 @@ _CreateEMailContent_()
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
 
-   # Remove "_rog" or "_tuf" or -gHASHVALUES or -Gnuton* suffix to avoid version comparison failures #
+   # Remove "_rog" or "_tuf" or -gHASHVALUES or -Gnuton* suffix to avoid version comparison failure, can't remove all for proper beta and alpha comparison #
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10}|-gnuton[0-9]+)$//')"
 
    case "$1" in
@@ -9205,9 +9196,9 @@ _ShowMainMenu_()
    printf "${SEPstr}\n"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Dec-22] ##
+##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
    local BetaProductionSetting  VPNAccess  currentBackupOption
