@@ -1919,6 +1919,11 @@ _SCRIPTUPDATE_()
 
        if _DownloadScriptFiles_
        then
+           if "$inRouterSWmode"
+           then
+                  _Set_Version_SharedSettings_ add "$DLRepoVersion"
+                  _Create_Symlinks_
+           fi
            printf "${CYANct}$SCRIPT_NAME was successfully updated.${NOct}\n\n"
            sleep 1
            [ -s "$SCRIPTVERPATH" ] && urlScriptVers="$(cat "$SCRIPTVERPATH")"
