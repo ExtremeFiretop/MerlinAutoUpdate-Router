@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-05 **/
+/** Last Modified: 2025-Jan-08 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -1059,7 +1059,7 @@ function initializeCollapsibleSections()
 <table width="100%" cellpadding="0" cellspacing="0" style="border: none; background-color: transparent;">
 <tr>
 <!-- Firmware Status Column -->
-<td valign="top" width="50%" style="padding-right: 5px;">
+<td valign="top" width="57%" style="padding-right: 5px;">
 <!-- Firmware Status Section -->
 <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
 <thead class="collapsible-jquery" id="firmwareStatusSection">
@@ -1106,7 +1106,7 @@ function initializeCollapsibleSections()
 </table></td></tr></tbody></table></td>
 
 <!-- Settings Status Column -->
-<td valign="top" width="50%" style="padding-left: 5px;">
+<td valign="top" width="43%" style="padding-left: 5px;">
 <!-- Settings Status Section -->
 <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
 <thead class="collapsible-jquery" id="settingsStatusSection">
@@ -1121,31 +1121,31 @@ function initializeCollapsibleSections()
 <td style="vertical-align: top; width: 50%;">
 <table style="margin: 0; text-align: left; width: 100%; border: none;">
 <tr>
-   <td style="padding: 4px; width: 200px;"><strong>Changelog Approval:</strong></td>
+   <td style="padding: 4px; width: 175px;"><strong>Changelog Approval:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="changelogApproval">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 200px;"><strong>Changelog Check:</strong></td>
+   <td style="padding: 4px; width: 175px;"><strong>Changelog Check:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="changelogCheckStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 200px;"><strong>Beta-to-Release Updates:</strong></td>
+   <td style="padding: 4px; width: 175px;"><strong>Beta-to-Release Updates:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="betaToReleaseUpdatesStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 200px;"><strong>Tailscale VPN Access:</strong></td>
+   <td style="padding: 4px; width: 175px;"><strong>Tailscale VPN Access:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="tailscaleVPNAccessStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 200px;"><strong>Auto-Backup Enabled:</strong></td>
+   <td style="padding: 4px; width: 175px;"><strong>Auto-Backup Enabled:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="autobackupEnabledStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 200px;"><strong>Auto-Updates for Script:</strong></td>
+   <td style="padding: 4px; width: 175px;"><strong>Auto-Updates for Script:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="autoUpdatesScriptEnabledStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 200px;"><strong>Email-Notifications:</strong></td>
+   <td style="padding: 4px; width: 175px;"><strong>Email-Notifications:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="emailNotificationsStatus">Disabled</td>
 </tr>
 </table></td></tr></tbody></table></td></tr></table>
