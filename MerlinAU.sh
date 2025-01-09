@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-01
+# Last Modified: 2025-Jan-06
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.9
+readonly SCRIPT_VERSION=1.3.10
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -1521,9 +1521,9 @@ _CheckForNewGUIVersionUpdate_()
    return "$retCode"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-01] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-06] ##
+##----------------------------------------##
 _CurlFileDownload_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -1532,7 +1532,7 @@ _CurlFileDownload_()
 
    curl -LSs --retry 4 --retry-delay 5 --retry-connrefused \
         "$1" -o "$tempFilePathDL"
-   if [ $? -ne 0 ] && [ ! -s "$tempFilePathDL" ] || \
+   if [ $? -ne 0 ] || [ ! -s "$tempFilePathDL" ] || \
       grep -iq "^404: Not Found" "$tempFilePathDL"
    then rm -f "$tempFilePathDL" ; retCode=1
    else mv -f "$tempFilePathDL" "$2" ; retCode=0
@@ -1541,7 +1541,7 @@ _CurlFileDownload_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-01] ##
+## Modified by Martinski W. [2025-Jan-06] ##
 ##----------------------------------------##
 _SCRIPTUPDATE_()
 {
@@ -1582,7 +1582,7 @@ _SCRIPTUPDATE_()
            [ -s "$SCRIPTVERPATH" ] && urlScriptVers="$(cat "$SCRIPTVERPATH")"
            if [ $# -gt 1 ] && [ "$2" = "newgui" ] && \
               _CheckForNewGUIVersionUpdate_ "$theScriptVers" "$urlScriptVers"
-           then extraParam="forceupdate" ; fi
+           then extraParam="install" ; fi
            _ReleaseLock_
            exec "$ScriptFilePath" $extraParam
            exit 0
@@ -1630,7 +1630,7 @@ _SCRIPTUPDATE_()
               printf "\n$(date) - $SCRIPT_NAME - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
               printf "${CYANct}Update successful! Restarting script...${NOct}\n"
               sleep 1
-              _CheckForNewGUIVersionUpdate_ && extraParam="forceupdate"
+              _CheckForNewGUIVersionUpdate_ && extraParam="install"
               _ReleaseLock_
               exec "$ScriptFilePath" $extraParam
               exit 0
