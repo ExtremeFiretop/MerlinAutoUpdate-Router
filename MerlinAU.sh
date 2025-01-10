@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-09
+# Last Modified: 2025-Jan-10
 ###################################################################
 set -u
 
@@ -1108,33 +1108,6 @@ Get_Custom_Setting()
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
-##------------------------------------------##
-_GetAllNodeSettings_()
-{
-    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
-    then echo "**ERROR**" ; return 1; fi
-
-    ## Node Setting KEY="Node_{MACaddress}_{keySuffix}" ##
-    local fullKeyName="Node_${1}_${2}"
-    local setting_value="TBD"  matched_lines
-
-    # Ensure the settings directory exists #
-    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
-
-    if [ -f "$CONFIG_FILE" ]
-    then
-        matched_lines="$(grep -E "^${fullKeyName}=.*" "$CONFIG_FILE")"
-        if [ -n "$matched_lines" ]
-        then
-            # Extract the value from the first matched line #
-            setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
-        fi
-    fi
-    echo "$setting_value"
-}
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-05] ##
 ##----------------------------------------##
@@ -1273,6 +1246,33 @@ Delete_Custom_Settings()
     local setting_type="$1"
     sed -i "/^${setting_type}[ =]/d" "$CONFIG_FILE"
     return $?
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Dec-21] ##
+##------------------------------------------##
+_GetAllNodeSettings_()
+{
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+    then echo "**ERROR**" ; return 1; fi
+
+    ## Node Setting KEY="Node_{MACaddress}_{keySuffix}" ##
+    local fullKeyName="Node_${1}_${2}"
+    local setting_value="TBD"  matched_lines
+
+    # Ensure the settings directory exists #
+    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
+
+    if [ -f "$CONFIG_FILE" ]
+    then
+        matched_lines="$(grep -E "^${fullKeyName}=.*" "$CONFIG_FILE")"
+        if [ -n "$matched_lines" ]
+        then
+            # Extract the value from the first matched line #
+            setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
+        fi
+    fi
+    echo "$setting_value"
 }
 
 ##------------------------------------------##
@@ -2298,7 +2298,7 @@ _CreateEMailContent_()
            ;;
        STOP_FW_UPDATE_APPROVAL)
            emailBodyTitle="WARNING"
-           if $isEMailFormatHTML
+           if "$isEMailFormatHTML"
            then
                # Highlight high-risk terms using HTML with a yellow background #
                highlighted_changelog_contents="$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/<span style='background-color:yellow;'>\1<\/span>/gi")"
@@ -2483,7 +2483,7 @@ EOF
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-16] ##
+## Modified by Martinski W. [2025-Jan-10] ##
 ##----------------------------------------##
 _CheckEMailConfigFileFromAMTM_()
 {
@@ -2520,6 +2520,15 @@ _CheckEMailConfigFileFromAMTM_()
        "$doLogMsgs" && \
        Say "${REDct}**ERROR**${NOct}: Unable to send email notification [Empty variables]."
        return 1
+   fi
+
+   sendEMail_CC_Name="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
+   sendEMail_CC_Address="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+   sendEMailNotificationsFlag="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
+   sendEMailFormaType="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
+   if [ "$sendEMailFormaType" = "HTML" ]
+   then isEMailFormatHTML=true
+   else isEMailFormatHTML=false
    fi
 
    if [ -n "$sendEMail_CC_Name" ] && [ "$sendEMail_CC_Name" != "TBD" ] && \
@@ -3097,40 +3106,116 @@ _GetRawKeypress_()
    stty "$savedSettings"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-10] ##
+##-------------------------------------##
+_OfflineKeySeqHandler_()
+{
+   if [ $# -lt 3 ] || [ -z "$1" ] || \
+      [ -z "$2" ] || [ -z "$3" ]
+   then return 1 ; fi
+
+   local retCode=1
+   local offlineKeySeqNum="27251624"  offlineKeySeqCnt=4
+
+   case "$3" in
+       FOUNDOK)
+           if [ "$1" -eq "$offlineKeySeqCnt" ] && \
+              [ "$2" -eq "$offlineKeySeqNum" ]
+           then retCode=0
+           else retCode=1
+           fi
+           ;;
+       NOTFOUND)
+           if [ "$1" -gt 4 ] || \
+              { [ "$1" -eq "$offlineKeySeqCnt" ] && \
+                [ "$2" -ne "$offlineKeySeqNum" ] ; }
+           then retCode=0
+           else retCode=1
+           fi
+           ;;
+       *) retCode=1 ;;
+   esac
+
+   return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-10] ##
+##-------------------------------------##
+_SetReloadKeySeqHandler_()
+{
+   if [ $# -lt 3 ] || [ -z "$1" ] || \
+      [ -z "$2" ] || [ -z "$3" ]
+   then return 1 ; fi
+
+   local retCode=1
+   local setReloadKeySeqNum="1812"  setReloadKeySeqCnt=2
+
+   case "$3" in
+       FOUNDOK)
+           if [ "$1" -eq "$setReloadKeySeqCnt" ] && \
+              [ "$2" -eq "$setReloadKeySeqNum" ]
+           then retCode=0
+           else retCode=1
+           fi
+           ;;
+       NOTFOUND)
+           if [ "$1" -gt 4 ] || \
+              { [ "$1" -eq "$setReloadKeySeqCnt" ] && \
+                [ "$2" -ne "$setReloadKeySeqNum" ] ; }
+           then retCode=0
+           else retCode=1
+           fi
+           ;;
+       *) retCode=1 ;;
+   esac
+
+   return "$retCode"
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-31] ##
+## Modified by Martinski W. [2025-Jan-10] ##
 ##----------------------------------------##
 _GetKeypressInput_()
 {
    local inputStrLenMAX=16  inputString  promptStr
    local charNum  inputStrLen  keypressCount
-   local theKeySeqCnt  maxKeySeqCnt=4  retCode
-   local theKeySeqNum  maxKeySeqNum="27251624"
-   local offlineModeFlag=false
+   local theKeySeqCnt theKeySeqNum  retCode
+   local offlineUpdKeyFlag  execReloadKeyFlag 
 
-   if [ -n "${offlineUpdateFlag:+xSETx}" ]
-   then offlineModeFlag=true ; fi
+   if [ -n "${offlineUpdTrigger:+xSETx}" ]
+   then
+       offlineUpdKeyFlag=true
+       offlineUpdTrigger=false
+   else
+       offlineUpdKeyFlag=false
+       unset offlineUpdTrigger
+   fi
+
+   if [ -n "${execReloadTrigger:+xSETx}" ]
+   then
+       execReloadKeyFlag=true
+       execReloadTrigger=false
+   else
+       execReloadKeyFlag=false
+       unset execReloadTrigger
+   fi
 
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
        printf "\n**ERROR**: NO prompt string was provided.\n"
        return 1
    fi
-   promptStr="$1"
 
    _ShowInputString_()
    { printf "\r\033[0K${promptStr}  %s" "$inputString" ; }
 
    _ClearKeySeqState_()
-   {
-      theKeySeqNum=0 ; theKeySeqCnt=0
-      if "$offlineModeFlag"
-      then offlineUpdateFlag=false
-      else unset offlineUpdateFlag
-      fi
-   }
+   { theKeySeqNum=0 ; theKeySeqCnt=0 ; }
 
    charNum=""
+   promptStr="$1"
    inputString=""
    inputStrLen=0
    keypressCount=0
@@ -3188,26 +3273,37 @@ _GetKeypressInput_()
           continue
       fi
 
-      # Non-Printable ASCII Codes ##
-      if "$offlineModeFlag" && [ "$charNum" -gt 0 ] && [ "$charNum" -lt 32 ]
+      ## Non-Printable ASCII Codes ##
+      if [ "$charNum" -gt 0 ] && [ "$charNum" -lt 32 ] && \
+         { "$offlineUpdKeyFlag" || "$execReloadKeyFlag" ; }
       then
-          offlineUpdateFlag=false
+          "$offlineUpdKeyFlag" && offlineUpdTrigger=false
+          "$execReloadKeyFlag" && execReloadTrigger=false
+
           theKeySeqCnt="$((theKeySeqCnt + 1))"
           if [ "$theKeySeqCnt" -eq 1 ]
           then theKeySeqNum="$charNum"
           else theKeySeqNum="${theKeySeqNum}${charNum}"
           fi
-          if [ "$theKeySeqCnt" -eq "$maxKeySeqCnt" ] && \
-             [ "$theKeySeqNum" -eq "$maxKeySeqNum" ]
+          if "$offlineUpdKeyFlag" && \
+             _OfflineKeySeqHandler_ "$theKeySeqCnt" "$theKeySeqNum" FOUNDOK
           then
               _ClearKeySeqState_
               if [ "$inputString" = "offline" ]
-              then offlineUpdateFlag=true ; fi
+              then offlineUpdTrigger=true ; fi
               continue
           fi
-          if [ "$theKeySeqCnt" -gt "$maxKeySeqCnt" ] || \
-             { [ "$theKeySeqCnt" -eq "$maxKeySeqCnt" ] && \
-               [ "$theKeySeqNum" -ne "$maxKeySeqNum" ] ; }
+          if "$execReloadKeyFlag" && \
+             _SetReloadKeySeqHandler_ "$theKeySeqCnt" "$theKeySeqNum" FOUNDOK
+          then
+              _ClearKeySeqState_
+              execReloadTrigger=true
+              continue
+          fi
+          if { "$offlineUpdKeyFlag" && \
+               _OfflineKeySeqHandler_ "$theKeySeqCnt" "$theKeySeqNum" NOTFOUND ; } && \
+             { "$execReloadKeyFlag" && \
+               _SetReloadKeySeqHandler_ "$theKeySeqCnt" "$theKeySeqNum" NOTFOUND ; }
           then _ClearKeySeqState_ ; fi
       else
           _ClearKeySeqState_
@@ -3216,7 +3312,7 @@ _GetKeypressInput_()
    IFS="$savedIFS"
 
    theUserInputStr="$inputString"
-   return "$retCode"
+   echo ; return "$retCode"
 }
 
 ##----------------------------------------##
@@ -6513,7 +6609,7 @@ _ManageChangelogGnuton_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-05] ##
+## Modified by Martinski W. [2025-Jan-10] ##
 ##----------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
@@ -6537,9 +6633,9 @@ _CheckNewUpdateFirmwareNotification_()
        local currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
        if [ "$currentChangelogValue" = "ENABLED" ]
        then
-          Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
-          return 1
+           Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
        fi
+       return 1
    fi
 
    fwNewUpdateNotificationVers="$(Get_Custom_Setting FW_New_Update_Notification_Vers TBD)"
@@ -8386,7 +8482,7 @@ _DoInstallation_()
 ##------------------------------------------##
 _DoUnInstallation_()
 {
-   printf "Are you sure you want to uninstall $ScriptFileName script now"
+   printf "\nAre you sure you want to uninstall $ScriptFileName script now"
    ! _WaitForYESorNO_ && return 0
 
    if ! _AcquireLock_ cliFileLock ; then return 1 ; fi
@@ -9140,7 +9236,7 @@ _InvalidMenuSelection_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-03] ##
+## Modified by Martinski W. [2025-Jan-10] ##
 ##----------------------------------------##
 _ShowMainMenuOptions_()
 {
@@ -9150,9 +9246,14 @@ _ShowMainMenuOptions_()
    # Check if router reports a new F/W update is available.
    # If yes, modify the notification settings accordingly.
    #-----------------------------------------------------------#
-   FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)" && \
-   [ -n "$FW_InstalledVersion" ] && [ -n "$FW_NewUpdateVersion" ] && \
-   _CheckNewUpdateFirmwareNotification_ "$FW_InstalledVersion" "$FW_NewUpdateVersion"
+   FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
+   if [ -n "$FW_NewUpdateVersion" ] && \
+      [ -n "$FW_InstalledVersion" ] && \
+      [ "$FW_NewUpdateVersion" != "$FW_NewUpdateVerInit" ]
+   then
+       FW_NewUpdateVerInit="$FW_NewUpdateVersion"
+       _CheckNewUpdateFirmwareNotification_ "$FW_InstalledVersion" "$FW_NewUpdateVersion"
+   fi
 
    clear
    _ShowLogo_
@@ -9230,6 +9331,7 @@ _ShowMainMenuOptions_()
    fi
    printf "\n${padStr}[Last Notification Date: $notificationStr]\n"
 
+   FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
 
@@ -9244,14 +9346,14 @@ _ShowMainMenuOptions_()
    fi
 
    ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-   if [ "$ChangelogApproval" != "TBD" ] && [ "$ChangelogApproval" = "BLOCKED" ]
+   if [ "$ChangelogApproval" = "BLOCKED" ]
    then
-      printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
-      printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
+       printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
+       printf "\n${padStr}[Currently ${REDct}${ChangelogApproval}${NOct}]\n"
    elif [ "$ChangelogApproval" = "APPROVED" ]
    then
-      printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
-      printf "\n${padStr}[Currently ${GRNct}${ChangelogApproval}${NOct}]\n"
+       printf "\n  ${GRNct}6${NOct}.  Toggle F/W Update Changelog Approval"
+       printf "\n${padStr}[Currently ${GRNct}${ChangelogApproval}${NOct}]\n"
    fi
 
    # Check for new script updates #
@@ -9549,13 +9651,15 @@ _ShowLogOptionsMenu_()
 ##----------------------------------------##
 _AdvancedLogsOptions_()
 {
+    local menuChoice=""
+
     while true
     do
         _ShowLogOptionsMenu_
         printf "\nEnter selection:  "
-        read -r nodesChoice
+        read -r menuChoice
         echo
-        case $nodesChoice in
+        case "$menuChoice" in
             1) _Set_FW_UpdateLOG_DirectoryPath_
                ;;
            lg) if _CheckForUpdateLogFiles_
@@ -9583,17 +9687,20 @@ _AdvancedLogsOptions_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
+## Modified by ExtremeFiretop [2025-Jan-10] ##
 ##------------------------------------------##
 _AdvancedOptionsMenu_()
 {
     local theUserInputStr=""
-    local offlineUpdateFlag=false
+    local offlineUpdTrigger=false
+    local execReloadTrigger=false
+
     while true
     do
         _ShowAdvancedOptionsMenu_
         _GetKeypressInput_ "Enter selection:"
         echo
+
         case "$theUserInputStr" in
             1) _Set_FW_UpdateZIP_DirectoryPath_
                ;;
@@ -9642,10 +9749,18 @@ _AdvancedOptionsMenu_()
                ;;
            e|E|exit) break
                ;;
-            *) if [ -n "${offlineUpdateFlag:+OK}" ] && "$offlineUpdateFlag"
+            *) if "$offlineUpdTrigger"
                then
                    _RunOfflineUpdateNow_
                    [ "$?" -eq 2 ] && _InvalidMenuSelection_
+               ##
+               elif "$execReloadTrigger"
+               then
+                   printf "Reloading configuration to refresh menu."
+                   printf "\nPlease wait...\n"
+                   _ReleaseLock_
+                   exec "$ScriptFilePath" reload advmenu
+                   exit 0
                else
                    _InvalidMenuSelection_
                fi
@@ -9655,32 +9770,52 @@ _AdvancedOptionsMenu_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-10] ##
 ##----------------------------------------##
 _MainMenu_()
 {
+   local theUserInputStr=""  jumpToAdvMenu
+   local execReloadTrigger=false
+
    inMenuMode=true
    HIDE_ROUTER_SECTION=false
    if ! node_list="$(_GetNodeIPv4List_)"
    then node_list="" ; fi
 
+   if [ $# -gt 1 ] && \
+      [ "$1" = "reload" ] && \
+      [ "$2" = "advmenu" ]
+   then jumpToAdvMenu=true
+   else jumpToAdvMenu=false
+   fi
+
    while true
    do
       [ -d "$FW_BIN_DIR" ] && cd "$FW_BIN_DIR"
 
-      _ShowMainMenuOptions_
-      printf "Enter selection:  " ; read -r userChoice
-      echo
-      case $userChoice in
+      if "$jumpToAdvMenu"
+      then
+          theUserInputStr=ad
+          jumpToAdvMenu=false
+      else
+          _ShowMainMenuOptions_
+          _GetKeypressInput_ "Enter selection:"
+          echo
+      fi
+
+      case "$theUserInputStr" in
           s|S|h|H)
-             if [ "$userChoice" = "s" ] || [ "$userChoice" = "S" ]; then
+             if [ "$theUserInputStr" = "s" ] || \
+                [ "$theUserInputStr" = "S" ]
+             then
                  HIDE_ROUTER_SECTION=false
-             elif [ "$userChoice" = "h" ] || [ "$userChoice" = "H" ]; then
+             elif [ "$theUserInputStr" = "h" ] || \
+                  [ "$theUserInputStr" = "H" ]
+             then
                  HIDE_ROUTER_SECTION=true
              fi
              ;;
-          1)
-             if _AcquireLock_ cliFileLock
+          1) if _AcquireLock_ cliFileLock
              then
                  _RunFirmwareUpdateNow_
                  _ReleaseLock_ cliFileLock
@@ -9695,13 +9830,13 @@ _MainMenu_()
              ;;
           5) _toggle_change_log_check_
              ;;
-          6) if [ "$ChangelogApproval" = "TBD" ] || [ -z "$ChangelogApproval" ]
+          6) if  [ -z "$ChangelogApproval" ] || \
+                 [ "$ChangelogApproval" = "TBD" ]
              then _InvalidMenuSelection_
              else _Approve_FW_Update_
              fi
              ;;
-         up)
-             if _AcquireLock_ cliFileLock
+         up) if _AcquireLock_ cliFileLock
              then
                  _SCRIPT_UPDATE_
                  _ReleaseLock_ cliFileLock
@@ -9718,7 +9853,16 @@ _MainMenu_()
              ;;
          e|E|exit) _DoExit_ 0
              ;;
-          *) _InvalidMenuSelection_
+          *) if "$execReloadTrigger"
+             then
+                 printf "Reloading configuration to refresh menu."
+                 printf "\nPlease wait...\n"
+                 _ReleaseLock_
+                 exec "$ScriptFilePath" reload topmenu
+                 exit 0
+             else
+                 _InvalidMenuSelection_
+             fi
              ;;
       esac
    done
@@ -9753,11 +9897,13 @@ _DoInitializationStartup_()
 
 FW_InstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
 FW_InstalledVerStr="${GRNct}${FW_InstalledVersion}${NOct}"
+FW_NewUpdateVerInit=TBD
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-10] ##
 ##----------------------------------------##
-if [ $# -eq 0 ] || [ -z "$1" ]
+if [ $# -eq 0 ] || [ -z "$1" ] || \
+   { [ $# -gt 1 ] && [ "$1" = "reload" ] ; }
 then
    if ! _AcquireLock_ cliMenuLock
    then Say "Exiting..." ; exit 1 ; fi
@@ -9773,7 +9919,7 @@ then
    then _AddScriptAutoUpdateCronJob_ ; fi
    _ConfirmCronJobForFWAutoUpdates_
 
-   _MainMenu_
+   _MainMenu_ "$@"
    _DoExit_ 0
 fi
 
