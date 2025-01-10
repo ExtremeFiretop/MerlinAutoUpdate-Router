@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-08 **/
+/** Last Modified: 2025-Jan-10 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -193,7 +193,7 @@ function handleROGFWBuildTypeVisibility()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-05] **/
+/** Modified by Martinski W. [2025-Jan-10] **/
 /**----------------------------------------**/
 function initializeFields()
 {
@@ -387,7 +387,7 @@ function initializeFields()
             else if (approvalStatus === "APPROVED")
             { changelogApprovalElement.innerHTML = InvGRNct + approvalStatus + InvCLEAR; }
             else // Handle unexpected values gracefully //
-            { changelogApprovalElement.innerHTML = REDct + approvalStatus + NOct; }
+            { changelogApprovalElement.innerHTML = InvREDct + approvalStatus + InvCLEAR; }
         }
 
         // **Control "Approve Changelog" Button State**
