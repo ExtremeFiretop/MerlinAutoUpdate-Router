@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-07
+# Last Modified: 2025-Jan-09
 ###################################################################
 set -u
 
@@ -327,36 +327,27 @@ _WaitForYESorNO_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-09] ##
 ##----------------------------------------##
 readonly LockFilePath="/tmp/var/${ScriptFNameTag}.LOCK"
 
 _ReleaseLock_() 
 {
+   local lockType
+   if [ $# -eq 0 ] || [ -z "$1" ]
+   then lockType=""
+   else lockType="$1"
+   fi
    if [ -s "$LockFilePath" ] && \
       [ "$(cat "$LockFilePath" | wc -l)" -gt 1 ]
    then
-       sed -i "/^$$|/d" "$LockFilePath"
-       return 0
+       if [ -z "$lockType" ]
+       then sed -i "/^$$|/d" "$LockFilePath"
+       else sed -i "/.*|${1}$/d" "$LockFilePath"
+       fi
+       [ -s "$LockFilePath" ] && return 0
    fi
    rm -f "$LockFilePath"
-}
-
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-05] ##
-##-------------------------------------##
-_RemoveLockType_() 
-{
-   if [ $# -eq 0 ] || [ -z "$1" ] || \
-      [ ! -f "$LockFilePath" ]
-   then return 1
-   fi
-   if [ -s "$LockFilePath" ] && \
-      [ "$(cat "$LockFilePath" | wc -l)" -gt 1 ]
-   then
-       sed -i "/.*|${1}$/d" "$LockFilePath"
-       return 0
-   fi
 }
 
 ## Defaults ##
@@ -382,19 +373,18 @@ else
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-09] ##
 ##----------------------------------------##
 _AcquireLock_()
 {
    local retCode  waitTimeoutSecs
    local lockFileSecs  ageOfLockSecs  oldPID
-   local lockTypeReq  lockTypeFound
+   local lockTypeReq  lockTypeFound  lockTypeRegEx
 
    if [ $# -gt 0 ] && [ -n "$1" ]
    then lockTypeReq="$1"
    else lockTypeReq="cliAnyLock"
    fi
-   lockTypeFound=""
 
    _CreateLockFile_()
    { echo "$$|$lockTypeReq" > "$LockFilePath" ; }
@@ -403,16 +393,22 @@ _AcquireLock_()
    then _CreateLockFile_ ; return 0
    fi
 
+   lockTypeFound=""
+   lockTypeRegEx="(cliMenuLock|cliOptsLock|cliFileLock)"
+
+   _FindLockTypes_()
+   { grep -woE "$lockTypeRegEx" "$LockFilePath" | tr '\n' ' ' | sed 's/[ ]*$//' ; }
+
    retCode=1
    waitTimeoutSecs=0
 
    while true
    do
-      if [ -f "$LockFilePath" ]
+      if [ -s "$LockFilePath" ]
       then
           oldPID="$(head -n1 "$LockFilePath" |  awk -F '|' '{print $1}')"
           lockFileSecs="$(date +%s -r "$LockFilePath")"
-          lockTypeFound="$(grep -woE "(cliMenuLock|cliOptsLock|cliFileLock)" "$LockFilePath")"
+          lockTypeFound="$(_FindLockTypes_)"
           if [ "$lockTypeReq" != "cliAnyLock" ] && \
              ! echo "$lockTypeFound" | grep -qw "$lockTypeReq"
           then # Specific "Lock Type" NOT found #
@@ -7471,7 +7467,7 @@ _RunOfflineUpdateNow_()
                 if _AcquireLock_ cliFileLock
                 then
                     _RunFirmwareUpdateNow_
-                    _RemoveLockType_ cliFileLock
+                    _ReleaseLock_ cliFileLock
                 fi
                 _ClearOfflineUpdateState_
             else
@@ -8179,7 +8175,7 @@ _PostRebootRunNow_()
    if _AcquireLock_ cliFileLock
    then
        _RunFirmwareUpdateNow_
-       _RemoveLockType_ cliFileLock
+       _ReleaseLock_ cliFileLock
    fi
 }
 
@@ -8377,8 +8373,8 @@ _DoInstallation_()
    fi
    ! "$webguiOK" && _DoExit_ 1
 
-   _RemoveLockType_ cliFileLock
-   _RemoveLockType_ cliOptsLock
+   _ReleaseLock_ cliFileLock
+   _ReleaseLock_ cliOptsLock
 
    if ! _AcquireLock_ cliMenuLock
    then Say "Exiting..." ; exit 1 ; fi
@@ -9687,7 +9683,7 @@ _MainMenu_()
              if _AcquireLock_ cliFileLock
              then
                  _RunFirmwareUpdateNow_
-                 _RemoveLockType_ cliFileLock
+                 _ReleaseLock_ cliFileLock
                  FlashStarted=false
              fi
              ;;
@@ -9708,7 +9704,7 @@ _MainMenu_()
              if _AcquireLock_ cliFileLock
              then
                  _SCRIPT_UPDATE_
-                 _RemoveLockType_ cliFileLock
+                 _ReleaseLock_ cliFileLock
              fi
              ;;
          ad) _AdvancedOptionsMenu_
@@ -9771,7 +9767,7 @@ then
    if _AcquireLock_ cliFileLock
    then
        _CheckForNewScriptUpdates_
-       _RemoveLockType_ cliFileLock
+       _ReleaseLock_ cliFileLock
    fi
    if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
    then _AddScriptAutoUpdateCronJob_ ; fi
@@ -9797,7 +9793,7 @@ then
            if _AcquireLock_ cliFileLock
            then
                _RunFirmwareUpdateNow_
-               _RemoveLockType_ cliFileLock
+               _ReleaseLock_ cliFileLock
            fi
            ;;
        processNodes) _ProcessMeshNodes_ 0
@@ -9818,14 +9814,14 @@ then
            if _AcquireLock_ cliFileLock
            then
                _CheckForNewScriptUpdates_
-               _RemoveLockType_ cliFileLock
+               _ReleaseLock_ cliFileLock
            fi
            ;;
        forceupdate)
            if _AcquireLock_ cliFileLock
            then
                _SCRIPT_UPDATE_ force "$([ $# -gt 1 ] && echo "$2" || echo)"
-               _RemoveLockType_ cliFileLock
+               _ReleaseLock_ cliFileLock
            fi
            ;;
        develop) _ChangeToDev_
@@ -9858,7 +9854,7 @@ then
                if _AcquireLock_ cliFileLock
                then
                    _RunFirmwareUpdateNow_
-                   _RemoveLockType_ cliFileLock
+                   _ReleaseLock_ cliFileLock
                fi
            elif [ "$2" = "start" ] && [ "$3" = "MerlinAUconfig" ]
            then
