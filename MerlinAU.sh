@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-06
+# Last Modified: 2025-Jan-10
 ###################################################################
 set -u
 
@@ -6002,7 +6002,7 @@ _ManageChangelogGnuton_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-05] ##
+## Modified by Martinski W. [2025-Jan-10] ##
 ##----------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
@@ -6023,7 +6023,11 @@ _CheckNewUpdateFirmwareNotification_()
        Update_Custom_Settings FW_New_Update_Notification_Date TBD
        Update_Custom_Settings FW_New_Update_Notification_Vers TBD
        Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
-       Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
+       local currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
+       if [ "$currentChangelogValue" = "ENABLED" ]
+       then
+           Update_Custom_Settings FW_New_Update_Changelog_Approval TBD
+       fi
        return 1
    fi
 
