@@ -4,11 +4,10 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-10
+# Last Modified: 2025-Jan-11
 ###################################################################
 set -u
 
-source /usr/sbin/helper.sh
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.4.0
 readonly SCRIPT_NAME="MerlinAU"
@@ -98,6 +97,8 @@ readonly ORIG_MENU_TREE="/www/require/modules/menuTree.js"
 readonly WEBUI_LOCKFD=386
 readonly WEBUI_LOCKFILE="/tmp/addonwebui.lock"
 readonly TEMPFILE="/tmp/MerlinAU_settings_$$.txt"
+readonly webPageFileRegExp="user([1-9]|[1-2][0-9])[.]asp"
+readonly webPageLineRegExp="\{url: \"$webPageFileRegExp\", tabName: \"$SCRIPT_NAME\"\}"
 
 # Give FIRST priority to built-in binaries over any other #
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
@@ -1673,8 +1674,45 @@ then
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$UserPreferredLogPath"
 fi
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-11] ##
+##-------------------------------------##
+_GetWebUIPage_()
+{
+   local webPageFile  webPagePath  webPageTemp  webPageEntry
+
+   webPageFile="NONE"
+
+   if [ -f "$TEMP_MENU_TREE" ]
+   then
+       webPageEntry="$(grep -E "$webPageLineRegExp" "$TEMP_MENU_TREE")"
+       if [ -n "$webPageEntry" ]
+       then
+           webPageTemp="$(echo "$webPageEntry" | grep -owE "$webPageFileRegExp")"
+           [ -n "$webPageTemp" ] && webPageFile="$webPageTemp"
+       fi
+   fi
+
+   for index in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
+   do
+       webPageTemp="user${index}.asp"
+       webPagePath="${SHARED_WEB_DIR}/$webPageTemp"
+
+       if [ -f "$webPagePath" ] && \
+          [ "$(md5sum < "$1")" = "$(md5sum < "$webPagePath")" ]
+       then
+           webPageFile="$webPageTemp"
+           break
+       elif [ "$webPageFile" = "NONE" ] && [ ! -f "$webPagePath" ]
+       then
+           webPageFile="$webPageTemp"
+       fi
+   done
+   echo "$webPageFile"
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
 _Mount_WebUI_()
 {
@@ -1683,100 +1721,79 @@ _Mount_WebUI_()
        Say "${CRITct}**ERROR**${NOct}: The WebUI page file for $SCRIPT_NAME is NOT found."
        return 1
    fi
-   local webPageFound=""
+   local webPageFile
+
+   Say "Mounting WebUI page for $SCRIPT_NAME"
 
    eval exec "$WEBUI_LOCKFD>$WEBUI_LOCKFILE"
    flock -x "$WEBUI_LOCKFD"
 
-   # Obtain the first available mount point in $am_webui_page #
-   am_get_webui_page "$SCRIPT_WEB_ASP_PATH"
-   if [ -z "$am_webui_page" ] || [ "$am_webui_page" = "none" ]
+   webPageFile="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
+   if [ -z "$webPageFile" ] || [ "$webPageFile" = "NONE" ]
    then
        Say "${CRITct}**ERROR**${NOct}: Unable to mount the $SCRIPT_NAME WebUI page."
        flock -u "$WEBUI_LOCKFD"
        return 1
    fi
 
-   ##################### TO BE REMOVED #####################
-   # Store or update the page name for later use #
-   if grep -q "^MerlinAU_uiPage" "$SHARED_SETTINGS_FILE"
-   then
-       # Replace the existing line with the new value #
-       sed -i "s/^MerlinAU_uiPage.*/MerlinAU_uiPage $am_webui_page/" "$SHARED_SETTINGS_FILE"
-   else
-       echo "MerlinAU_uiPage $am_webui_page" >> "$SHARED_SETTINGS_FILE"
-   fi
-   ##################### TO BE REMOVED #####################
+   cp -fp "$SCRIPT_WEB_ASP_PATH" "${SHARED_WEB_DIR}/$webPageFile"
+   echo "$SCRIPT_NAME" > "${SHARED_WEB_DIR}/$(echo "$webPageFile" | cut -f1 -d'.').title"
 
-   # Copy add-on web page to the user's WebUI directory #
-   cp -fp "$SCRIPT_WEB_ASP_PATH" "${SHARED_WEB_DIR}/$am_webui_page"
-   echo "$SCRIPT_NAME" > "$SHARED_WEB_DIR/$(echo "$am_webui_page" | cut -f1 -d'.').title"
-
-   # Copy 'menuTree' if not found #
    if [ ! -f "$TEMP_MENU_TREE" ]
-   then
-       cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE"
-   fi
-   sed -i "\\~$am_webui_page~d" "$TEMP_MENU_TREE"
+   then cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE" ; fi
 
-   # Insert new entry at the end of the 'Tools' menu #
-   sed -i "/url: \"Advanced_FirmwareUpgrade_Content.asp\", tabName:/a {url: \"$am_webui_page\", tabName: \"$SCRIPT_NAME\"}," "$TEMP_MENU_TREE"
+   sed -i "/url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+
+   # Insert new page tab in the 'Administration' menu #
+   sed -i "/url: \"Advanced_FirmwareUpgrade_Content.asp\", tabName:/a {url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"}," "$TEMP_MENU_TREE"
 
    umount "$ORIG_MENU_TREE" 2>/dev/null
    mount -o bind "$TEMP_MENU_TREE" "$ORIG_MENU_TREE"
    flock -u "$WEBUI_LOCKFD"
+
+   Say "${GRNct}$SCRIPT_NAME WebUI page was mounted successfully."
    return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
 _Unmount_WebUI_()
 {
-   if [ ! -f "$TEMP_MENU_TREE" ]
+   if [ ! -f "$SCRIPT_WEB_ASP_PATH" ]
    then
-       Say "The WebUI Menu Tree file $TEMP_MENU_TREE is NOT found."
+       Say "${CRITct}**ERROR**${NOct}: The WebUI page file for $SCRIPT_NAME is NOT found."
        return 1
    fi
-   Say "Unmounting WebUI tab for $SCRIPT_NAME"
+   local webPageFile
 
-   # Load the page name we stored during install #
-   if [ -f "$SHARED_SETTINGS_FILE" ]
-   then
-       webui_page="$(grep "^MerlinAU_uiPage" "$SHARED_SETTINGS_FILE" | awk '{print $2}')"
-   else
-       webui_page="$(grep 'tabName: "MerlinAU"' "$TEMP_MENU_TREE" | sed -n 's/.*url: "\([^"]*\)".*/\1/p')"
-   fi
-   if [ -z "$webui_page" ]
-   then
-       Say "$SCRIPT_NAME" "WebGUI ASP page is NOT found to uninstall."
-       return 1
-   fi
+   Say "Unmounting WebUI page for $SCRIPT_NAME"
 
    eval exec "$WEBUI_LOCKFD>$WEBUI_LOCKFILE"
    flock -x "$WEBUI_LOCKFD"
 
+   webPageFile="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
+   if [ -z "$webPageFile" ] || [ "$webPageFile" = "NONE" ]
+   then
+       Say "WebUI page file for $SCRIPT_NAME is NOT found to uninstall."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
+
    if [ -f "$TEMP_MENU_TREE" ]
    then
-       sed -i "/url: \"$webui_page\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+       sed -i "/url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
    fi
-   if [ -f "${SHARED_WEB_DIR}/$webui_page" ]
-   then
-       rm -f "${SHARED_WEB_DIR}/$webui_page"
-   fi
+   rm -f "${SHARED_WEB_DIR}/$webPageFile"
+   rm -f "${SHARED_WEB_DIR}/$(echo "$webPageFile" | cut -f1 -d'.').title"
 
-   # Remove entry from the SHARED_SETTINGS_FILE #
-   if [ -f "$SHARED_SETTINGS_FILE" ]
-   then
-       sed -i "/^MerlinAU_uiPage\s\+$webui_page$/d" "$SHARED_SETTINGS_FILE"
-   fi
-
-   umount "$ORIG_MENU_TREE"
+   umount "$ORIG_MENU_TREE" 2>/dev/null
    mount -o bind "$TEMP_MENU_TREE" "$ORIG_MENU_TREE"
    flock -u "$WEBUI_LOCKFD"
 
-   Say "${GRNct}$SCRIPT_NAME WebUI unmounted successfully."
+   Say "${GRNct}$SCRIPT_NAME WebUI page unmounted successfully."
    /sbin/service restart_httpd >/dev/null 2>&1 &
+   return 0
 }
 
 ##----------------------------------------##
@@ -2007,45 +2024,77 @@ _CheckForNewGUIVersionUpdate_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-06] ##
+## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
 _CurlFileDownload_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then return 1 ; fi
-   local retCode  tempFilePathDL="${2}.DL.TMP"
+   local retCode=1
+   local tempFilePathDL="${2}.DL.TMP"
+   local srceFilePathDL="${SCRIPT_URL_REPO}/$1"
 
    curl -LSs --retry 4 --retry-delay 5 --retry-connrefused \
-        "$1" -o "$tempFilePathDL"
+        "$srceFilePathDL" -o "$tempFilePathDL"
    if [ $? -ne 0 ] || [ ! -s "$tempFilePathDL" ] || \
       grep -iq "^404: Not Found" "$tempFilePathDL"
-   then rm -f "$tempFilePathDL" ; retCode=1
-   else mv -f "$tempFilePathDL" "$2" ; retCode=0
+   then
+       rm -f "$tempFilePathDL"
+       retCode=1
+   else
+       if [ "$1" = "$SCRIPT_WEB_ASP_FILE" ] && \
+          [ -f "$2" ] && [ -f "$TEMP_MENU_TREE" ] && \
+          ! diff -q "$tempFilePathDL" "$2" >/dev/null 2>&1
+       then updatedWebUIPage=true
+       else updatedWebUIPage=false
+       fi
+       mv -f "$tempFilePathDL" "$2"
+       retCode=0
    fi
+
    return "$retCode"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
 _DownloadScriptFiles_()
 {
-   local retCode
-   if _CurlFileDownload_ "${SCRIPT_URL_REPO}/version.txt" "$SCRIPT_VERPATH"
+   local retCode  isUpdateAction  updatedWebUIPage  theWebPage
+
+   if [ $# -gt 0 ] && [ "$1" = "update" ]
+   then isUpdateAction=true
+   else isUpdateAction=false
+   fi
+   updatedWebUIPage=false
+
+   if _CurlFileDownload_ "version.txt" "$SCRIPT_VERPATH"
    then
        retCode=0 ; chmod 664 "$SCRIPT_VERPATH"
    else
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
    fi
-   if _CurlFileDownload_ "${SCRIPT_URL_REPO}/$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
+   if _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
    then
-       retCode=0 ; chmod 664 "$SCRIPT_WEB_ASP_PATH"
+       chmod 664 "$SCRIPT_WEB_ASP_PATH"
+       if "$inRouterSWmode" && "$updatedWebUIPage"
+       then
+           theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
+           if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
+           then
+               sed -i "/url: \"$theWebPage\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+               rm -f "${SHARED_WEB_DIR}/$theWebPage"
+               rm -f "${SHARED_WEB_DIR}/$(echo "$theWebPage" | cut -f1 -d'.').title"
+           fi
+           "$isUpdateAction" && _Mount_WebUI_
+       fi
+       retCode=0
    else
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
    fi
-   if _CurlFileDownload_ "${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh" "$ScriptFilePath"
+   if _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$ScriptFilePath"
    then
        retCode=0 ; chmod 755 "$ScriptFilePath"
    else
@@ -2056,7 +2105,7 @@ _DownloadScriptFiles_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
 _SCRIPT_UPDATE_()
 {
@@ -2070,7 +2119,7 @@ _SCRIPT_UPDATE_()
        urlScriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
        printf "${CYANct}Downloading latest version ($urlScriptVers) of ${SCRIPT_NAME}${NOct}\n"
 
-       if _DownloadScriptFiles_
+       if _DownloadScriptFiles_ update
        then
            printf "${CYANct}$SCRIPT_NAME files were successfully updated.${NOct}\n\n"
            [ -s "$SCRIPT_VERPATH" ] && urlScriptVers="$(cat "$SCRIPT_VERPATH")"
@@ -2110,7 +2159,7 @@ _SCRIPT_UPDATE_()
       then
           printf "\n\n${CYANct}Downloading $SCRIPT_NAME $DLRepoVersion version.${NOct}\n"
 
-          if _DownloadScriptFiles_
+          if _DownloadScriptFiles_ update
           then
               if "$inRouterSWmode"
               then _SetVersionSharedSettings_ local "$DLRepoVersion" ; fi
@@ -2131,7 +2180,7 @@ _SCRIPT_UPDATE_()
       then
           printf "\n\n${CYANct}Downloading $SCRIPT_NAME $DLRepoVersion version.${NOct}\n"
 
-          if _DownloadScriptFiles_
+          if _DownloadScriptFiles_ update
           then
               if "$inRouterSWmode"
               then _SetVersionSharedSettings_ local "$DLRepoVersion" ; fi
@@ -2155,7 +2204,7 @@ _SCRIPT_UPDATE_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-01] ##
+## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
 _CheckForNewScriptUpdates_()
 {
@@ -2166,7 +2215,7 @@ _CheckForNewScriptUpdates_()
    [ -s "$SCRIPT_VERPATH" ] && DLRepoVersion="$(cat "$SCRIPT_VERPATH")"
    rm -f "$SCRIPT_VERPATH"
 
-   if ! _CurlFileDownload_ "${SCRIPT_URL_REPO}/version.txt" "$SCRIPT_VERPATH"
+   if ! _CurlFileDownload_ "version.txt" "$SCRIPT_VERPATH"
    then
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
        scriptUpdateNotify=0
@@ -8445,9 +8494,9 @@ _DoStartupInit_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-05] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-11] ##
+##----------------------------------------##
 _DoInstallation_()
 {
    local webguiOK=true
@@ -8459,7 +8508,7 @@ _DoInstallation_()
    _CreateSymLinks_
    _SetVersionSharedSettings_ local "$SCRIPT_VERSION"
    _SetVersionSharedSettings_ server "$SCRIPT_VERSION"
-   _DownloadScriptFiles_
+   _DownloadScriptFiles_ install
 
    if "$inRouterSWmode"
    then
@@ -9246,9 +9295,8 @@ _ShowMainMenuOptions_()
    # Check if router reports a new F/W update is available.
    # If yes, modify the notification settings accordingly.
    #-----------------------------------------------------------#
-   FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
-   if [ -n "$FW_NewUpdateVersion" ] && \
-      [ -n "$FW_InstalledVersion" ] && \
+   if FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)" && \
+      [ -n "$FW_NewUpdateVersion" ] && [ -n "$FW_InstalledVersion" ] && \
       [ "$FW_NewUpdateVersion" != "$FW_NewUpdateVerInit" ]
    then
        FW_NewUpdateVerInit="$FW_NewUpdateVersion"
@@ -9924,7 +9972,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-05] ##
+## Modified by Martinski W. [2024-Jan-11] ##
 ##----------------------------------------##
 if [ $# -gt 0 ]
 then
@@ -9933,6 +9981,7 @@ then
 
    inMenuMode=false
    _DoInitializationStartup_ "$1"
+   _ConfirmCronJobForFWAutoUpdates_
 
    case "$1" in
        run_now)
