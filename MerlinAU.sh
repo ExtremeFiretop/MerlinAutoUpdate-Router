@@ -1798,7 +1798,7 @@ _Unmount_WebUI_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-12] ##
 ##----------------------------------------##
 _AutoStartupHook_()
 {
@@ -1825,24 +1825,28 @@ _AutoStartupHook_()
                fi
            else
               {
-                 echo "#!/bin/sh" ; echo
-                 echo '[ -x '"$theScriptFilePath"' ] && '"$theScriptFilePath"' startup "$@" & '"$theScriptNameTag"
-                 echo
+                echo "#!/bin/sh" ; echo
+                echo '[ -x '"$theScriptFilePath"' ] && '"$theScriptFilePath"' startup "$@" & '"$theScriptNameTag"
+                echo
               } > "$theHookScriptFile"
            fi
            chmod 755 "$theHookScriptFile"
            ;;
        delete)
-           if [ -f "$theHookScriptFile" ] && grep -q "$theScriptNameTag" "$theHookScriptFile"
+           if [ -f "$theHookScriptFile" ] && \
+              { grep -q "$theScriptNameTag" "$theHookScriptFile" || \
+                grep -q "$theScriptFilePath" "$theHookScriptFile" ; }
            then
+               theFixedPath="$(echo "$theScriptFilePath" | sed 's/[\/.]/\\&/g')"
                sed -i "/${theScriptNameTag}/d" "$theHookScriptFile"
+               sed -i "/$theFixedPath startup/d" "$theHookScriptFile"
            fi
            ;;
    esac
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-12] ##
 ##----------------------------------------##
 _AutoServiceEvent_()
 {
@@ -1871,14 +1875,19 @@ _AutoServiceEvent_()
               {
                 echo "#!/bin/sh" ; echo
                 echo 'if echo "$2" | /bin/grep -q "'"$SCRIPT_NAME"'" ; then { '"$theScriptFilePath"' service_event "$@" & }; fi '"$theScriptNameTag"
-              } >> "$theHookScriptFile"
+                echo
+              } > "$theHookScriptFile"
            fi
            chmod 755 "$theHookScriptFile"
            ;;
        delete)
-           if [ -f "$theHookScriptFile" ] && grep -q "$theScriptNameTag" "$theHookScriptFile"
+           if [ -f "$theHookScriptFile" ] && \
+              { grep -q "$theScriptNameTag" "$theHookScriptFile" || \
+                grep -q "$theScriptFilePath" "$theHookScriptFile" ; }
            then
+               theFixedPath="$(echo "$theScriptFilePath" | sed 's/[\/.]/\\&/g')"
                sed -i "/${theScriptNameTag}/d" "$theHookScriptFile"
+               sed -i "/$theFixedPath service_event/d" "$theHookScriptFile"
            fi
            ;;
    esac
