@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-10 **/
+/** Last Modified: 2025-Jan-11 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -72,29 +72,41 @@ function togglePassword()
     eyeDiv.style.backgroundSize = 'contain';
 }
 
-// Converts a version string like "1.5.14" => 1005014 numerically //
-function versionStrToNum(verStr)
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-11] **/
+/**----------------------------------------**/
+// Converts F/W version string with the format: "3006.102.5.2" //
+// to a number of the format: '30061020502'  //
+function FWVersionStrToNum(verStr)
 {
-    // If it's empty or null, treat as zero //
+    // If it's empty or null, treat as ZERO //
     if (!verStr) return 0;
 
-    // Example: remove everything after the first non-numeric-and-dot character:
+    let nonProductionVersionWeight;
+    foundAlphaBetaVersion = verStr.match (/([Aa]lpha|[Bb]eta)/);
+    if (foundAlphaBetaVersion == null)
+    { nonProductionVersionWeight = 0 ; }
+    else
+    { nonProductionVersionWeight = 100 ; }
+
+    // Remove everything after the first non-numeric-and-dot character //
+    // e.g. "3006.102.1.alpha1" => "3006.102.1" //
     verStr = verStr.split(/[^\d.]/, 1)[0];
-    // e.g. "3006.102.1.alpha1" => "3006.102.1"
 
-    // Parse up to 3 (or 4, etc.) segments //
     let segments = verStr.split('.');
-    let major = parseInt(segments[0], 10) || 0;
-    let minor = parseInt(segments[1], 10) || 0;
-    let patch = parseInt(segments[2], 10) || 0;
-    //TBD: IF 4th segment// let build = parseInt(segments[3],10) || 0;//
+    let partNum=0, partStr='', verNumStr='';
 
-    // Combine into a single integer. For 3 segments:
-    // major * 1,000,000 + minor * 1,000 + patch
-    // So "1.5.14" => (1 * 1,000,000) + (5 * 1,000) + 14 => 1005014
-    let verNum = (major * 1000000) + (minor * 1000) + patch;
+    for (var index=0 ; index < segments.length ; index++)
+    {
+        if (segments[index].length > 2)
+        { partStr = segments[index]; }
+        else
+        { partStr = segments[index].padStart(2, '0'); }
+        verNumStr = (verNumStr + partStr);
+    }
+    let verNum = (parseInt(verNumStr, 10) - nonProductionVersionWeight);
 
-    return verNum;
+    return (verNum);
 }
 
 /**-------------------------------------**/
@@ -193,7 +205,7 @@ function handleROGFWBuildTypeVisibility()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-10] **/
+/** Modified by Martinski W. [2025-Jan-11] **/
 /**----------------------------------------**/
 function initializeFields()
 {
@@ -323,7 +335,7 @@ function initializeFields()
         {
             let theDateTimeStr = custom_settings.FW_New_Update_Notifications_Date.split ('_');
             let notifyDatestr = theDateTimeStr[0] + ' ' + theDateTimeStr[1];
-            fwNotificationsDate.innerHTML = InvCYNct + notifyDatestr + InvCLEAR;
+            fwNotificationsDate.innerHTML = InvYLWct + notifyDatestr + InvCLEAR;
         }
         else if (fwNotificationsDate)
         { fwNotificationsDate.innerHTML = InvYLWct + "TBD" + InvCLEAR; }
@@ -343,8 +355,8 @@ function initializeFields()
             var fwVersionInstalled = fwVersionInstalledElement.textContent.trim();
 
             // Convert both to numeric forms //
-            var verNumAvailable = versionStrToNum(fwUpdateAvailable);
-            var verNumInstalled = versionStrToNum(fwVersionInstalled);
+            var verNumAvailable = FWVersionStrToNum(fwUpdateAvailable);
+            var verNumInstalled = FWVersionStrToNum(fwVersionInstalled);
 
             // If verNumAvailable is 0, maybe treat as "NONE FOUND" //
             if (verNumAvailable === 0)
@@ -354,7 +366,7 @@ function initializeFields()
             }
             else if (verNumAvailable > verNumInstalled)
             {   // Update available //
-                fwUpdateAvailableElement.innerHTML = InvCYNct + fwUpdateAvailable + InvCLEAR;
+                fwUpdateAvailableElement.innerHTML = InvYLWct + fwUpdateAvailable + InvCLEAR;
                 isFwUpdateAvailable = true;
             } 
             else // No update //
@@ -370,7 +382,7 @@ function initializeFields()
         if (fwUpdateEstimatedRunDateElement)
         {
             if (isFwUpdateAvailable && fwUpdateAvailable !== '')
-            { fwUpdateEstimatedRunDateElement.innerHTML = InvCYNct + fwUpdateEstimatedRunDate + InvCLEAR; }
+            { fwUpdateEstimatedRunDateElement.innerHTML = InvYLWct + fwUpdateEstimatedRunDate + InvCLEAR; }
             else
             { fwUpdateEstimatedRunDateElement.innerHTML = InvYLWct + "TBD" + InvCLEAR; }
         }

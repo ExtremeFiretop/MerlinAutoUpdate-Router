@@ -74,6 +74,8 @@ readonly MAGENTAct="\e[1;35m"
 readonly CYANct="\e[1;36m"
 readonly WHITEct="\e[1;37m"
 readonly CRITct="\e[1;41m"
+readonly InvREDct="\e[1;41m"
+readonly InvGRNct="\e[1;42m"
 
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
@@ -9288,7 +9290,7 @@ _InvalidMenuSelection_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-10] ##
+## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
 _ShowMainMenuOptions_()
 {
@@ -9333,7 +9335,7 @@ _ShowMainMenuOptions_()
  A USB drive is required for F/W updates.\n"
    fi
 
-   arrowStr=" ${REDct}<<---${NOct}"
+   arrowStr=" ${InvREDct} <<--- ${NOct}"
 
    _Calculate_NextRunTime_
 
@@ -9352,14 +9354,14 @@ _ShowMainMenuOptions_()
    if [ "$HIDE_ROUTER_SECTION" = "false" ]
    then
       if ! FW_NewUpdateVerStr="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
-      then FW_NewUpdateVerStr="${REDct}NONE FOUND${NOct}"
-      else FW_NewUpdateVerStr="${GRNct}${FW_NewUpdateVerStr}${NOct}$arrowStr"
+      then FW_NewUpdateVerStr=" ${REDct}NONE FOUND${NOct}"
+      else FW_NewUpdateVerStr="${InvGRNct} ${FW_NewUpdateVerStr} ${NOct}$arrowStr"
       fi
       printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelIDstr}${padStr}(H)ide"
       printf "\n  USB-Attached Storage Connected:  $USBConnected"
       printf "\n  F/W Variant Configuration Found: $FirmwareFlavor"
       printf "\n  F/W Version Currently Installed: $FW_InstalledVerStr"
-      printf "\n  F/W Update Version Available:    $FW_NewUpdateVerStr"
+      printf "\n  F/W Update Version Available:   $FW_NewUpdateVerStr"
       printf "\n  F/W Update Estimated Run Date:   $ExpectedFWUpdateRuntime"
    else
       printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelIDstr}${padStr}(S)how"
@@ -9375,7 +9377,7 @@ _ShowMainMenuOptions_()
    if [ "$FW_UpdateCheckState" -eq 0 ]
    then
        printf "\n  ${GRNct}3${NOct}.  Toggle F/W Update Check"
-       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]"
+       printf "\n${padStr}[Currently ${InvREDct} DISABLED ${NOct}]"
    else
        printf "\n  ${GRNct}3${NOct}.  Toggle F/W Update Check"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]"
