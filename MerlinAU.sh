@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-11
+# Last Modified: 2025-Jan-12
 ###################################################################
 set -u
 
@@ -6994,7 +6994,7 @@ _Toggle_FW_UpdateCheckSetting_()
    if "$runfwUpdateCheck"
    then
        printf "\nChecking for new F/W Updates... Please wait.\n"
-       sh $FW_UpdateCheckScript 2>&1
+       sh "$FW_UpdateCheckScript" 2>&1
    fi
    _WaitForEnterKey_ "$mainMenuReturnPromptStr"
 }
@@ -8883,7 +8883,7 @@ _EnableFWAutoUpdateChecks_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-11] ##
+## Modified by Martinski W. [2025-Jan-12] ##
 ##----------------------------------------##
 _ConfirmCronJobForFWAutoUpdates_()
 {
@@ -8992,7 +8992,8 @@ _ConfirmCronJobForFWAutoUpdates_()
     ##------------------------------------------------------------##
     if "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ]
     then
-        sh "$FW_UpdateCheckScript" 2>&1 &
+        sh "$FW_UpdateCheckScript" 2>&1
+        sleep 1
     fi
 }
 
