@@ -1219,7 +1219,7 @@ function initializeCollapsibleSections()
    <label for="fwUpdatePostponement">F/W Update Postponement (0-199 days)</label>
    </td>
    <td class="settingvalue">
-   <input autocomplete="off" type="text" id="fwUpdatePostponement" name="fwUpdatePostponement" style="width: 15%;" min="0" max="199" maxlength="3" onkeypress="return validator.isNumber(this,event)" onblur="ValidateNumericValue(this,0,199);FormatNumericSetting(this)"
+   <input autocomplete="off" type="text" id="fwUpdatePostponement" name="fwUpdatePostponement" style="width: 26%;" min="0" max="199" maxlength="3" onkeypress="return validator.isNumber(this,event)" onblur="ValidateNumericValue(this,0,199);FormatNumericSetting(this)"
 	onkeyup="ValidateNumericValue(this,0,199)" />
    </td>
 </tr>
