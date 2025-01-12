@@ -328,9 +328,13 @@ _WaitForYESorNO_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-09] ##
+## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
 readonly LockFilePath="/tmp/var/${ScriptFNameTag}.LOCK"
+readonly LockTypeRegEx="(cliMenuLock|cliOptsLock|cliFileLock)"
+
+_FindLockFileTypes_()
+{ grep -woE "$LockTypeRegEx" "$LockFilePath" | tr '\n' ' ' | sed 's/[ ]*$//' ; }
 
 _ReleaseLock_() 
 {
@@ -374,13 +378,13 @@ else
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-09] ##
+## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
 _AcquireLock_()
 {
    local retCode  waitTimeoutSecs
    local lockFileSecs  ageOfLockSecs  oldPID
-   local lockTypeReq  lockTypeFound  lockTypeRegEx
+   local lockTypeReq  lockTypeFound
 
    if [ $# -gt 0 ] && [ -n "$1" ]
    then lockTypeReq="$1"
@@ -394,13 +398,8 @@ _AcquireLock_()
    then _CreateLockFile_ ; return 0
    fi
 
-   lockTypeFound=""
-   lockTypeRegEx="(cliMenuLock|cliOptsLock|cliFileLock)"
-
-   _FindLockTypes_()
-   { grep -woE "$lockTypeRegEx" "$LockFilePath" | tr '\n' ' ' | sed 's/[ ]*$//' ; }
-
    retCode=1
+   lockTypeFound=""
    waitTimeoutSecs=0
 
    while true
@@ -409,7 +408,7 @@ _AcquireLock_()
       then
           oldPID="$(head -n1 "$LockFilePath" |  awk -F '|' '{print $1}')"
           lockFileSecs="$(date +%s -r "$LockFilePath")"
-          lockTypeFound="$(_FindLockTypes_)"
+          lockTypeFound="$(_FindLockFileTypes_)"
           if [ "$lockTypeReq" != "cliAnyLock" ] && \
              ! echo "$lockTypeFound" | grep -qw "$lockTypeReq"
           then # Specific "Lock Type" NOT found #
@@ -8882,10 +8881,14 @@ _EnableFWAutoUpdateChecks_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
 _ConfirmCronJobForFWAutoUpdates_()
 {
+    if [ $# -gt 0 ] && [ -n "$1" ] && \
+       echo "$1" | grep -qE "^(install|startup)$"
+    then return 1 ; fi
+
     # Check if the PREVIOUS Cron Job ID already exists #
     if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
     then  #If it exists, delete the OLD one & create a NEW one#
@@ -9981,7 +9984,7 @@ then
 
    inMenuMode=false
    _DoInitializationStartup_ "$1"
-   _ConfirmCronJobForFWAutoUpdates_
+   _ConfirmCronJobForFWAutoUpdates_ "$1"
 
    case "$1" in
        run_now)
