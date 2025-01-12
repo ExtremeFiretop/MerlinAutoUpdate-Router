@@ -85,9 +85,14 @@ function FWVersionStrToNum(verStr)
     let nonProductionVersionWeight;
     foundAlphaBetaVersion = verStr.match (/([Aa]lpha|[Bb]eta)/);
     if (foundAlphaBetaVersion == null)
-    { nonProductionVersionWeight = 0 ; }
+    {
+       nonProductionVersionWeight = 0;
+    }
     else
-    { nonProductionVersionWeight = 100 ; }
+    {
+       nonProductionVersionWeight = 100;
+       verStr = verStr.replace (/([Aa]lpha|[Bb]eta)[0-9]*/,'0');
+    }
 
     // Remove everything after the first non-numeric-and-dot character //
     // e.g. "3006.102.1.alpha1" => "3006.102.1" //
