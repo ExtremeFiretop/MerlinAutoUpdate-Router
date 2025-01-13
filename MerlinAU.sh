@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-12
+# Last Modified: 2025-Jan-13
 ###################################################################
 set -u
 
@@ -3379,7 +3379,7 @@ _GetKeypressInput_()
 ##----------------------------------------##
 _GetPasswordInput_()
 {
-   local PSWDstrLenMIN=1  PSWDstrLenMAX=64
+   local PSWDstrLenMIN=5  PSWDstrLenMAX=64
    local newPSWDstring  newPSWDtmpStr  PSWDprompt
    local retCode  charNum  newPSWDlength  showPSWD
    # For more responsive TAB keypress debounce #

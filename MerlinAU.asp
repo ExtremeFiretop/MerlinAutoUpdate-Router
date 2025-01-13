@@ -29,38 +29,159 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-11 **/
+/** Last Modified: 2025-Jan-13 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
-// Define color formatting //
-var CYANct = "<span style='color:cyan;'>";
-var REDct = "<span style='color:red;'>";
-var GRNct = "<span style='color:green;'>";
-var NOct = "</span>";
-
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-05] **/
-/**-------------------------------------**/
-let InvGRNct = '<span style="margin-left:4px; background-color:#229652; color:#f2f2f2;">&nbsp;'
-let InvREDct = '<span style="margin-left:4px; background-color:#C81927; color:#f2f2f2;">&nbsp;'
-let InvYLWct = '<span style="margin-left:4px; background-color:yellow; color:black;">&nbsp;'
-let InvCYNct = '<span style="margin-left:4px; background-color:cyan; color:black;">&nbsp;'
-let InvCLEAR = '&nbsp;</span>'
-
-// Separate variables for server and AJAX settings
+// Separate variables for server and AJAX settings //
 var advanced_settings = {};
 var custom_settings = {};
 var server_custom_settings = {};
 var ajax_custom_settings = {};
+
+// Define color formatting //
+const CYANct = "<span style='color:cyan;'>";
+const REDct = "<span style='color:red;'>";
+const GRNct = "<span style='color:green;'>";
+const NOct = "</span>";
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-05] **/
+/**-------------------------------------**/
+const InvGRNct = '<span style="margin-left:4px; background-color:#229652; color:#f2f2f2;">&nbsp;'
+const InvREDct = '<span style="margin-left:4px; background-color:#C81927; color:#f2f2f2;">&nbsp;'
+const InvYLWct = '<span style="margin-left:4px; background-color:yellow; color:black;">&nbsp;'
+const InvCYNct = '<span style="margin-left:4px; background-color:cyan; color:black;">&nbsp;'
+const InvCLEAR = '&nbsp;</span>'
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-13] **/
+/**-------------------------------------**/
+// To support 'fwUpdatePostponement' element //
+const fwPostponedDays =
+{
+   minVal: 0, maxVal: 199, maxLen: 3,
+   ErrorMsg: function()
+   {
+      return (`The number of postponement days for F/W updates is INVALID.\nThe value must be between ${this.minVal} and ${this.maxVal} days.`);
+   },
+   LabelText: function()
+   {
+      return (`F/W Update Postponement (${this.minVal} to ${this.maxVal} days)`);
+   },
+   ValidateNumber: function(formField)
+   {
+      const inputVal = (formField.value * 1);
+      const inputLen = formField.value.length;
+      if (inputLen === 0 || inputLen > this.maxLen ||
+          inputVal < this.minVal || inputVal > this.maxVal)
+      { return false; }
+      else
+      { return true; }
+   }
+};
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-13] **/
+/**-------------------------------------**/
+function ValidatePostponedDays (formField)
+{
+   if (fwPostponedDays.ValidateNumber(formField))
+   {
+      $(formField).removeClass('Invalid');
+      $(formField).off('mouseover');
+      return true;
+   }
+   else
+   {
+      formField.focus();
+      $(formField).addClass('Invalid');
+      $(formField).on('mouseover',function(){return overlib(fwPostponedDays.ErrorMsg(),0,0);});
+      $(formField)[0].onmouseout = nd;
+      return false;
+   }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-05] **/
+/**-------------------------------------**/
+function FormatNumericSetting(forminput)
+{
+   let inputvalue = forminput.value * 1;
+
+   if (forminput.value.length === 0 || isNaN(inputvalue))
+   {
+       return false;
+   }
+   else
+   {
+       forminput.value = parseInt(forminput.value, 10);
+       return true;
+   }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-13] **/
+/**-------------------------------------**/
+// To support 'routerPassword' element //
+const loginPassword =
+{
+   minLen: 5, maxLen: 64, currLen: 0,
+   ErrorMsg: function()
+   {
+      const errStr = 'The password string is INVALID.';
+      if (this.currLen < this.minLen)
+      {
+         const excMinLen = (this.minLen - 1);
+         return (`${errStr}\nThe string length must be greater than ${excMinLen} characters.`);
+      }
+      if (this.currLen > this.maxLen)
+      {
+         const excMaxLen = (this.maxLen + 1);
+         return (`${errStr}\nThe string length must be less than ${excMaxLen} characters.`);
+      }
+   },
+   ValidateString: function(formField)
+   {
+      const inputVal = formField.value;
+      const inputLen = formField.value.length;
+      this.currLen = inputLen;
+      if (inputLen < this.minLen || inputLen > this.maxLen)
+      { return false; }
+      else
+      { return true; }
+   }
+};
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-13] **/
+/**-------------------------------------**/
+function ValidatePasswordString (formField)
+{
+   if (loginPassword.ValidateString(formField))
+   {
+      $(formField).removeClass('Invalid');
+      $(formField).off('mouseover');
+      return true;
+   }
+   else
+   {
+      formField.focus();
+      $(formField).addClass('Invalid');
+      $(formField).on('mouseover',function(){return overlib(loginPassword.ErrorMsg(),0,0);});
+      $(formField)[0].onmouseout = nd;
+      return false;
+   }
+}
 
 function togglePassword()
 {
     const passInput = document.getElementById('routerPassword');
     const eyeDiv = document.getElementById('eyeToggle');
     
-    // Base64-encoded SVG strings
+    // Base64-encoded SVG strings //
     const eyeOpenSVG = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4NCjxwYXRoIGQ9Ik0xLjI2IDkuNkE2Ljk3IDYuOTcgMCAwMTggNGMzLjIgMCA2LjA2IDIuMzMgNi43NCA1LjZhLjUuNSAwIDAwLjk4LS4yQTcuOTcgNy45NyAwIDAwOCAzIDcuOTcgNy45NyAwIDAwLjI4IDkuNGEuNS41IDAgMDAuOTguMnoiIGZpbGw9IldpbmRvd1RleHQiLz48cGF0aCBkPSJNOCA2YTMuNSAzLjUgMCAxMDAgNyAzLjUgMy41IDAgMDAwLTd6TTUuNSA5LjVhMi41IDIuNSAwIDExNSAwIDIuNSAyLjUgMCAwMS01IDB6IiBmaWxsPSJXaW5kb3dUZXh0Ii8+DQo8L3N2Zz4=";
+
     const eyeClosedSVG = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4NCjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIGZpbGw9IldpbmRvd1RleHQiPjxwYXRoIGQ9Ik0uODUuMTVhLjUuNSAwIDEwLS43LjdsMy41IDMuNUE4LjEgOC4xIDAgMDAuMjggOS40YS41LjUgMCAwMC45OC4yIDcuMDkgNy4wOSAwIDAxMy4xLTQuNTNsMS42IDEuNTlhMy41IDMuNSAwIDEwNC44OCA0Ljg5bDQuMyA0LjNhLjUuNSAwIDAwLjcxLS43bC0xNS0xNXptOS4yNyAxMC42OGEyLjUgMi41IDAgMTEtMy40NS0zLjQ1bDMuNDUgMy40NXoiLz48cGF0aCBkPSJNOC4xMiA2bDMuMzggMy4zOEEzLjUgMy41IDAgMDA4LjEyIDZ6Ii8+PHBhdGggZD0iTTggNGMtLjU3IDAtMS4xMy4wNy0xLjY3LjIxbC0uOC0uOEE3LjY1IDcuNjUgMCAwMTggM2MzLjcgMCA2Ljk0IDIuNjcgNy43MiA2LjRhLjUuNSAwIDAxLS45OC4yQTYuOTcgNi45NyAwIDAwOCA0eiIvPjwvZz48ZGVmcz48Y2xpcFBhdGggaWQ9ImNsaXAwIj48cGF0aCBmaWxsPSIjZmZmZmZmIiBkPSJNMCAwaDE2djE2SDB6Ii8+PC9jbGlwUGF0aD48L2RlZnM+DQo8L3N2Zz4=";
 
     if (passInput.type === 'password')
@@ -118,47 +239,6 @@ function FWVersionStrToNum(verStr)
     return (verNum);
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-05] **/
-/**-------------------------------------**/
-function ValidateNumericValue(forminput, lowerlimit, upperlimit)
-{
-   let inputname = forminput.name;
-   let inputvalue = forminput.value * 1;
-
-   if (forminput.value.length === 0 ||
-       inputvalue < lowerlimit ||
-       inputvalue > upperlimit)
-   {
-       $(forminput).addClass('Invalid');
-       return false;
-   }
-   else
-   {
-       $(forminput).removeClass('Invalid');
-       return true;
-   }
-}
-
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-05] **/
-/**-------------------------------------**/
-function FormatNumericSetting(forminput)
-{
-   let inputname = forminput.name;
-   let inputvalue = forminput.value * 1;
-
-   if (forminput.value.length === 0 || isNaN(inputvalue))
-   {
-       return false;
-   }
-   else
-   {
-       forminput.value = parseInt(forminput.value, 10);
-       return true;
-   }
-}
-
 function LoadCustomSettings()
 {
     server_custom_settings = <% get_custom_settings(); %>;
@@ -214,7 +294,7 @@ function handleROGFWBuildTypeVisibility()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-11] **/
+/** Modified by Martinski W. [2025-Jan-13] **/
 /**----------------------------------------**/
 function initializeFields()
 {
@@ -259,7 +339,11 @@ function initializeFields()
         { routerPassword.value = custom_settings.routerPassword || ''; }
 
         if (fwUpdatePostponement)
-        { fwUpdatePostponement.value = custom_settings.FW_New_Update_Postponement_Days || '15'; }
+        {
+            fwPosptonedDaysLabel = document.getElementById('fwUpdatePostponementLabel');
+            fwPosptonedDaysLabel.textContent = fwPostponedDays.LabelText();
+            fwUpdatePostponement.value = custom_settings.FW_New_Update_Postponement_Days || '15'; 
+        }
 
         if (secondaryEmail)
         { secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address || ''; }
@@ -698,7 +782,7 @@ function initial()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-05] **/
+/** Modified by Martinski W. [2025-Jan-13] **/
 /**----------------------------------------**/
 function SaveActionsConfig()
 {
@@ -706,7 +790,7 @@ function SaveActionsConfig()
     document.getElementById('amng_custom').value = '';
 
     // Collect Action form-specific settings //
-    var password = document.getElementById('routerPassword')?.value || '';
+    var passwordStr = document.getElementById('routerPassword')?.value || '';
     var usernameElement = document.getElementById('http_username');
     var username = usernameElement ? usernameElement.value.trim() : 'admin';
 
@@ -717,18 +801,24 @@ function SaveActionsConfig()
         alert("HTTP username is not set. Please contact your administrator.");
         return false;
     }
-    if (!ValidateNumericValue(document.form.fwUpdatePostponement,0,199))
+    if (!ValidatePasswordString (document.getElementById('routerPassword')))
     {
-        alert("The number of postponement days for F/W updates is INVALID.");
+        alert('Validation failed. Please correct invalid value and try again.\n\n' + loginPassword.ErrorMsg());
+        return false;
+    }
+    if (!ValidatePostponedDays (document.form.fwUpdatePostponement))
+    {
+        alert('Validation failed. Please correct invalid value and try again.\n\n' + fwPostponedDays.ErrorMsg());
         return false;
     }
 
     // Encode credentials in Base64 //
-    var credentials = username + ':' + password;
+    var credentials = username + ':' + passwordStr;
     var encodedCredentials = btoa(credentials);
 
     // Collect only Action form-specific settings
-    var action_settings = {
+    var action_settings =
+    {
         credentials_base64: encodedCredentials,
         FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
         CheckChangeLog: document.getElementById('changelogCheckEnabled').checked ? 'ENABLED' : 'DISABLED',
@@ -1218,23 +1308,23 @@ function initializeCollapsibleSections()
            placeholder="Enter password"
            style="width: 100%; display: inline-block;
            padding-right: 35px;
-           box-sizing: border-box;
-           "
+           box-sizing: border-box;"
+           maxlength="64"
+           onKeyPress="return validator.isString(this, event)"
+           onblur="ValidatePasswordString(this)"
+           onkeyup="ValidatePasswordString(this)"
          />
          <div
              id="eyeToggle"
              onclick="togglePassword();"
              style="
                position: absolute;
-               right: 5px;
-               top: 50%;
+               right: 5px; top: 50%;
                transform: translateY(-50%);
-               width: 20px;
-               height: 20px;
+               width: 20px; height: 20px;
                background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4NCjxwYXRoIGQ9Ik0xLjI2IDkuNkE2Ljk3IDYuOTcgMCAwMTggNGMzLjIgMCA2LjA2IDIuMzMgNi43NCA1LjZhLjUuNSAwIDAwLjk4LS4yQTcuOTcgNy45NyAwIDAwOCAzIDcuOTcgNy45NyAwIDAwLjI4IDkuNGEuNS41IDAgMDAuOTguMnoiIGZpbGw9IldpbmRvd1RleHQiLz48cGF0aCBkPSJNOCA2YTMuNSAzLjUgMCAxMDAgNyAzLjUgMy41IDAgMDAwLTd6TTUuNSA5LjVhMi41IDIuNSAwIDExNSAwIDIuNSAyLjUgMCAwMS01IDB6IiBmaWxsPSJXaW5kb3dUZXh0Ii8+DQo8L3N2Zz4=') no-repeat center;
                background-size: contain;
-               cursor: pointer;
-             "
+               cursor: pointer;"
          ></div>
       </div>
    </td>
@@ -1245,11 +1335,14 @@ function initializeCollapsibleSections()
 </tr>
 <tr>
    <td style="text-align: left;">
-   <label for="fwUpdatePostponement">F/W Update Postponement (0-199 days)</label>
+   <label id="fwUpdatePostponementLabel" for="fwUpdatePostponement">F/W Update Postponement</label>
    </td>
    <td class="settingvalue">
-   <input autocomplete="off" type="text" id="fwUpdatePostponement" name="fwUpdatePostponement" style="width: 26%;" min="0" max="199" maxlength="3" onkeypress="return validator.isNumber(this,event)" onblur="ValidateNumericValue(this,0,199);FormatNumericSetting(this)"
-	onkeyup="ValidateNumericValue(this,0,199)" />
+   <input autocomplete="off" type="text" id="fwUpdatePostponement" name="fwUpdatePostponement" style="width: 15%;"
+     maxlength="3"
+     onKeyPress="return validator.isNumber(this,event)"
+     onblur="ValidatePostponedDays(this);FormatNumericSetting(this)"
+     onkeyup="ValidatePostponedDays(this)" />
    </td>
 </tr>
 <tr>
