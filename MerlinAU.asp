@@ -1216,7 +1216,10 @@ function initializeCollapsibleSections()
            id="routerPassword"
            name="routerPassword"
            placeholder="Enter password"
-           style="width: 100%; display: inline-block;"
+           style="width: 100%; display: inline-block;
+           padding-right: 35px;
+           box-sizing: border-box;
+           "
          />
          <div
              id="eyeToggle"
