@@ -179,20 +179,15 @@ function togglePassword()
     const passInput = document.getElementById('routerPassword');
     const eyeDiv = document.getElementById('eyeToggle');
     
-    // Base64-encoded SVG strings //
-    const eyeOpenSVG = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4NCjxwYXRoIGQ9Ik0xLjI2IDkuNkE2Ljk3IDYuOTcgMCAwMTggNGMzLjIgMCA2LjA2IDIuMzMgNi43NCA1LjZhLjUuNSAwIDAwLjk4LS4yQTcuOTcgNy45NyAwIDAwOCAzIDcuOTcgNy45NyAwIDAwLjI4IDkuNGEuNS41IDAgMDAuOTguMnoiIGZpbGw9IldpbmRvd1RleHQiLz48cGF0aCBkPSJNOCA2YTMuNSAzLjUgMCAxMDAgNyAzLjUgMy41IDAgMDAwLTd6TTUuNSA5LjVhMi41IDIuNSAwIDExNSAwIDIuNSAyLjUgMCAwMS01IDB6IiBmaWxsPSJXaW5kb3dUZXh0Ii8+DQo8L3N2Zz4=";
-
-    const eyeClosedSVG = "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4NCjxnIGNsaXAtcGF0aD0idXJsKCNjbGlwMCkiIGZpbGw9IldpbmRvd1RleHQiPjxwYXRoIGQ9Ik0uODUuMTVhLjUuNSAwIDEwLS43LjdsMy41IDMuNUE4LjEgOC4xIDAgMDAuMjggOS40YS41LjUgMCAwMC45OC4yIDcuMDkgNy4wOSAwIDAxMy4xLTQuNTNsMS42IDEuNTlhMy41IDMuNSAwIDEwNC44OCA0Ljg5bDQuMyA0LjNhLjUuNSAwIDAwLjcxLS43bC0xNS0xNXptOS4yNyAxMC42OGEyLjUgMi41IDAgMTEtMy40NS0zLjQ1bDMuNDUgMy40NXoiLz48cGF0aCBkPSJNOC4xMiA2bDMuMzggMy4zOEEzLjUgMy41IDAgMDA4LjEyIDZ6Ii8+PHBhdGggZD0iTTggNGMtLjU3IDAtMS4xMy4wNy0xLjY3LjIxbC0uOC0uOEE3LjY1IDcuNjUgMCAwMTggM2MzLjcgMCA2Ljk0IDIuNjcgNy43MiA2LjRhLjUuNSAwIDAxLS45OC4yQTYuOTcgNi45NyAwIDAwOCA0eiIvPjwvZz48ZGVmcz48Y2xpcFBhdGggaWQ9ImNsaXAwIj48cGF0aCBmaWxsPSIjZmZmZmZmIiBkPSJNMCAwaDE2djE2SDB6Ii8+PC9jbGlwUGF0aD48L2RlZnM+DQo8L3N2Zz4=";
-
     if (passInput.type === 'password')
     {
         passInput.type = 'text';
-        eyeDiv.style.background = `url('${eyeClosedSVG}') no-repeat center`;
+        eyeDiv.style.background = "url('/images/icon-invisible@2x.png') no-repeat center";
     } 
     else
     {
         passInput.type = 'password';
-        eyeDiv.style.background = `url('${eyeOpenSVG}') no-repeat center`;
+        eyeDiv.style.background = "url('/images/icon-visible@2x.png') no-repeat center";
     }
     eyeDiv.style.backgroundSize = 'contain';
 }
@@ -1300,15 +1295,13 @@ function initializeCollapsibleSections()
      <label for="routerPassword">Router Login Password</label>
    </td>
    <td>
-      <div style="position: relative; width: 278px;">
+      <div style="display: inline-block;">
          <input
            type="password"
            id="routerPassword"
            name="routerPassword"
            placeholder="Enter password"
-           style="width: 100%; display: inline-block;
-           padding-right: 35px;
-           box-sizing: border-box;"
+           style="width: 278px; display: inline-block;"
            maxlength="64"
            onKeyPress="return validator.isString(this, event)"
            onblur="ValidatePasswordString(this)"
@@ -1319,10 +1312,11 @@ function initializeCollapsibleSections()
              onclick="togglePassword();"
              style="
                position: absolute;
-               right: 5px; top: 50%;
-               transform: translateY(-50%);
-               width: 20px; height: 20px;
-               background: url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTYiIGhlaWdodD0iMTYiIHZpZXdCb3g9IjAgMCAxNiAxNiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4NCjxwYXRoIGQ9Ik0xLjI2IDkuNkE2Ljk3IDYuOTcgMCAwMTggNGMzLjIgMCA2LjA2IDIuMzMgNi43NCA1LjZhLjUuNSAwIDAwLjk4LS4yQTcuOTcgNy45NyAwIDAwOCAzIDcuOTcgNy45NyAwIDAwLjI4IDkuNGEuNS41IDAgMDAuOTguMnoiIGZpbGw9IldpbmRvd1RleHQiLz48cGF0aCBkPSJNOCA2YTMuNSAzLjUgMCAxMDAgNyAzLjUgMy41IDAgMDAwLTd6TTUuNSA5LjVhMi41IDIuNSAwIDExNSAwIDIuNSAyLjUgMCAwMS01IDB6IiBmaWxsPSJXaW5kb3dUZXh0Ii8+DQo8L3N2Zz4=') no-repeat center;
+               display: inline-block; 
+               margin-left: 5px;
+               vertical-align: middle;
+               width:24px; height:24px; 
+               background:url('/images/icon-visible@2x.png') no-repeat center;
                background-size: contain;
                cursor: pointer;"
          ></div>
