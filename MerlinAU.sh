@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-15
+# Last Modified: 2025-Jan-16
 ###################################################################
 set -u
 
@@ -2209,7 +2209,7 @@ _UpdateConfigFromWebUISettings_()
 
        if ! "$settingsMergeOK"
        then  ## Reset for Next Check ##
-           { sleep 30 ; _UpdateHelperJSFile_ 0x01 "true" ; } &
+           { sleep 15 ; _UpdateHelperJSFile_ 0x01 "true" ; } &
        fi
    else
        Say "No updated settings from WebUI found. No merge into $CONFIG_FILE necessary."
