@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-16 **/
+/** Last Modified: 2025-Jan-17 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -38,6 +38,7 @@ var advanced_settings = {};
 var custom_settings = {};
 var server_custom_settings = {};
 var ajax_custom_settings = {};
+let isFormSubmitting = false;
 
 // Define color formatting //
 const CYANct = "<span style='color:cyan;'>";
@@ -143,7 +144,7 @@ const fwUpdateDirPath =
       }
       if (!this.hasValidChars)
       {
-         return (`${errStr}\nThe path string does not meet some requirements.`);
+         return (`${errStr}\nThe path string does not meet syntax requirements.`);
       }
       if (!this.extCheckOK && this.extCheckMsg.length > 0)
       {
@@ -200,6 +201,9 @@ var externalCheckID = 0x00;
 var externalCheckOK = true;
 var externalCheckMsg = '';
 
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-17] **/
+/**----------------------------------------**/
 function GetExternalCheckResults()
 {
 	$.ajax({
@@ -211,6 +215,9 @@ function GetExternalCheckResults()
 		},
 		success: function()
 		{
+            // Skip during form submission //
+            if (isFormSubmitting) { return true ; }
+
             if (externalCheckOK)
             {
                fwUpdateDirPath.extCheckOK = true;
@@ -647,11 +654,15 @@ function InitializeFields()
 
         // Call the visibility handler //
         handleROGFWBuildTypeVisibility();
+        console.log("Initializing was completed successfully.");
     }
     else
     { console.error("Custom settings NOT loaded."); }
 }
 
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-16] **/
+/**----------------------------------------**/
 function get_conf_file()
 {
         $.ajax({
@@ -871,8 +882,12 @@ function convertToStatus(value)
         return 'DISABLED';
 }
 
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-17] **/
+/**----------------------------------------**/
 function initial()
 {
+    isFormSubmitting = false;
     SetCurrentPage();
     LoadCustomSettings();
     get_conf_file();
@@ -891,7 +906,7 @@ function initial()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-13] **/
+/** Modified by Martinski W. [2025-Jan-17] **/
 /**----------------------------------------**/
 function SaveActionsConfig()
 {
@@ -966,11 +981,12 @@ function SaveActionsConfig()
     document.form.action_wait.value = 10;
     showLoading();
     document.form.submit();
+    isFormSubmitting = true;
     console.log("Actions Config Form submitted with settings:", updatedSettings);
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-15] **/
+/** Modified by Martinski W. [2025-Jan-17] **/
 /**----------------------------------------**/
 function SaveAdvancedConfig()
 {
@@ -1059,6 +1075,7 @@ function SaveAdvancedConfig()
     document.form.action_wait.value = 10;
     showLoading();
     document.form.submit();
+    isFormSubmitting = true;
     setTimeout(GetExternalCheckResults,4000);
     console.log("Advanced Config Form submitted with settings:", updatedSettings);
 }
