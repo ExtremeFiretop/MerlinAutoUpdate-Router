@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-13 **/
+/** Last Modified: 2025-Jan-17 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -38,6 +38,7 @@ var advanced_settings = {};
 var custom_settings = {};
 var server_custom_settings = {};
 var ajax_custom_settings = {};
+let isFormSubmitting = false;
 
 // Define color formatting //
 const CYANct = "<span style='color:cyan;'>";
@@ -107,17 +108,137 @@ function ValidatePostponedDays (formField)
 /**-------------------------------------**/
 function FormatNumericSetting(forminput)
 {
-   let inputvalue = forminput.value * 1;
-
+   let inputvalue = (forminput.value * 1);
    if (forminput.value.length === 0 || isNaN(inputvalue))
-   {
-       return false;
-   }
+   { return false; }
    else
    {
        forminput.value = parseInt(forminput.value, 10);
        return true;
    }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-15] **/
+/**-------------------------------------**/
+// To support 'fwUpdateDirectory' element //
+const fwUpdateDirPath =
+{
+   minLen: 5, maxLen: 200,
+   currLen: 0, hasValidChars: true, thePath: '',
+   extCheckID: 0x01, extCheckOK: true, extCheckMsg: '',
+   pathRegExp: '^(/[a-zA-Z0-9 ._#-]+)(/[a-zA-Z0-9 ._#-]+)+$',
+
+   ErrorMsg: function()
+   {
+      const errStr = 'The directory path is INVALID.';
+      if (this.currLen < this.minLen)
+      {
+         const excMinLen = (this.minLen - 1);
+         return (`${errStr}\nThe path string must be greater than ${excMinLen} characters.`);
+      }
+      if (this.currLen > this.maxLen)
+      {
+         const excMaxLen = (this.maxLen + 1);
+         return (`${errStr}\nThe path string must be less than ${excMaxLen} characters.`);
+      }
+      if (!this.hasValidChars)
+      {
+         return (`${errStr}\nThe path string does not meet syntax requirements.`);
+      }
+      if (!this.extCheckOK && this.extCheckMsg.length > 0)
+      {
+         this.extCheckOK = true;  //Reset for Next Check//
+         return (`The directory path was INVALID.\n${this.extCheckMsg}`);
+      }
+      return (`${errStr}`);
+   },
+   ValidatePath: function(formField)
+   {
+      const inputVal = formField.value;
+      const inputLen = formField.value.length;
+      this.thePath = inputVal;
+      this.currLen = inputLen;
+
+      if (inputLen < this.minLen || inputLen > this.maxLen)
+      { return false; }
+      let foundMatch = inputVal.match (`${this.pathRegExp}`);
+      if (foundMatch == null)
+      { this.hasValidChars = false; return false; }
+      else
+      { this.hasValidChars = true; }
+      if (!this.extCheckOK && this.extCheckMsg.length > 0)
+      { return false; }
+      return true;
+   }
+};
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-15] **/
+/**-------------------------------------**/
+function ValidateDirectoryPath (formField)
+{
+   if (fwUpdateDirPath.ValidatePath(formField))
+   {
+      $(formField).removeClass('Invalid');
+      $(formField).off('mouseover');
+      return true;
+   }
+   else
+   {
+      formField.focus();
+      $(formField).addClass('Invalid');
+      $(formField).on('mouseover',function(){return overlib(fwUpdateDirPath.ErrorMsg(),0,0);});
+      $(formField)[0].onmouseout = nd;
+      return false;
+   }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-16] **/
+/**-------------------------------------**/
+var externalCheckID = 0x00;
+var externalCheckOK = true;
+var externalCheckMsg = '';
+
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-17] **/
+/**----------------------------------------**/
+function GetExternalCheckResults()
+{
+	$.ajax({
+		url: '/ext/MerlinAU/CheckHelper.js',
+		dataType: 'script',
+		timeout: 5000,
+		error: function(xhr){
+			setTimeout(GetExternalCheckResults,1000);
+		},
+		success: function()
+		{
+            // Skip during form submission //
+            if (isFormSubmitting) { return true ; }
+
+            if (externalCheckOK)
+            {
+               fwUpdateDirPath.extCheckOK = true;
+               fwUpdateDirPath.extCheckMsg = '';
+               return true;
+            }
+            if ((externalCheckID & fwUpdateDirPath.extCheckID) > 0)
+            {
+                externalCheckOK = true; //Reset for next check//
+                fwUpdateDirPath.extCheckOK = false;
+                fwUpdateDirPath.extCheckMsg = externalCheckMsg;
+
+                let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
+                if (!ValidateDirectoryPath (fwUpdateDirectory))
+                {
+                    alert('Validation failed.\n\n' + fwUpdateDirPath.ErrorMsg());
+                    return false;
+                }
+            }
+		}
+	});
 }
 
 /**-------------------------------------**/
@@ -178,7 +299,7 @@ function togglePassword()
 {
     const passInput = document.getElementById('routerPassword');
     const eyeDiv = document.getElementById('eyeToggle');
-    
+
     if (passInput.type === 'password')
     {
         passInput.type = 'text';
@@ -202,12 +323,10 @@ function FWVersionStrToNum(verStr)
     // If it's empty or null, treat as ZERO //
     if (!verStr) return 0;
 
-    let nonProductionVersionWeight;
-    foundAlphaBetaVersion = verStr.match (/([Aa]lpha|[Bb]eta)/);
+    let nonProductionVersionWeight = 0;
+    let foundAlphaBetaVersion = verStr.match (/([Aa]lpha|[Bb]eta)/);
     if (foundAlphaBetaVersion == null)
-    {
-       nonProductionVersionWeight = 0;
-    }
+    { nonProductionVersionWeight = 0; }
     else
     {
        nonProductionVersionWeight = 100;
@@ -291,7 +410,7 @@ function handleROGFWBuildTypeVisibility()
 /**----------------------------------------**/
 /** Modified by Martinski W. [2025-Jan-13] **/
 /**----------------------------------------**/
-function initializeFields()
+function InitializeFields()
 {
     console.log("Initializing fields...");
     let changelogCheckEnabled = document.getElementById('changelogCheckEnabled');
@@ -466,7 +585,7 @@ function initializeFields()
         else
         { console.error("Required elements for firmware version comparison not found."); }
 
-        // **Update fwUpdateEstimatedRunDate Based on fwUpdateAvailable**
+        // **Update fwUpdateEstimatedRunDate Based on fwUpdateAvailable** //
         if (fwUpdateEstimatedRunDateElement)
         {
             if (isFwUpdateAvailable && fwUpdateAvailable !== '')
@@ -535,11 +654,15 @@ function initializeFields()
 
         // Call the visibility handler //
         handleROGFWBuildTypeVisibility();
+        console.log("Initializing was completed successfully.");
     }
     else
     { console.error("Custom settings NOT loaded."); }
 }
 
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-16] **/
+/**----------------------------------------**/
 function get_conf_file()
 {
         $.ajax({
@@ -607,7 +730,8 @@ function get_conf_file()
                 console.log("Merged Custom Settings:", custom_settings);
 
                 // Initialize fields with the merged settings
-                initializeFields();
+                InitializeFields();
+                GetExternalCheckResults();
             }
         });
 }
@@ -758,26 +882,31 @@ function convertToStatus(value)
         return 'DISABLED';
 }
 
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-17] **/
+/**----------------------------------------**/
 function initial()
 {
-        SetCurrentPage();
-        LoadCustomSettings();
-        get_conf_file();
-        show_menu();
+    isFormSubmitting = false;
+    SetCurrentPage();
+    LoadCustomSettings();
+    get_conf_file();
+    show_menu();
 
-        // Debugging iframe behavior
-        var hiddenFrame = document.getElementById('hidden_frame');
-        if (hiddenFrame) {
-            hiddenFrame.onload = function () {
-                console.log("Hidden frame loaded with server response.");
-            };
-
-            initializeCollapsibleSections();
-        }
+    // Debugging iframe behavior //
+    var hiddenFrame = document.getElementById('hidden_frame');
+    if (hiddenFrame)
+    {
+        hiddenFrame.onload = function()
+        {
+            console.log("Hidden frame loaded with server response.");
+        };
+        initializeCollapsibleSections();
+    }
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-13] **/
+/** Modified by Martinski W. [2025-Jan-17] **/
 /**----------------------------------------**/
 function SaveActionsConfig()
 {
@@ -836,10 +965,9 @@ function SaveActionsConfig()
         "MerlinAU_FW_New_Update_ROGFWBuildType",
         "MerlinAU_FW_New_Update_TUFWBuildType"
     ];
-    ADVANCED_KEYS.forEach(function (key) {
-        if (server_custom_settings.hasOwnProperty(key)) {
-            delete server_custom_settings[key];
-        }
+    ADVANCED_KEYS.forEach(function (key){
+        if (server_custom_settings.hasOwnProperty(key))
+        { delete server_custom_settings[key]; }
     });
 
     // Merge Server Custom Settings and prefixed Action form settings //
@@ -853,103 +981,103 @@ function SaveActionsConfig()
     document.form.action_wait.value = 10;
     showLoading();
     document.form.submit();
+    isFormSubmitting = true;
     console.log("Actions Config Form submitted with settings:", updatedSettings);
 }
 
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-17] **/
+/**----------------------------------------**/
 function SaveAdvancedConfig()
 {
-        // Clear amng_custom for any existing content before saving
-        document.getElementById('amng_custom').value = '';
+    // Clear amng_custom for any existing content before saving //
+    document.getElementById('amng_custom').value = '';
 
-        // 1) F/W Update Email Notifications - only if not disabled
-        let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
-        let emailFormat = document.getElementById('emailFormat');
-        let secondaryEmail = document.getElementById('secondaryEmail');
+    // 1) F/W Update Email Notifications - only if not disabled
+    let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
+    let emailFormat = document.getElementById('emailFormat');
+    let secondaryEmail = document.getElementById('secondaryEmail');
 
-        if (emailNotificationsEnabled && !emailNotificationsEnabled.disabled) {
-            // The box is enabled, so we save these fields
-            advanced_settings.FW_New_Update_EMail_Notification = emailNotificationsEnabled.checked ? 'ENABLED' : 'DISABLED';
-        }
+    // If the box is enabled, we save these fields //
+    if (emailNotificationsEnabled && !emailNotificationsEnabled.disabled)
+    { advanced_settings.FW_New_Update_EMail_Notification = emailNotificationsEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
-        if (emailFormat && !emailFormat.disabled) {
-            advanced_settings.FW_New_Update_EMail_FormatType = emailFormat.value || 'HTML';
-        }
+    if (emailFormat && !emailFormat.disabled)
+    { advanced_settings.FW_New_Update_EMail_FormatType = emailFormat.value || 'HTML'; }
 
-        if (secondaryEmail && !secondaryEmail.disabled) {
-            advanced_settings.FW_New_Update_EMail_CC_Address = secondaryEmail.value || 'TBD';
-        }
+    if (secondaryEmail && !secondaryEmail.disabled)
+    { advanced_settings.FW_New_Update_EMail_CC_Address = secondaryEmail.value || 'TBD'; }
 
-        // 2) F/W Update Directory - always saved (or up to your requirements)
-        let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
-        if (fwUpdateDirectory) {
-            advanced_settings.FW_New_Update_ZIP_Directory_Path = fwUpdateDirectory.value || '/tmp/mnt/USB1';
-        }
+    // 2) F/W Update Directory (more checks are made in the shell script) //
+    let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
+    if (!ValidateDirectoryPath (fwUpdateDirectory))
+    {
+        alert('Validation failed. Please correct invalid value and try again.\n\n' + fwUpdateDirPath.ErrorMsg());
+        return false;
+    }
+    if (fwUpdateDirectory)
+    { advanced_settings.FW_New_Update_ZIP_Directory_Path = fwUpdateDirectory.value || '/tmp/mnt/USB1'; }
 
-        // 3) Tailscale/ZeroTier VPN Access - only if not disabled
-        let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
-        if (tailscaleVPNEnabled && !tailscaleVPNEnabled.disabled) {
-            advanced_settings.Allow_Updates_OverVPN = tailscaleVPNEnabled.checked ? 'ENABLED' : 'DISABLED';
-        }
+    // 3) Tailscale/ZeroTier VPN Access - only if not disabled
+    let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
+    if (tailscaleVPNEnabled && !tailscaleVPNEnabled.disabled)
+    { advanced_settings.Allow_Updates_OverVPN = tailscaleVPNEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
-        // 4) Auto-Updates for Script - only if not disabled
-        let autoUpdatesScriptEnabled = document.getElementById('autoUpdatesScriptEnabled');
-        if (autoUpdatesScriptEnabled && !autoUpdatesScriptEnabled.disabled) {
-            advanced_settings.Allow_Script_Auto_Update = autoUpdatesScriptEnabled.checked ? 'ENABLED' : 'DISABLED';
-        }
+    // 4) Auto-Updates for Script - only if not disabled
+    let autoUpdatesScriptEnabled = document.getElementById('autoUpdatesScriptEnabled');
+    if (autoUpdatesScriptEnabled && !autoUpdatesScriptEnabled.disabled)
+    { advanced_settings.Allow_Script_Auto_Update = autoUpdatesScriptEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
-        // 5) Beta-to-Release Updates - only if not disabled
-        let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
-        if (betaToReleaseUpdatesEnabled && !betaToReleaseUpdatesEnabled.disabled) {
-            advanced_settings.FW_Allow_Beta_Production_Up = betaToReleaseUpdatesEnabled.checked ? 'ENABLED' : 'DISABLED';
-        }
+    // 5) Beta-to-Release Updates - only if not disabled
+    let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
+    if (betaToReleaseUpdatesEnabled && !betaToReleaseUpdatesEnabled.disabled)
+    { advanced_settings.FW_Allow_Beta_Production_Up = betaToReleaseUpdatesEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
-        // 6) Auto-Backup - only if not disabled
-        let autobackupEnabled = document.getElementById('autobackupEnabled');
-        if (autobackupEnabled && !autobackupEnabled.disabled) {
-            advanced_settings.FW_Auto_Backupmon = autobackupEnabled.checked ? 'ENABLED' : 'DISABLED';
-        }
+    // 6) Auto-Backup - only if not disabled
+    let autobackupEnabled = document.getElementById('autobackupEnabled');
+    if (autobackupEnabled && !autobackupEnabled.disabled)
+    { advanced_settings.FW_Auto_Backupmon = autobackupEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
-        // 7) ROG/TUF F/W Build Type - handle conditional rows if visible
-        let rogFWBuildRow = document.getElementById('rogFWBuildRow');
-        let rogFWBuildType = document.getElementById('rogFWBuildType');
-        if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none' && rogFWBuildType) {
-            advanced_settings.FW_New_Update_ROGFWBuildType = rogFWBuildType.value || 'ROG';
-        }
+    // 7) ROG/TUF F/W Build Type - handle conditional rows if visible
+    let rogFWBuildRow = document.getElementById('rogFWBuildRow');
+    let rogFWBuildType = document.getElementById('rogFWBuildType');
+    if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none' && rogFWBuildType)
+    { advanced_settings.FW_New_Update_ROGFWBuildType = rogFWBuildType.value || 'ROG'; }
 
-        let tufFWBuildRow = document.getElementById('tuffFWBuildRow');
-        let tuffFWBuildType = document.getElementById('tuffFWBuildType');
-        if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none' && tuffFWBuildType) {
-            advanced_settings.FW_New_Update_TUFWBuildType = tuffFWBuildType.value || 'TUF';
-        }
+    let tufFWBuildRow = document.getElementById('tuffFWBuildRow');
+    let tuffFWBuildType = document.getElementById('tuffFWBuildType');
+    if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none' && tuffFWBuildType)
+    { advanced_settings.FW_New_Update_TUFWBuildType = tuffFWBuildType.value || 'TUF'; }
 
-        // Prefix only Advanced settings
-        var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
+    // Prefix only Advanced settings
+    var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
 
-        // Remove any action keys from server_custom_settings to avoid overwriting
-        var ACTION_KEYS = [
-            "MerlinAU_credentials_base64",
-            "MerlinAU_FW_New_Update_Postponement_Days",
-            "MerlinAU_CheckChangeLog",
-            "MerlinAU_FW_Update_Check"
-        ];
-        ACTION_KEYS.forEach(function (key) {
-            if (server_custom_settings.hasOwnProperty(key)) {
-                delete server_custom_settings[key];
-            }
-        });
+    // Remove any action keys from server_custom_settings to avoid overwriting //
+    var ACTION_KEYS = [
+        "MerlinAU_credentials_base64",
+        "MerlinAU_FW_New_Update_Postponement_Days",
+        "MerlinAU_CheckChangeLog",
+        "MerlinAU_FW_Update_Check"
+    ];
+    ACTION_KEYS.forEach(function (key){
+        if (server_custom_settings.hasOwnProperty(key))
+        { delete server_custom_settings[key]; }
+    });
 
-        // Merge Server Custom Settings and prefixed Advanced settings
-        var updatedSettings = Object.assign({}, server_custom_settings, prefixedAdvancedSettings);
+    // Merge Server Custom Settings and prefixed Advanced settings
+    var updatedSettings = Object.assign({}, server_custom_settings, prefixedAdvancedSettings);
 
-        // Save merged settings to the hidden input field
-        document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
+    // Save merged settings to the hidden input field
+    document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
 
-        // Apply the settings
-        document.form.action_script.value = 'start_MerlinAUconfig';
-        document.form.action_wait.value = 10;
-        showLoading();
-        document.form.submit();
-        console.log("Advanced Config Form submitted with settings:", updatedSettings);
+    // Apply the settings //
+    document.form.action_script.value = 'start_MerlinAUconfig';
+    document.form.action_wait.value = 10;
+    showLoading();
+    document.form.submit();
+    isFormSubmitting = true;
+    setTimeout(GetExternalCheckResults,4000);
+    console.log("Advanced Config Form submitted with settings:", updatedSettings);
 }
 
 function Uninstall()
@@ -1331,9 +1459,10 @@ function initializeCollapsibleSections()
    <td style="text-align: left;">
    <label id="fwUpdatePostponementLabel" for="fwUpdatePostponement">F/W Update Postponement</label>
    </td>
-   <td class="settingvalue">
-   <input autocomplete="off" type="text" id="fwUpdatePostponement" name="fwUpdatePostponement" style="width: 15%;"
-     maxlength="3"
+   <td>
+   <input autocomplete="off" type="text"
+     id="fwUpdatePostponement" name="fwUpdatePostponement"
+     style="width: 15%;" maxlength="3"
      onKeyPress="return validator.isNumber(this,event)"
      onblur="ValidatePostponedDays(this);FormatNumericSetting(this)"
      onkeyup="ValidatePostponedDays(this)" />
@@ -1345,7 +1474,8 @@ function initializeCollapsibleSections()
 </tr>
 </table>
 <div style="text-align: center; margin-top: 10px;">
-   <input type="submit" onclick="return SaveActionsConfig();" value="Save" class="button_gen savebutton" name="button">
+   <input type="submit" onclick="return SaveActionsConfig();"
+    value="Save" class="button_gen savebutton" name="button">
 </div>
 </form>
 </td>
@@ -1364,14 +1494,23 @@ function initializeCollapsibleSections()
 <tr>
 <td colspan="2">
 <form id="advancedOptionsForm">
-<table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
+<table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;" class="FormTable SettingsTable">
 <colgroup>
    <col style="width: 50%;" />
    <col style="width: 50%;" />
 </colgroup>
 <tr>
-   <td style="text-align: left;"><label for="fwUpdateDirectory">Set Directory for F/W Updates</label></td>
-   <td><input type="text" id="fwUpdateDirectory" name="fwUpdateDirectory" style="width: 275px;" /></td>
+   <td style="text-align: left;">
+     <label for="fwUpdateDirectory">Set Directory for F/W Updates</label>
+   </td>
+   <td>
+   <input autocomplete="off" type="text"
+     id="fwUpdateDirectory" name="fwUpdateDirectory"
+     style="width: 275px;" maxlength="200"
+     onKeyPress="return validator.isString(this, event)"
+     onblur="ValidateDirectoryPath(this)"
+     onkeyup="ValidateDirectoryPath(this)" />
+   </td>
 </tr>
 <tr>
    <td style="text-align: left;"><label for="betaToReleaseUpdatesEnabled">Beta-to-Release Updates</label></td>
@@ -1426,7 +1565,8 @@ function initializeCollapsibleSections()
 </tr>
 </table>
 <div style="text-align: center; margin-top: 10px;">
-   <input type="submit" onclick="SaveAdvancedConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
+   <input type="submit" onclick="SaveAdvancedConfig(); return false;"
+    value="Save" class="button_gen savebutton" name="button">
 </div>
 </form></td></tr></tbody></table>
 <div style="margin-top:10px;text-align:center;">MerlinAU v1.4.0 by ExtremeFiretop &amp; Martinski W.</div>
