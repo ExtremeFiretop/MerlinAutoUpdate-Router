@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-18 **/
+/** Last Modified: 2025-Jan-19 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -206,15 +206,15 @@ var externalCheckMsg = '';
 /**----------------------------------------**/
 function GetExternalCheckResults()
 {
-	$.ajax({
-		url: '/ext/MerlinAU/CheckHelper.js',
-		dataType: 'script',
-		timeout: 5000,
-		error: function(xhr){
-			setTimeout(GetExternalCheckResults,1000);
-		},
-		success: function()
-		{
+    $.ajax({
+        url: '/ext/MerlinAU/CheckHelper.js',
+        dataType: 'script',
+        timeout: 5000,
+        error: function(xhr){
+            setTimeout(GetExternalCheckResults,1000);
+        },
+        success: function()
+        {
             // Skip during form submission //
             if (isFormSubmitting) { return true ; }
 
@@ -237,8 +237,8 @@ function GetExternalCheckResults()
                     return false;
                 }
             }
-		}
-	});
+        }
+    });
 }
 
 /**-------------------------------------**/
@@ -361,13 +361,13 @@ function LoadCustomSettings()
     shared_custom_settings = <% get_custom_settings(); %>;
     for (var prop in shared_custom_settings)
     {
-		if (Object.prototype.hasOwnProperty.call(shared_custom_settings, prop))
+        if (Object.prototype.hasOwnProperty.call(shared_custom_settings, prop))
         {
             // Remove any old entries that may have been left behind //
-			if (prop.indexOf('MerlinAU') != -1 && prop.indexOf('MerlinAU_version_') == -1)
+            if (prop.indexOf('MerlinAU') != -1 && prop.indexOf('MerlinAU_version_') == -1)
             { eval('delete shared_custom_settings.' + prop); }
-		}
-	}
+        }
+    }
     console.log("Shared Custom Settings Loaded:", shared_custom_settings);
 }
 
@@ -376,15 +376,15 @@ function LoadCustomSettings()
 /**-------------------------------------**/
 function GetScriptVersion (versionType)
 {
-	var versionProp;
-	if (versionType == 'local')
+    var versionProp;
+    if (versionType == 'local')
     { versionProp = shared_custom_settings.MerlinAU_version_local; }
-	else if (versionType == 'server')
+    else if (versionType == 'server')
     { versionProp = shared_custom_settings.MerlinAU_version_server; }
 
-	if (typeof versionProp == 'undefined' || versionProp == null)
+    if (typeof versionProp == 'undefined' || versionProp == null)
     { return 'N/A'; }
-	else
+    else
     { return versionProp; }
 }
 
@@ -910,8 +910,8 @@ function convertToStatus(value)
 /**-------------------------------------**/
 function UpdateScriptVersion()
 {
-	var localVers = GetScriptVersion('local');
-	var serverVers = GetScriptVersion('server');
+    var localVers = GetScriptVersion('local');
+    var serverVers = GetScriptVersion('server');
 
     $('#headerTitle').text ('MerlinAU Dashboard v' + localVers);
     $('#footerTitle').text ('MerlinAU v' + localVers + ' by ExtremeFiretop & Martinski W.');
