@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-16
+# Last Modified: 2025-Jan-18
 ###################################################################
 set -u
 
@@ -8744,15 +8744,25 @@ _DoInstallation_()
    _MainMenu_
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-18] ##
+##----------------------------------------##
 _DoUnInstallation_()
 {
-   printf "\nAre you sure you want to uninstall $ScriptFileName script now"
+   printf "\n${BOLDct}Are you sure you want to uninstall $ScriptFileName script now${NOct}"
    ! _WaitForYESorNO_ && return 0
 
    if ! _AcquireLock_ cliFileLock ; then return 1 ; fi
+
+   local doSaveConfig=false
+   local savedCFGPath="${SCRIPTS_PATH}/${SCRIPT_NAME}_CFG.SAVED.TXT"
+
+   printf "\n${BOLDct}Do you want to keep/save the $SCRIPT_NAME configuration file${NOct}"
+   if _WaitForYESorNO_
+   then
+       doSaveConfig=true
+       mv -f "$CONFIG_FILE" "$savedCFGPath"
+   fi
 
    _DelFWAutoUpdateHook_
    _DelFWAutoUpdateCronJob_
@@ -8770,6 +8780,7 @@ _DoUnInstallation_()
    fi
 
    if rm -fr "${SETTINGS_DIR:?}" && \
+      rm -fr "${SCRIPT_WEB_DIR:?}" && \
       rm -fr "${FW_BIN_BASE_DIR:?}/$ScriptDirNameD" && \
       rm -fr "${FW_LOG_BASE_DIR:?}/$ScriptDirNameD" && \
       rm -fr "${FW_ZIP_BASE_DIR:?}/$ScriptDirNameD" && \
@@ -8778,6 +8789,15 @@ _DoUnInstallation_()
        Say "${GRNct}Successfully Uninstalled.${NOct}"
    else
        Say "${CRITct}**ERROR**: Uninstallation failed.${NOct}"
+   fi
+
+   if "$doSaveConfig"
+   then
+       if mkdir -p "$SETTINGS_DIR"
+       then
+           chmod 755 "$SETTINGS_DIR"
+           mv -f "$savedCFGPath" "$CONFIG_FILE"
+       fi
    fi
    _DoExit_ 0
 }

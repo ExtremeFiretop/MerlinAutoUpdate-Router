@@ -29,14 +29,14 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-17 **/
+/** Last Modified: 2025-Jan-19 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
 // Separate variables for server and AJAX settings //
 var advanced_settings = {};
 var custom_settings = {};
-var server_custom_settings = {};
+var shared_custom_settings = {};
 var ajax_custom_settings = {};
 let isFormSubmitting = false;
 
@@ -206,15 +206,15 @@ var externalCheckMsg = '';
 /**----------------------------------------**/
 function GetExternalCheckResults()
 {
-	$.ajax({
-		url: '/ext/MerlinAU/CheckHelper.js',
-		dataType: 'script',
-		timeout: 5000,
-		error: function(xhr){
-			setTimeout(GetExternalCheckResults,1000);
-		},
-		success: function()
-		{
+    $.ajax({
+        url: '/ext/MerlinAU/CheckHelper.js',
+        dataType: 'script',
+        timeout: 5000,
+        error: function(xhr){
+            setTimeout(GetExternalCheckResults,1000);
+        },
+        success: function()
+        {
             // Skip during form submission //
             if (isFormSubmitting) { return true ; }
 
@@ -237,8 +237,8 @@ function GetExternalCheckResults()
                     return false;
                 }
             }
-		}
-	});
+        }
+    });
 }
 
 /**-------------------------------------**/
@@ -353,10 +353,39 @@ function FWVersionStrToNum(verStr)
     return (verNum);
 }
 
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-18] **/
+/**----------------------------------------**/
 function LoadCustomSettings()
 {
-    server_custom_settings = <% get_custom_settings(); %>;
-    console.log("Server Custom Settings Loaded:", server_custom_settings);
+    shared_custom_settings = <% get_custom_settings(); %>;
+    for (var prop in shared_custom_settings)
+    {
+        if (Object.prototype.hasOwnProperty.call(shared_custom_settings, prop))
+        {
+            // Remove any old entries that may have been left behind //
+            if (prop.indexOf('MerlinAU') != -1 && prop.indexOf('MerlinAU_version_') == -1)
+            { eval('delete shared_custom_settings.' + prop); }
+        }
+    }
+    console.log("Shared Custom Settings Loaded:", shared_custom_settings);
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-18] **/
+/**-------------------------------------**/
+function GetScriptVersion (versionType)
+{
+    var versionProp;
+    if (versionType == 'local')
+    { versionProp = shared_custom_settings.MerlinAU_version_local; }
+    else if (versionType == 'server')
+    { versionProp = shared_custom_settings.MerlinAU_version_server; }
+
+    if (typeof versionProp == 'undefined' || versionProp == null)
+    { return 'N/A'; }
+    else
+    { return versionProp; }
 }
 
 function prefixCustomSettings(settings, prefix)
@@ -661,79 +690,74 @@ function InitializeFields()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-16] **/
+/** Modified by Martinski W. [2025-Jan-18] **/
 /**----------------------------------------**/
-function get_conf_file()
+function GetConfigSettings()
 {
-        $.ajax({
-            url: '/ext/MerlinAU/config.htm',
-            dataType: 'text',
-            error: function(xhr)
-            {
-                console.error("Failed to fetch config.htm:", xhr.statusText);
-                setTimeout(get_conf_file, 1000); // Retry after 1 second
-            },
-            success: function(data)
-            {
-                // Tokenize the data while respecting quoted values
-                var tokens = tokenize(data);
+    $.ajax({
+        url: '/ext/MerlinAU/config.htm',
+        dataType: 'text',
+        error: function(xhr)
+        {
+            console.error("Failed to fetch config.htm:", xhr.statusText);
+            setTimeout(GetConfigSettings, 1000);
+        },
+        success: function(data)
+        {
+            // Tokenize the data while respecting quoted values
+            var tokenList = tokenize(data);
 
-                // Iterate through tokens to extract key-value pairs
-                for (var i = 0; i < tokens.length; i++)
+            for (var i = 0; i < tokenList.length; i++)
+            {
+                var token = tokenList[i];
+
+                if (token.includes('='))
                 {
-                    var token = tokens[i];
+                    // Handle "key=value" format //
+                    var splitIndex = token.indexOf('=');
+                    var key = token.substring(0, splitIndex).trim();
+                    var value = token.substring(splitIndex + 1).trim();
 
-                    if (token.includes('='))
+                    // Remove surrounding quotes if present
+                    if (value.startsWith('"') && value.endsWith('"'))
+                    { value = value.substring(1, value.length - 1); }
+
+                    assignAjaxSetting(key, value);
+                }
+                else
+                {
+                    // Handle "key value" format //
+                    var key = token.trim();
+                    var value = '';
+
+                    // Ensure there's a next token for the value //
+                    if (i + 1 < tokenList.length)
                     {
-                        // Handle key=value format
-                        var splitIndex = token.indexOf('=');
-                        var key = token.substring(0, splitIndex).trim();
-                        var value = token.substring(splitIndex + 1).trim();
+                        value = tokenList[i + 1].trim();
 
-                        // Remove surrounding quotes if present
-                        if (value.startsWith('"') && value.endsWith('"')) {
-                            value = value.substring(1, value.length - 1);
-                        }
+                        // Remove surrounding quotes if present //
+                        if (value.startsWith('"') && value.endsWith('"'))
+                        { value = value.substring(1, value.length - 1); }
 
                         assignAjaxSetting(key, value);
+                        i++; // Skip the next token as it's already processed
                     }
                     else
-                    {
-                        // Handle key value format
-                        var key = token.trim();
-                        var value = '';
-
-                        // Ensure there's a next token for the value
-                        if (i + 1 < tokens.length)
-                        {
-                            value = tokens[i + 1].trim();
-
-                            // Remove surrounding quotes if present
-                            if (value.startsWith('"') && value.endsWith('"')) {
-                                value = value.substring(1, value.length - 1);
-                            }
-
-                            assignAjaxSetting(key, value);
-                            i++; // Skip the next token as it's already processed
-                        }
-                        else
-                        {
-                            console.warn(`No value found for key: ${key}`);
-                        }
-                    }
+                    { console.warn(`No value found for key: ${key}`); }
                 }
-
-                console.log("AJAX Custom Settings Loaded:", ajax_custom_settings);
-
-                // Merge both server and AJAX settings
-                custom_settings = Object.assign({}, server_custom_settings, ajax_custom_settings);
-                console.log("Merged Custom Settings:", custom_settings);
-
-                // Initialize fields with the merged settings
-                InitializeFields();
-                GetExternalCheckResults();
             }
-        });
+
+            console.log("AJAX Custom Settings Loaded:", ajax_custom_settings);
+
+            // Merge both server and AJAX settings //
+            custom_settings = Object.assign({}, shared_custom_settings, ajax_custom_settings);
+            console.log("Merged Custom Settings:", custom_settings);
+
+            // Initialize fields with the merged settings //
+            InitializeFields();
+            GetExternalCheckResults();
+        }
+    });
 }
 
 // Helper function to tokenize the input string, respecting quoted substrings //
@@ -743,10 +767,10 @@ function tokenize(input)
     return input.match(regex) || [];
 }
 
-// Helper function to assign settings based on key
+// Helper function to assign settings based on key //
 function assignAjaxSetting(key, value)
 {
-        // Normalize key to uppercase for case-insensitive comparison
+        // Normalize key to uppercase for case-insensitive comparison //
         var keyUpper = key.toUpperCase();
 
         switch (true) {
@@ -829,10 +853,10 @@ function assignAjaxSetting(key, value)
                 ajax_custom_settings.FW_New_Update_Notifications_Date = value;
                 break;
 
-            // Additional AJAX settings can be handled here
+            // Additional AJAX settings can be handled here //
 
             default:
-                // Optionally handle or log unknown settings
+                // Optionally handle or log unknown settings //
                 break;
         }
 }
@@ -875,23 +899,35 @@ function SetCurrentPage()
 
 function convertToStatus(value)
 {
-        if (typeof value === 'boolean') return value ? 'ENABLED' : 'DISABLED';
-        if (typeof value === 'string') {
-            return (value.toLowerCase() === 'true' || value.toLowerCase() === 'enabled') ? 'ENABLED' : 'DISABLED';
-        }
-        return 'DISABLED';
+    if (typeof value === 'boolean') return value ? 'ENABLED' : 'DISABLED';
+    if (typeof value === 'string')
+    { return (value.toLowerCase() === 'true' || value.toLowerCase() === 'enabled') ? 'ENABLED' : 'DISABLED'; }
+    return 'DISABLED';
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-18] **/
+/**-------------------------------------**/
+function UpdateScriptVersion()
+{
+    var localVers = GetScriptVersion('local');
+    var serverVers = GetScriptVersion('server');
+
+    $('#headerTitle').text ('MerlinAU Dashboard v' + localVers);
+    $('#footerTitle').text ('MerlinAU v' + localVers + ' by ExtremeFiretop & Martinski W.');
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-17] **/
+/** Modified by Martinski W. [2025-Jan-18] **/
 /**----------------------------------------**/
 function initial()
 {
     isFormSubmitting = false;
     SetCurrentPage();
     LoadCustomSettings();
-    get_conf_file();
+    GetConfigSettings();
     show_menu();
+    UpdateScriptVersion();
 
     // Debugging iframe behavior //
     var hiddenFrame = document.getElementById('hidden_frame');
@@ -966,12 +1002,12 @@ function SaveActionsConfig()
         "MerlinAU_FW_New_Update_TUFWBuildType"
     ];
     ADVANCED_KEYS.forEach(function (key){
-        if (server_custom_settings.hasOwnProperty(key))
-        { delete server_custom_settings[key]; }
+        if (shared_custom_settings.hasOwnProperty(key))
+        { delete shared_custom_settings[key]; }
     });
 
     // Merge Server Custom Settings and prefixed Action form settings //
-    var updatedSettings = Object.assign({}, server_custom_settings, prefixedActionSettings);
+    var updatedSettings = Object.assign({}, shared_custom_settings, prefixedActionSettings);
 
     // Save merged settings to the hidden input field //
     document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
@@ -1052,7 +1088,7 @@ function SaveAdvancedConfig()
     // Prefix only Advanced settings
     var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
 
-    // Remove any action keys from server_custom_settings to avoid overwriting //
+    // Remove any action keys from shared_custom_settings to avoid overwriting //
     var ACTION_KEYS = [
         "MerlinAU_credentials_base64",
         "MerlinAU_FW_New_Update_Postponement_Days",
@@ -1060,12 +1096,12 @@ function SaveAdvancedConfig()
         "MerlinAU_FW_Update_Check"
     ];
     ACTION_KEYS.forEach(function (key){
-        if (server_custom_settings.hasOwnProperty(key))
-        { delete server_custom_settings[key]; }
+        if (shared_custom_settings.hasOwnProperty(key))
+        { delete shared_custom_settings[key]; }
     });
 
     // Merge Server Custom Settings and prefixed Advanced settings
-    var updatedSettings = Object.assign({}, server_custom_settings, prefixedAdvancedSettings);
+    var updatedSettings = Object.assign({}, shared_custom_settings, prefixedAdvancedSettings);
 
     // Save merged settings to the hidden input field
     document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
@@ -1284,7 +1320,7 @@ function initializeCollapsibleSections()
 <tr style="background-color:#4D595D;">
 <td valign="top">
 <div>&nbsp;</div>
-<div class="formfonttitle" style="text-align:center;">MerlinAU Dashboard v1.4.0</div>
+<div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
 <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 <div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI.</div>
 <div style="line-height:10px;">&nbsp;</div>
@@ -1569,7 +1605,7 @@ function initializeCollapsibleSections()
     value="Save" class="button_gen savebutton" name="button">
 </div>
 </form></td></tr></tbody></table>
-<div style="margin-top:10px;text-align:center;">MerlinAU v1.4.0 by ExtremeFiretop &amp; Martinski W.</div>
+<div id="footerTitle" style="margin-top:10px;text-align:center;">MerlinAU</div>
 </td></tr></tbody></table></td></tr></table></td>
 <td width="10"></td>
 </tr></table></form>
