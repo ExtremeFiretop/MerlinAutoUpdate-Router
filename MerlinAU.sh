@@ -318,8 +318,8 @@ _WaitForYESorNO_()
    local retCode  defltAnswer  promptStr
 
    if [ $# -gt 0 ] && [ "$1" = "NO" ]
-   then retCode=1 ; defltAnswer="NO"
-   else retCode=0 ; defltAnswer="YES"
+   then retCode=1 ; defltAnswer="YES"
+   else retCode=0 ; defltAnswer="NO"
    fi
 
    ! "$isInteractive" && return "$retCode"
@@ -331,6 +331,7 @@ _WaitForYESorNO_()
    fi
 
    printf "$promptStr" ; read -r YESorNO
+   [ -z "$YESorNO" ] && YESorNO="$defltAnswer"
    if echo "$YESorNO" | grep -qE "^([Yy](es)?|YES)$"
    then echo "OK" ; return 0
    else echo "NO" ; return 1
