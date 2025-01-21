@@ -2047,7 +2047,7 @@ _SetVersionSharedSettings_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
 _CreateDirPaths_()
 {
@@ -2056,6 +2056,8 @@ _CreateDirPaths_()
       mkdir -p "$SETTINGS_DIR"
       chmod 755 "$SETTINGS_DIR"
    fi
+   ! "$inRouterSWmode" && return 0
+
    if [ ! -d "$SCRIPT_WEB_DIR" ]
    then
       mkdir -p "$SCRIPT_WEB_DIR"
@@ -2064,21 +2066,28 @@ _CreateDirPaths_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
+## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
 _CreateSymLinks_()
 {
-   rm -rf "${SCRIPT_WEB_DIR:?}/"* 2>/dev/null
+   if [ -d "$SCRIPT_WEB_DIR" ]
+   then
+       rm -rf "${SCRIPT_WEB_DIR:?}/"* 2>/dev/null
+   fi
+   ! "$inRouterSWmode" && return 0
+
    ln -s "$CONFIG_FILE" "${SCRIPT_WEB_DIR}/config.htm" 2>/dev/null
    ln -s "$HELPER_JSFILE" "${SCRIPT_WEB_DIR}/CheckHelper.js" 2>/dev/null
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-20] ##
+##----------------------------------------##
 _InitHelperJSFile_()
 {
-   [ -s "$HELPER_JSFILE" ] && return 0 
+   ! "$inRouterSWmode" && return 0
+
+   [ ! -s "$HELPER_JSFILE" ] && \
    {
      echo "var externalCheckID = 0x00;"
      echo "var externalCheckOK = true;"
@@ -2086,12 +2095,14 @@ _InitHelperJSFile_()
    } > "$HELPER_JSFILE"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-20] ##
+##----------------------------------------##
 _UpdateHelperJSFile_()
 {
-   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   if [ $# -lt 2 ] || \
+      [ -z "$1" ] || [ -z "$2" ] || \
+      ! "$inRouterSWmode"
    then return 1; fi
 
    local extCheckMsg=""
@@ -2282,7 +2293,7 @@ _CurlFileDownload_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-11] ##
+## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
 _DownloadScriptFiles_()
 {
@@ -2301,10 +2312,11 @@ _DownloadScriptFiles_()
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
    fi
-   if _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
+   if "$inRouterSWmode" && \
+      _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
    then
        chmod 664 "$SCRIPT_WEB_ASP_PATH"
-       if "$inRouterSWmode" && "$updatedWebUIPage"
+       if "$updatedWebUIPage"
        then
            theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
            if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
@@ -2316,7 +2328,8 @@ _DownloadScriptFiles_()
            "$isUpdateAction" && _Mount_WebUI_
        fi
        retCode=0
-   else
+   elif "$inRouterSWmode"
+   then
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
    fi
@@ -9536,7 +9549,7 @@ _InvalidMenuSelection_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-11] ##
+## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
 _ShowMainMenuOptions_()
 {
@@ -9622,10 +9635,10 @@ _ShowMainMenuOptions_()
    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
    if [ "$FW_UpdateCheckState" -eq 0 ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Toggle F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Automatic F/W Update Checks"
        printf "\n${padStr}[Currently ${InvREDct} DISABLED ${NOct}]"
    else
-       printf "\n  ${GRNct}3${NOct}.  Toggle F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Automatic F/W Update Checks"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]"
    fi
    printf "\n${padStr}[Last Notification Date: $notificationStr]\n"
