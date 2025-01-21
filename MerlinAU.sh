@@ -2107,6 +2107,7 @@ _WriteStringVarToHelperJSFile_()
 ##-------------------------------------##
 _WebUI_AutoFWUpdateCheckCronSchedule_()
 {
+   ! "$inRouterSWmode" && return 0
    local fwUpdtCronScheduleRaw  fwUpdtCronScheduleStr
    fwUpdtCronScheduleRaw="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
    fwUpdtCronScheduleStr="$(_TranslateCronSchedHR_ "$fwUpdtCronScheduleRaw")"
@@ -2118,6 +2119,7 @@ _WebUI_AutoFWUpdateCheckCronSchedule_()
 ##-------------------------------------##
 _WebUI_AutoScriptUpdateCronSchedule_()
 {
+   ! "$inRouterSWmode" && return 0
    local scriptUpdtCronSchedRaw  scriptUpdtCronSchedStr
    scriptUpdtCronSchedRaw="$(_GetScriptAutoUpdateCronSchedule_)"
    scriptUpdtCronSchedStr="$(_TranslateCronSchedHR_ "$scriptUpdtCronSchedRaw")"
