@@ -1157,7 +1157,7 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
+## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
 Update_Custom_Settings()
 {
@@ -1248,10 +1248,13 @@ Update_Custom_Settings()
             elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
             then
                 FW_UpdateCronJobSchedule="$setting_value"
+                _WebUI_AutoScriptUpdateCronSchedule_
+                _WebUI_AutoFWUpdateCheckCronSchedule_
             #
             elif [ "$setting_type" = "Script_Update_Cron_Job_SchedDays" ]
             then
                 ScriptUpdateCronSchedDays="$setting_value"
+                _WebUI_AutoScriptUpdateCronSchedule_
             #
             elif [ "$setting_type" = "FW_New_Update_ZIP_Directory_Path" ]
             then
@@ -2080,6 +2083,47 @@ _CreateSymLinks_()
    ln -s "$HELPER_JSFILE" "${SCRIPT_WEB_DIR}/CheckHelper.js" 2>/dev/null
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-20] ##
+##-------------------------------------##
+_WriteStringVarToHelperJSFile_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1; fi
+
+   if [ ! -s "$HELPER_JSFILE" ]
+   then
+       echo "var $1 = '${2}';" > "$HELPER_JSFILE"
+   elif ! grep -q "^var $1 =.*" "$HELPER_JSFILE"
+   then
+       echo "var $1 = '${2}';" >> "$HELPER_JSFILE"
+   else
+       sed -i "s/^var $1 =.*/var $1 = '${2}';/" "$HELPER_JSFILE"
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-20] ##
+##-------------------------------------##
+_WebUI_AutoFWUpdateCheckCronSchedule_()
+{
+   local fwUpdtCronScheduleRaw  fwUpdtCronScheduleStr
+   fwUpdtCronScheduleRaw="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   fwUpdtCronScheduleStr="$(_TranslateCronSchedHR_ "$fwUpdtCronScheduleRaw")"
+   _WriteStringVarToHelperJSFile_ "fwAutoUpdateCheckCronSchedHR" "$fwUpdtCronScheduleStr"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-20] ##
+##-------------------------------------##
+_WebUI_AutoScriptUpdateCronSchedule_()
+{
+   local scriptUpdtCronSchedRaw  scriptUpdtCronSchedStr
+   scriptUpdtCronSchedRaw="$(_GetScriptAutoUpdateCronSchedule_)"
+   scriptUpdtCronSchedStr="$(_TranslateCronSchedHR_ "$scriptUpdtCronSchedRaw")"
+   _WriteStringVarToHelperJSFile_ "scriptAutoUpdateCronSchedHR" "$scriptUpdtCronSchedStr"
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
@@ -2093,6 +2137,9 @@ _InitHelperJSFile_()
      echo "var externalCheckOK = true;"
      echo "var externalCheckMsg = '';"
    } > "$HELPER_JSFILE"
+
+   _WebUI_AutoScriptUpdateCronSchedule_
+   _WebUI_AutoFWUpdateCheckCronSchedule_
 }
 
 ##----------------------------------------##
@@ -2114,6 +2161,9 @@ _UpdateHelperJSFile_()
      echo "var externalCheckOK = ${2};"
      echo "var externalCheckMsg = '${extCheckMsg}';"
    } > "$HELPER_JSFILE"
+
+   _WebUI_AutoScriptUpdateCronSchedule_
+   _WebUI_AutoFWUpdateCheckCronSchedule_
 }
 
 ##-------------------------------------##
