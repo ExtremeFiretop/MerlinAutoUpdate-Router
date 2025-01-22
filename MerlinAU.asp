@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-20 **/
+/** Last Modified: 2025-Jan-21 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -148,8 +148,10 @@ const fwUpdateDirPath =
       }
       if (!this.extCheckOK && this.extCheckMsg.length > 0)
       {
-         this.extCheckOK = true;  //Reset for Next Check//
-         return (`The directory path was INVALID.\n${this.extCheckMsg}`);
+         let extErrorMsg = this.extCheckMsg;
+         //Reset for Next Check//
+         this.extCheckOK = true; this.extCheckMsg = '';
+         return (`The directory path was INVALID.\n${extErrorMsg}`);
       }
       return (`${errStr}`);
    },

@@ -2226,7 +2226,7 @@ _ActionsAfterNewConfigSettings_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-16] ##
+## Modified by Martinski W. [2025-Jan-21] ##
 ##----------------------------------------##
 _UpdateConfigFromWebUISettings_()
 {
@@ -2280,7 +2280,7 @@ _UpdateConfigFromWebUISettings_()
 
        if ! "$settingsMergeOK"
        then  ## Reset for Next Check ##
-           { sleep 10 ; _UpdateHelperJSFile_ 0x01 "true" ; } &
+           { sleep 15 ; _UpdateHelperJSFile_ 0x01 "true" ; } &
        fi
    else
        Say "No updated settings from WebUI found. No merge into $CONFIG_FILE necessary."
