@@ -1157,7 +1157,7 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
+## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
 Update_Custom_Settings()
 {
@@ -1248,10 +1248,13 @@ Update_Custom_Settings()
             elif [ "$setting_type" = "FW_New_Update_Cron_Job_Schedule" ]
             then
                 FW_UpdateCronJobSchedule="$setting_value"
+                _WebUI_AutoScriptUpdateCronSchedule_
+                _WebUI_AutoFWUpdateCheckCronSchedule_
             #
             elif [ "$setting_type" = "Script_Update_Cron_Job_SchedDays" ]
             then
                 ScriptUpdateCronSchedDays="$setting_value"
+                _WebUI_AutoScriptUpdateCronSchedule_
             #
             elif [ "$setting_type" = "FW_New_Update_ZIP_Directory_Path" ]
             then
@@ -2047,7 +2050,7 @@ _SetVersionSharedSettings_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
 _CreateDirPaths_()
 {
@@ -2056,6 +2059,8 @@ _CreateDirPaths_()
       mkdir -p "$SETTINGS_DIR"
       chmod 755 "$SETTINGS_DIR"
    fi
+   ! "$inRouterSWmode" && return 0
+
    if [ ! -d "$SCRIPT_WEB_DIR" ]
    then
       mkdir -p "$SCRIPT_WEB_DIR"
@@ -2064,34 +2069,89 @@ _CreateDirPaths_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
+## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
 _CreateSymLinks_()
 {
-   rm -rf "${SCRIPT_WEB_DIR:?}/"* 2>/dev/null
+   if [ -d "$SCRIPT_WEB_DIR" ]
+   then
+       rm -rf "${SCRIPT_WEB_DIR:?}/"* 2>/dev/null
+   fi
+   ! "$inRouterSWmode" && return 0
+
    ln -s "$CONFIG_FILE" "${SCRIPT_WEB_DIR}/config.htm" 2>/dev/null
    ln -s "$HELPER_JSFILE" "${SCRIPT_WEB_DIR}/CheckHelper.js" 2>/dev/null
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
+## Added by Martinski W. [2025-Jan-20] ##
 ##-------------------------------------##
+_WriteStringVarToHelperJSFile_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1; fi
+
+   if [ ! -s "$HELPER_JSFILE" ]
+   then
+       echo "var $1 = '${2}';" > "$HELPER_JSFILE"
+   elif ! grep -q "^var $1 =.*" "$HELPER_JSFILE"
+   then
+       echo "var $1 = '${2}';" >> "$HELPER_JSFILE"
+   else
+       sed -i "s/^var $1 =.*/var $1 = '${2}';/" "$HELPER_JSFILE"
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-20] ##
+##-------------------------------------##
+_WebUI_AutoFWUpdateCheckCronSchedule_()
+{
+   ! "$inRouterSWmode" && return 0
+   local fwUpdtCronScheduleRaw  fwUpdtCronScheduleStr
+   fwUpdtCronScheduleRaw="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   fwUpdtCronScheduleStr="$(_TranslateCronSchedHR_ "$fwUpdtCronScheduleRaw")"
+   _WriteStringVarToHelperJSFile_ "fwAutoUpdateCheckCronSchedHR" "$fwUpdtCronScheduleStr"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-20] ##
+##-------------------------------------##
+_WebUI_AutoScriptUpdateCronSchedule_()
+{
+   ! "$inRouterSWmode" && return 0
+   local scriptUpdtCronSchedRaw  scriptUpdtCronSchedStr
+   scriptUpdtCronSchedRaw="$(_GetScriptAutoUpdateCronSchedule_)"
+   scriptUpdtCronSchedStr="$(_TranslateCronSchedHR_ "$scriptUpdtCronSchedRaw")"
+   _WriteStringVarToHelperJSFile_ "scriptAutoUpdateCronSchedHR" "$scriptUpdtCronSchedStr"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-20] ##
+##----------------------------------------##
 _InitHelperJSFile_()
 {
-   [ -s "$HELPER_JSFILE" ] && return 0 
+   ! "$inRouterSWmode" && return 0
+
+   [ ! -s "$HELPER_JSFILE" ] && \
    {
      echo "var externalCheckID = 0x00;"
      echo "var externalCheckOK = true;"
      echo "var externalCheckMsg = '';"
    } > "$HELPER_JSFILE"
+
+   _WebUI_AutoScriptUpdateCronSchedule_
+   _WebUI_AutoFWUpdateCheckCronSchedule_
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-20] ##
+##----------------------------------------##
 _UpdateHelperJSFile_()
 {
-   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   if [ $# -lt 2 ] || \
+      [ -z "$1" ] || [ -z "$2" ] || \
+      ! "$inRouterSWmode"
    then return 1; fi
 
    local extCheckMsg=""
@@ -2103,6 +2163,9 @@ _UpdateHelperJSFile_()
      echo "var externalCheckOK = ${2};"
      echo "var externalCheckMsg = '${extCheckMsg}';"
    } > "$HELPER_JSFILE"
+
+   _WebUI_AutoScriptUpdateCronSchedule_
+   _WebUI_AutoFWUpdateCheckCronSchedule_
 }
 
 ##-------------------------------------##
@@ -2163,7 +2226,7 @@ _ActionsAfterNewConfigSettings_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-16] ##
+## Modified by Martinski W. [2025-Jan-21] ##
 ##----------------------------------------##
 _UpdateConfigFromWebUISettings_()
 {
@@ -2217,7 +2280,7 @@ _UpdateConfigFromWebUISettings_()
 
        if ! "$settingsMergeOK"
        then  ## Reset for Next Check ##
-           { sleep 10 ; _UpdateHelperJSFile_ 0x01 "true" ; } &
+           { sleep 15 ; _UpdateHelperJSFile_ 0x01 "true" ; } &
        fi
    else
        Say "No updated settings from WebUI found. No merge into $CONFIG_FILE necessary."
@@ -2282,7 +2345,7 @@ _CurlFileDownload_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-11] ##
+## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
 _DownloadScriptFiles_()
 {
@@ -2301,10 +2364,11 @@ _DownloadScriptFiles_()
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
    fi
-   if _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
+   if "$inRouterSWmode" && \
+      _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
    then
        chmod 664 "$SCRIPT_WEB_ASP_PATH"
-       if "$inRouterSWmode" && "$updatedWebUIPage"
+       if "$updatedWebUIPage"
        then
            theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
            if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
@@ -2316,7 +2380,8 @@ _DownloadScriptFiles_()
            "$isUpdateAction" && _Mount_WebUI_
        fi
        retCode=0
-   else
+   elif "$inRouterSWmode"
+   then
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
    fi
@@ -9536,7 +9601,7 @@ _InvalidMenuSelection_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-11] ##
+## Modified by Martinski W. [2025-Jan-20] ##
 ##----------------------------------------##
 _ShowMainMenuOptions_()
 {
@@ -9622,10 +9687,10 @@ _ShowMainMenuOptions_()
    [ -z "$FW_UpdateCheckState" ] && FW_UpdateCheckState=0
    if [ "$FW_UpdateCheckState" -eq 0 ]
    then
-       printf "\n  ${GRNct}3${NOct}.  Toggle F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Automatic F/W Update Checks"
        printf "\n${padStr}[Currently ${InvREDct} DISABLED ${NOct}]"
    else
-       printf "\n  ${GRNct}3${NOct}.  Toggle F/W Update Check"
+       printf "\n  ${GRNct}3${NOct}.  Toggle Automatic F/W Update Checks"
        printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]"
    fi
    printf "\n${padStr}[Last Notification Date: $notificationStr]\n"

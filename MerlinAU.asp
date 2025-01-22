@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-19 **/
+/** Last Modified: 2025-Jan-21 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -148,8 +148,10 @@ const fwUpdateDirPath =
       }
       if (!this.extCheckOK && this.extCheckMsg.length > 0)
       {
-         this.extCheckOK = true;  //Reset for Next Check//
-         return (`The directory path was INVALID.\n${this.extCheckMsg}`);
+         let extErrorMsg = this.extCheckMsg;
+         //Reset for Next Check//
+         this.extCheckOK = true; this.extCheckMsg = '';
+         return (`The directory path was INVALID.\n${extErrorMsg}`);
       }
       return (`${errStr}`);
    },
@@ -201,8 +203,14 @@ var externalCheckID = 0x00;
 var externalCheckOK = true;
 var externalCheckMsg = '';
 
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-20] **/
+/**-------------------------------------**/
+var scriptAutoUpdateCronSchedHR = 'TBD';
+var fwAutoUpdateCheckCronSchedHR = 'TBD';
+
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-17] **/
+/** Modified by Martinski W. [2025-Jan-20] **/
 /**----------------------------------------**/
 function GetExternalCheckResults()
 {
@@ -215,6 +223,9 @@ function GetExternalCheckResults()
         },
         success: function()
         {
+            document.getElementById('Script_AutoUpdate_SchedText').textContent = 'Schedule: '+scriptAutoUpdateCronSchedHR;
+            document.getElementById('FW_AutoUpdate_CheckSchedText').textContent = 'Schedule: '+fwAutoUpdateCheckCronSchedHR;
+
             // Skip during form submission //
             if (isFormSubmitting) { return true ; }
 
@@ -388,14 +399,13 @@ function GetScriptVersion (versionType)
     { return versionProp; }
 }
 
-function prefixCustomSettings(settings, prefix)
+function PrefixCustomSettings (settings, prefix)
 {
     let prefixedSettings = {};
     for (let key in settings)
     {
-        if (settings.hasOwnProperty(key)) {
-            prefixedSettings[prefix + key] = settings[key];
-        }
+        if (settings.hasOwnProperty(key))
+        { prefixedSettings[prefix + key] = settings[key]; }
     }
     return prefixedSettings;
 }
@@ -453,21 +463,21 @@ function InitializeFields()
     let rogFWBuildType = document.getElementById('rogFWBuildType');
     let tuffFWBuildType = document.getElementById('tuffFWBuildType');
     let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
-    let autoUpdatesScriptEnabled = document.getElementById('autoUpdatesScriptEnabled');
+    let script_AutoUpdate_Check = document.getElementById('Script_AutoUpdate_Check');
     let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
     let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
 
-    // Instead of reading from firmware_check_enable, read from the custom_settings
+    // Instead of reading from firmware_check_enable, read from the custom_settings //
     let storedFwUpdateEnabled = custom_settings.FW_Update_Check || 'DISABLED'; 
-    // fallback to 'DISABLED' if custom_settings.FW_Update_Check is missing
+    // fallback to 'DISABLED' if custom_settings.FW_Update_Check is missing //
 
     // Get the checkbox and status elements
-    let FW_Update_Check = document.getElementById('FW_Update_Check');
+    let FW_AutoUpdate_Check = document.getElementById('FW_AutoUpdate_Check');
     let fwUpdateCheckStatus = document.getElementById('fwUpdateCheckStatus');
 
     // Set the checkbox state based on "ENABLED" vs. "DISABLED" vs. "TBD"
-    if (FW_Update_Check)
-    { FW_Update_Check.checked = (storedFwUpdateEnabled === 'ENABLED'); }
+    if (FW_AutoUpdate_Check)
+    { FW_AutoUpdate_Check.checked = (storedFwUpdateEnabled === 'ENABLED'); }
 
     // Update the Firmware Status display //
     if (fwUpdateCheckStatus)
@@ -549,8 +559,8 @@ function InitializeFields()
         if (tailscaleVPNEnabled)
         { tailscaleVPNEnabled.checked = (custom_settings.Allow_Updates_OverVPN === 'ENABLED'); }
 
-        if (autoUpdatesScriptEnabled)
-        { autoUpdatesScriptEnabled.checked = (custom_settings.Allow_Script_Auto_Update === 'ENABLED'); }
+        if (script_AutoUpdate_Check)
+        { script_AutoUpdate_Check.checked = (custom_settings.Allow_Script_Auto_Update === 'ENABLED'); }
 
         if (betaToReleaseUpdatesEnabled)
         { betaToReleaseUpdatesEnabled.checked = (custom_settings.FW_Allow_Beta_Production_Up === 'ENABLED'); }
@@ -844,7 +854,6 @@ function assignAjaxSetting(key, value)
                 ajax_custom_settings.FW_New_Update_ROGFWBuildType = (value === 'ENABLED') ? 'ROG' : 'Pure';
                 break;
 
-
             case keyUpper === 'TUFBUILD':
                 ajax_custom_settings.FW_New_Update_TUFWBuildType = (value === 'ENABLED') ? 'TUF' : 'Pure';
                 break;
@@ -918,7 +927,7 @@ function UpdateScriptVersion()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-18] **/
+/** Modified by Martinski W. [2025-Jan-20] **/
 /**----------------------------------------**/
 function initial()
 {
@@ -928,6 +937,8 @@ function initial()
     GetConfigSettings();
     show_menu();
     UpdateScriptVersion();
+    showhide('Script_AutoUpdate_SchedText',true);
+    showhide('FW_AutoUpdate_CheckSchedText',true);
 
     // Debugging iframe behavior //
     var hiddenFrame = document.getElementById('hidden_frame');
@@ -976,16 +987,16 @@ function SaveActionsConfig()
     var credentials = username + ':' + passwordStr;
     var encodedCredentials = btoa(credentials);
 
-    // Collect only Action form-specific settings
+    // Collect only Action form-specific settings //
     var action_settings =
     {
         credentials_base64: encodedCredentials,
         FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
         CheckChangeLog: document.getElementById('changelogCheckEnabled').checked ? 'ENABLED' : 'DISABLED',
-        FW_Update_Check: document.getElementById('FW_Update_Check').checked ? 'ENABLED' : 'DISABLED'
+        FW_Update_Check: document.getElementById('FW_AutoUpdate_Check').checked ? 'ENABLED' : 'DISABLED'
     };
     // Prefix only Action settings
-    var prefixedActionSettings = prefixCustomSettings(action_settings, 'MerlinAU_');
+    var prefixedActionSettings = PrefixCustomSettings(action_settings, 'MerlinAU_');
 
     // ***** FIX BUG WHERE MerlinAU_FW_Auto_Backupmon is saved from the wrong button *****
     // ***** Only when the Advanced Options section is saved first, and then Actions Section is saved second *****
@@ -1060,9 +1071,9 @@ function SaveAdvancedConfig()
     { advanced_settings.Allow_Updates_OverVPN = tailscaleVPNEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
     // 4) Auto-Updates for Script - only if not disabled
-    let autoUpdatesScriptEnabled = document.getElementById('autoUpdatesScriptEnabled');
-    if (autoUpdatesScriptEnabled && !autoUpdatesScriptEnabled.disabled)
-    { advanced_settings.Allow_Script_Auto_Update = autoUpdatesScriptEnabled.checked ? 'ENABLED' : 'DISABLED'; }
+    let script_AutoUpdate_Check = document.getElementById('Script_AutoUpdate_Check');
+    if (script_AutoUpdate_Check && !script_AutoUpdate_Check.disabled)
+    { advanced_settings.Allow_Script_Auto_Update = script_AutoUpdate_Check.checked ? 'ENABLED' : 'DISABLED'; }
 
     // 5) Beta-to-Release Updates - only if not disabled
     let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
@@ -1086,7 +1097,7 @@ function SaveAdvancedConfig()
     { advanced_settings.FW_New_Update_TUFWBuildType = tuffFWBuildType.value || 'TUF'; }
 
     // Prefix only Advanced settings
-    var prefixedAdvancedSettings = prefixCustomSettings(advanced_settings, 'MerlinAU_');
+    var prefixedAdvancedSettings = PrefixCustomSettings(advanced_settings, 'MerlinAU_');
 
     // Remove any action keys from shared_custom_settings to avoid overwriting //
     var ACTION_KEYS = [
@@ -1366,7 +1377,7 @@ function initializeCollapsibleSections()
    <td style="padding: 4px; font-weight: bolder;" id="fwUpdateEstimatedRunDate">TBD</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 165px;"><strong>Last Notificiation Date:</strong></td>
+   <td style="padding: 4px; width: 165px;"><strong>Last Notification Date:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="fwNotificationsDate">TBD</td>
 </tr>
 <tr>
@@ -1391,31 +1402,31 @@ function initializeCollapsibleSections()
 <td style="vertical-align: top; width: 50%;">
 <table style="margin: 0; text-align: left; width: 100%; border: none;">
 <tr>
-   <td style="padding: 4px; width: 175px;"><strong>Changelog Approval:</strong></td>
+   <td style="padding: 4px; width: 180px;"><strong>Changelog Approval:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="changelogApproval">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 175px;"><strong>Changelog Check:</strong></td>
+   <td style="padding: 4px; width: 180px;"><strong>Changelog Check:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="changelogCheckStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 175px;"><strong>Beta-to-Release Updates:</strong></td>
+   <td style="padding: 4px; width: 180px;"><strong>Beta-to-Release Updates:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="betaToReleaseUpdatesStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 175px;"><strong>Tailscale VPN Access:</strong></td>
+   <td style="padding: 4px; width: 180px;"><strong>Tailscale VPN Access:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="tailscaleVPNAccessStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 175px;"><strong>Auto-Backup Enabled:</strong></td>
+   <td style="padding: 4px; width: 180px;"><strong>Auto-Backup Enabled:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="autobackupEnabledStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 175px;"><strong>Auto-Updates for Script:</strong></td>
+   <td style="padding: 4px; width: 180px;"><strong>Auto-Updates for MerlinAU:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="autoUpdatesScriptEnabledStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 175px;"><strong>Email-Notifications:</strong></td>
+   <td style="padding: 4px; width: 180px;"><strong>Email Notifications:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="emailNotificationsStatus">Disabled</td>
 </tr>
 </table></td></tr></tbody></table></td></tr></table>
@@ -1449,10 +1460,10 @@ function initializeCollapsibleSections()
 </table>
 </div>
 <form id="actionsForm">
-<table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;" class="FormTable SettingsTable">
+<table class="FormTable SettingsTable" width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
 <colgroup>
-   <col style="width: 50%;" />
-   <col style="width: 50%;" />
+   <col style="width: 40%;" />
+   <col style="width: 60%;" />
 </colgroup>
 <tr>
    <td style="text-align: left;">
@@ -1488,8 +1499,11 @@ function initializeCollapsibleSections()
    </td>
 </tr>
 <tr>
-   <td style="text-align: left;"><label for="FW_Update_Check">Enable F/W Update Check</label></td>
-   <td><input type="checkbox" id="FW_Update_Check" name="FW_Update_Check" /></td>
+   <td style="text-align: left;"><label for="FW_AutoUpdate_Check">Enable Automatic F/W Update Checks</label></td>
+   <td>
+      <input type="checkbox" id="FW_AutoUpdate_Check" name="FW_AutoUpdate_Check"/>
+      <span id="FW_AutoUpdate_CheckSchedText" style="margin-left:10px; display:none; font-size: 12px; font-weight: bolder;"></span>
+   </td>
 </tr>
 <tr>
    <td style="text-align: left;">
@@ -1530,10 +1544,10 @@ function initializeCollapsibleSections()
 <tr>
 <td colspan="2">
 <form id="advancedOptionsForm">
-<table width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;" class="FormTable SettingsTable">
+<table class="FormTable SettingsTable" width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
 <colgroup>
-   <col style="width: 50%;" />
-   <col style="width: 50%;" />
+   <col style="width: 40%;" />
+   <col style="width: 60%;" />
 </colgroup>
 <tr>
    <td style="text-align: left;">
@@ -1561,8 +1575,11 @@ function initializeCollapsibleSections()
    <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
 </tr>
 <tr>
-   <td style="text-align: left;"><label for="autoUpdatesScriptEnabled">Auto-Updates for Script</label></td>
-   <td><input type="checkbox" id="autoUpdatesScriptEnabled" name="autoUpdatesScriptEnabled" /></td>
+   <td style="text-align: left;"><label for="Script_AutoUpdate_Check">Enable Auto-Updates for MerlinAU</label></td>
+   <td>
+      <input type="checkbox" id="Script_AutoUpdate_Check" name="Script_AutoUpdate_Check"/>
+      <span id="Script_AutoUpdate_SchedText" style="margin-left:10px; display:none; font-size: 12px; font-weight: bolder;"></span>
+   </td>
 </tr>
 <tr id="rogFWBuildRow">
    <td style="text-align: left;"><label for="rogFWBuildType">ROG F/W Build Type</label></td>
@@ -1587,9 +1604,9 @@ function initializeCollapsibleSections()
    <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled" /></td>
 </tr>
 <tr>
-   <td style="text-align: left;"><label for="emailFormat">Email Format</label></td>
+   <td style="text-align: left;"><label for="emailFormat">Email Notification Format</label></td>
    <td>
-      <select id="emailFormat" name="emailFormat" style="width: 28%;">
+      <select id="emailFormat" name="emailFormat" style="width: 21%;">
          <option value="HTML">HTML</option>
          <option value="PlainText">Plain Text</option>
       </select>
