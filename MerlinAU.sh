@@ -5646,9 +5646,9 @@ _Set_FW_UpdatePostponementDays_()
    return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Nov-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-22] ##
+##----------------------------------------##
 _TranslateCronSchedHR_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ]
@@ -5695,30 +5695,30 @@ _TranslateCronSchedHR_()
 
    if [ "$theCronDAYW" = "*" ] && [ "$theCronDAYM" = "*" ]
    then
-       infoStrDAYS="every day, in every month"
+       infoStrDAYS="every day, every month"
    elif [ "$theCronDAYW" != "*" ]
    then
        if echo "$theCronDAYW" | grep -qE "^[*]/.*"
        then
            freqNumDAYW="$(echo "$theCronDAYW" | cut -f2 -d'/')"
-           infoStrDAYS="every $freqNumDAYW days of the week, in every month"
+           infoStrDAYS="every $freqNumDAYW days of the week, every month"
        elif echo "$theCronDAYW" | grep -qE "[,-]"
        then
-           infoStrDAYS="days ${theCronDAYW}, in every month"
+           infoStrDAYS="on ${theCronDAYW}, every month"
        else
-           infoStrDAYS="day ${theCronDAYW}, in every month"
+           infoStrDAYS="on ${theCronDAYW}, every month"
        fi
    elif [ "$theCronDAYM" != "*" ]
    then
        if echo "$theCronDAYM" | grep -qE "^[*]/.*"
        then
            freqNumDAYM="$(echo "$theCronDAYM" | cut -f2 -d'/')"
-           infoStrDAYS="every $freqNumDAYM days of the month, in every month"
+           infoStrDAYS="every $freqNumDAYM days of the month, every month"
        elif echo "$theCronDAYM" | grep -qE "[,-]"
        then
-           infoStrDAYS="days ${theCronDAYM} of the month, in every month"
+           infoStrDAYS="days ${theCronDAYM} of the month, every month"
        else
-           infoStrDAYS="day ${theCronDAYM} of the month, in every month"
+           infoStrDAYS="day ${theCronDAYM} of the month, every month"
        fi
    fi
 
@@ -6342,7 +6342,7 @@ _Set_FW_UpdateCronScheduleGuided_()
    cronSchedDAYM="$(echo "$currCronSched" | awk -F ' ' '{print $3}')"
    cronSchedDAYW="$(echo "$currCronSched" | awk -F ' ' '{print $5}')"
 
-   ## MONTH is FIXED to "every month" for F/W Update Purposes ##
+   ## MONTH is FIXED to "Every Month" for F/W Update Purposes ##
    cronSchedMNTH="*" ; nextSchedMNTH="*"
 
    _ClearCronSchedValues_()
