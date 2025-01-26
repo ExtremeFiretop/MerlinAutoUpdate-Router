@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-20
+# Last Modified: 2025-Jan-22
 ###################################################################
 set -u
 
@@ -159,13 +159,15 @@ else cronListCmd="crontab -l"
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-27] ##
+## Modified by Martinski W. [2025-Jan-22] ##
 ##----------------------------------------##
 inMenuMode=true
 isInteractive=false
 FlashStarted=false
 MerlinChangeLogURL=""
 GnutonChangeLogURL=""
+keepConfigFile=false
+bypassPostponedDays=false
 
 # Main LAN Network Info #
 readonly myLAN_HostName="$(nvram get lan_hostname)"
@@ -5644,9 +5646,9 @@ _Set_FW_UpdatePostponementDays_()
    return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Nov-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-22] ##
+##----------------------------------------##
 _TranslateCronSchedHR_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ]
@@ -5693,30 +5695,30 @@ _TranslateCronSchedHR_()
 
    if [ "$theCronDAYW" = "*" ] && [ "$theCronDAYM" = "*" ]
    then
-       infoStrDAYS="every day, in every month"
+       infoStrDAYS="every day, every month"
    elif [ "$theCronDAYW" != "*" ]
    then
        if echo "$theCronDAYW" | grep -qE "^[*]/.*"
        then
            freqNumDAYW="$(echo "$theCronDAYW" | cut -f2 -d'/')"
-           infoStrDAYS="every $freqNumDAYW days of the week, in every month"
+           infoStrDAYS="every $freqNumDAYW days of the week, every month"
        elif echo "$theCronDAYW" | grep -qE "[,-]"
        then
-           infoStrDAYS="days ${theCronDAYW}, in every month"
+           infoStrDAYS="on ${theCronDAYW}, every month"
        else
-           infoStrDAYS="day ${theCronDAYW}, in every month"
+           infoStrDAYS="on ${theCronDAYW}, every month"
        fi
    elif [ "$theCronDAYM" != "*" ]
    then
        if echo "$theCronDAYM" | grep -qE "^[*]/.*"
        then
            freqNumDAYM="$(echo "$theCronDAYM" | cut -f2 -d'/')"
-           infoStrDAYS="every $freqNumDAYM days of the month, in every month"
+           infoStrDAYS="every $freqNumDAYM days of the month, every month"
        elif echo "$theCronDAYM" | grep -qE "[,-]"
        then
-           infoStrDAYS="days ${theCronDAYM} of the month, in every month"
+           infoStrDAYS="days ${theCronDAYM} of the month, every month"
        else
-           infoStrDAYS="day ${theCronDAYM} of the month, in every month"
+           infoStrDAYS="day ${theCronDAYM} of the month, every month"
        fi
    fi
 
@@ -6340,7 +6342,7 @@ _Set_FW_UpdateCronScheduleGuided_()
    cronSchedDAYM="$(echo "$currCronSched" | awk -F ' ' '{print $3}')"
    cronSchedDAYW="$(echo "$currCronSched" | awk -F ' ' '{print $5}')"
 
-   ## MONTH is FIXED to "every month" for F/W Update Purposes ##
+   ## MONTH is FIXED to "Every Month" for F/W Update Purposes ##
    cronSchedMNTH="*" ; nextSchedMNTH="*"
 
    _ClearCronSchedValues_()
@@ -7130,7 +7132,7 @@ _CheckNodeFWUpdateNotification_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-May-18] ##
+## Modified by Martinski W. [2025-Jan-22] ##
 ##----------------------------------------##
 _CheckTimeToUpdateFirmware_()
 {
@@ -7169,13 +7171,13 @@ _CheckTimeToUpdateFirmware_()
        upfwDateTimeStrn="$(date -d @$upfwDateTimeSecs +"%A, %Y-%b-%d %I:%M %p")"
        Say "The firmware update is expected to occur on or after ${GRNct}${upfwDateTimeStrn}${NOct}, depending on when your cron job is scheduled to check again."
        return 1
+   else
+       Say "The firmware update is expected to occur on ${GRNct}${nextCronTimeSecs}${NOct}."
    fi
 
-   Say "The firmware update is expected to occur on ${GRNct}${nextCronTimeSecs}${NOct}."
-   echo ""
-
-   # Check if running in a menu environment #
-   if "$isInteractive" && _WaitForYESorNO_ "Would you like to proceed with the update now?"
+   "$isInteractive" && \
+   printf "\n${BOLDct}Would you like to proceed with the update now${NOct}"
+   if _WaitForYESorNO_ "$("$bypassPostponedDays" && echo YES || echo NO)"
    then return 0
    else return 1
    fi
@@ -8818,22 +8820,22 @@ _DoInstallation_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-20] ##
+## Modified by Martinski W. [2025-Jan-22] ##
 ##----------------------------------------##
 _DoUnInstallation_()
 {
+   "$isInteractive" && \
    printf "\n${BOLDct}Are you sure you want to uninstall $ScriptFileName script now${NOct}"
    ! _WaitForYESorNO_ && return 0
 
    if ! _AcquireLock_ cliFileLock ; then return 1 ; fi
 
-   local doSaveConfig=false
    local savedCFGPath="${SCRIPTS_PATH}/${SCRIPT_NAME}_CFG.SAVED.TXT"
 
    printf "\n${BOLDct}Do you want to keep/save the $SCRIPT_NAME configuration file${NOct}"
-   if _WaitForYESorNO_ NO
+   if _WaitForYESorNO_ "$("$keepConfigFile" && echo YES || echo NO)"
    then
-       doSaveConfig=true
+       keepConfigFile=true
        mv -f "$CONFIG_FILE" "$savedCFGPath"
    fi
 
@@ -8864,7 +8866,7 @@ _DoUnInstallation_()
        Say "${CRITct}**ERROR**: Uninstallation failed.${NOct}"
    fi
 
-   if "$doSaveConfig"
+   if "$keepConfigFile"
    then
        if mkdir -p "$SETTINGS_DIR"
        then
@@ -10291,7 +10293,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-15] ##
+## Modified by Martinski W. [2024-Jan-22] ##
 ##----------------------------------------##
 if [ $# -gt 0 ]
 then
@@ -10349,35 +10351,52 @@ then
        uninstall) _DoUnInstallation_
            ;;
        service_event)
-           if [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME}uninstall" ]
+           if [ "$2" = "start" ]
            then
-               _DoUnInstallation_
-               sleep 1
-           elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME}approvechangelog" ] 
-           then
-               local currApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
-               if [ "$currApprovalStatus" = "BLOCKED" ]
-               then
-                   Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
-               elif [ "$currApprovalStatus" = "APPROVED" ]
-               then
-                   Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
-               fi
-           elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME}checkupdate" ]
-           then
-               if _AcquireLock_ cliFileLock
-               then
-                   _RunFirmwareUpdateNow_
-                   _ReleaseLock_ cliFileLock
-               fi
-           elif [ "$2" = "start" ] && [ "$3" = "${SCRIPT_NAME}config" ]
-           then
-               if _AcquireLock_ cliFileLock
-               then
-                   _UpdateConfigFromWebUISettings_
-                   _ConfirmCronJobForFWAutoUpdates_
-                   _ReleaseLock_ cliFileLock
-               fi
+               case "$3" in
+                   "${SCRIPT_NAME}uninstall" | \
+                   "${SCRIPT_NAME}uninstall_keepConfig")
+                       if [ "$3" = "${SCRIPT_NAME}uninstall_keepConfig" ]
+                       then keepConfigFile=true
+                       else keepConfigFile=false
+                       fi
+                       _DoUnInstallation_
+                       sleep 1
+                       ;;
+                   "${SCRIPT_NAME}approvechangelog")
+                       local currApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+                       if [ "$currApprovalStatus" = "BLOCKED" ]
+                       then
+                           Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
+                       elif [ "$currApprovalStatus" = "APPROVED" ]
+                       then
+                           Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+                       fi
+                       ;;
+                   "${SCRIPT_NAME}checkupdate" | \
+                   "${SCRIPT_NAME}checkupdate_bypassDays")
+                       if _AcquireLock_ cliFileLock
+                       then
+                           if [ "$3" = "${SCRIPT_NAME}checkupdate_bypassDays" ]
+                           then bypassPostponedDays=true
+                           else bypassPostponedDays=false
+                           fi
+                           _RunFirmwareUpdateNow_
+                           _ReleaseLock_ cliFileLock
+                       fi
+                       ;;
+                   "${SCRIPT_NAME}config")
+                       if _AcquireLock_ cliFileLock
+                       then
+                           _UpdateConfigFromWebUISettings_
+                           _ConfirmCronJobForFWAutoUpdates_
+                           _ReleaseLock_ cliFileLock
+                       fi
+                       ;;
+                   *)
+                       printf "${REDct}INVALID Parameters [$*].${NOct}\n"
+                       ;;
+               esac
            fi
            ;;
        *) printf "${REDct}INVALID Parameter [$*].${NOct}\n"

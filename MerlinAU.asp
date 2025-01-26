@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-21 **/
+/** Last Modified: 2025-Jan-22 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -447,7 +447,7 @@ function handleROGFWBuildTypeVisibility()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-13] **/
+/** Modified by Martinski W. [2025-Jan-22] **/
 /**----------------------------------------**/
 function InitializeFields()
 {
@@ -471,7 +471,9 @@ function InitializeFields()
     let storedFwUpdateEnabled = custom_settings.FW_Update_Check || 'DISABLED'; 
     // fallback to 'DISABLED' if custom_settings.FW_Update_Check is missing //
 
-    // Get the checkbox and status elements
+    $('#KeepConfigFile').prop('checked',false);
+    $('#BypassPostponedDays').prop('checked',false);
+
     let FW_AutoUpdate_Check = document.getElementById('FW_AutoUpdate_Check');
     let fwUpdateCheckStatus = document.getElementById('fwUpdateCheckStatus');
 
@@ -1127,6 +1129,9 @@ function SaveAdvancedConfig()
     console.log("Advanced Config Form submitted with settings:", updatedSettings);
 }
 
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-22] **/
+/**----------------------------------------**/
 function Uninstall()
 {
    console.log("Uninstalling MerlinAU...");
@@ -1134,9 +1139,15 @@ function Uninstall()
    if (!confirm("Are you sure you want to completely uninstall MerlinAU?"))
    { return; }
 
-   document.form.action_script.value = 'start_MerlinAUuninstall';
-   document.form.action_wait.value = 10;
+   let actionScriptVal;
+   let keepConfigFile = document.getElementById('KeepConfigFile');
+   if (!keepConfigFile.checked)
+   { actionScriptVal = 'start_MerlinAUuninstall'; }
+   else
+   { actionScriptVal = 'start_MerlinAUuninstall_keepConfig'; }
 
+   document.form.action_script.value = actionScriptVal;
+   document.form.action_wait.value = 10;
    showLoading();
    document.form.submit();
 }
@@ -1150,23 +1161,36 @@ function changelogApproval()
 
    document.form.action_script.value = 'start_MerlinAUapprovechangelog';
    document.form.action_wait.value = 10;
-
    showLoading();
    document.form.submit();
 }
 
-function checkFirmwareUpdate()
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-22] **/
+/**----------------------------------------**/
+function CheckFirmwareUpdate()
 {
-    console.log("Initiating F/W Update Check...");
+   console.log("Initiating F/W Update Check...");
 
-    if (!confirm("NOTE:\nIf you have no postponement days set or remaining, the firmware could flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
-    { return; }
+   let actionScriptVal;
+   let bypassPostponedDays = document.getElementById('BypassPostponedDays');
+   if (!bypassPostponedDays.checked)
+   {
+       actionScriptVal = 'start_MerlinAUcheckupdate';
+       if (!confirm("NOTE:\nIf you have no postponement days set or remaining, the firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
+       { return; }
+   }
+   else
+   {
+       actionScriptVal = 'start_MerlinAUcheckupdate_bypassDays';
+       if (!confirm("NOTE:\nThe firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
+       { return; }
+   }
 
-    document.form.action_script.value = 'start_MerlinAUcheckupdate';
-    document.form.action_wait.value = 60;
-
-    showLoading();
-    document.form.submit();
+   document.form.action_script.value = actionScriptVal;
+   document.form.action_wait.value = 60;
+   showLoading();
+   document.form.submit();
 }
 
 // Function to get the first non-empty value from a list of element IDs
@@ -1439,7 +1463,7 @@ function initializeCollapsibleSections()
    <tr><td colspan="2">Actions (click to expand/collapse)</td></tr>
 </thead>
 <tbody><tr><td colspan="2">
-<div style="text-align: center; margin-top: 10px;">
+<div style="text-align: center; margin-top: 3px;">
 <table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; border-collapse: collapse; background-color: transparent;">
 <colgroup>
    <col style="width: 33%;" />
@@ -1448,13 +1472,27 @@ function initializeCollapsibleSections()
 </colgroup>
 <tr>
 <td style="text-align: right; border: none;">
-   <input type="submit" onclick="checkFirmwareUpdate(); return false;" value="F/W Update Check" class="button_gen savebutton" name="button">
+   <input type="submit" id="FWUpdateCheckButton" onclick="CheckFirmwareUpdate();
+    return false;" value="F/W Update Check" class="button_gen savebutton" name="button">
+   <br>
+   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+   <input type="checkbox" checked="" id="BypassPostponedDays" name="BypassPostponedDays"
+    style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Bypass postponed days</label>
+   </br>
 </td>
 <td style="text-align: center; border: none;" id="approveChangelogCell">
-   <input type="submit" id="approveChangelogButton" onclick="changelogApproval(); return false;" value="Approve Changelog" class="button_gen savebutton" name="button">
+   <input type="submit" id="approveChangelogButton" onclick="changelogApproval();
+    return false;" value="Approve Changelog" class="button_gen savebutton" name="button">
+   <br><label style="margin-top: 5px; margin-bottom:8x"></br>
 </td>
 <td style="text-align: left; border: none;">
-   <input type="submit" onclick="Uninstall(); return false;" value="Uninstall" class="button_gen savebutton" name="button">
+   <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;"
+    value="Uninstall" class="button_gen savebutton" name="button">
+   <br>
+   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+   <input type="checkbox" checked="" id="KeepConfigFile" name="KeepConfigFile"
+    style="padding:0; vertical-align:middle; position:relative; margin-left:-3px; margin-top:5px; margin-bottom:8px"/>Keep configuration file</label>
+   </br>
 </td>
 </tr>
 </table>
