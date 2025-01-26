@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-22
+# Last Modified: 2025-Jan-25
 ###################################################################
 set -u
 
@@ -2228,7 +2228,7 @@ _ActionsAfterNewConfigSettings_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-21] ##
+## Modified by Martinski W. [2025-Jan-25] ##
 ##----------------------------------------##
 _UpdateConfigFromWebUISettings_()
 {
@@ -2244,7 +2244,7 @@ _UpdateConfigFromWebUISettings_()
 
        # Extract 'MerlinAU_' entries excluding 'version' #
        grep "^MerlinAU_" "$SHARED_SETTINGS_FILE" | grep -v "_version" > "$TEMPFILE"
-       sed -i "s/^MerlinAU_//g;s/ /=/g" "$TEMPFILE"
+       sed -i 's/^MerlinAU_//g;s/ /=/g' "$TEMPFILE"
 
        while IFS='' read -r line || [ -n "$line" ]
        do
@@ -2261,6 +2261,10 @@ _UpdateConfigFromWebUISettings_()
                    Say "**ERROR**: Could NOT update directory path [$keySettingValue]"
                fi
                continue
+           fi
+           if [ "$keySettingName" = "FW_New_Update_Cron_Job_Schedule" ]
+           then  # Replace delimiter char placed by the WebGUI #
+               keySettingValue="$(echo "$keySettingValue" | sed 's/|/ /g')"
            fi
            Update_Custom_Settings "$keySettingName" "$keySettingValue"
        done < "$TEMPFILE"
@@ -9748,7 +9752,7 @@ _ShowMainMenuOptions_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
+## Modified by Martinski W. [2025-Jan-25] ##
 ##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -9764,6 +9768,7 @@ _ShowAdvancedOptionsMenu_()
    printf "\n  ${GRNct}1${NOct}.  Set Directory for F/W Update File"
    printf "\n${padStr}[Current Path: ${GRNct}${FW_ZIP_DIR}${NOct}]\n"
 
+   FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
    printf "\n  ${GRNct}2${NOct}.  Set F/W Update Cron Schedule"
    printf "\n${padStr}[Current Schedule: ${GRNct}${FW_UpdateCronJobSchedule}${NOct}]"
    printf "\n${padStr}[${GRNct}%s${NOct}]\n" "$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"

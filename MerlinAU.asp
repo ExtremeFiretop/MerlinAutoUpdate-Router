@@ -1,5 +1,4 @@
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" 
-    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
 <!-- Use router-provided CSS -->
@@ -13,7 +12,8 @@
 <link rel="stylesheet" type="text/css" href="form_style.css" />
 <title>MerlinAU add-on for ASUSWRT-Merlin Firmware</title>
 <style>
-.SettingsTable .Invalid { background-color: red !important; }
+.SettingsTable .Invalid {background-color: red !important;}
+.SettingsTable .Disabled {background-color:#ccc;color:#888}
 </style>
 <!-- Native built-in JS files -->
 <script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
@@ -29,11 +29,11 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-22 **/
+/** Last Modified: 2025-Jan-25 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
-// Separate variables for server and AJAX settings //
+// Separate variables for shared and AJAX settings //
 var advanced_settings = {};
 var custom_settings = {};
 var shared_custom_settings = {};
@@ -89,33 +89,573 @@ function ValidatePostponedDays (formField)
 {
    if (fwPostponedDays.ValidateNumber(formField))
    {
-      $(formField).removeClass('Invalid');
-      $(formField).off('mouseover');
-      return true;
+       $(formField).removeClass('Invalid');
+       $(formField).off('mouseover');
+       return true;
    }
    else
    {
-      formField.focus();
-      $(formField).addClass('Invalid');
-      $(formField).on('mouseover',function(){return overlib(fwPostponedDays.ErrorMsg(),0,0);});
-      $(formField)[0].onmouseout = nd;
-      return false;
+       formField.focus();
+       $(formField).addClass('Invalid');
+       $(formField).on('mouseover',function(){return overlib(fwPostponedDays.ErrorMsg(),0,0);});
+       $(formField)[0].onmouseout = nd;
+       return false;
    }
 }
 
 /**-------------------------------------**/
 /** Added by Martinski W. [2025-Jan-05] **/
 /**-------------------------------------**/
-function FormatNumericSetting(forminput)
+function FormatNumericSetting (formInput)
 {
-   let inputvalue = (forminput.value * 1);
-   if (forminput.value.length === 0 || isNaN(inputvalue))
+   let inputValue = (formInput.value * 1);
+   if (formInput.value.length === 0 || isNaN(inputValue))
    { return false; }
    else
    {
-       forminput.value = parseInt(forminput.value, 10);
+       formInput.value = parseInt(formInput.value, 10);
        return true;
    }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-24] **/
+/**-------------------------------------**/
+const numberRegExp = '^[0-9]+$';
+const daysOfWeekNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+const daysOfWeekRexpN = '([S|s]un|[M|m]on|[T|t]ue|[W|w]ed|[T|t]hu|[F|f]ri|[S|s]at)';
+const daysOfWeekRexp1 = `${daysOfWeekRexpN}|[0-6]`;
+const daysOfWeekRexp2 = `${daysOfWeekRexpN}[-]${daysOfWeekRexpN}|[0-6][-][0-6]`;
+const daysOfWeekRexp3 = `${daysOfWeekRexpN}([,]${daysOfWeekRexpN})+|[0-6]([,][0-6])+`;
+const daysOfWeekRegEx = `(${daysOfWeekRexp1}|${daysOfWeekRexp2}|${daysOfWeekRexp3})`;
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-24] **/
+/**-------------------------------------**/
+const fwScheduleTime =
+{
+   ValidateHOUR: function (theHOURstr)
+   {
+       if (theHOURstr === null ||
+           theHOURstr.length == 0 ||
+           theHOURstr.length >= 3 ||
+           theHOURstr.match (`${numberRegExp}`) === null)
+       { return false; }
+       let theHOURnum = parseInt(theHOURstr, 10);
+       if (theHOURnum < 0 || theHOURnum > 23)
+       { return false; }
+       else
+       { return true; }
+   },
+   ValidateMINS: function (theMINSstr)
+   {
+       if (theMINSstr === null ||
+           theMINSstr.length == 0 ||
+           theMINSstr.length >= 3 ||
+           theMINSstr.match (`${numberRegExp}`) === null)
+       { return false; }
+       let theMINSNum = parseInt(theMINSstr, 10);
+       if (theMINSNum < 0 || theMINSNum > 59)
+       { return false; }
+       else
+       { return true; }
+   },
+   ValidateDAYS: function (theXDAYSstr)
+   {
+       if (theXDAYSstr === null ||
+           theXDAYSstr.length == 0 ||
+           theXDAYSstr.length >= 3 ||
+           theXDAYSstr.match (`${numberRegExp}`) === null)
+       { return false; }
+       let theXDAYSnum = parseInt(theXDAYSstr, 10);
+       if (theXDAYSnum < 2 || theXDAYSnum > 15)
+       { return false; }
+       else
+       { return true; }
+   },
+   ValidateTime: function (formField, timeInput)
+   {
+       if (timeInput === 'HOUR') { return (this.ValidateHOUR (formField.value)); }
+       if (timeInput === 'MINS') { return (this.ValidateMINS (formField.value)); }
+       if (timeInput === 'DAYS') { return (this.ValidateDAYS (formField.value)); }
+       return (false);
+   },
+   ErrorMsgHOUR: function()
+   {
+       return ('The schedule Hour is INVALID.\nThe Hour value must be between 0 and 23.');
+   },
+   ErrorMsgMINS: function()
+   {
+       return ('The schedule Minutes are INVALID.\nThe Minutes value must be between 0 and 59.');
+   },
+   ErrorMsgDAYS: function()
+   {
+       return ('The schedule Days interval is INVALID.\nThe Days interval value must be between 2 and 15.');
+   },
+   ErrorMsg: function (timeInput)
+   {
+       if (timeInput === 'HOUR') { return (this.ErrorMsgHOUR()); }
+       if (timeInput === 'MINS') { return (this.ErrorMsgMINS()); }
+       if (timeInput === 'DAYS') { return (this.ErrorMsgDAYS()); }
+       return 'INVALID input';
+   }
+};
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-24] **/
+/**-------------------------------------**/
+function ValidateFWUpdateTime (formField, timeInput)
+{
+   if (fwScheduleTime.ValidateTime (formField, timeInput))
+   {
+       $(formField).removeClass('Invalid');
+       $(formField).off('mouseover');
+       return true;
+   }
+   else
+   {
+       formField.focus();
+       $(formField).addClass('Invalid');
+       $(formField).on('mouseover',function(){return overlib(fwScheduleTime.ErrorMsg(timeInput),0,0);});
+       $(formField)[0].onmouseout = nd;
+       return false;
+   }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-24] **/
+/**-------------------------------------**/
+function ValidateFWUpdateXDays (formField, timeInput)
+{
+   if (fwScheduleTime.ValidateTime (formField, timeInput))
+   {
+       $(formField).removeClass('Invalid');
+       $(formField).off('mouseover');
+       return true;
+   }
+   else
+   {
+       formField.focus();
+       $(formField).addClass('Invalid');
+       $(formField).on('mouseover',function(){return overlib(fwScheduleTime.ErrorMsg(timeInput),0,0);});
+       $(formField)[0].onmouseout = nd;
+       return false;
+   }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-24] **/
+/**-------------------------------------**/
+function ToggleDaysOfWeek (isEveryXDayChecked, numberOfDays)
+{
+   let numOfDays = ['1', 'X'];
+   if (isEveryXDayChecked)
+   {
+       for (var indx = 0; indx < daysOfWeekNames.length; indx++)
+       { $('#fwSched_' + daysOfWeekNames[indx].toUpperCase()).prop('disabled', true); }
+       if (numberOfDays === 'X')
+       { $('#fwScheduleXDAYS').prop('disabled', false); }
+       else
+       { $('#fwScheduleXDAYS').prop('disabled', true); }
+   }
+   else
+   {
+       for (var indx = 0; indx < daysOfWeekNames.length; indx++)
+       { $('#fwSched_' + daysOfWeekNames[indx].toUpperCase()).prop('disabled', false); }
+       if (numberOfDays === 'X')
+       { $('#fwScheduleXDAYS').prop('disabled', true); }
+   }
+   for (var indx = 0; indx < numOfDays.length; indx++)
+   {
+       if (numOfDays[indx] !== numberOfDays)
+       {
+           $('#fwSchedBoxDAYS' + numOfDays[indx]).prop('checked', false);
+           $('#fwSchedBoxDAYS' + numOfDays[indx]).prop('disabled', false);
+       }
+   }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-24] **/
+/**-------------------------------------**/
+function ValidateScheduleHOUR (theHOURstr)
+{
+   if (theHOURstr === null ||
+       theHOURstr.length == 0 ||
+       theHOURstr.length >= 3 ||
+       theHOURstr.match (`${numberRegExp}`) === null)
+   { return false; }
+   let theHOURnum = parseInt(theHOURstr, 10);
+   if (theHOURnum < 0 || theHOURnum > 23)
+   { return false; }
+   else
+   { return true; }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-24] **/
+/**-------------------------------------**/
+function ValidateScheduleMINS (theMINSstr)
+{
+   if (theMINSstr === null ||
+       theMINSstr.length == 0 ||
+       theMINSstr.length >= 3 ||
+       theMINSstr.match (`${numberRegExp}`) === null)
+   { return false; }
+   let theMINSNum = parseInt(theMINSstr, 10);
+   if (theMINSNum < 0 || theMINSNum > 59)
+   { return false; }
+   else
+   { return true; }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-24] **/
+/**-------------------------------------**/
+function ValidateScheduleDAYofWEEK (cronDAYofWEEK)
+{
+   if (cronDAYofWEEK === null || cronDAYofWEEK.length == 0)
+   { return false; }
+   if (cronDAYofWEEK === '*' ||
+       cronDAYofWEEK === '*/2' ||
+       cronDAYofWEEK === '*/3' ||
+       cronDAYofWEEK.match (`${daysOfWeekRegEx}`) !== null)
+   { return true; }
+   else
+   { return false; }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-25] **/
+/**-------------------------------------**/
+function GetListFromRangeDAYofWEEK (cronRangeDAYofWEEK)
+{
+   let theDaysArray = [];
+   let theDaysRange = cronRangeDAYofWEEK.split ('-');
+   let indexMin = daysOfWeekNames.indexOf (theDaysRange[0]);
+   let indexMax = daysOfWeekNames.indexOf (theDaysRange[1]);
+   for (var indx = indexMin; indx <= indexMax; indx++)
+   { theDaysArray.push (daysOfWeekNames[indx]) ; }
+   return (theDaysArray.toString());
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-25] **/
+/**-------------------------------------**/
+function GetCronDAYofWEEK (daysOfWeekIndex, daysOfWeekArray)
+{
+   let theDaysOfWeek = '';
+   let isNumericSeqOK = false;
+   let arrayLength = daysOfWeekIndex.length;
+
+   if (arrayLength <= 2)
+   { return (daysOfWeekArray.toString()); }
+
+   for (var indx = 1; indx < arrayLength; indx++)
+   {
+       if ((daysOfWeekIndex[indx-1] + 1) === daysOfWeekIndex[indx])
+       { isNumericSeqOK = true; }
+       else
+       { isNumericSeqOK = false; break; }
+   }
+   if (!isNumericSeqOK)
+   { theDaysOfWeek = daysOfWeekArray.toString(); }
+   else
+   { theDaysOfWeek = daysOfWeekArray[0] + '-' + daysOfWeekArray[arrayLength-1]; }
+   return (theDaysOfWeek);
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-25] **/
+/**-------------------------------------**/
+function SetScheduleDAYofWEEK (cronDAYofWEEK)
+{
+   let fwScheduleDAYS1, fwSchedBoxDAYSX, fwScheduleXDAYS;
+   let fwScheduleMON, fwScheduleTUE, fwScheduleWED;
+   let fwScheduleTHU, fwScheduleFRI, fwScheduleSAT, fwScheduleSUN;
+
+   if (cronDAYofWEEK.match ('[*]/[2-3]') !== null)
+   {
+       ToggleDaysOfWeek (true, 'X');
+       fwSchedBoxDAYSX = document.getElementById('fwSchedBoxDAYSX');
+       fwSchedBoxDAYSX.checked = true;
+       fwSchedBoxDAYSX.disabled = false;
+       fwScheduleXDAYS = document.getElementById('fwScheduleXDAYS');
+       let tempArray = cronDAYofWEEK.split('/');
+       if (tempArray.length > 1)
+       { fwScheduleXDAYS.value = tempArray[1]; }
+       return;
+   }
+   if (cronDAYofWEEK === '*')
+   {
+       ToggleDaysOfWeek (true, '1');
+       fwScheduleDAYS1 = document.getElementById('fwSchedBoxDAYS1');
+       fwScheduleDAYS1.checked = true;
+       fwScheduleDAYS1.disabled = false;
+       return;
+   }
+   //Toggle OFF 'Every X Days'//
+   ToggleDaysOfWeek (false, 'X');
+   let theDAYofWEEK = cronDAYofWEEK;
+
+   if (cronDAYofWEEK.match (`${daysOfWeekRexpN}[-]${daysOfWeekRexpN}`) !== null)
+   {
+       theDAYofWEEK = GetListFromRangeDAYofWEEK (cronDAYofWEEK);
+   }
+   if (theDAYofWEEK.match ('[,]?[M|m]on[,]?') !== null)
+   {
+       fwScheduleMON = document.getElementById('fwSched_MON');
+       fwScheduleMON.checked = true;
+       fwScheduleMON.disabled = false;
+   }
+   if (theDAYofWEEK.match ('[,]?[T|t]ue[,]?') !== null)
+   {
+       fwScheduleTUE = document.getElementById('fwSched_TUE');
+       fwScheduleTUE.checked = true;
+       fwScheduleTUE.disabled = false;
+   }
+   if (theDAYofWEEK.match ('[,]?[W|w]ed[,]?') !== null)
+   {
+       fwScheduleWED = document.getElementById('fwSched_WED');
+       fwScheduleWED.checked = true;
+       fwScheduleWED.disabled = false;
+   }
+   if (theDAYofWEEK.match ('[,]?[T|t]hu[,]?') !== null)
+   {
+       fwScheduleTHU = document.getElementById('fwSched_THU');
+       fwScheduleTHU.checked = true;
+       fwScheduleTHU.disabled = false;
+   }
+   if (theDAYofWEEK.match ('[,]?[F|f]ri[,]?') !== null)
+   {
+       fwScheduleFRI = document.getElementById('fwSched_FRI');
+       fwScheduleFRI.checked = true;
+       fwScheduleFRI.disabled = false;
+   }
+   if (theDAYofWEEK.match ('[,]?[S|s]at[,]?') !== null)
+   {
+       fwScheduleSAT = document.getElementById('fwSched_SAT');
+       fwScheduleSAT.checked = true;
+       fwScheduleSAT.disabled = false;
+   }
+   if (theDAYofWEEK.match ('[,]?[S|s]un[,]?') !== null)
+   {
+       fwScheduleSUN = document.getElementById('fwSched_SUN');
+       fwScheduleSUN.checked = true;
+       fwScheduleSUN.disabled = false;
+   }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-24] **/
+/**-------------------------------------**/
+// FW_New_Update_Cron_Job_Schedule //
+function FWConvertCronScheduleToWebUISettings (rawCronSchedule)
+{
+   let fwRawCronSched = rawCronSchedule.split(' ');
+   let fwScheduleHOUR = document.getElementById('fwScheduleHOUR');
+   let fwScheduleMINS = document.getElementById('fwScheduleMINS');
+   let fwScheduleDAYS1, fwSchedBoxDAYSX, fwScheduleXDAYS;
+
+   if (rawCronSchedule === 'TBD' || fwRawCronSched.length < 5)
+   {
+       ToggleDaysOfWeek (true, '1');
+       fwScheduleDAYS1 = document.getElementById('fwSchedBoxDAYS1');
+       fwScheduleDAYS1.checked = true;
+       fwScheduleDAYS1.disabled = false;
+       fwScheduleHOUR.value = '0';
+       fwScheduleMINS.value = '0';
+       return;
+   }
+   let rawSchedMINS = fwRawCronSched[0];
+   let rawSchedHOUR = fwRawCronSched[1];
+   let rawSchedDAYM = fwRawCronSched[2];
+   let rawSchedMNTH = fwRawCronSched[3];
+   let rawSchedDAYW = fwRawCronSched[4];
+
+   if (ValidateScheduleMINS (rawSchedMINS))
+   {
+       fwScheduleMINS.value = rawSchedMINS;
+       fwScheduleMINS.disabled = false;
+   }
+   else
+   {   // Show value but DISABLED for now //
+       fwScheduleMINS.value = rawSchedMINS;
+       fwScheduleMINS.disabled = true;
+   }
+   if (ValidateScheduleHOUR (rawSchedHOUR))
+   {
+       fwScheduleHOUR.value = rawSchedHOUR;
+       fwScheduleHOUR.disabled = false;
+   }
+   else
+   {   // Show value but DISABLED for now //
+       fwScheduleHOUR.value = rawSchedHOUR;
+       fwScheduleHOUR.disabled = true;
+   }
+   if (rawSchedDAYM.match ('[*]/([2-9]|1[0-5])') !== null)
+   {
+       ToggleDaysOfWeek (true, 'X');
+       fwSchedBoxDAYSX = document.getElementById('fwSchedBoxDAYSX');
+       fwSchedBoxDAYSX.checked = true;
+       fwSchedBoxDAYSX.disabled = false;
+       fwScheduleXDAYS = document.getElementById('fwScheduleXDAYS');
+       let tempArray = rawSchedDAYM.split('/');
+       if (tempArray.length > 1)
+       { fwScheduleXDAYS.value = tempArray[1]; }
+       return;
+   }
+   else if (rawSchedDAYW.match ('[*]/[2-3]') !== null)
+   {
+       ToggleDaysOfWeek (true, 'X');
+       fwSchedBoxDAYSX = document.getElementById('fwSchedBoxDAYSX');
+       fwSchedBoxDAYSX.checked = true;
+       fwSchedBoxDAYSX.disabled = false;
+       fwScheduleXDAYS = document.getElementById('fwScheduleXDAYS');
+       let tempArray = rawSchedDAYW.split('/');
+       if (tempArray.length > 1)
+       { fwScheduleXDAYS.value = tempArray[1]; }
+       return;
+   }
+   else if (rawSchedDAYM === '*' && rawSchedDAYW === '*')
+   {
+       ToggleDaysOfWeek (true, '1');
+       fwScheduleDAYS1 = document.getElementById('fwSchedBoxDAYS1');
+       fwScheduleDAYS1.checked = true;
+       fwScheduleDAYS1.disabled = false;
+       return;
+   }
+   else if (rawSchedDAYM != '*' || rawSchedMNTH != '*')
+   {   /**------------------------------------------------------**/
+       /** We do NOT yet handle schedules with different Months **/
+       /** or intervals, lists or ranges of "Days of the Month" **/
+       /**------------------------------------------------------**/
+       // Toggle OFF checkboxes for now //
+       ToggleDaysOfWeek (true, '0');
+       return;
+   }
+   if (ValidateScheduleDAYofWEEK (rawSchedDAYW))
+   { SetScheduleDAYofWEEK (rawSchedDAYW); }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-25] **/
+/**-------------------------------------**/
+function FWConvertWebUISettingsToCronSchedule (oldRawCronSchedule)
+{
+   let newRawCronSchedule = '';
+   let theFWRawCronSched = oldRawCronSchedule.split(' ');
+
+   //Temporary delimiter is replaced later by shell script//
+   const delimChar = '|';
+   const defaultSchedule = '0|0|*|*|*';
+
+   if (oldRawCronSchedule === 'TBD' || theFWRawCronSched.length < 5)
+   {   //Default CRON Schedule//
+       newRawCronSchedule = defaultSchedule;
+       return (newRawCronSchedule);
+   }
+
+   let fwRawSchedMINS = theFWRawCronSched[0];
+   let fwRawSchedHOUR = theFWRawCronSched[1];
+   let fwRawSchedDAYM = theFWRawCronSched[2];
+   let fwRawSchedMNTH = theFWRawCronSched[3];
+   let fwRawSchedDAYW = theFWRawCronSched[4];
+   let fwScheduleHOUR = document.getElementById('fwScheduleHOUR');
+   let fwScheduleMINS = document.getElementById('fwScheduleMINS');
+   let fwScheduleDAYS1 = document.getElementById('fwSchedBoxDAYS1');
+   let fwSchedBoxDAYSX = document.getElementById('fwSchedBoxDAYSX');
+   let fwScheduleXDAYS = document.getElementById('fwScheduleXDAYS');
+   let fwScheduleMON = document.getElementById('fwSched_MON');
+   let fwScheduleTUE = document.getElementById('fwSched_TUE');
+   let fwScheduleWED = document.getElementById('fwSched_WED');
+   let fwScheduleTHU = document.getElementById('fwSched_THU');
+   let fwScheduleFRI = document.getElementById('fwSched_FRI');
+   let fwScheduleSAT = document.getElementById('fwSched_SAT');
+   let fwScheduleSUN = document.getElementById('fwSched_SUN');
+
+   if (fwScheduleMINS.disabled === false)
+   { fwRawSchedMINS = fwScheduleMINS.value; }
+
+   if (fwScheduleHOUR.disabled === false)
+   { fwRawSchedHOUR = fwScheduleHOUR.value; }
+
+   if (fwScheduleDAYS1.checked &&
+       fwScheduleDAYS1.disabled === false)
+   {
+       fwRawSchedDAYM = '*';
+       fwRawSchedDAYW = '*';
+   }
+   else if (fwSchedBoxDAYSX.checked &&
+            fwSchedBoxDAYSX.disabled === false)
+   {
+       if (fwRawSchedDAYW.match ('[*]/[2-3]') !== null &&
+           (fwScheduleXDAYS.value == 2 || fwScheduleXDAYS.value == 3))
+       {
+           fwRawSchedDAYM = '*';
+           fwRawSchedDAYW = '*/' + fwScheduleXDAYS.value;
+       }
+       else
+       {
+           fwRawSchedDAYW = '*';
+           fwRawSchedDAYM = '*/' + fwScheduleXDAYS.value;
+       }
+   }
+   else
+   {
+       let daysOfWeekArray = [], daysOfWeekIndex = [];
+       if (fwScheduleSUN.checked && fwScheduleSUN.disabled === false)
+       {
+           daysOfWeekIndex.push(0);
+           daysOfWeekArray.push('Sun');
+       }
+       if (fwScheduleMON.checked && fwScheduleMON.disabled === false)
+       {
+           daysOfWeekIndex.push(1);
+           daysOfWeekArray.push('Mon');
+       }
+       if (fwScheduleTUE.checked && fwScheduleTUE.disabled === false)
+       {
+           daysOfWeekIndex.push(2);
+           daysOfWeekArray.push('Tue');
+       }
+       if (fwScheduleWED.checked && fwScheduleWED.disabled === false)
+       {
+           daysOfWeekIndex.push(3);
+           daysOfWeekArray.push('Wed');
+       }
+       if (fwScheduleTHU.checked && fwScheduleTHU.disabled === false)
+       {
+           daysOfWeekIndex.push(4);
+           daysOfWeekArray.push('Thu');
+       }
+       if (fwScheduleFRI.checked && fwScheduleFRI.disabled === false)
+       {
+           daysOfWeekIndex.push(5);
+           daysOfWeekArray.push('Fri');
+       }
+       if (fwScheduleSAT.checked && fwScheduleSAT.disabled === false)
+       {
+           daysOfWeekIndex.push(6);
+           daysOfWeekArray.push('Sat');
+       }
+       if (daysOfWeekArray.length > 0)
+       {
+           fwRawSchedDAYM = '*';
+           fwRawSchedMNTH = '*';
+           if (daysOfWeekArray.length == 7)
+           { fwRawSchedDAYW = '*'; }
+           else
+           { fwRawSchedDAYW = GetCronDAYofWEEK (daysOfWeekIndex, daysOfWeekArray); }
+       }
+   }
+   newRawCronSchedule = fwRawSchedMINS + delimChar +
+                        fwRawSchedHOUR + delimChar +
+                        fwRawSchedDAYM + delimChar +
+                        fwRawSchedMNTH + delimChar +
+                        fwRawSchedDAYW;
+
+   return (newRawCronSchedule);
 }
 
 /**-------------------------------------**/
@@ -447,7 +987,7 @@ function handleROGFWBuildTypeVisibility()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-22] **/
+/** Modified by Martinski W. [2025-Jan-24] **/
 /**----------------------------------------**/
 function InitializeFields()
 {
@@ -499,6 +1039,9 @@ function InitializeFields()
             fwPosptonedDaysLabel.textContent = fwPostponedDays.LabelText();
             fwUpdatePostponement.value = custom_settings.FW_New_Update_Postponement_Days || '15'; 
         }
+
+        let fwUpdateRawCronSchedule = custom_settings.FW_New_Update_Cron_Job_Schedule || 'TBD';
+        FWConvertCronScheduleToWebUISettings (fwUpdateRawCronSchedule);
 
         if (secondaryEmail)
         { secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address || ''; }
@@ -734,7 +1277,7 @@ function GetConfigSettings()
                     if (value.startsWith('"') && value.endsWith('"'))
                     { value = value.substring(1, value.length - 1); }
 
-                    assignAjaxSetting(key, value);
+                    AssignAjaxSetting(key, value);
                 }
                 else
                 {
@@ -751,7 +1294,7 @@ function GetConfigSettings()
                         if (value.startsWith('"') && value.endsWith('"'))
                         { value = value.substring(1, value.length - 1); }
 
-                        assignAjaxSetting(key, value);
+                        AssignAjaxSetting(key, value);
                         i++; // Skip the next token as it's already processed
                     }
                     else
@@ -779,97 +1322,109 @@ function tokenize(input)
     return input.match(regex) || [];
 }
 
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-24] **/
+/**----------------------------------------**/
 // Helper function to assign settings based on key //
-function assignAjaxSetting(key, value)
+function AssignAjaxSetting(key, value)
 {
-        // Normalize key to uppercase for case-insensitive comparison //
-        var keyUpper = key.toUpperCase();
+   // Normalize key to uppercase for case-insensitive comparison //
+   var keyUpper = key.toUpperCase();
 
-        switch (true) {
-            case keyUpper === 'FW_NEW_UPDATE_POSTPONEMENT_DAYS':
-                ajax_custom_settings.FW_New_Update_Postponement_Days = value;
-                break;
+   switch (true)
+   {
+       case keyUpper === 'FW_NEW_UPDATE_POSTPONEMENT_DAYS':
+           ajax_custom_settings.FW_New_Update_Postponement_Days = value;
+           break;
 
-            case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
-                fwUpdateEstimatedRunDate = value;  // We don't want to save it the custom_settings; only as-is for displaying it.
-                break;
+       // NOTE: Use for display purposes ONLY //
+       case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
+           fwUpdateEstimatedRunDate = value;
+           break;
 
-            case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
-                ajax_custom_settings.FW_New_Update_EMail_Notification = convertToStatus(value);
-                break;
+       case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
+           ajax_custom_settings.FW_New_Update_EMail_Notification = convertToStatus(value);
+           break;
 
-            case keyUpper === 'FW_NEW_UPDATE_EMAIL_FORMATTYPE':
-                ajax_custom_settings.FW_New_Update_EMail_FormatType = value;
-                break;
+       case keyUpper === 'FW_NEW_UPDATE_EMAIL_FORMATTYPE':
+           ajax_custom_settings.FW_New_Update_EMail_FormatType = value;
+           break;
 
-            case keyUpper === 'FW_NEW_UPDATE_ZIP_DIRECTORY_PATH':
-                ajax_custom_settings.FW_New_Update_ZIP_Directory_Path = value;
-                break;
+       case keyUpper === 'FW_NEW_UPDATE_ZIP_DIRECTORY_PATH':
+           ajax_custom_settings.FW_New_Update_ZIP_Directory_Path = value;
+           break;
 
-            case keyUpper === 'ALLOW_UPDATES_OVERVPN':
-                ajax_custom_settings.Allow_Updates_OverVPN = convertToStatus(value);
-                break;
+       case keyUpper === 'ALLOW_UPDATES_OVERVPN':
+           ajax_custom_settings.Allow_Updates_OverVPN = convertToStatus(value);
+           break;
 
-            case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_VERS':
-                FW_New_Update_Available = value.trim();
-                break;
+       case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_VERS':
+           FW_New_Update_Available = value.trim();
+           break;
 
-            case keyUpper === 'FW_NEW_UPDATE_EMAIL_CC_ADDRESS':
-                ajax_custom_settings.FW_New_Update_EMail_CC_Address = value;
-                break;
+       case keyUpper === 'FW_NEW_UPDATE_EMAIL_CC_ADDRESS':
+           ajax_custom_settings.FW_New_Update_EMail_CC_Address = value;
+           break;
 
-            case keyUpper === 'CHECKCHANGELOG':
-                ajax_custom_settings.CheckChangeLog = convertToStatus(value);
-                break;
+       case keyUpper === 'CHECKCHANGELOG':
+           ajax_custom_settings.CheckChangeLog = convertToStatus(value);
+           break;
 
-            case keyUpper === 'FW_UPDATE_CHECK':
-                ajax_custom_settings.FW_Update_Check = convertToStatus(value);
-                break;
+       case keyUpper === 'FW_UPDATE_CHECK':
+           ajax_custom_settings.FW_Update_Check = convertToStatus(value);
+           break;
 
-            case keyUpper === 'ALLOW_SCRIPT_AUTO_UPDATE':
-                ajax_custom_settings.Allow_Script_Auto_Update = convertToStatus(value);
-                break;
+       case keyUpper === 'ALLOW_SCRIPT_AUTO_UPDATE':
+           ajax_custom_settings.Allow_Script_Auto_Update = convertToStatus(value);
+           break;
 
-            case keyUpper === 'FW_NEW_UPDATE_CHANGELOG_APPROVAL':
-                ajax_custom_settings.FW_New_Update_Changelog_Approval = value; // Store as-is for display
-                break;
+       case keyUpper === 'FW_NEW_UPDATE_CHANGELOG_APPROVAL':
+           ajax_custom_settings.FW_New_Update_Changelog_Approval = value; // Store as-is for display
+           break;
 
-            case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
-                ajax_custom_settings.FW_Allow_Beta_Production_Up = convertToStatus(value);
-                break;
+       case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
+           ajax_custom_settings.FW_Allow_Beta_Production_Up = convertToStatus(value);
+           break;
 
-            case keyUpper === 'FW_AUTO_BACKUPMON':
-                ajax_custom_settings.FW_Auto_Backupmon = convertToStatus(value);
-                break;
+       case keyUpper === 'FW_AUTO_BACKUPMON':
+           ajax_custom_settings.FW_Auto_Backupmon = convertToStatus(value);
+           break;
 
-            case keyUpper === 'CREDENTIALS_BASE64':
-                try {
-                    var decoded = atob(value);
-                    var password = decoded.split(':')[1] || '';
-                    ajax_custom_settings.routerPassword = password;
-                } catch (e) {
-                    console.error("Error decoding credentials_base64:", e);
-                }
-                break;
+       case keyUpper === 'CREDENTIALS_BASE64':
+           try
+           {
+               var decoded = atob(value);
+               var password = decoded.split(':')[1] || '';
+               ajax_custom_settings.routerPassword = password;
+           }
+           catch (e)
+           {
+               console.error("Error decoding credentials_base64:", e);
+           }
+           break;
 
-            case keyUpper === 'ROGBUILD':
-                ajax_custom_settings.FW_New_Update_ROGFWBuildType = (value === 'ENABLED') ? 'ROG' : 'Pure';
-                break;
+       case keyUpper === 'ROGBUILD':
+           ajax_custom_settings.FW_New_Update_ROGFWBuildType = (value === 'ENABLED') ? 'ROG' : 'Pure';
+           break;
 
-            case keyUpper === 'TUFBUILD':
-                ajax_custom_settings.FW_New_Update_TUFWBuildType = (value === 'ENABLED') ? 'TUF' : 'Pure';
-                break;
+       case keyUpper === 'TUFBUILD':
+           ajax_custom_settings.FW_New_Update_TUFWBuildType = (value === 'ENABLED') ? 'TUF' : 'Pure';
+           break;
 
-            case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
-                ajax_custom_settings.FW_New_Update_Notifications_Date = value;
-                break;
+       case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
+           ajax_custom_settings.FW_New_Update_Notifications_Date = value;
+           break;
 
-            // Additional AJAX settings can be handled here //
+       case keyUpper === 'FW_NEW_UPDATE_CRON_JOB_SCHEDULE':
+           ajax_custom_settings.FW_New_Update_Cron_Job_Schedule = value;
+           break;
 
-            default:
-                // Optionally handle or log unknown settings //
-                break;
-        }
+       // Additional AJAX settings can be handled here //
+
+       default:
+           // Optionally handle or log unknown settings //
+           break;
+   }
 }
 
 /**----------------------------------------**/
@@ -955,7 +1510,7 @@ function initial()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-17] **/
+/** Modified by Martinski W. [2025-Jan-24] **/
 /**----------------------------------------**/
 function SaveActionsConfig()
 {
@@ -984,6 +1539,26 @@ function SaveActionsConfig()
         alert('Validation failed. Please correct invalid value and try again.\n\n' + fwPostponedDays.ErrorMsg());
         return false;
     }
+    if (document.form.fwScheduleHOUR.disabled === false &&
+        !ValidateFWUpdateTime (document.form.fwScheduleHOUR, 'HOUR'))
+    {
+        alert('Validation failed. Please correct invalid value and try again.\n\n' + fwScheduleTime.ErrorMsg('HOUR'));
+        return false;
+    }
+    if (document.form.fwScheduleMINS.disabled === false &&
+        !ValidateFWUpdateTime (document.form.fwScheduleMINS, 'MINS'))
+    {
+        alert('Validation failed. Please correct invalid value and try again.\n\n' + fwScheduleTime.ErrorMsg('MINS'));
+        return false;
+    }
+    if (document.getElementById('fwSchedBoxDAYSX').checked &&
+        !ValidateFWUpdateXDays (document.form.fwScheduleXDAYS, 'DAYS'))
+    {
+        alert('Validation failed. Please correct invalid value and try again.\n\n' + fwScheduleTime.ErrorMsg('DAYS'));
+        return false;
+    }
+    let fwUpdateRawCronSchedule = custom_settings.FW_New_Update_Cron_Job_Schedule;
+    fwUpdateRawCronSchedule = FWConvertWebUISettingsToCronSchedule (fwUpdateRawCronSchedule);
 
     // Encode credentials in Base64 //
     var credentials = username + ':' + passwordStr;
@@ -993,11 +1568,12 @@ function SaveActionsConfig()
     var action_settings =
     {
         credentials_base64: encodedCredentials,
+        FW_New_Update_Cron_Job_Schedule: fwUpdateRawCronSchedule,
         FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
         CheckChangeLog: document.getElementById('changelogCheckEnabled').checked ? 'ENABLED' : 'DISABLED',
         FW_Update_Check: document.getElementById('FW_AutoUpdate_Check').checked ? 'ENABLED' : 'DISABLED'
     };
-    // Prefix only Action settings
+    // Prefix only Action settings //
     var prefixedActionSettings = PrefixCustomSettings(action_settings, 'MerlinAU_');
 
     // ***** FIX BUG WHERE MerlinAU_FW_Auto_Backupmon is saved from the wrong button *****
@@ -1035,7 +1611,7 @@ function SaveActionsConfig()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-17] **/
+/** Modified by Martinski W. [2025-Jan-24] **/
 /**----------------------------------------**/
 function SaveAdvancedConfig()
 {
@@ -1106,7 +1682,8 @@ function SaveAdvancedConfig()
         "MerlinAU_credentials_base64",
         "MerlinAU_FW_New_Update_Postponement_Days",
         "MerlinAU_CheckChangeLog",
-        "MerlinAU_FW_Update_Check"
+        "MerlinAU_FW_Update_Check",
+        "FW_New_Update_Cron_Job_Schedule"
     ];
     ACTION_KEYS.forEach(function (key){
         if (shared_custom_settings.hasOwnProperty(key))
@@ -1500,8 +2077,8 @@ function initializeCollapsibleSections()
 <form id="actionsForm">
 <table class="FormTable SettingsTable" width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
 <colgroup>
-   <col style="width: 40%;" />
-   <col style="width: 60%;" />
+   <col style="width: 37%;" />
+   <col style="width: 63%;" />
 </colgroup>
 <tr>
    <td style="text-align: left;">
@@ -1518,8 +2095,7 @@ function initializeCollapsibleSections()
            maxlength="64"
            onKeyPress="return validator.isString(this, event)"
            onblur="ValidatePasswordString(this)"
-           onkeyup="ValidatePasswordString(this)"
-         />
+           onkeyup="ValidatePasswordString(this)"/>
          <div
              id="eyeToggle"
              onclick="togglePassword();"
@@ -1531,8 +2107,7 @@ function initializeCollapsibleSections()
                width:24px; height:24px; 
                background:url('/images/icon-visible@2x.png') no-repeat center;
                background-size: contain;
-               cursor: pointer;"
-         ></div>
+               cursor: pointer;"></div>
       </div>
    </td>
 </tr>
@@ -1550,15 +2125,82 @@ function initializeCollapsibleSections()
    <td>
    <input autocomplete="off" type="text"
      id="fwUpdatePostponement" name="fwUpdatePostponement"
-     style="width: 15%;" maxlength="3"
+     style="width: 7%;" maxlength="3"
      onKeyPress="return validator.isNumber(this,event)"
-     onblur="ValidatePostponedDays(this);FormatNumericSetting(this)"
-     onkeyup="ValidatePostponedDays(this)" />
+     onkeyup="ValidatePostponedDays(this)"
+     onblur="ValidatePostponedDays(this);FormatNumericSetting(this)"/>
    </td>
 </tr>
 <tr>
    <td style="text-align: left;"><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
    <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
+</tr>
+<!--
+** F/W Update Check Cron Schedule **
+-->
+<tr>
+   <td style="text-align: left;">
+   <label id="fwUpdateCheckScheduleLabel" for="fwUpdateCheckSchedule">Schedule for F/W Update Checks</label>
+   </td>
+   <td>
+     <div id="fwCronScheduleDAYofWEEK">
+     <span style="margin-left:1px; margin-top:5px; font-size: 12px; font-weight: bolder;">Days:</span>
+     <label style="margin-left:-3px;">
+       <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYS1" value="Every day" class="input"
+        style="margin-left:22px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'1')"/>Every day</label>
+     <label style="margin-left:-3px;">
+       <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYSX" value="Every X Days" class="input"
+        style="margin-left:28px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'X')"/>Every</label>
+       <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
+        style="width: 5%; margin-left: 2px; margin-top:3px; margin-bottom:7px" maxlength="2"
+		id="fwScheduleXDAYS" name="fwScheduleXDAYS" value="2"
+        onKeyPress="return validator.isNumber(this,event)"
+        onkeyup="ValidateFWUpdateXDays(this,'DAYS')"
+		onblur="ValidateFWUpdateXDays(this,'DAYS');FormatNumericSetting(this)"/>
+      <label style="margin-left:2px; margin-top:3px; font-size: 12px;">days</label>
+     <br>
+     <label style="margin-left:0px;">
+       <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_SUN" value="Sun"
+        class="input" style="margin-left:55px; margin-bottom:7px"/>Sun</label>
+     <label style="margin-left:0px;">
+       <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_MON" value="Mon"
+        class="input" style="margin-left:14px; margin-bottom:7px"/>Mon</label>
+     <label style="margin-left:0px;">
+       <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_TUE" value="Tue"
+        class="input" style="margin-left:14px; margin-bottom:7px"/>Tue</label>
+     <label style="margin-left:0px;">
+       <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_WED" value="Wed"
+        class="input" style="margin-left:14px; margin-bottom:7px"/>Wed</label>
+     <label style="margin-left:0px;">
+       <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_THU" value="Thu"
+        class="input" style="margin-left:14px; margin-bottom:7px"/>Thu</label>
+     <label style="margin-left:0px;">
+       <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_FRI" value="Fri"
+        class="input" style="margin-left:14px; margin-bottom:7px"/>Fri</label>
+     <label style="margin-left:0px;">
+       <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_SAT" value="Sat"
+        class="input" style="margin-left:14px; margin-bottom:7px"/>Sat</label>
+     </br>
+     </div>
+     <div id="fwCronScheduleHOUR">
+       <span style="margin-left:1px; margin-top:10px; font-size: 12px; font-weight: bolder;">Hour:</span>
+       <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
+        style="width: 7%; margin-left: 20px; margin-top:10px; margin-bottom:7px" maxlength="2"
+		id="fwScheduleHOUR" name="fwScheduleHOUR" value="0"
+        onKeyPress="return validator.isNumber(this,event)"
+		onkeyup="ValidateFWUpdateTime(this,'HOUR')"
+		onblur="ValidateFWUpdateTime(this,'HOUR');FormatNumericSetting(this)"/>
+     </div>
+     <div id="fwCronScheduleMINS">
+       <span style="margin-left:1px; margin-top:10px; font-size: 12px; font-weight: bolder;">Minutes:</span>
+       <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
+        style="width: 7%; margin-left: 1px; margin-top:7px; margin-bottom:10px" maxlength="2"
+		id="fwScheduleMINS" name="fwScheduleMINS" value="0"
+        onKeyPress="return validator.isNumber(this,event)"
+		onkeyup="ValidateFWUpdateTime(this,'MINS')"
+		onblur="ValidateFWUpdateTime(this,'MINS');FormatNumericSetting(this)"/>
+     </div>
+   </td>
 </tr>
 </table>
 <div style="text-align: center; margin-top: 10px;">
@@ -1584,8 +2226,8 @@ function initializeCollapsibleSections()
 <form id="advancedOptionsForm">
 <table class="FormTable SettingsTable" width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
 <colgroup>
-   <col style="width: 40%;" />
-   <col style="width: 60%;" />
+   <col style="width: 37%;" />
+   <col style="width: 63%;" />
 </colgroup>
 <tr>
    <td style="text-align: left;">
@@ -1597,7 +2239,7 @@ function initializeCollapsibleSections()
      style="width: 275px;" maxlength="200"
      onKeyPress="return validator.isString(this, event)"
      onblur="ValidateDirectoryPath(this)"
-     onkeyup="ValidateDirectoryPath(this)" />
+     onkeyup="ValidateDirectoryPath(this)"/>
    </td>
 </tr>
 <tr>
