@@ -1251,6 +1251,13 @@ function InitializeFields()
     { console.error("Custom settings NOT loaded."); }
 }
 
+// Tokenize input line string, respecting quoted substrings //
+function Tokenize (inputStr)
+{
+    var regex = /(?:[^\s"]+|"[^"]*")+/g;
+    return inputStr.match(regex) || [];
+}
+
 /**----------------------------------------**/
 /** Modified by Martinski W. [2025-Jan-26] **/
 /**----------------------------------------**/
@@ -1266,46 +1273,56 @@ function GetConfigSettings()
         },
         success: function(data)
         {
-            // Tokenize the data while respecting quoted values //
-            var tokenList = Tokenize(data);
+            let keyName, keyValue;
+            let tokenList, tokenStr;
+            let configLines = data.split('\n');
 
-            for (var indx = 0; indx < tokenList.length; indx++)
+            for (var jIndx = 0; jIndx < configLines.length; jIndx++)
             {
-                var tokenStr = tokenList[indx];
+                if (configLines[jIndx].length === 0 ||
+                    configLines[jIndx].match('^[ ]*#') !== null)
+                { continue; }  //Skip comments & empty lines//
 
-                if (tokenStr.includes('='))
+                tokenList = Tokenize (configLines[jIndx]);
+            
+                for (var kIndx = 0; kIndx < tokenList.length; kIndx++)
                 {
-                    // Handle "key=value" format //
-                    var splitIndex = tokenStr.indexOf('=');
-                    var key = tokenStr.substring(0, splitIndex).trim();
-                    var value = tokenStr.substring(splitIndex + 1).trim();
+                    tokenStr = tokenList[kIndx];
 
-                    // Remove surrounding quotes if present
-                    if (value.startsWith('"') && value.endsWith('"'))
-                    { value = value.substring(1, value.length - 1); }
-
-                    AssignAjaxSetting(key, value);
-                }
-                else
-                {
-                    // Handle "key value" format //
-                    var key = tokenStr.trim();
-                    var value = '';
-
-                    // Ensure there's a next token for the value //
-                    if (indx + 1 < tokenList.length)
+                    if (tokenStr.includes('='))
                     {
-                        value = tokenList[indx + 1].trim();
+                        // Handle "key=value" pair format //
+                        var splitIndex = tokenStr.indexOf('=');
+                        keyName = tokenStr.substring(0, splitIndex).trim();
+                        keyValue = tokenStr.substring(splitIndex + 1).trim();
 
                         // Remove surrounding quotes if present //
-                        if (value.startsWith('"') && value.endsWith('"'))
-                        { value = value.substring(1, value.length - 1); }
+                        if (keyValue.startsWith('"') && keyValue.endsWith('"'))
+                        { keyValue = keyValue.substring(1, keyValue.length - 1); }
 
-                        AssignAjaxSetting(key, value);
-                        indx++; // Skip next token as it's already processed //
+                        AssignAjaxSetting(keyName, keyValue);
                     }
                     else
-                    { console.warn(`No value found for key: ${key}`); }
+                    {
+                        // Handle "key value" pair format //
+                        keyName = tokenStr.trim();
+                        keyValue = '';
+
+                        // Ensure there's a next token for the value //
+                        if (kIndx + 1 < tokenList.length)
+                        {
+                            keyValue = tokenList[kIndx + 1].trim();
+
+                            // Remove surrounding quotes if present //
+                            if (keyValue.startsWith('"') && keyValue.endsWith('"'))
+                            { keyValue = keyValue.substring(1, keyValue.length - 1); }
+
+                            AssignAjaxSetting(keyName, keyValue);
+                            kIndx++; // Skip next token as it's already processed //
+                        }
+                        else
+                        { console.warn(`No value found for keyName: ${keyName}`); }
+                    }
                 }
             }
             console.log("AJAX Custom Settings Loaded:", ajax_custom_settings);
@@ -1321,85 +1338,78 @@ function GetConfigSettings()
     });
 }
 
-// Tokenize input string, respecting quoted substrings //
-function Tokenize(inputStr)
-{
-    var regex = /(?:[^\s"]+|"[^"]*")+/g;
-    return inputStr.match(regex) || [];
-}
-
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-24] **/
+/** Modified by Martinski W. [2025-Jan-26] **/
 /**----------------------------------------**/
 // Helper function to assign settings based on key //
-function AssignAjaxSetting(key, value)
+function AssignAjaxSetting (keyName, keyValue)
 {
    // Normalize key to uppercase for case-insensitive comparison //
-   var keyUpper = key.toUpperCase();
+   var keyUpper = keyName.toUpperCase();
 
    switch (true)
    {
        case keyUpper === 'FW_NEW_UPDATE_POSTPONEMENT_DAYS':
-           ajax_custom_settings.FW_New_Update_Postponement_Days = value;
+           ajax_custom_settings.FW_New_Update_Postponement_Days = keyValue;
            break;
 
        // NOTE: Use for display purposes ONLY //
        case keyUpper === 'FW_NEW_UPDATE_EXPECTED_RUN_DATE':
-           fwUpdateEstimatedRunDate = value;
+           fwUpdateEstimatedRunDate = keyValue;
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_EMAIL_NOTIFICATION':
-           ajax_custom_settings.FW_New_Update_EMail_Notification = convertToStatus(value);
+           ajax_custom_settings.FW_New_Update_EMail_Notification = convertToStatus(keyValue);
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_EMAIL_FORMATTYPE':
-           ajax_custom_settings.FW_New_Update_EMail_FormatType = value;
+           ajax_custom_settings.FW_New_Update_EMail_FormatType = keyValue;
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_ZIP_DIRECTORY_PATH':
-           ajax_custom_settings.FW_New_Update_ZIP_Directory_Path = value;
+           ajax_custom_settings.FW_New_Update_ZIP_Directory_Path = keyValue;
            break;
 
        case keyUpper === 'ALLOW_UPDATES_OVERVPN':
-           ajax_custom_settings.Allow_Updates_OverVPN = convertToStatus(value);
+           ajax_custom_settings.Allow_Updates_OverVPN = convertToStatus(keyValue);
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_VERS':
-           FW_NewUpdateVersAvailable = value.trim();
+           FW_NewUpdateVersAvailable = keyValue.trim();
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_EMAIL_CC_ADDRESS':
-           ajax_custom_settings.FW_New_Update_EMail_CC_Address = value;
+           ajax_custom_settings.FW_New_Update_EMail_CC_Address = keyValue;
            break;
 
        case keyUpper === 'CHECKCHANGELOG':
-           ajax_custom_settings.CheckChangeLog = convertToStatus(value);
+           ajax_custom_settings.CheckChangeLog = convertToStatus(keyValue);
            break;
 
        case keyUpper === 'FW_UPDATE_CHECK':
-           ajax_custom_settings.FW_Update_Check = convertToStatus(value);
+           ajax_custom_settings.FW_Update_Check = convertToStatus(keyValue);
            break;
 
        case keyUpper === 'ALLOW_SCRIPT_AUTO_UPDATE':
-           ajax_custom_settings.Allow_Script_Auto_Update = convertToStatus(value);
+           ajax_custom_settings.Allow_Script_Auto_Update = convertToStatus(keyValue);
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_CHANGELOG_APPROVAL':
-           ajax_custom_settings.FW_New_Update_Changelog_Approval = value; // Store as-is for display
+           ajax_custom_settings.FW_New_Update_Changelog_Approval = keyValue; // Store as-is for display
            break;
 
        case keyUpper === 'FW_ALLOW_BETA_PRODUCTION_UP':
-           ajax_custom_settings.FW_Allow_Beta_Production_Up = convertToStatus(value);
+           ajax_custom_settings.FW_Allow_Beta_Production_Up = convertToStatus(keyValue);
            break;
 
        case keyUpper === 'FW_AUTO_BACKUPMON':
-           ajax_custom_settings.FW_Auto_Backupmon = convertToStatus(value);
+           ajax_custom_settings.FW_Auto_Backupmon = convertToStatus(keyValue);
            break;
 
        case keyUpper === 'CREDENTIALS_BASE64':
            try
            {
-               var decoded = atob(value);
+               var decoded = atob(keyValue);
                var password = decoded.split(':')[1] || '';
                ajax_custom_settings.routerPassword = password;
            }
@@ -1410,19 +1420,19 @@ function AssignAjaxSetting(key, value)
            break;
 
        case keyUpper === 'ROGBUILD':
-           ajax_custom_settings.FW_New_Update_ROGFWBuildType = (value === 'ENABLED') ? 'ROG' : 'Pure';
+           ajax_custom_settings.FW_New_Update_ROGFWBuildType = (keyValue === 'ENABLED') ? 'ROG' : 'Pure';
            break;
 
        case keyUpper === 'TUFBUILD':
-           ajax_custom_settings.FW_New_Update_TUFWBuildType = (value === 'ENABLED') ? 'TUF' : 'Pure';
+           ajax_custom_settings.FW_New_Update_TUFWBuildType = (keyValue === 'ENABLED') ? 'TUF' : 'Pure';
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
-           ajax_custom_settings.FW_New_Update_Notifications_Date = value;
+           ajax_custom_settings.FW_New_Update_Notifications_Date = keyValue;
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_CRON_JOB_SCHEDULE':
-           ajax_custom_settings.FW_New_Update_Cron_Job_Schedule = value;
+           ajax_custom_settings.FW_New_Update_Cron_Job_Schedule = keyValue;
            break;
 
        // Additional AJAX settings can be handled here //
