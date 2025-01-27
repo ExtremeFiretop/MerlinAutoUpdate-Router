@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-25
+# Last Modified: 2025-Jan-26
 ###################################################################
 set -u
 
@@ -357,7 +357,7 @@ _ReleaseLock_()
    else lockType="$1"
    fi
    if [ -s "$LockFilePath" ] && \
-      [ "$(cat "$LockFilePath" | wc -l)" -gt 1 ]
+      [ "$(wc -l < "$LockFilePath")" -gt 1 ]
    then
        if [ -z "$lockType" ]
        then sed -i "/^$$|/d" "$LockFilePath"
