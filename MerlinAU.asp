@@ -39,6 +39,7 @@ var custom_settings = {};
 var shared_custom_settings = {};
 var ajax_custom_settings = {};
 let isFormSubmitting = false;
+let FW_NewUpdateVersAvailable = '';
 
 // Define color formatting //
 const CYANct = "<span style='color:cyan;'>";
@@ -1145,11 +1146,10 @@ function InitializeFields()
         var fwUpdateAvailableElement = document.getElementById('fwUpdateAvailable');
         var fwVersionInstalledElement = document.getElementById('fwVersionInstalled');
 
-        var isFwUpdateAvailable = false; // Initialize the flag
-
+        var isFwUpdateAvailable = false; // Initialize the flag //
         if (fwUpdateAvailableElement && fwVersionInstalledElement)
         {
-            var fwUpdateAvailable = FW_New_Update_Available
+            var fwUpdateAvailable = FW_NewUpdateVersAvailable;
             var fwVersionInstalled = fwVersionInstalledElement.textContent.trim();
 
             // Convert both to numeric forms //
@@ -1252,7 +1252,7 @@ function InitializeFields()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-18] **/
+/** Modified by Martinski W. [2025-Jan-26] **/
 /**----------------------------------------**/
 function GetConfigSettings()
 {
@@ -1266,19 +1266,19 @@ function GetConfigSettings()
         },
         success: function(data)
         {
-            // Tokenize the data while respecting quoted values
-            var tokenList = tokenize(data);
+            // Tokenize the data while respecting quoted values //
+            var tokenList = Tokenize(data);
 
-            for (var i = 0; i < tokenList.length; i++)
+            for (var indx = 0; indx < tokenList.length; indx++)
             {
-                var token = tokenList[i];
+                var tokenStr = tokenList[indx];
 
-                if (token.includes('='))
+                if (tokenStr.includes('='))
                 {
                     // Handle "key=value" format //
-                    var splitIndex = token.indexOf('=');
-                    var key = token.substring(0, splitIndex).trim();
-                    var value = token.substring(splitIndex + 1).trim();
+                    var splitIndex = tokenStr.indexOf('=');
+                    var key = tokenStr.substring(0, splitIndex).trim();
+                    var value = tokenStr.substring(splitIndex + 1).trim();
 
                     // Remove surrounding quotes if present
                     if (value.startsWith('"') && value.endsWith('"'))
@@ -1289,26 +1289,25 @@ function GetConfigSettings()
                 else
                 {
                     // Handle "key value" format //
-                    var key = token.trim();
+                    var key = tokenStr.trim();
                     var value = '';
 
                     // Ensure there's a next token for the value //
-                    if (i + 1 < tokenList.length)
+                    if (indx + 1 < tokenList.length)
                     {
-                        value = tokenList[i + 1].trim();
+                        value = tokenList[indx + 1].trim();
 
                         // Remove surrounding quotes if present //
                         if (value.startsWith('"') && value.endsWith('"'))
                         { value = value.substring(1, value.length - 1); }
 
                         AssignAjaxSetting(key, value);
-                        i++; // Skip the next token as it's already processed
+                        indx++; // Skip next token as it's already processed //
                     }
                     else
                     { console.warn(`No value found for key: ${key}`); }
                 }
             }
-
             console.log("AJAX Custom Settings Loaded:", ajax_custom_settings);
 
             // Merge both server and AJAX settings //
@@ -1322,11 +1321,11 @@ function GetConfigSettings()
     });
 }
 
-// Helper function to tokenize the input string, respecting quoted substrings //
-function tokenize(input)
+// Tokenize input string, respecting quoted substrings //
+function Tokenize(inputStr)
 {
     var regex = /(?:[^\s"]+|"[^"]*")+/g;
-    return input.match(regex) || [];
+    return inputStr.match(regex) || [];
 }
 
 /**----------------------------------------**/
@@ -1366,7 +1365,7 @@ function AssignAjaxSetting(key, value)
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_VERS':
-           FW_New_Update_Available = value.trim();
+           FW_NewUpdateVersAvailable = value.trim();
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_EMAIL_CC_ADDRESS':
@@ -1796,7 +1795,7 @@ function getFirstNonEmptyValue(ids)
 /** Modified by Martinski W. [2025-Jan-05] **/
 /**----------------------------------------**/
 // Function to format and display the Router IDs //
-function formatRouterIDs()
+function FormatRouterIDs()
 {
     // Define the order of NVRAM keys to search for Model ID and Product ID
     var modelKeys = ["nvram_odmpid", "nvram_wps_modelnum", "nvram_model", "nvram_build_name"];
@@ -1840,7 +1839,7 @@ function stripHTML(html)
 /** Modified by Martinski W. [2025-Jan-05] **/
 /**----------------------------------------**/
 // Function to format the Firmware Version Installed //
-function formatFirmwareVersion()
+function FormatFirmwareVersion()
 {
     var fwVersionElement = document.getElementById('fwVersionInstalled');
     if (fwVersionElement)
@@ -1866,9 +1865,10 @@ function formatFirmwareVersion()
 }
 
 // Modify the existing DOMContentLoaded event listener to include the new function
-document.addEventListener("DOMContentLoaded", function() {
-    formatRouterIDs();
-    formatFirmwareVersion(); // Call the new formatting function
+document.addEventListener("DOMContentLoaded", function()
+{
+    FormatRouterIDs();
+    FormatFirmwareVersion();
 });
 
 function initializeCollapsibleSections()
