@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-25 **/
+/** Last Modified: 2025-Jan-26 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -865,14 +865,16 @@ function togglePassword()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-11] **/
+/** Modified by Martinski W. [2025-Jan-26] **/
 /**----------------------------------------**/
 // Converts F/W version string with the format: "3006.102.5.2" //
 // to a number of the format: '30061020502'  //
-function FWVersionStrToNum(verStr)
+function FWVersionStrToNum (verStr)
 {
-    // If it's empty or null, treat as ZERO //
-    if (!verStr) return 0;
+    if (verStr === null ||
+        verStr.length === 0 ||
+        verStr === 'TBD')
+    { return 0; }
 
     let nonProductionVersionWeight = 0;
     let foundAlphaBetaVersion = verStr.match (/([Aa]lpha|[Bb]eta)/);
@@ -987,7 +989,7 @@ function handleROGFWBuildTypeVisibility()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-24] **/
+/** Modified by Martinski W. [2025-Jan-26] **/
 /**----------------------------------------**/
 function InitializeFields()
 {
@@ -1122,11 +1124,16 @@ function InitializeFields()
         setStatus('emailNotificationsStatus', custom_settings.FW_New_Update_EMail_Notification);
 
         // Handle fwNotificationsDate as a date //
+        let notifyFullDateStr, notifyDateTimeStr;
         if (fwNotificationsDate && custom_settings.FW_New_Update_Notifications_Date)
         {
-            let theDateTimeStr = custom_settings.FW_New_Update_Notifications_Date.split ('_');
-            let notifyDatestr = theDateTimeStr[0] + ' ' + theDateTimeStr[1];
-            fwNotificationsDate.innerHTML = InvYLWct + notifyDatestr + InvCLEAR;
+            notifyFullDateStr = custom_settings.FW_New_Update_Notifications_Date;
+            if (notifyFullDateStr.includes('_'))
+            {
+                notifyDateTimeStr = notifyFullDateStr.split ('_');
+                notifyFullDateStr = notifyDateTimeStr[0] + ' ' + notifyDateTimeStr[1];
+            }
+            fwNotificationsDate.innerHTML = InvYLWct + notifyFullDateStr + InvCLEAR;
         }
         else if (fwNotificationsDate)
         { fwNotificationsDate.innerHTML = InvYLWct + "TBD" + InvCLEAR; }
