@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-26 **/
+/** Last Modified: 2025-Jan-27 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -55,6 +55,16 @@ const InvREDct = '<span style="margin-left:4px; background-color:#C81927; color:
 const InvYLWct = '<span style="margin-left:4px; background-color:yellow; color:black;">&nbsp;'
 const InvCYNct = '<span style="margin-left:4px; background-color:cyan; color:black;">&nbsp;'
 const InvCLEAR = '&nbsp;</span>'
+
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jan-27] **/
+/**----------------------------------------**/
+var externalCheckID = 0x00;
+var externalCheckOK = true;
+var externalCheckMsg = '';
+var isEMailConfigEnabledInAMTM = false;
+var scriptAutoUpdateCronSchedHR = 'TBD';
+var fwAutoUpdateCheckCronSchedHR = 'TBD';
 
 /**-------------------------------------**/
 /** Added by Martinski W. [2025-Jan-13] **/
@@ -737,21 +747,8 @@ function ValidateDirectoryPath (formField)
    }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-16] **/
-/**-------------------------------------**/
-var externalCheckID = 0x00;
-var externalCheckOK = true;
-var externalCheckMsg = '';
-
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-20] **/
-/**-------------------------------------**/
-var scriptAutoUpdateCronSchedHR = 'TBD';
-var fwAutoUpdateCheckCronSchedHR = 'TBD';
-
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-20] **/
+/** Modified by Martinski W. [2025-Jan-27] **/
 /**----------------------------------------**/
 function GetExternalCheckResults()
 {
@@ -766,6 +763,7 @@ function GetExternalCheckResults()
         {
             document.getElementById('Script_AutoUpdate_SchedText').textContent = 'Schedule: '+scriptAutoUpdateCronSchedHR;
             document.getElementById('FW_AutoUpdate_CheckSchedText').textContent = 'Schedule: '+fwAutoUpdateCheckCronSchedHR;
+            SetUpEmailNotificationFields();
 
             // Skip during form submission //
             if (isFormSubmitting) { return true ; }
@@ -989,8 +987,62 @@ function handleROGFWBuildTypeVisibility()
         }
 }
 
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-27] **/
+/**-------------------------------------**/
+function ToggleEmailDependents (isEmailNotifyChecked)
+{
+   let emailFormat = document.getElementById('emailFormat');
+   let secondaryEmail = document.getElementById('secondaryEmail');
+
+   if (isEmailNotifyChecked)
+   {
+       emailFormat.disabled = false;
+       secondaryEmail.disabled = false;
+       SetStatus ('emailNotificationsStatus', 'ENABLED');
+   }
+   else
+   {
+       emailFormat.disabled = true;
+       secondaryEmail.disabled = true;
+       SetStatus ('emailNotificationsStatus', 'DISABLED');
+   }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Jan-27] **/
+/**-------------------------------------**/
+function SetUpEmailNotificationFields()
+{
+    let emailFormat = document.getElementById('emailFormat');
+    let secondaryEmail = document.getElementById('secondaryEmail');
+    let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
+
+    if (emailFormat)
+    { emailFormat.value = custom_settings.FW_New_Update_EMail_FormatType || 'HTML'; }
+    if (secondaryEmail)
+    { secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address || 'TBD'; }
+
+    if (emailNotificationsEnabled && emailFormat && secondaryEmail)
+    {
+        if (isEMailConfigEnabledInAMTM &&
+            custom_settings.hasOwnProperty('FW_New_Update_EMail_Notification'))
+        {
+            emailNotificationsEnabled.disabled = false;
+            emailNotificationsEnabled.checked = (custom_settings.FW_New_Update_EMail_Notification === 'ENABLED');
+            ToggleEmailDependents (emailNotificationsEnabled.checked);
+        }
+        else
+        {
+            emailNotificationsEnabled.disabled = true;
+            emailNotificationsEnabled.checked = false;
+            ToggleEmailDependents (false);
+        }
+    }
+}
+
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-26] **/
+/** Modified by Martinski W. [2025-Jan-27] **/
 /**----------------------------------------**/
 function InitializeFields()
 {
@@ -999,10 +1051,7 @@ function InitializeFields()
     let fwNotificationsDate = document.getElementById('fwNotificationsDate');
     let routerPassword = document.getElementById('routerPassword');
     let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
-    let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
     let autobackupEnabled = document.getElementById('autobackupEnabled');
-    let secondaryEmail = document.getElementById('secondaryEmail');
-    let emailFormat = document.getElementById('emailFormat');
     let rogFWBuildType = document.getElementById('rogFWBuildType');
     let tuffFWBuildType = document.getElementById('tuffFWBuildType');
     let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
@@ -1026,8 +1075,8 @@ function InitializeFields()
 
     // Update the Firmware Status display //
     if (fwUpdateCheckStatus)
-    {  // Pass the raw string ('ENABLED', 'DISABLED', or 'TBD') to our setStatus function
-       setStatus('fwUpdateCheckStatus', storedFwUpdateEnabled);
+    {  // Pass the raw string ('ENABLED', 'DISABLED', or 'TBD') //
+       SetStatus('fwUpdateCheckStatus', storedFwUpdateEnabled);
     }
 
     // Safe value assignments //
@@ -1046,11 +1095,7 @@ function InitializeFields()
         let fwUpdateRawCronSchedule = custom_settings.FW_New_Update_Cron_Job_Schedule || 'TBD';
         FWConvertCronScheduleToWebUISettings (fwUpdateRawCronSchedule);
 
-        if (secondaryEmail)
-        { secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address || ''; }
-
-        if (emailFormat)
-        { emailFormat.value = custom_settings.FW_New_Update_EMail_FormatType || 'HTML'; }
+        SetUpEmailNotificationFields();
 
         if (rogFWBuildType)
         { rogFWBuildType.value = custom_settings.FW_New_Update_ROGFWBuildType || 'ROG'; }
@@ -1078,32 +1123,7 @@ function InitializeFields()
                 autobackupEnabled.style.opacity = '0.5'; // Grayed out appearance
             }
         }
-        if (emailNotificationsEnabled && emailFormat && secondaryEmail)
-        {
-            // Check if 'FW_New_Update_EMail_Notification' is present in custom_settings
-            if (custom_settings.hasOwnProperty('FW_New_Update_EMail_Notification'))
-            {
-                // If the setting exists, enable the checkbox and controls
-                emailNotificationsEnabled.disabled = false;
-                emailNotificationsEnabled.checked = (custom_settings.FW_New_Update_EMail_Notification === 'ENABLED');
-                emailNotificationsEnabled.style.opacity = '1';
-                emailFormat.disabled = false;
-                emailFormat.style.opacity = '1';
-                secondaryEmail.disabled = false;
-                secondaryEmail.style.opacity = '1';
-            }
-            else
-            {
-                // If the setting is missing, disable and gray out the checkbox, dropdown, and email input
-                emailNotificationsEnabled.disabled = true;
-                emailNotificationsEnabled.checked = false;
-                emailNotificationsEnabled.style.opacity = '0.5';
-                emailFormat.disabled = true;
-                emailFormat.style.opacity = '0.5';
-                secondaryEmail.disabled = true;
-                secondaryEmail.style.opacity = '0.5';
-            }
-        }
+
         if (tailscaleVPNEnabled)
         { tailscaleVPNEnabled.checked = (custom_settings.Allow_Updates_OverVPN === 'ENABLED'); }
 
@@ -1117,12 +1137,11 @@ function InitializeFields()
         { fwUpdateDirectory.value = custom_settings.FW_New_Update_ZIP_Directory_Path || ''; }
 
         // Update Settings Status Table //
-        setStatus('changelogCheckStatus', custom_settings.CheckChangeLog);
-        setStatus('betaToReleaseUpdatesStatus', custom_settings.FW_Allow_Beta_Production_Up);
-        setStatus('tailscaleVPNAccessStatus', custom_settings.Allow_Updates_OverVPN);
-        setStatus('autoUpdatesScriptEnabledStatus', custom_settings.Allow_Script_Auto_Update);
-        setStatus('autobackupEnabledStatus', custom_settings.FW_Auto_Backupmon);
-        setStatus('emailNotificationsStatus', custom_settings.FW_New_Update_EMail_Notification);
+        SetStatus('changelogCheckStatus', custom_settings.CheckChangeLog);
+        SetStatus('betaToReleaseUpdatesStatus', custom_settings.FW_Allow_Beta_Production_Up);
+        SetStatus('tailscaleVPNAccessStatus', custom_settings.Allow_Updates_OverVPN);
+        SetStatus('autoUpdatesScriptEnabledStatus', custom_settings.Allow_Script_Auto_Update);
+        SetStatus('autobackupEnabledStatus', custom_settings.FW_Auto_Backupmon);
 
         // Handle fwNotificationsDate as a date //
         let notifyFullDateStr, notifyDateTimeStr;
@@ -1447,7 +1466,7 @@ function AssignAjaxSetting (keyName, keyValue)
 /** Modified by Martinski W. [2025-Jan-05] **/
 /**----------------------------------------**/
 // Helper function to set status with color //
-function setStatus(elementId, statusValue)
+function SetStatus (elementId, statusValue)
 {
     let element = document.getElementById(elementId);
     if (element)
@@ -1634,10 +1653,10 @@ function SaveAdvancedConfig()
     // Clear amng_custom for any existing content before saving //
     document.getElementById('amng_custom').value = '';
 
-    // 1) F/W Update Email Notifications - only if not disabled
-    let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
+    // 1) F/W Update Email Notifications - only if NOT disabled //
     let emailFormat = document.getElementById('emailFormat');
     let secondaryEmail = document.getElementById('secondaryEmail');
+    let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
 
     // If the box is enabled, we save these fields //
     if (emailNotificationsEnabled && !emailNotificationsEnabled.disabled)
@@ -1883,25 +1902,26 @@ document.addEventListener("DOMContentLoaded", function()
 
 function initializeCollapsibleSections()
 {
-        if (typeof jQuery !== 'undefined')
+    if (typeof jQuery !== 'undefined')
+    {
+        $('.collapsible-jquery').each(function()
         {
-            $('.collapsible-jquery').each(function() {
-                // Ensure sections are expanded by default
-                $(this).addClass('active');  // Add 'active' class to indicate expanded state
-                $(this).next('tbody').show();  // Make sure content is visible
+            // Ensure sections are expanded by default //
+            $(this).addClass('active');  // Add 'active' class to indicate expanded state
+            $(this).next('tbody').show();  // Make sure content is visible
 
-                // Add a cursor pointer for better UX
-                $(this).css('cursor', 'pointer');
+            // Add a cursor pointer for better UX
+            $(this).css('cursor', 'pointer');
 
-                // Toggle logic on click
-                $(this).on('click', function() {
-                    $(this).toggleClass('active');
-                    $(this).next('tbody').slideToggle();
-                });
+            // Toggle logic on click
+            $(this).on('click', function() {
+                $(this).toggleClass('active');
+                $(this).next('tbody').slideToggle();
             });
-        } else {
-            console.error("jQuery is not loaded. Collapsible sections will not work.");
-        }
+        });
+    }
+    else
+    { console.error("jQuery is not loaded. Collapsible sections will not work."); }
 }
 </script>
 </head>
@@ -2164,10 +2184,10 @@ function initializeCollapsibleSections()
      <span style="margin-left:1px; margin-top:5px; font-size: 12px; font-weight: bolder;">Days:</span>
      <label style="margin-left:-3px;">
        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYS1" value="Every day" class="input"
-        style="margin-left:22px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'1')"/>Every day</label>
+        style="margin-left:22px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'1');"/>Every day</label>
      <label style="margin-left:-3px;">
        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYSX" value="Every X Days" class="input"
-        style="margin-left:28px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'X')"/>Every</label>
+        style="margin-left:28px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'X');"/>Every</label>
        <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
         style="width: 5%; margin-left: 2px; margin-top:3px; margin-bottom:7px" maxlength="2"
 		id="fwScheduleXDAYS" name="fwScheduleXDAYS" value="2"
@@ -2298,7 +2318,8 @@ function initializeCollapsibleSections()
 </tr>
 <tr>
    <td style="text-align: left;"><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
-   <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled" /></td>
+   <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled"
+       onclick="ToggleEmailDependents(this.checked);"/></td>
 </tr>
 <tr>
    <td style="text-align: left;"><label for="emailFormat">Email Notification Format</label></td>

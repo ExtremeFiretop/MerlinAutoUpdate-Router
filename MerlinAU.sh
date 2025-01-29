@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-26
+# Last Modified: 2025-Jan-27
 ###################################################################
 set -u
 
@@ -2085,22 +2085,28 @@ _CreateSymLinks_()
    ln -s "$HELPER_JSFILE" "${SCRIPT_WEB_DIR}/CheckHelper.js" 2>/dev/null
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-20] ##
-##-------------------------------------##
-_WriteStringVarToHelperJSFile_()
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-27] ##
+##----------------------------------------##
+_WriteVarDefToHelperJSFile_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then return 1; fi
 
+   local varValue
+   if [ $# -eq 3 ] && [ "$3" = "true" ]
+   then varValue="$2"
+   else varValue="'${2}'"
+   fi
+
    if [ ! -s "$HELPER_JSFILE" ]
    then
-       echo "var $1 = '${2}';" > "$HELPER_JSFILE"
+       echo "var $1 = ${varValue};" > "$HELPER_JSFILE"
    elif ! grep -q "^var $1 =.*" "$HELPER_JSFILE"
    then
-       echo "var $1 = '${2}';" >> "$HELPER_JSFILE"
+       echo "var $1 = ${varValue};" >> "$HELPER_JSFILE"
    else
-       sed -i "s/^var $1 =.*/var $1 = '${2}';/" "$HELPER_JSFILE"
+       sed -i "s/^var $1 =.*/var $1 = ${varValue};/" "$HELPER_JSFILE"
    fi
 }
 
@@ -2113,7 +2119,7 @@ _WebUI_AutoFWUpdateCheckCronSchedule_()
    local fwUpdtCronScheduleRaw  fwUpdtCronScheduleStr
    fwUpdtCronScheduleRaw="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
    fwUpdtCronScheduleStr="$(_TranslateCronSchedHR_ "$fwUpdtCronScheduleRaw")"
-   _WriteStringVarToHelperJSFile_ "fwAutoUpdateCheckCronSchedHR" "$fwUpdtCronScheduleStr"
+   _WriteVarDefToHelperJSFile_ "fwAutoUpdateCheckCronSchedHR" "$fwUpdtCronScheduleStr"
 }
 
 ##-------------------------------------##
@@ -2125,11 +2131,21 @@ _WebUI_AutoScriptUpdateCronSchedule_()
    local scriptUpdtCronSchedRaw  scriptUpdtCronSchedStr
    scriptUpdtCronSchedRaw="$(_GetScriptAutoUpdateCronSchedule_)"
    scriptUpdtCronSchedStr="$(_TranslateCronSchedHR_ "$scriptUpdtCronSchedRaw")"
-   _WriteStringVarToHelperJSFile_ "scriptAutoUpdateCronSchedHR" "$scriptUpdtCronSchedStr"
+   _WriteVarDefToHelperJSFile_ "scriptAutoUpdateCronSchedHR" "$scriptUpdtCronSchedStr"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-27] ##
+##-------------------------------------##
+_WebUI_SetEmailConfigFileFromAMTM_()
+{
+   ! "$inRouterSWmode" && return 0
+   _CheckEMailConfigFileFromAMTM_ 0
+   _WriteVarDefToHelperJSFile_ "isEMailConfigEnabledInAMTM" "$isEMailConfigEnabledInAMTM" true
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-20] ##
+## Modified by Martinski W. [2025-Jan-27] ##
 ##----------------------------------------##
 _InitHelperJSFile_()
 {
@@ -2142,12 +2158,13 @@ _InitHelperJSFile_()
      echo "var externalCheckMsg = '';"
    } > "$HELPER_JSFILE"
 
+   _WebUI_SetEmailConfigFileFromAMTM_
    _WebUI_AutoScriptUpdateCronSchedule_
    _WebUI_AutoFWUpdateCheckCronSchedule_
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-20] ##
+## Modified by Martinski W. [2025-Jan-27] ##
 ##----------------------------------------##
 _UpdateHelperJSFile_()
 {
@@ -2166,6 +2183,7 @@ _UpdateHelperJSFile_()
      echo "var externalCheckMsg = '${extCheckMsg}';"
    } > "$HELPER_JSFILE"
 
+   _WebUI_SetEmailConfigFileFromAMTM_
    _WebUI_AutoScriptUpdateCronSchedule_
    _WebUI_AutoFWUpdateCheckCronSchedule_
 }
@@ -8941,9 +8959,9 @@ _SetEMailFormatType_()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Feb-16] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-27] ##
+##----------------------------------------##
 _SetSecondaryEMailAddress_()
 {
    local currCC_NameOpt  currCC_AddrOpt
@@ -8975,9 +8993,10 @@ _SetSecondaryEMailAddress_()
    do
        printf "\nEnter a secondary email address to receive email notifications.\n"
        if [ -z "$currCC_AddrOpt" ]
-       then printf "[${theADExitStr}] [${currCC_AddrStr}]:  "
-       else printf "[${theADExitStr}] [${clearOptStr}] [${currCC_AddrStr}]:  "
+       then printf "[${theADExitStr}]\n"
+       else printf "[${theADExitStr}] [${clearOptStr}]\n"
        fi
+       printf "[${currCC_AddrStr}]:  "
        read -r userInput
 
        [ -z "$userInput" ] && break
@@ -9043,7 +9062,7 @@ _SetSecondaryEMailAddress_()
    while true
    do
        printf "\nEnter a name or alias for the secondary email address.\n"
-       printf "[${theADExitStr}] [${currCC_NameStr}]:  "
+       printf "[${theADExitStr}]\n[${currCC_NameStr}]:  "
        read -r userInput
 
        if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
@@ -9752,7 +9771,7 @@ _ShowMainMenuOptions_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-25] ##
+## Modified by Martinski W. [2025-Jan-27] ##
 ##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -9911,6 +9930,7 @@ _ShowAdvancedOptionsMenu_()
    fi
 
    # Additional Email Notification Options #
+   _WebUI_SetEmailConfigFileFromAMTM_
    if _CheckEMailConfigFileFromAMTM_ 0
    then
        # F/W Update Email Notifications #
