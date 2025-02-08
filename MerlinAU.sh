@@ -9166,21 +9166,43 @@ then
     _ReleaseLock_ ; exit 0
 fi
 
-currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-if [ -f "/jffs/scripts/backupmon.sh" ]
-then
-    # If setting is empty, add it to the configuration file #
-    if [ "$currentBackupOption" = "TBD" ]
-    then
-        Update_Custom_Settings FW_Auto_Backupmon "ENABLED"
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Feb-08] ##
+##---------------------------------------##
+_CheckAndSetBackupOption_() {
+    local currentBackupOption
+    currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+    if [ -f "/jffs/scripts/backupmon.sh" ]; then
+        # If setting is empty, add it to the configuration file #
+        if [ "$currentBackupOption" = "TBD" ]; then
+            Update_Custom_Settings FW_Auto_Backupmon "ENABLED"
+        fi
+    else
+        # If the configuration setting exists, delete it #
+        if [ "$currentBackupOption" != "TBD" ]; then
+            Delete_Custom_Settings "FW_Auto_Backupmon"
+        fi
     fi
-else
-    # If the configuration setting exists, delete it #
-    if [ "$currentBackupOption" != "TBD" ]
-    then
-        Delete_Custom_Settings "FW_Auto_Backupmon"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Feb-08] ##
+##---------------------------------------##
+_SetDefaultBuildType_() {
+    if echo "$PRODUCT_ID" | grep -q "^TUF-"; then
+        if [ "$(Get_Custom_Setting "TUFBuild")" = "TBD" ]; then
+            Update_Custom_Settings "TUFBuild" "DISABLED"
+        fi
+    elif [ "$fwInstalledBaseVers" -le 3004 ] && echo "$PRODUCT_ID" | grep -q "^GT-"; then
+        if [ "$(Get_Custom_Setting "ROGBuild")" = "TBD" ]; then
+            Update_Custom_Settings "ROGBuild" "DISABLED"
+        fi
+    elif [ "$fwInstalledBaseVers" -ge 3006 ] && "$isGNUtonFW" && echo "$PRODUCT_ID" | grep -q "^GT-"; then
+        if [ "$(Get_Custom_Setting "ROGBuild")" = "TBD" ]; then
+            Update_Custom_Settings "ROGBuild" "DISABLED"
+        fi
     fi
-fi
+}
 
 ##-------------------------------------##
 ## Added by Martinski W. [2025-Jan-05] ##
@@ -10287,6 +10309,10 @@ _DoInitializationStartup_()
        _AutoStartupHook_ create 2>/dev/null
        _AutoServiceEvent_ create 2>/dev/null
    fi
+
+   _CheckAndSetBackupOption_
+   _SetDefaultBuildType_
+
 }
 
 FW_InstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
