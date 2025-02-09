@@ -960,7 +960,7 @@ function handleROGFWBuildTypeVisibility()
 
         // ROG Model Check //
         var isROGModel = routerModel.includes('GT-');
-        var hasROGFWBuildType = custom_settings.hasOwnProperty('FW_New_Update_ROGFWBuildType');
+        var hasROGFWBuildType = custom_settings.hasOwnProperty('ROGBuild');
         var rogFWBuildRow = document.getElementById('rogFWBuildRow');
 
         if (!isROGModel || !hasROGFWBuildType)
@@ -974,7 +974,7 @@ function handleROGFWBuildTypeVisibility()
 
         // TUF Model Check //
         var isTUFModel = routerModel.includes('TUF-');
-        var hasTUFWBuildType = custom_settings.hasOwnProperty('FW_New_Update_TUFWBuildType');
+        var hasTUFWBuildType = custom_settings.hasOwnProperty('TUFBuild');
         var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
 
         if (!isTUFModel || !hasTUFWBuildType)
@@ -1098,10 +1098,10 @@ function InitializeFields()
         SetUpEmailNotificationFields();
 
         if (rogFWBuildType)
-        { rogFWBuildType.value = custom_settings.FW_New_Update_ROGFWBuildType || 'ROG'; }
+        { rogFWBuildType.value = custom_settings.ROGBuild || 'ROG'; }
 
         if (tuffFWBuildType)
-        { tuffFWBuildType.value = custom_settings.FW_New_Update_TUFWBuildType || 'TUF'; }
+        { tuffFWBuildType.value = custom_settings.TUFBuild || 'TUF'; }
 
         if (changelogCheckEnabled)
         { changelogCheckEnabled.checked = (custom_settings.CheckChangeLog === 'ENABLED'); }
@@ -1439,11 +1439,11 @@ function AssignAjaxSetting (keyName, keyValue)
            break;
 
        case keyUpper === 'ROGBUILD':
-           ajax_custom_settings.FW_New_Update_ROGFWBuildType = (keyValue === 'ENABLED') ? 'ROG' : 'Pure';
+           ajax_custom_settings.ROGBuild = (keyValue === 'ENABLED') ? 'ROG' : 'Pure';
            break;
 
        case keyUpper === 'TUFBUILD':
-           ajax_custom_settings.FW_New_Update_TUFWBuildType = (keyValue === 'ENABLED') ? 'TUF' : 'Pure';
+           ajax_custom_settings.TUFBuild = (keyValue === 'ENABLED') ? 'TUF' : 'Pure';
            break;
 
        case keyUpper === 'FW_NEW_UPDATE_NOTIFICATION_DATE':
@@ -1622,8 +1622,8 @@ function SaveActionsConfig()
         "MerlinAU_FW_New_Update_EMail_CC_Address",
         "MerlinAU_Allow_Updates_OverVPN",
         "MerlinAU_Allow_Script_Auto_Update",
-        "MerlinAU_FW_New_Update_ROGFWBuildType",
-        "MerlinAU_FW_New_Update_TUFWBuildType"
+        "MerlinAU_ROGBuild",
+        "MerlinAU_TUFBuild"
     ];
     ADVANCED_KEYS.forEach(function (key){
         if (shared_custom_settings.hasOwnProperty(key))
@@ -1701,13 +1701,15 @@ function SaveAdvancedConfig()
     // 7) ROG/TUF F/W Build Type - handle conditional rows if visible
     let rogFWBuildRow = document.getElementById('rogFWBuildRow');
     let rogFWBuildType = document.getElementById('rogFWBuildType');
-    if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none' && rogFWBuildType)
-    { advanced_settings.FW_New_Update_ROGFWBuildType = rogFWBuildType.value || 'ROG'; }
+    if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none' && rogFWBuildType) {
+        advanced_settings.ROGBuild = (rogFWBuildType.value === 'ROG') ? 'ENABLED' : 'DISABLED';
+    }
 
     let tufFWBuildRow = document.getElementById('tuffFWBuildRow');
     let tuffFWBuildType = document.getElementById('tuffFWBuildType');
-    if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none' && tuffFWBuildType)
-    { advanced_settings.FW_New_Update_TUFWBuildType = tuffFWBuildType.value || 'TUF'; }
+    if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none' && tuffFWBuildType) {
+        advanced_settings.TUFBuild = (tuffFWBuildType.value === 'TUF') ? 'ENABLED' : 'DISABLED';
+    }
 
     // Prefix only Advanced settings
     var prefixedAdvancedSettings = PrefixCustomSettings(advanced_settings, 'MerlinAU_');
