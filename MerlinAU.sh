@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jan-27
+# Last Modified: 2025-Feb-08
 ###################################################################
 set -u
 
@@ -91,7 +91,7 @@ readonly CONFIG_FILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPT_VERPATH="${SETTINGS_DIR}/version.txt"
 readonly HELPER_JSFILE="${SETTINGS_DIR}/CheckHelper.js"
 readonly SHARED_SETTINGS_FILE="${ADDONS_PATH}/custom_settings.txt"
-readonly SHARED_WEB_DIR="$(readlink /www/user)"
+readonly SHARED_WEB_DIR="$(readlink -f /www/user)"
 readonly SCRIPT_WEB_DIR="${SHARED_WEB_DIR}/$SCRIPT_NAME"
 readonly SCRIPT_WEB_ASP_FILE="${SCRIPT_NAME}.asp"
 readonly SCRIPT_WEB_ASP_PATH="$SETTINGS_DIR/$SCRIPT_WEB_ASP_FILE"
@@ -1855,8 +1855,8 @@ _Mount_WebUI_()
    echo "$SCRIPT_NAME" > "${SHARED_WEB_DIR}/$(echo "$webPageFile" | cut -f1 -d'.').title"
 
    if [ ! -f "$TEMP_MENU_TREE" ]
-   then cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE" ; fi
-
+   then cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE"
+   fi
    sed -i "/url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
 
    # Insert new page tab in the 'Administration' menu #
@@ -1866,7 +1866,7 @@ _Mount_WebUI_()
    mount -o bind "$TEMP_MENU_TREE" "$ORIG_MENU_TREE"
    flock -u "$WEBUI_LOCKFD"
 
-   Say "${GRNct}$SCRIPT_NAME WebUI page was mounted successfully."
+   Say "${GRNct}$SCRIPT_NAME WebUI page was mounted as $webPageFile successfully."
    return 0
 }
 
@@ -2086,7 +2086,7 @@ _CreateSymLinks_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-27] ##
+## Modified by Martinski W. [2025-Feb-08] ##
 ##----------------------------------------##
 _WriteVarDefToHelperJSFile_()
 {
@@ -2105,7 +2105,8 @@ _WriteVarDefToHelperJSFile_()
    elif ! grep -q "^var $1 =.*" "$HELPER_JSFILE"
    then
        echo "var $1 = ${varValue};" >> "$HELPER_JSFILE"
-   else
+   elif ! grep -q "^var $1 = ${varValue};" "$HELPER_JSFILE"
+   then
        sed -i "s/^var $1 =.*/var $1 = ${varValue};/" "$HELPER_JSFILE"
    fi
 }
