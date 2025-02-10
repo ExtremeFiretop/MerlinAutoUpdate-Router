@@ -1264,6 +1264,7 @@ function InitializeFields()
 
         // Call the visibility handler //
         handleROGFWBuildTypeVisibility();
+        updateTUFROGAvailText();
         console.log("Initializing was completed successfully.");
     }
     else
@@ -1902,6 +1903,55 @@ document.addEventListener("DOMContentLoaded", function()
     FormatFirmwareVersion();
 });
 
+function updateTUFROGAvailText() {
+    // For ROG
+    let rogSelect = document.getElementById('rogFWBuildType');
+    let rogMsgSpan = document.getElementById('rogFWBuildTypeAvailMsg');
+    if (rogSelect && rogMsgSpan) {
+        if (rogSelect.value === 'ROG') {
+            rogMsgSpan.style.display = 'inline-block';
+        } else {
+            rogMsgSpan.style.display = 'none';
+        }
+    }
+    
+    // For TUF
+    let tufSelect = document.getElementById('tuffFWBuildType');
+    let tufMsgSpan = document.getElementById('tuffFWBuildTypeAvailMsg');
+    if (tufSelect && tufMsgSpan) {
+        if (tufSelect.value === 'TUF') {
+            tufMsgSpan.style.display = 'inline-block';
+        } else {
+            tufMsgSpan.style.display = 'none';
+        }
+    }
+}
+
+function handleTUFROGChange(selectElem) {
+    // If user picks TUF or ROG, show the popup alert
+    if (selectElem.value === 'TUF' || selectElem.value === 'ROG') {
+        alert("The TUF/ROG Build will only apply if a compatible TUF firmware image is available. Otherwise, the Pure Build will be used.");
+    }
+    
+    // Show or hide the "if available" text next to the relevant dropdown
+    if (selectElem.id === 'rogFWBuildType') {
+        let rogMsgSpan = document.getElementById('rogFWBuildTypeAvailMsg');
+        if (selectElem.value === 'ROG') {
+            rogMsgSpan.style.display = 'inline-block';
+        } else {
+            rogMsgSpan.style.display = 'none';
+        }
+    }
+    else if (selectElem.id === 'tuffFWBuildType') {
+        let tufMsgSpan = document.getElementById('tuffFWBuildTypeAvailMsg');
+        if (selectElem.value === 'TUF') {
+            tufMsgSpan.style.display = 'inline-block';
+        } else {
+            tufMsgSpan.style.display = 'none';
+        }
+    }
+}
+
 function initializeCollapsibleSections()
 {
     if (typeof jQuery !== 'undefined')
@@ -2303,20 +2353,28 @@ function initializeCollapsibleSections()
 <tr id="rogFWBuildRow">
    <td style="text-align: left;"><label for="rogFWBuildType">ROG F/W Build Type</label></td>
    <td>
-      <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;">
+      <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;" onchange="handleTUFROGChange(this)">
          <option value="ROG">ROG</option>
          <option value="Pure">Pure</option>
       </select>
-   </td>
+    <span id="rogFWBuildTypeAvailMsg"
+          style="margin-left:10px; display:none; font-size:12px; font-weight:bolder;">
+      Note: Only if available
+    </span>
+  </td>
 </tr>
 <tr id="tuffFWBuildRow">
    <td style="text-align: left;"><label for="tuffFWBuildType">TUF F/W Build Type</label></td>
    <td>
-      <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 20%;">
+      <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 20%;" onchange="handleTUFROGChange(this)">
          <option value="TUF">TUF</option>
          <option value="Pure">Pure</option>
       </select>
-   </td>
+    <span id="tuffFWBuildTypeAvailMsg"
+          style="margin-left:10px; display:none; font-size:12px; font-weight:bolder;">
+      Note: Only if available
+    </span>
+  </td>
 </tr>
 <tr>
    <td style="text-align: left;"><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
