@@ -1660,20 +1660,6 @@ _Migrate_Settings_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-03] ##
-##------------------------------------------##
-# NOTE:
-# ROG upgrades to 3006 codebase should have 
-# the ROG option deleted.
-#-----------------------------------------------------------
-if ! "$isGNUtonFW"
-then
-    if [ "$fwInstalledBaseVers" -ge 3006 ] && \
-       grep -q "^ROGBuild" "$CONFIG_FILE"
-    then Delete_Custom_Settings "ROGBuild" ; fi
-fi
-
-##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-27] ##
 ##------------------------------------------##
 # NOTE:
@@ -4803,8 +4789,10 @@ _ChangeBuildType_TUF_()
    do
        printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
-       printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface${NOct}\n"
-       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-TUF${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
+       printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface"
+       printf "\n     ${REDct}(applies only if TUF F/W is available; otherwise, defaults to Pure Build)${NOct}\n"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-TUF${NOct} themed user interface"
+       printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
        printf "${SEPstr}\n"
        printf "[$display_choice] Enter selection:  "
@@ -4816,7 +4804,9 @@ _ChangeBuildType_TUF_()
        then doReturnToMenu=true ; break ; fi
 
        case $choice in
-           1) buildtypechoice="ENABLED" ; break
+           1) buildtypechoice="ENABLED"
+              printf "${CYANct}\nNote: The TUF Build will only apply if a compatible TUF firmware image is available. Otherwise, the Pure Build will be used.${NOct}\n"
+              break
               ;;
            2) buildtypechoice="DISABLED" ; break
               ;;
@@ -4863,8 +4853,10 @@ _ChangeBuildType_ROG_()
    do
        printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
-       printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface${NOct}\n"
-       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
+       printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface"
+       printf "\n     ${REDct}(applies only if TUF F/W is available; otherwise, defaults to Pure Build)${NOct}\n"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface"
+       printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
        printf "${SEPstr}\n"
        printf "[$display_choice] Enter selection:  "
@@ -4876,7 +4868,9 @@ _ChangeBuildType_ROG_()
        then doReturnToMenu=true ; break ; fi
 
        case $choice in
-           1) buildtypechoice="ENABLED" ; break
+           1) buildtypechoice="ENABLED"
+              printf "${CYANct}\nNote: The ROG Build will only apply if a compatible ROG firmware image is available. Otherwise, the Pure Build will be used.${NOct}\n"
+              break
               ;;
            2) buildtypechoice="DISASLED" ; break
               ;;
@@ -9189,19 +9183,17 @@ _CheckAndSetBackupOption_() {
 ## Added by ExtremeFiretop [2025-Feb-08] ##
 ##---------------------------------------##
 _SetDefaultBuildType_() {
-    if echo "$PRODUCT_ID" | grep -q "^TUF-"; then
-        if [ "$(Get_Custom_Setting "TUFBuild")" = "TBD" ]; then
-            Update_Custom_Settings "TUFBuild" "DISABLED"
-        fi
-    elif [ "$fwInstalledBaseVers" -le 3004 ] && echo "$PRODUCT_ID" | grep -q "^GT-"; then
-        if [ "$(Get_Custom_Setting "ROGBuild")" = "TBD" ]; then
-            Update_Custom_Settings "ROGBuild" "DISABLED"
-        fi
-    elif [ "$fwInstalledBaseVers" -ge 3006 ] && "$isGNUtonFW" && echo "$PRODUCT_ID" | grep -q "^GT-"; then
-        if [ "$(Get_Custom_Setting "ROGBuild")" = "TBD" ]; then
-            Update_Custom_Settings "ROGBuild" "DISABLED"
-        fi
-    fi
+  if echo "$PRODUCT_ID" | grep -q "^TUF-"
+  then
+      if [ "$(Get_Custom_Setting "TUFBuild")" = "TBD" ]
+      then Update_Custom_Settings "TUFBuild" "DISABLED"
+      fi
+  elif echo "$PRODUCT_ID" | grep -q "^GT-"
+  then
+      if [ "$(Get_Custom_Setting "ROGBuild")" = "TBD" ]
+      then Update_Custom_Settings "ROGBuild" "DISABLED"
+      fi
+  fi
 }
 
 ##-------------------------------------##
@@ -10134,11 +10126,7 @@ _AdvancedOptionsMenu_()
                ;;
            bt) if echo "$PRODUCT_ID" | grep -q "^TUF-"
                then _ChangeBuildType_TUF_
-               elif [ "$fwInstalledBaseVers" -le 3004 ] && \
-                    echo "$PRODUCT_ID" | grep -q "^GT-"
-               then _ChangeBuildType_ROG_
-               elif [ "$fwInstalledBaseVers" -ge 3006 ] && "$isGNUtonFW" && \
-                    echo "$PRODUCT_ID" | grep -q "^GT-"
+               elif echo "$PRODUCT_ID" | grep -q "^GT-"
                then _ChangeBuildType_ROG_
                else _InvalidMenuSelection_
                fi
