@@ -4854,7 +4854,7 @@ _ChangeBuildType_ROG_()
        printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface"
-       printf "\n     ${REDct}(applies only if TUF F/W is available; otherwise, defaults to Pure Build)${NOct}\n"
+       printf "\n     ${REDct}(applies only if ROG F/W is available; otherwise, defaults to Pure Build)${NOct}\n"
        printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface"
        printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
