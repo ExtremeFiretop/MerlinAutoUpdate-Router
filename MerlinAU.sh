@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-08
+# Last Modified: 2025-Jan-27
 ###################################################################
 set -u
 
@@ -91,7 +91,7 @@ readonly CONFIG_FILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPT_VERPATH="${SETTINGS_DIR}/version.txt"
 readonly HELPER_JSFILE="${SETTINGS_DIR}/CheckHelper.js"
 readonly SHARED_SETTINGS_FILE="${ADDONS_PATH}/custom_settings.txt"
-readonly SHARED_WEB_DIR="$(readlink -f /www/user)"
+readonly SHARED_WEB_DIR="$(readlink /www/user)"
 readonly SCRIPT_WEB_DIR="${SHARED_WEB_DIR}/$SCRIPT_NAME"
 readonly SCRIPT_WEB_ASP_FILE="${SCRIPT_NAME}.asp"
 readonly SCRIPT_WEB_ASP_PATH="$SETTINGS_DIR/$SCRIPT_WEB_ASP_FILE"
@@ -1841,8 +1841,8 @@ _Mount_WebUI_()
    echo "$SCRIPT_NAME" > "${SHARED_WEB_DIR}/$(echo "$webPageFile" | cut -f1 -d'.').title"
 
    if [ ! -f "$TEMP_MENU_TREE" ]
-   then cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE"
-   fi
+   then cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE" ; fi
+
    sed -i "/url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
 
    # Insert new page tab in the 'Administration' menu #
@@ -1852,7 +1852,7 @@ _Mount_WebUI_()
    mount -o bind "$TEMP_MENU_TREE" "$ORIG_MENU_TREE"
    flock -u "$WEBUI_LOCKFD"
 
-   Say "${GRNct}$SCRIPT_NAME WebUI page was mounted as $webPageFile successfully."
+   Say "${GRNct}$SCRIPT_NAME WebUI page was mounted successfully."
    return 0
 }
 
@@ -2072,7 +2072,7 @@ _CreateSymLinks_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-08] ##
+## Modified by Martinski W. [2025-Jan-27] ##
 ##----------------------------------------##
 _WriteVarDefToHelperJSFile_()
 {
@@ -2091,8 +2091,7 @@ _WriteVarDefToHelperJSFile_()
    elif ! grep -q "^var $1 =.*" "$HELPER_JSFILE"
    then
        echo "var $1 = ${varValue};" >> "$HELPER_JSFILE"
-   elif ! grep -q "^var $1 = ${varValue};" "$HELPER_JSFILE"
-   then
+   else
        sed -i "s/^var $1 =.*/var $1 = ${varValue};/" "$HELPER_JSFILE"
    fi
 }
@@ -7648,11 +7647,11 @@ _GnutonBuildSelection_()
 
         if [ "$previous_choice" = "ENABLED" ]
         then
-            echo "TUF Build selected for flashing"
+            Say "TUF build selected for flashing"
             firmware_choice="tuf"
         elif [ "$previous_choice" = "DISABLED" ]
         then
-            echo "Pure Build selected for flashing"
+            Say "Pure build selected for flashing"
             firmware_choice="pure"
         elif [ "$inMenuMode" = true ]
         then
@@ -7662,16 +7661,16 @@ _GnutonBuildSelection_()
             read -r choice
             if [ "$choice" = "y" ] || [ "$choice" = "Y" ]
             then
-                echo "TUF Build selected for flashing"
+                Say "TUF build selected for flashing"
                 firmware_choice="tuf"
                 Update_Custom_Settings "TUFBuild" "ENABLED"
             else
-                echo "Pure Build selected for flashing"
+                Say "Pure build selected for flashing"
                 firmware_choice="pure"
                 Update_Custom_Settings "TUFBuild" "DISABLED"
             fi
         else
-            echo "Defaulting to Pure Build due to non-interactive mode."
+            Say "Defaulting to Pure build due to non-interactive mode."
             firmware_choice="pure"
             Update_Custom_Settings "TUFBuild" "DISABLED"
         fi
@@ -7682,11 +7681,11 @@ _GnutonBuildSelection_()
 
         if [ "$previous_choice" = "ENABLED" ]
         then
-            echo "ROG Build selected for flashing"
+            Say "ROG build selected for flashing"
             firmware_choice="rog"
         elif [ "$previous_choice" = "DISABLED" ]
         then
-            echo "Pure Build selected for flashing"
+            Say "Pure build selected for flashing"
             firmware_choice="pure"
         elif [ "$inMenuMode" = true ]
         then
@@ -7696,16 +7695,16 @@ _GnutonBuildSelection_()
             read -r choice
             if [ "$choice" = "y" ] || [ "$choice" = "Y" ]
             then
-                echo "ROG Build selected for flashing"
+                Say "ROG build selected for flashing"
                 firmware_choice="rog"
                 Update_Custom_Settings "ROGBuild" "ENABLED"
             else
-                echo "Pure Build selected for flashing"
+                Say "Pure build selected for flashing"
                 firmware_choice="pure"
                 Update_Custom_Settings "ROGBuild" "DISABLED"
             fi
         else
-            echo "Defaulting to Pure Build due to non-interactive mode."
+            Say "Defaulting to Pure build due to non-interactive mode."
             firmware_choice="pure"
             Update_Custom_Settings "ROGBuild" "DISABLED"
         fi
@@ -8239,72 +8238,47 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     ## Modified by ExtremeFiretop [2024-Dec-21] ##
     ##------------------------------------------##
     pure_file="$(ls -1 | grep -iE '.*[.](w|pkgtb)$' | grep -iv 'rog')"
+    # Detect ROG firmware file #
+    rog_file="$(ls | grep -i '_rog_')"
 
-    if [ "$fwInstalledBaseVers" -le 3004 ] && [ "$fwUpdateBaseNum" -le 3004 ]
+    # Check if a ROG build is present #
+    if [ -n "$rog_file" ]
     then
-        # Handle upgrades from 3004 and lower #
-
-        # Detect ROG firmware file #
-        rog_file="$(ls | grep -i '_rog_')"
-
         # Fetch the previous choice from the settings file
         previous_choice="$(Get_Custom_Setting "ROGBuild")"
-
-        # Check if a ROG build is present #
-        if [ -n "$rog_file" ]
-        then
-            # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
-            if [ "$previous_choice" = "ENABLED" ]
-            then
-                Say "ROG Build selected for flashing"
-                firmware_file="$rog_file"
-            elif [ "$previous_choice" = "DISABLED" ]
-            then
-                Say "Pure Build selected for flashing"
-                firmware_file="$pure_file"
-            elif [ "$inMenuMode" = true ]
-            then
-                printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
-                printf "${REDct}Would you like to use the ROG build?${NOct}\n"
-                printf "Enter your choice (y/n): "
-                read -r choice
-                if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
-                    Say "ROG Build selected for flashing"
-                    firmware_file="$rog_file"
-                    Update_Custom_Settings "ROGBuild" "ENABLED"
-                else
-                    Say "Pure Build selected for flashing"
-                    firmware_file="$pure_file"
-                    Update_Custom_Settings "ROGBuild" "DISABLED"
-                fi
-            else
-                # Default to pure_file in non-interactive mode if no previous choice
-                Say "Pure Build selected for flashing"
-                Update_Custom_Settings "ROGBuild" "DISABLED"
-                firmware_file="$pure_file"
-            fi
-        else
-            # No ROG build found, use the pure build
-            Say "No ROG Build detected. Skipping."
-            firmware_file="$pure_file"
-        fi
-    elif [ "$fwInstalledBaseVers" -eq 3004 ] && [ "$fwUpdateBaseNum" -ge 3006 ]
-    then
-        # Handle upgrade from 3004 to 3006
-        # Fetch the previous choice from the settings file
-        previous_choice="$(Get_Custom_Setting "ROGBuild")"
-
-        # Handle upgrade from 3004 to 3006 if there is a ROG setting
+        # Use the previous choice if it exists and valid, else prompt the user for their choice in interactive mode
         if [ "$previous_choice" = "ENABLED" ]
         then
-            Say "Upgrading from 3004 to 3006, ROG UI is no longer supported, auto-selecting Pure UI firmware."
+            Say "ROG build selected for flashing"
+            firmware_file="$rog_file"
+        elif [ "$previous_choice" = "DISABLED" ]
+        then
+            Say "Pure build selected for flashing"
             firmware_file="$pure_file"
-            Update_Custom_Settings "ROGBuild" "DISABLED"
+        elif [ "$inMenuMode" = true ]
+        then
+            printf "${REDct}Found ROG build: $rog_file.${NOct}\n"
+            printf "${REDct}Would you like to use the ROG build?${NOct}\n"
+            printf "Enter your choice (y/n): "
+            read -r choice
+            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+                Say "ROG build selected for flashing"
+                firmware_file="$rog_file"
+                Update_Custom_Settings "ROGBuild" "ENABLED"
+            else
+                Say "Pure build selected for flashing"
+                firmware_file="$pure_file"
+                Update_Custom_Settings "ROGBuild" "DISABLED"
+            fi
         else
+            # Default to pure_file in non-interactive mode if no previous choice
+            Say "Defaulting to Pure build for flashing"
+            Update_Custom_Settings "ROGBuild" "DISABLED"
             firmware_file="$pure_file"
         fi
     else
-        # Handle upgrades from 3006 and higher #
+        # No ROG build found, use the pure build
+        Say "No ROG build found. Skipping."
         firmware_file="$pure_file"
     fi
 
@@ -9850,99 +9824,70 @@ _ShowAdvancedOptionsMenu_()
        printf "\n${padStr}[${GRNct}%s${NOct}]\n" "$(_TranslateCronSchedHR_ "$scriptUpdateCronSched")"
    fi
 
-   if "$isGNUtonFW"
-   then
-      if [ "$fwInstalledBaseVers" -le 3004 ]
-      then
-         # Retrieve the current build type setting
-         current_build_type="$(Get_Custom_Setting "TUFBuild")"
+    if "$isGNUtonFW"
+    then
+        if echo "$PRODUCT_ID" | grep -q "^TUF-"
+        then
+            # Retrieve the current build type setting
+            local current_build_type="$(Get_Custom_Setting "TUFBuild")"
 
-         # Convert the setting to a descriptive text
-         if [ "$current_build_type" = "ENABLED" ]; then
-             current_build_type_menu="TUF Build"
-         elif [ "$current_build_type" = "DISABLED" ]; then
-             current_build_type_menu="Pure Build"
-         else
-             current_build_type_menu="NOT SET"
-         fi
+            # Convert the setting to a descriptive text
+            if [ "$current_build_type" = "ENABLED" ]
+            then
+                current_build_type_menu="TUF Build"
+            elif [ "$current_build_type" = "DISABLED" ]
+            then
+                current_build_type_menu="Pure Build"
+            else
+                current_build_type_menu="NOT SET"
+            fi
+            printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+            if [ "$current_build_type_menu" = "NOT SET" ]
+                then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+                else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+            fi
+        elif echo "$PRODUCT_ID" | grep -q "^GT-"
+            # Retrieve the current build type setting #
+            local current_build_typerog="$(Get_Custom_Setting "ROGBuild")"
 
-         if echo "$PRODUCT_ID" | grep -q "^TUF-"
-         then
-             printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
-             if [ "$current_build_type_menu" = "NOT SET" ]
-             then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-             else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
-             fi
-         fi
-      elif [ "$fwInstalledBaseVers" -ge 3006 ]
-      then
-          # Retrieve the current build type setting #
-          local current_build_typerog="$(Get_Custom_Setting "ROGBuild")"
-
-          # Convert the setting to a descriptive text
-          if [ "$current_build_typerog" = "ENABLED" ]; then
+            # Convert the setting to a descriptive text
+            if [ "$current_build_typerog" = "ENABLED" ]
+            then
               current_build_type_menurog="ROG Build"
-          elif [ "$current_build_typerog" = "DISABLED" ]; then
+            elif [ "$current_build_typerog" = "DISABLED" ]
+            then
               current_build_type_menurog="Pure Build"
-          else
+            else
               current_build_type_menurog="NOT SET"
-          fi
+            fi
+            printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+            if [ "$current_build_type_menurog" = "NOT SET" ]
+                then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menurog}${NOct}]\n"
+                else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menurog}${NOct}]\n"
+            fi
+        fi
+    else
+        if echo "$PRODUCT_ID" | grep -q "^GT-"
+            # Retrieve the current build type setting
+            local current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
-          if echo "$PRODUCT_ID" | grep -q "^GT-"
-          then
-              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
-              if [ "$current_build_type_menurog" = "NOT SET" ]
-              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menurog}${NOct}]\n"
-              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menurog}${NOct}]\n"
-              fi
-          fi
-
-          # Retrieve the current build type setting
-          local current_build_typetuf="$(Get_Custom_Setting "TUFBuild")"
-
-          # Convert the setting to a descriptive text
-          if [ "$current_build_typetuf" = "ENABLED" ]; then
-              current_build_type_menutuf="TUF Build"
-          elif [ "$current_build_typetuf" = "DISABLED" ]; then
-              current_build_type_menutuf="Pure Build"
-          else
-              current_build_type_menutuf="NOT SET"
-          fi
-
-          if echo "$PRODUCT_ID" | grep -q "^TUF-"
-          then
-              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
-              if [ "$current_build_type_menutuf" = "NOT SET" ]
-              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menutuf}${NOct}]\n"
-              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menutuf}${NOct}]\n"
-              fi
-          fi
-       fi
-   else
-      if [ "$fwInstalledBaseVers" -le 3004 ]
-      then
-          # Retrieve the current build type setting
-          current_build_type="$(Get_Custom_Setting "ROGBuild")"
-
-          # Convert the setting to a descriptive text
-          if [ "$current_build_type" = "ENABLED" ]; then
-              current_build_type_menu="ROG Build"
-          elif [ "$current_build_type" = "DISABLED" ]; then
-              current_build_type_menu="Pure Build"
-          else
-              current_build_type_menu="NOT SET"
-          fi
-
-          if echo "$PRODUCT_ID" | grep -q "^GT-"
-          then
-              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
-              if [ "$current_build_type_menu" = "NOT SET" ]
-              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
-              fi
-          fi
-      fi
-   fi
+            # Convert the setting to a descriptive text
+            if [ "$current_build_type" = "ENABLED" ]
+            then
+                current_build_type_menu="ROG Build"
+            elif [ "$current_build_type" = "DISABLED" ]
+            then
+                current_build_type_menu="Pure Build"
+            else
+                current_build_type_menu="NOT SET"
+            fi
+            printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+            if [ "$current_build_type_menu" = "NOT SET" ]
+                then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+                else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+            fi
+        fi
+    fi
 
    # Additional Email Notification Options #
    _WebUI_SetEmailConfigFileFromAMTM_
