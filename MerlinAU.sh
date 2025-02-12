@@ -9849,6 +9849,7 @@ _ShowAdvancedOptionsMenu_()
                 else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
             fi
         elif echo "$PRODUCT_ID" | grep -q "^GT-"
+        then
             # Retrieve the current build type setting #
             local current_build_typerog="$(Get_Custom_Setting "ROGBuild")"
 
@@ -9870,6 +9871,7 @@ _ShowAdvancedOptionsMenu_()
         fi
     else
         if echo "$PRODUCT_ID" | grep -q "^GT-"
+        then
             # Retrieve the current build type setting
             local current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
