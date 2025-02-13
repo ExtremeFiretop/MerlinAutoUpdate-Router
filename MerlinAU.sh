@@ -1843,7 +1843,6 @@ _Mount_WebUI_()
    if [ ! -f "$TEMP_MENU_TREE" ]
    then cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE"
    fi
-
    sed -i "/url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
 
    # Insert new page tab in the 'Administration' menu #
@@ -4772,7 +4771,7 @@ _ChangeBuildType_TUF_()
    # Use Get_Custom_Setting to retrieve the previous choice
    previous_choice="$(Get_Custom_Setting "TUFBuild")"
 
-   # If the previous choice is not set, default to 'DSIABLED'
+   # If the previous choice is not set, default to 'DISABLED'
    if [ "$previous_choice" = "TBD" ]; then
        previous_choice="DISABLED"
    fi
@@ -4792,7 +4791,7 @@ _ChangeBuildType_TUF_()
        printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface"
-       printf "\n     ${REDct}(Applies only if TUF F/W is available; otherwise defaults to Pure Build)${NOct}\n"
+       printf "\n     ${REDct}(Applies only if TUF F/W is available; otherwise, defaults to Pure build)${NOct}\n"
        printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-TUF${NOct} themed user interface"
        printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
@@ -4807,7 +4806,7 @@ _ChangeBuildType_TUF_()
 
        case $choice in
            1) buildtypechoice="ENABLED"
-              printf "${CYANct}\nNote: The TUF Build will only apply if a compatible TUF firmware image is available. Otherwise, the Pure Build will be used.${NOct}\n"
+              printf "${CYANct}\nNote: The TUF build will apply only if a compatible TUF firmware image is available. Otherwise, the Pure build will be used.${NOct}\n"
               break
               ;;
            2) buildtypechoice="DISABLED" ; break
@@ -4856,7 +4855,7 @@ _ChangeBuildType_ROG_()
        printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface"
-       printf "\n     ${REDct}(Applies only if ROG F/W is available; otherwise defaults to Pure Build)${NOct}\n"
+       printf "\n     ${REDct}(Applies only if ROG F/W is available; otherwise, defaults to Pure build)${NOct}\n"
        printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface"
        printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
@@ -4871,10 +4870,10 @@ _ChangeBuildType_ROG_()
 
        case $choice in
            1) buildtypechoice="ENABLED"
-              printf "${CYANct}\nNote: The ROG Build will only apply if a compatible ROG firmware image is available. Otherwise, the Pure Build will be used.${NOct}\n"
+              printf "${CYANct}\nNote: The ROG build will apply only if a compatible ROG firmware image is available. Otherwise, the Pure build will be used.${NOct}\n"
               break
               ;;
-           2) buildtypechoice="DISASLED" ; break
+           2) buildtypechoice="DISABLED" ; break
               ;;
            *) echo ; _InvalidMenuSelection_
               ;;
@@ -8263,7 +8262,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
             printf "${REDct}Would you like to use the ROG build?${NOct}\n"
             printf "Enter your choice (y/n): "
             read -r choice
-            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]; then
+            if [ "$choice" = "y" ] || [ "$choice" = "Y" ]
+            then
                 Say "ROG build selected for flashing"
                 firmware_file="$rog_file"
                 Update_Custom_Settings "ROGBuild" "ENABLED"
@@ -9140,18 +9140,20 @@ fi
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2025-Feb-08] ##
 ##---------------------------------------##
-_CheckAndSetBackupOption_() {
+_CheckAndSetBackupOption_()
+{
     local currentBackupOption
     currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
-    if [ -f "/jffs/scripts/backupmon.sh" ]; then
+    if [ -f "/jffs/scripts/backupmon.sh" ]
+    then
         # If setting is empty, add it to the configuration file #
-        if [ "$currentBackupOption" = "TBD" ]; then
-            Update_Custom_Settings FW_Auto_Backupmon "ENABLED"
+        if [ "$currentBackupOption" = "TBD" ]
+        then Update_Custom_Settings FW_Auto_Backupmon "ENABLED"
         fi
     else
         # If the configuration setting exists, delete it #
-        if [ "$currentBackupOption" != "TBD" ]; then
-            Delete_Custom_Settings "FW_Auto_Backupmon"
+        if [ "$currentBackupOption" != "TBD" ]
+        then Delete_Custom_Settings "FW_Auto_Backupmon"
         fi
     fi
 }
@@ -9159,7 +9161,8 @@ _CheckAndSetBackupOption_() {
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2025-Feb-08] ##
 ##---------------------------------------##
-_SetDefaultBuildType_() {
+_SetDefaultBuildType_()
+{
   if echo "$PRODUCT_ID" | grep -q "^TUF-"
   then
       if [ "$(Get_Custom_Setting "TUFBuild")" = "TBD" ]
@@ -9830,7 +9833,6 @@ _ShowAdvancedOptionsMenu_()
     then
         if echo "$PRODUCT_ID" | grep -q "^TUF-"
         then
-            # Retrieve the current build type setting
             local current_build_type="$(Get_Custom_Setting "TUFBuild")"
 
             # Convert the setting to a descriptive text
@@ -9845,34 +9847,36 @@ _ShowAdvancedOptionsMenu_()
             fi
             printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
             if [ "$current_build_type_menu" = "NOT SET" ]
-                then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-                else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+            then
+                printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+            else
+                printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
             fi
         elif echo "$PRODUCT_ID" | grep -q "^GT-"
         then
-            # Retrieve the current build type setting #
             local current_build_typerog="$(Get_Custom_Setting "ROGBuild")"
 
             # Convert the setting to a descriptive text
             if [ "$current_build_typerog" = "ENABLED" ]
             then
-              current_build_type_menurog="ROG Build"
+                current_build_type_menurog="ROG Build"
             elif [ "$current_build_typerog" = "DISABLED" ]
             then
-              current_build_type_menurog="Pure Build"
+                current_build_type_menurog="Pure Build"
             else
-              current_build_type_menurog="NOT SET"
+                current_build_type_menurog="NOT SET"
             fi
             printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
             if [ "$current_build_type_menurog" = "NOT SET" ]
-                then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menurog}${NOct}]\n"
-                else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menurog}${NOct}]\n"
+            then
+                printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menurog}${NOct}]\n"
+            else
+                printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menurog}${NOct}]\n"
             fi
         fi
     else
         if echo "$PRODUCT_ID" | grep -q "^GT-"
         then
-            # Retrieve the current build type setting
             local current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
             # Convert the setting to a descriptive text
@@ -9887,8 +9891,10 @@ _ShowAdvancedOptionsMenu_()
             fi
             printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
             if [ "$current_build_type_menu" = "NOT SET" ]
-                then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
-                else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
+            then
+                printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
+            else
+                printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
             fi
         fi
     fi
@@ -10250,7 +10256,6 @@ _DoInitializationStartup_()
 
    _CheckAndSetBackupOption_
    _SetDefaultBuildType_
-
 }
 
 FW_InstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
