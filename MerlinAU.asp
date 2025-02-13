@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Jan-27 **/
+/** Last Modified: 2025-Feb-12 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -1702,17 +1702,15 @@ function SaveAdvancedConfig()
     // 7) ROG/TUF F/W Build Type - handle conditional rows if visible
     let rogFWBuildRow = document.getElementById('rogFWBuildRow');
     let rogFWBuildType = document.getElementById('rogFWBuildType');
-    if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none' && rogFWBuildType) {
-        advanced_settings.ROGBuild = (rogFWBuildType.value === 'ROG') ? 'ENABLED' : 'DISABLED';
-    }
+    if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none' && rogFWBuildType)
+    { advanced_settings.ROGBuild = (rogFWBuildType.value === 'ROG') ? 'ENABLED' : 'DISABLED'; }
 
     let tufFWBuildRow = document.getElementById('tuffFWBuildRow');
     let tuffFWBuildType = document.getElementById('tuffFWBuildType');
-    if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none' && tuffFWBuildType) {
-        advanced_settings.TUFBuild = (tuffFWBuildType.value === 'TUF') ? 'ENABLED' : 'DISABLED';
-    }
+    if (tufFWBuildRow && tufFWBuildRow.style.display !== 'none' && tuffFWBuildType)
+    { advanced_settings.TUFBuild = (tuffFWBuildType.value === 'TUF') ? 'ENABLED' : 'DISABLED'; }
 
-    // Prefix only Advanced settings
+    // Prefix only Advanced settings //
     var prefixedAdvancedSettings = PrefixCustomSettings(advanced_settings, 'MerlinAU_');
 
     // Remove any action keys from shared_custom_settings to avoid overwriting //
@@ -1903,52 +1901,54 @@ document.addEventListener("DOMContentLoaded", function()
     FormatFirmwareVersion();
 });
 
-function updateTUFROGAvailText() {
-    // For ROG
+function updateTUFROGAvailText()
+{
+    // ROG build //
     let rogSelect = document.getElementById('rogFWBuildType');
     let rogMsgSpan = document.getElementById('rogFWBuildTypeAvailMsg');
-    if (rogSelect && rogMsgSpan) {
-        if (rogSelect.value === 'ROG') {
-            rogMsgSpan.style.display = 'inline-block';
-        } else {
-            rogMsgSpan.style.display = 'none';
-        }
+    if (rogSelect && rogMsgSpan)
+    {
+        if (rogSelect.value === 'ROG')
+        { rogMsgSpan.style.display = 'inline-block'; }
+        else
+        { rogMsgSpan.style.display = 'none'; }
     }
-    
-    // For TUF
+
+    // TUF build //
     let tufSelect = document.getElementById('tuffFWBuildType');
     let tufMsgSpan = document.getElementById('tuffFWBuildTypeAvailMsg');
-    if (tufSelect && tufMsgSpan) {
-        if (tufSelect.value === 'TUF') {
-            tufMsgSpan.style.display = 'inline-block';
-        } else {
-            tufMsgSpan.style.display = 'none';
-        }
+    if (tufSelect && tufMsgSpan)
+    {
+        if (tufSelect.value === 'TUF')
+        { tufMsgSpan.style.display = 'inline-block'; }
+        else
+        { tufMsgSpan.style.display = 'none'; }
     }
 }
 
-function handleTUFROGChange(selectElem) {
-    // If user picks TUF or ROG, show the popup alert
-    if (selectElem.value === 'TUF' || selectElem.value === 'ROG') {
-        alert("The TUF/ROG Build will only apply if a compatible TUF firmware image is available. Otherwise, the Pure Build will be used.");
+function handleTUFROGChange(selectElem)
+{
+    // If user picks TUF or ROG, pop up alert //
+    if (selectElem.value === 'TUF' || selectElem.value === 'ROG')
+    {
+        alert("The TUF/ROG build will apply only if a corresponding TUF or ROG firmware image is available. Otherwise, the Pure build will be used.");
     }
-    
-    // Show or hide the "if available" text next to the relevant dropdown
-    if (selectElem.id === 'rogFWBuildType') {
+
+    if (selectElem.id === 'rogFWBuildType')
+    {
         let rogMsgSpan = document.getElementById('rogFWBuildTypeAvailMsg');
-        if (selectElem.value === 'ROG') {
-            rogMsgSpan.style.display = 'inline-block';
-        } else {
-            rogMsgSpan.style.display = 'none';
-        }
+        if (selectElem.value === 'ROG')
+        { rogMsgSpan.style.display = 'inline-block'; }
+        else
+        { rogMsgSpan.style.display = 'none'; }
     }
-    else if (selectElem.id === 'tuffFWBuildType') {
+    else if (selectElem.id === 'tuffFWBuildType')
+    {
         let tufMsgSpan = document.getElementById('tuffFWBuildTypeAvailMsg');
-        if (selectElem.value === 'TUF') {
-            tufMsgSpan.style.display = 'inline-block';
-        } else {
-            tufMsgSpan.style.display = 'none';
-        }
+        if (selectElem.value === 'TUF')
+        { tufMsgSpan.style.display = 'inline-block'; }
+        else
+        { tufMsgSpan.style.display = 'none'; }
     }
 }
 
@@ -2361,7 +2361,7 @@ function initializeCollapsibleSections()
           style="margin-left:10px; display:none; font-size:12px; font-weight:bolder;">
       Note: Only if available
     </span>
-  </td>
+   </td>
 </tr>
 <tr id="tuffFWBuildRow">
    <td style="text-align: left;"><label for="tuffFWBuildType">TUF F/W Build Type</label></td>
@@ -2374,7 +2374,7 @@ function initializeCollapsibleSections()
           style="margin-left:10px; display:none; font-size:12px; font-weight:bolder;">
       Note: Only if available
     </span>
-  </td>
+   </td>
 </tr>
 <tr>
    <td style="text-align: left;"><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
