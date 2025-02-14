@@ -1776,35 +1776,46 @@ then
 fi
 
 ##-------------------------------------##
-## Added by Martinski W. [2025-Jan-11] ##
+## Added by Martinski W. [2025-Feb-12] ##
 ##-------------------------------------##
+_Check_WebGUI_Page_Exists_()
+{
+   local webPageStr  webPageFile  theWebPage
+
+   if [ ! -f "$TEMP_MENU_TREE" ]
+   then echo "NONE" ; return 1 ; fi
+
+   theWebPage="NONE"
+   webPageStr="$(grep -E -m1 "$webPageLineRegExp" "$TEMP_MENU_TREE")"
+   if [ -n "$webPageStr" ]
+   then
+       webPageFile="$(echo "$webPageStr" | grep -owE "$webPageFileRegExp" | head -n1)"
+       if [ -n "$webPageFile" ] && [ -s "${SHARED_WEB_DIR}/$webPageFile" ]
+       then theWebPage="$webPageFile" ; fi
+   fi
+   echo "$theWebPage"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-12] ##
+##----------------------------------------##
 _GetWebUIPage_()
 {
-   local webPageFile  webPagePath  webPageTemp  webPageEntry
+   local webPageFile  webPagePath  webPageTemp
 
-   webPageFile="NONE"
-
-   if [ -f "$TEMP_MENU_TREE" ]
-   then
-       webPageEntry="$(grep -E "$webPageLineRegExp" "$TEMP_MENU_TREE")"
-       if [ -n "$webPageEntry" ]
-       then
-           webPageTemp="$(echo "$webPageEntry" | grep -owE "$webPageFileRegExp")"
-           [ -n "$webPageTemp" ] && webPageFile="$webPageTemp"
-       fi
-   fi
+   webPageFile="$(_Check_WebGUI_Page_Exists_)"
 
    for index in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20
    do
        webPageTemp="user${index}.asp"
        webPagePath="${SHARED_WEB_DIR}/$webPageTemp"
 
-       if [ -f "$webPagePath" ] && \
+       if [ -s "$webPagePath" ] && \
           [ "$(md5sum < "$1")" = "$(md5sum < "$webPagePath")" ]
        then
            webPageFile="$webPageTemp"
            break
-       elif [ "$webPageFile" = "NONE" ] && [ ! -f "$webPagePath" ]
+       elif [ "$webPageFile" = "NONE" ] && [ ! -s "$webPagePath" ]
        then
            webPageFile="$webPageTemp"
        fi
@@ -1824,7 +1835,7 @@ _Mount_WebUI_()
    fi
    local webPageFile
 
-   Say "Mounting WebUI page for $SCRIPT_NAME"
+   Say "Mounting WebUI page for ${SCRIPT_NAME}..."
 
    eval exec "$WEBUI_LOCKFD>$WEBUI_LOCKFILE"
    flock -x "$WEBUI_LOCKFD"
@@ -1854,6 +1865,16 @@ _Mount_WebUI_()
 
    Say "${GRNct}$SCRIPT_NAME WebUI page was mounted as $webPageFile successfully."
    return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Feb-12] ##
+##-------------------------------------##
+_CheckFor_WebGUI_Page_()
+{
+   if "$inRouterSWmode" && \
+      [ "$(_Check_WebGUI_Page_Exists_)" = "NONE" ]
+   then _Mount_WebUI_ ; fi
 }
 
 ##----------------------------------------##
@@ -10263,7 +10284,7 @@ FW_InstalledVerStr="${GRNct}${FW_InstalledVersion}${NOct}"
 FW_NewUpdateVerInit=TBD
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-10] ##
+## Modified by Martinski W. [2025-Feb-12] ##
 ##----------------------------------------##
 if [ $# -eq 0 ] || [ -z "$1" ] || \
    { [ $# -gt 1 ] && [ "$1" = "reload" ] ; }
@@ -10281,6 +10302,7 @@ then
    if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
    then _AddScriptAutoUpdateCronJob_ ; fi
    _ConfirmCronJobForFWAutoUpdates_
+   _CheckFor_WebGUI_Page_
 
    _MainMenu_ "$@"
    _DoExit_ 0
