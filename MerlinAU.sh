@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-15
+# Last Modified: 2025-Feb-16
 ###################################################################
 set -u
 
@@ -72,6 +72,7 @@ readonly WHITEct="\e[1;37m"
 readonly CRITct="\e[1;41m"
 readonly InvREDct="\e[1;41m"
 readonly InvGRNct="\e[1;42m"
+readonly InvBYLWct="\e[30;103m"
 
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
@@ -3810,50 +3811,52 @@ _Toggle_Auto_Backups_()
     _WaitForEnterKey_
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-16] ##
+##----------------------------------------##
 _ChangeBuildType_TUF_()
 {
    local doReturnToMenu  buildtypechoice
-   printf "Changing Flash Build Type...\n"
 
    # Use Get_Custom_Setting to retrieve the previous choice
    previous_choice="$(Get_Custom_Setting "TUFBuild")"
 
-   # If the previous choice is not set, default to 'n'
+   # If the previous choice is not set, default to 'n' #
    if [ "$previous_choice" = "TBD" ]; then
        previous_choice="n"
    fi
 
-   # Convert previous choice to a descriptive text
+   # Convert previous choice to a descriptive text #
    if [ "$previous_choice" = "y" ]; then
        display_choice="TUF Build"
    else
        display_choice="Pure Build"
    fi
-
-   printf "\nCurrent Build Type: ${GRNct}$display_choice${NOct}.\n"
+   printf "\n\nCurrent Build Type: ${GRNct}${display_choice}${NOct}.\n"
 
    doReturnToMenu=false
    while true
    do
        printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
-       printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface${NOct}\n"
-       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-TUF${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
+       printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface"
+       printf "\n     ${REDct}(Applies only if TUF F/W is available; otherwise, defaults to Pure build)${NOct}\n"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}Non-TUF${NOct} themed user interface"
+       printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
        printf "${SEPstr}\n"
-       printf "[$display_choice] Enter selection:  "
+       printf "[${GRNct}${display_choice}${NOct}] Enter selection:  "
        read -r choice
 
-       [ -z "$choice" ] && break
-
-       if echo "$choice" | grep -qE "^(e|exit|Exit)$"
+       if [ -z "$choice" ] || echo "$choice" | grep -qE "^(e|exit|Exit)$"
        then doReturnToMenu=true ; break ; fi
 
        case $choice in
-           1) buildtypechoice="y" ; break
+           1) buildtypechoice="y"
+              printf "\n${InvBYLWct} NOTE: ${NOct}\n"
+              printf "${CYANct}The TUF build will apply only if a compatible TUF firmware image is available."
+              printf "\nOtherwise, the Pure ${GRNct}Non-TUF${NOct}${CYANct} build will be used instead.${NOct}\n"
+              break
               ;;
            2) buildtypechoice="n" ; break
               ;;
@@ -3870,50 +3873,52 @@ _ChangeBuildType_TUF_()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Feb-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-16] ##
+##----------------------------------------##
 _ChangeBuildType_ROG_()
 {
    local doReturnToMenu  buildtypechoice
-   printf "Changing Flash Build Type...\n"
 
    # Use Get_Custom_Setting to retrieve the previous choice
    previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
-   # If the previous choice is not set, default to 'n'
+   # If the previous choice is not set, default to 'n' #
    if [ "$previous_choice" = "TBD" ]; then
        previous_choice="n"
    fi
 
-   # Convert previous choice to a descriptive text
+   # Convert previous choice to a descriptive text #
    if [ "$previous_choice" = "y" ]; then
        display_choice="ROG Build"
    else
        display_choice="Pure Build"
    fi
-
-   printf "\nCurrent Build Type: ${GRNct}$display_choice${NOct}.\n"
+   printf "\n\nCurrent Build Type: ${GRNct}${display_choice}${NOct}.\n"
 
    doReturnToMenu=false
    while true
    do
        printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
-       printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface${NOct}\n"
-       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface ${GRNct}(Recommended)${NOct}\n"
+       printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface"
+       printf "\n     ${REDct}(Applies only if ROG F/W is available; otherwise, defaults to Pure build)${NOct}\n"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}Non-ROG${NOct} themed user interface"
+       printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
        printf "${SEPstr}\n"
-       printf "[$display_choice] Enter selection:  "
+       printf "[${GRNct}${display_choice}${NOct}] Enter selection:  "
        read -r choice
 
-       [ -z "$choice" ] && break
-
-       if echo "$choice" | grep -qE "^(e|exit|Exit)$"
+       if [ -z "$choice" ] || echo "$choice" | grep -qE "^(e|exit|Exit)$"
        then doReturnToMenu=true ; break ; fi
 
        case $choice in
-           1) buildtypechoice="y" ; break
+           1) buildtypechoice="y"
+              printf "\n${InvBYLWct} NOTE: ${NOct}\n"
+              printf "${CYANct}The ROG build will apply only if a compatible ROG firmware image is available."
+              printf "\nOtherwise, the Pure ${GRNct}Non-ROG${NOct}${CYANct} build will be used instead.${NOct}\n"
+              break
               ;;
            2) buildtypechoice="n" ; break
               ;;
@@ -8625,7 +8630,7 @@ _ShowMainMenu_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-22] ##
+## Modified by Martinski W. [2025-Feb-16] ##
 ##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -8689,7 +8694,6 @@ _ShowAdvancedOptionsMenu_()
    then
       if [ "$fwInstalledBaseVers" -le 3004 ]
       then
-         # Retrieve the current build type setting
          current_build_type="$(Get_Custom_Setting "TUFBuild")"
 
          # Convert the setting to a descriptive text
@@ -8703,7 +8707,7 @@ _ShowAdvancedOptionsMenu_()
 
          if echo "$PRODUCT_ID" | grep -q "^TUF-"
          then
-             printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+             printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type Preference"
              if [ "$current_build_type_menu" = "NOT SET" ]
              then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
              else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
@@ -8711,7 +8715,6 @@ _ShowAdvancedOptionsMenu_()
          fi
       elif [ "$fwInstalledBaseVers" -ge 3006 ]
       then
-          # Retrieve the current build type setting
           local current_build_typerog="$(Get_Custom_Setting "ROGBuild")"
 
           # Convert the setting to a descriptive text
@@ -8725,14 +8728,13 @@ _ShowAdvancedOptionsMenu_()
 
           if echo "$PRODUCT_ID" | grep -q "^GT-"
           then
-              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type Preference"
               if [ "$current_build_type_menurog" = "NOT SET" ]
               then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menurog}${NOct}]\n"
               else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menurog}${NOct}]\n"
               fi
           fi
 
-          # Retrieve the current build type setting
           local current_build_typetuf="$(Get_Custom_Setting "TUFBuild")"
 
           # Convert the setting to a descriptive text
@@ -8746,7 +8748,7 @@ _ShowAdvancedOptionsMenu_()
 
           if echo "$PRODUCT_ID" | grep -q "^TUF-"
           then
-              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type Preference"
               if [ "$current_build_type_menutuf" = "NOT SET" ]
               then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menutuf}${NOct}]\n"
               else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menutuf}${NOct}]\n"
@@ -8756,7 +8758,6 @@ _ShowAdvancedOptionsMenu_()
    else
       if [ "$fwInstalledBaseVers" -le 3004 ]
       then
-          # Retrieve the current build type setting
           current_build_type="$(Get_Custom_Setting "ROGBuild")"
 
           # Convert the setting to a descriptive text
@@ -8770,7 +8771,7 @@ _ShowAdvancedOptionsMenu_()
 
           if echo "$PRODUCT_ID" | grep -q "^GT-"
           then
-              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+              printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type Preference"
               if [ "$current_build_type_menu" = "NOT SET" ]
               then printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
               else printf "\n${padStr}[Current Build Type: ${GRNct}${current_build_type_menu}${NOct}]\n"
