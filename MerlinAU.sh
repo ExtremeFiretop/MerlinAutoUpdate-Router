@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-12
+# Last Modified: 2025-Feb-16
 ###################################################################
 set -u
 
@@ -76,6 +76,7 @@ readonly WHITEct="\e[1;37m"
 readonly CRITct="\e[1;41m"
 readonly InvREDct="\e[1;41m"
 readonly InvGRNct="\e[1;42m"
+readonly InvBYLWct="\e[30;103m"
 
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
@@ -284,15 +285,16 @@ _UserLogMsg_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 Say()
 {
+   local logMsg
    "$isInteractive" && printf "${1}\n"
    # Remove all "color escape sequences" from the system log file entries #
-   local logMsg="$(echo "$1" | sed 's/\\\e\[[0-1]m//g ; s/\\\e\[[0-1];[3-4][0-9]m//g')"
+   logMsg="$(echo "$1" | sed 's/\\\e\[[0-1]m//g ; s/\\\e\[[0-1];[3-4][0-9]m//g')"
    _UserLogMsg_ "$logMsg"
-   printf "$logMsg" | logger -t "[$(basename "$0")] $$"
+   printf "$logMsg" | logger -t "[${SCRIPT_NAME}] $$"
 }
 
 ##----------------------------------------------##
@@ -1573,7 +1575,7 @@ _Set_FW_UpdateZIP_DirectoryPath_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 ## Function to migrate specific settings from old values to new standardized values.
 ## This function is meant to be only TEMPORARY.
@@ -1601,7 +1603,7 @@ _Migrate_Settings_()
         then
             if Update_Custom_Settings ROGBuild "$New_ROGBuild_Value"
             then
-                Say "ROGBuild setting successfully migrated to '$New_ROGBuild_Value'."
+                Say "ROGBuild setting was successfully migrated to '$New_ROGBuild_Value'."
             else
                 Say "Error occurred while migrating ROGBuild setting to '$New_ROGBuild_Value'."
             fi
@@ -1625,7 +1627,7 @@ _Migrate_Settings_()
         then
             if Update_Custom_Settings TUFBuild "$New_TUFBuild_Value"
             then
-                Say "TUFBuild setting successfully migrated to '$New_TUFBuild_Value'."
+                Say "TUFBuild setting was successfully migrated to '$New_TUFBuild_Value'."
             else
                 Say "Error occurred while migrating TUFBuild setting to '$New_TUFBuild_Value'."
             fi
@@ -1647,11 +1649,12 @@ _Migrate_Settings_()
         esac
         if [ -n "$New_EMailNotif_Value" ]
         then
+            sed -i '/^FW_New_Update_EMail_Notification .*/d' "$CONFIG_FILE"
             sed -i "s/^FW_New_Update_EMail_Notification=.*/FW_New_Update_EMail_Notification $New_EMailNotif_Value/" "$CONFIG_FILE"
             if [ $? -eq 0 ]
             then
                 sendEMailNotificationsFlag="$New_EMailNotif_Value"
-                Say "EMail_Notification setting successfully migrated to $New_EMailNotif_Value."
+                Say "EMail_Notification setting was successfully migrated to $New_EMailNotif_Value."
             else
                 Say "Error occurred while migrating EMail_Notification setting to $New_EMailNotif_Value."
             fi
@@ -2428,33 +2431,33 @@ _DownloadScriptFiles_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-11] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 _SCRIPT_UPDATE_()
 {
-   local urlScriptVers  theScriptVers  extraParam=""
+   local extraParam=""
 
    if [ $# -gt 0 ] && [ "$1" = "force" ]
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
-       theScriptVers="$SCRIPT_VERSION"
-       [ -s "$SCRIPT_VERPATH" ] && theScriptVers="$(cat "$SCRIPT_VERPATH")"
-       urlScriptVers="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
-       printf "${CYANct}Downloading latest version ($urlScriptVers) of ${SCRIPT_NAME}${NOct}\n"
+       if ! _CheckForNewScriptUpdates_ -quietcheck
+       then
+           DLRepoVersion="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
+       fi
+       if _CheckForNewGUIVersionUpdate_ "$SCRIPT_VERSION" "$DLRepoVersion"
+       then extraParam="install"
+       fi
+       printf "${CYANct}Downloading latest version [$DLRepoVersion] of ${SCRIPT_NAME}${NOct}\n"
 
        if _DownloadScriptFiles_ update
        then
            printf "${CYANct}$SCRIPT_NAME files were successfully updated.${NOct}\n\n"
-           [ -s "$SCRIPT_VERPATH" ] && urlScriptVers="$(cat "$SCRIPT_VERPATH")"
            if "$inRouterSWmode"
            then
-               _SetVersionSharedSettings_ local "$urlScriptVers"
-               _SetVersionSharedSettings_ server "$urlScriptVers"
+               _SetVersionSharedSettings_ local "$DLRepoVersion"
+               _SetVersionSharedSettings_ server "$DLRepoVersion"
            fi
            sleep 1
-           if [ $# -gt 1 ] && [ "$2" = "newgui" ] && \
-              _CheckForNewGUIVersionUpdate_ "$theScriptVers" "$urlScriptVers"
-           then extraParam="install" ; fi
            _ReleaseLock_
            exec "$ScriptFilePath" $extraParam
            exit 0
@@ -2527,12 +2530,10 @@ _SCRIPT_UPDATE_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-11] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 _CheckForNewScriptUpdates_()
 {
-   local extraParam=""
-
    echo
    DLRepoVersion="$SCRIPT_VERSION"
    [ -s "$SCRIPT_VERPATH" ] && DLRepoVersion="$(cat "$SCRIPT_VERPATH")"
@@ -2560,11 +2561,14 @@ _CheckForNewScriptUpdates_()
    then
        scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
+
+       if [ $# -gt 0 ] && [ "$1" = "-quietcheck" ]
+       then return 0
+       fi
        Say "$myLAN_HostName - A new script version update (v$DLRepoVersion) is available to download."
        if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
        then
-           _CheckForNewGUIVersionUpdate_ && extraParam="newgui"
-           _SCRIPT_UPDATE_ force $extraParam
+           _SCRIPT_UPDATE_ force
        fi
    else
        scriptUpdateNotify=0
@@ -4781,30 +4785,28 @@ _Toggle_Auto_Backups_()
     _WaitForEnterKey_
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-16] ##
+##----------------------------------------##
 _ChangeBuildType_TUF_()
 {
    local doReturnToMenu  buildtypechoice
-   printf "Changing Flash Build Type...\n"
 
    # Use Get_Custom_Setting to retrieve the previous choice
    previous_choice="$(Get_Custom_Setting "TUFBuild")"
 
-   # If the previous choice is not set, default to 'DISABLED'
+   # If the previous choice is not set, default to 'DISABLED' #
    if [ "$previous_choice" = "TBD" ]; then
        previous_choice="DISABLED"
    fi
 
-   # Convert previous choice to a descriptive text
+   # Convert previous choice to a descriptive text #
    if [ "$previous_choice" = "ENABLED" ]; then
        display_choice="TUF Build"
    else
        display_choice="Pure Build"
    fi
-
-   printf "\nCurrent Build Type: ${GRNct}$display_choice${NOct}.\n"
+   printf "\n\nCurrent Build Type: ${GRNct}${display_choice}${NOct}.\n"
 
    doReturnToMenu=false
    while true
@@ -4813,21 +4815,21 @@ _ChangeBuildType_TUF_()
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface"
        printf "\n     ${REDct}(Applies only if TUF F/W is available; otherwise, defaults to Pure build)${NOct}\n"
-       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-TUF${NOct} themed user interface"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}Non-TUF${NOct} themed user interface"
        printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
        printf "${SEPstr}\n"
-       printf "[$display_choice] Enter selection:  "
+       printf "[${GRNct}${display_choice}${NOct}] Enter selection:  "
        read -r choice
 
-       [ -z "$choice" ] && break
-
-       if echo "$choice" | grep -qE "^(e|exit|Exit)$"
+       if [ -z "$choice" ] || echo "$choice" | grep -qE "^(e|exit|Exit)$"
        then doReturnToMenu=true ; break ; fi
 
        case $choice in
            1) buildtypechoice="ENABLED"
-              printf "${CYANct}\nNote: The TUF build will apply only if a compatible TUF firmware image is available. Otherwise, the Pure build will be used.${NOct}\n"
+              printf "\n${InvBYLWct} NOTE: ${NOct}\n"
+              printf "${CYANct}The TUF build will apply only if a compatible TUF firmware image is available."
+              printf "\nOtherwise, the Pure ${GRNct}Non-TUF${NOct}${CYANct} build will be used instead.${NOct}\n"
               break
               ;;
            2) buildtypechoice="DISABLED" ; break
@@ -4845,30 +4847,28 @@ _ChangeBuildType_TUF_()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-16] ##
+##----------------------------------------##
 _ChangeBuildType_ROG_()
 {
    local doReturnToMenu  buildtypechoice
-   printf "Changing Flash Build Type...\n"
 
    # Use Get_Custom_Setting to retrieve the previous choice
    previous_choice="$(Get_Custom_Setting "ROGBuild")"
 
-   # If the previous choice is not set, default to 'DISABLED'
+   # If the previous choice is not set, default to 'DISABLED' #
    if [ "$previous_choice" = "TBD" ]; then
        previous_choice="DISABLED"
    fi
 
-   # Convert previous choice to a descriptive text
+   # Convert previous choice to a descriptive text #
    if [ "$previous_choice" = "ENABLED" ]; then
        display_choice="ROG Build"
    else
        display_choice="Pure Build"
    fi
-
-   printf "\nCurrent Build Type: ${GRNct}$display_choice${NOct}.\n"
+   printf "\n\nCurrent Build Type: ${GRNct}${display_choice}${NOct}.\n"
 
    doReturnToMenu=false
    while true
@@ -4877,21 +4877,21 @@ _ChangeBuildType_ROG_()
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface"
        printf "\n     ${REDct}(Applies only if ROG F/W is available; otherwise, defaults to Pure build)${NOct}\n"
-       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}non-ROG${NOct} themed user interface"
+       printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}Non-ROG${NOct} themed user interface"
        printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
        printf "${SEPstr}\n"
-       printf "[$display_choice] Enter selection:  "
+       printf "[${GRNct}${display_choice}${NOct}] Enter selection:  "
        read -r choice
 
-       [ -z "$choice" ] && break
-
-       if echo "$choice" | grep -qE "^(e|exit|Exit)$"
+       if [ -z "$choice" ] || echo "$choice" | grep -qE "^(e|exit|Exit)$"
        then doReturnToMenu=true ; break ; fi
 
        case $choice in
            1) buildtypechoice="ENABLED"
-              printf "${CYANct}\nNote: The ROG build will apply only if a compatible ROG firmware image is available. Otherwise, the Pure build will be used.${NOct}\n"
+              printf "\n${InvBYLWct} NOTE: ${NOct}\n"
+              printf "${CYANct}The ROG build will apply only if a compatible ROG firmware image is available."
+              printf "\nOtherwise, the Pure ${GRNct}Non-ROG${NOct}${CYANct} build will be used instead.${NOct}\n"
               break
               ;;
            2) buildtypechoice="DISABLED" ; break
@@ -7822,7 +7822,7 @@ _RunBackupmon_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 _RunOfflineUpdateNow_()
 {
@@ -7947,7 +7947,7 @@ _RunOfflineUpdateNow_()
                 fi
                 _ClearOfflineUpdateState_
             else
-                Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
+                Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$MODEL_ID] router model."
                 _ClearOfflineUpdateState_ 1
                 return 1
             fi
@@ -7962,7 +7962,7 @@ _RunOfflineUpdateNow_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 _RunFirmwareUpdateNow_()
 {
@@ -8081,7 +8081,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
            ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
         then
-            Say "No new firmware version update is found for [$PRODUCT_ID] router model."
+            Say "No new firmware version update is found for [$MODEL_ID] router model."
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         fi
@@ -8106,7 +8106,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
             release_version="$1"
             release_link="$2"
         else
-            Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$PRODUCT_ID] router model."
+            Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$MODEL_ID] router model."
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         fi
@@ -9641,7 +9641,7 @@ _InvalidMenuSelection_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-20] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 _ShowMainMenuOptions_()
 {
@@ -9664,29 +9664,34 @@ _ShowMainMenuOptions_()
    printf "${YLWct}============ By ExtremeFiretop & Martinski W. ============${NOct}\n\n"
 
    # New Script Update Notification #
-   if [ "$scriptUpdateNotify" != "0" ]; then
-      Say "${REDct}*WARNING*:${NOct} ${scriptUpdateNotify}\n"
+   if [ "$scriptUpdateNotify" != "0" ]
+   then
+      Say "${InvREDct}*NOTICE*:${NOct} ${scriptUpdateNotify}"
+      echo
    fi
 
    # Unsupported Model Check #
    if "$routerModelCheckFailed"
    then
       Say "${REDct}*WARNING*:${NOct} The current router model is not supported by this script.
- Please uninstall.\n"
+ Please uninstall."
+      echo
    fi
    if "$MinFirmwareVerCheckFailed"
    then
       Say "${REDct}*WARNING*:${NOct} The current firmware version is below the minimum supported.
- Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or higher to use this script.\n"
+ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or higher to use this script."
+      echo
    fi
 
    if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
    then
       Say "${REDct}*WARNING*:${NOct} Limited RAM detected (256MB).
- A USB drive is required for F/W updates.\n"
+ A USB drive is required for F/W updates."
+      echo
    fi
 
-   arrowStr=" ${InvREDct} <<--- ${NOct}"
+   arrowStr=" ${InvREDct} <<<< ${NOct}"
 
    _Calculate_NextRunTime_
 
@@ -9731,7 +9736,7 @@ _ShowMainMenuOptions_()
        printf "\n${padStr}[Currently ${InvREDct} DISABLED ${NOct}]"
    else
        printf "\n  ${GRNct}3${NOct}.  Toggle Automatic F/W Update Checks"
-       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]"
+       printf "\n${padStr}[Currently ${InvGRNct} ENABLED ${NOct}]"
    fi
    printf "\n${padStr}[Last Notification Date: $notificationStr]\n"
 
@@ -9764,7 +9769,7 @@ _ShowMainMenuOptions_()
    if [ "$scriptUpdateNotify" != "0" ]
    then
       printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script"
-      printf "\n${padStr}[Version ${GRNct}${DLRepoVersion}${NOct} Available for Download]\n"
+      printf "\n${padStr}[Version ${InvGRNct} ${DLRepoVersion} ${NOct} Available for Download]\n"
    else
       printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Script"
       printf "\n${padStr}[No Update Available]\n"
@@ -9786,7 +9791,7 @@ _ShowMainMenuOptions_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-27] ##
+## Modified by Martinski W. [2025-Feb-16] ##
 ##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -9866,7 +9871,7 @@ _ShowAdvancedOptionsMenu_()
             else
                 current_build_type_menu="NOT SET"
             fi
-            printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+            printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type Preference"
             if [ "$current_build_type_menu" = "NOT SET" ]
             then
                 printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
@@ -9887,7 +9892,7 @@ _ShowAdvancedOptionsMenu_()
             else
                 current_build_type_menurog="NOT SET"
             fi
-            printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+            printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type Preference"
             if [ "$current_build_type_menurog" = "NOT SET" ]
             then
                 printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menurog}${NOct}]\n"
@@ -9910,7 +9915,7 @@ _ShowAdvancedOptionsMenu_()
             else
                 current_build_type_menu="NOT SET"
             fi
-            printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type"
+            printf "\n ${GRNct}bt${NOct}.  Toggle F/W Build Type Preference"
             if [ "$current_build_type_menu" = "NOT SET" ]
             then
                 printf "\n${padStr}[Current Build Type: ${REDct}${current_build_type_menu}${NOct}]\n"
@@ -10309,7 +10314,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jan-22] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 if [ $# -gt 0 ]
 then
@@ -10352,7 +10357,7 @@ then
        forceupdate)
            if _AcquireLock_ cliFileLock
            then
-               _SCRIPT_UPDATE_ force "$([ $# -gt 1 ] && echo "$2" || echo)"
+               _SCRIPT_UPDATE_ force
                _ReleaseLock_ cliFileLock
            fi
            ;;
