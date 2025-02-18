@@ -119,6 +119,12 @@ To install MerlinAutoUpdate, follow these steps:
 Enable SSH on your router if not already enabled.
 Use your preferred SSH client to connect to the router.
 
+*MerlinAU is now available through AMTM!*
+1. Simply connect to the router via SSH and type: "amtm" to load AMTM
+2. Select option (i) to view the list of available applications.
+3. MerlinAU is option (8) from AMTM.
+
+*Manual Installation*
 Download the script to your router:
 Copy and paste:
 ```bash
