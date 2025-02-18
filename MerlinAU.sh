@@ -61,7 +61,7 @@ routerModelCheckFailed=false
 offlineUpdateTrigger=false
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 readonly NOct="\e[0m"
 readonly BOLDct="\e[1m"
@@ -2348,7 +2348,7 @@ _CheckForNewGUIVersionUpdate_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-11] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 _CurlFileDownload_()
 {
@@ -2380,7 +2380,7 @@ _CurlFileDownload_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-20] ##
+## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
 _DownloadScriptFiles_()
 {
@@ -2508,6 +2508,7 @@ _SCRIPT_UPDATE_()
 
           if _DownloadScriptFiles_ update
           then
+
               if "$inRouterSWmode"
               then _SetVersionSharedSettings_ local "$DLRepoVersion" ; fi
               printf "\n$(date) - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
