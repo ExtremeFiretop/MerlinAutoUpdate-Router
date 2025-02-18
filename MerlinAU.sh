@@ -4553,10 +4553,16 @@ _CopyGnutonFiles_()
 _CheckOnlineFirmwareSHA256_()
 {
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
- https://www.asuswrt-merlin.net/download | \
- sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' | \
- sed -n '/<pre[^>].*>/,/<\/pre>/p' | sed -e 's/<[^>].*>//g')"
+    checksums="$(
+      curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
+        https://www.asuswrt-merlin.net/download              |
+        sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p'   |
+        sed -n '/<pre[^>]*>/,/<\/pre>/p'                     |
+        sed -e 's/<[^>]*>//g'                                |
+        tr -d '\r'                                           |
+        sed -e 's/^[[:space:]]*//; s/[[:space:]]*$//'        |
+        sed -e 's/SHA256 signatures:Latest release://'
+    )"
 
     if [ -z "$checksums" ]
     then
