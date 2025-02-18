@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-16
+# Last Modified: 2025-Feb-17
 ###################################################################
 set -u
 
@@ -3574,22 +3574,17 @@ _CopyGnutonFiles_()
    return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-24] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-17] ##
+##----------------------------------------##
 _CheckOnlineFirmwareSHA256_()
 {
     # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(
-      curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
-        https://www.asuswrt-merlin.net/download              |
-        sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p'   |
-        sed -n '/<pre[^>]*>/,/<\/pre>/p'                     |
-        sed -e 's/<[^>]*>//g'                                |
-        tr -d '\r'                                           |
-        sed -e 's/^[[:space:]]*//; s/[[:space:]]*$//'        |
-        sed -e 's/SHA256 signatures:Latest release://'
-    )"
+    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
+        https://www.asuswrt-merlin.net/download            |
+        sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' |
+        sed -n '/<pre[^>].*>/,/<\/pre>/p'                  |
+        sed -e 's/<[^>].*>//g; s/^[[:space:]]*//; s/[[:space:]]*$//')"
 
     if [ -z "$checksums" ]
     then
@@ -3600,9 +3595,9 @@ _CheckOnlineFirmwareSHA256_()
 
     if [ -f "$firmware_file" ]
     then
-        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
+        fw_sig="$(openssl sha256 "$firmware_file" | awk -F ' ' '{print $2}')"
         # Extract the corresponding signature for the firmware file from the fetched checksums #
-        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | cut -d' ' -f1)"
+        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | awk -F ' ' '{print $1}')"
         if [ "$fw_sig" != "$dl_sig" ]
         then
             Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
@@ -3621,14 +3616,14 @@ _CheckOnlineFirmwareSHA256_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-31] ##
+## Modified by Martinski W. [2025-Feb-17] ##
 ##----------------------------------------##
 _CheckOfflineFirmwareSHA256_()
 {
     if [ -f "sha256sum.sha256" ] && [ -f "$firmware_file" ]
     then
-        fw_sig="$(openssl sha256 "$firmware_file" | cut -d' ' -f2)"
-        dl_sig="$(grep "$firmware_file" sha256sum.sha256 | cut -d' ' -f1)"
+        fw_sig="$(openssl sha256 "$firmware_file" | awk -F ' ' '{print $2}')"
+        dl_sig="$(grep "$firmware_file" sha256sum.sha256 | awk -F ' ' '{print $1}')"
         if [ "$fw_sig" != "$dl_sig" ]
         then
             echo
