@@ -1,11 +1,11 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.3.9
-## 2025-Jan-02
+## v1.3.10
+## 2025-Feb-18
 
-![image](https://github.com/user-attachments/assets/185f9fe4-acdb-419a-8154-ab6fa6e0fd46)
-![image](https://github.com/user-attachments/assets/8f22818d-2118-4c47-a54a-e54fb147fd6b)
-![image](https://github.com/user-attachments/assets/bd2f41b6-230d-4ef8-ad41-e7a2d8a77746)
-![image](https://github.com/user-attachments/assets/a064e3d1-e615-4021-a5de-127cdb6cb8e4)
+![image](https://github.com/user-attachments/assets/2eebe686-364a-4fb1-9493-e6b91c23b9fd)
+![image](https://github.com/user-attachments/assets/5ca4587f-5b6e-45a6-9c2d-a889b91f8368)
+![image](https://github.com/user-attachments/assets/959d7bb6-20b4-4e97-ab3e-b7b90cc08744)
+![image](https://github.com/user-attachments/assets/2e92af06-a6b1-4573-9a89-6986e739b514)
 
 ## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
@@ -119,8 +119,13 @@ To install MerlinAutoUpdate, follow these steps:
 Enable SSH on your router if not already enabled.
 Use your preferred SSH client to connect to the router.
 
-Download the script to your router:
-Copy and paste:
+*MerlinAU is now available through AMTM!*
+1. Simply connect to the router via SSH and type: "amtm" to load AMTM
+2. Select option (i) to view the list of available applications.
+3. MerlinAU is option (8) from AMTM.
+
+*Manual Installation*
+1. To Download the script to your router, Copy and paste:
 ```bash
 curl --retry 3 "https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "/jffs/scripts/MerlinAU.sh" && chmod +x "/jffs/scripts/MerlinAU.sh"
 ```
