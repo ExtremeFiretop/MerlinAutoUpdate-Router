@@ -125,8 +125,7 @@ Use your preferred SSH client to connect to the router.
 3. MerlinAU is option (8) from AMTM.
 
 *Manual Installation*
-Download the script to your router:
-Copy and paste:
+1. To Download the script to your router, Copy and paste:
 ```bash
 curl --retry 3 "https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "/jffs/scripts/MerlinAU.sh" && chmod +x "/jffs/scripts/MerlinAU.sh"
 ```
