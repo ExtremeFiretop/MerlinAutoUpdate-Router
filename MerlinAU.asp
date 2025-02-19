@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Feb-12 **/
+/** Last Modified: 2025-Feb-18 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -952,39 +952,39 @@ function PrefixCustomSettings (settings, prefix)
 }
 
 // Function to handle the visibility of the ROG and TUF F/W Build Type rows
-function handleROGFWBuildTypeVisibility() 
+function handleROGFWBuildTypeVisibility()
 {
-        // Get the router model from the hidden input
-        var firmwareProductModelElement = document.getElementById('firmwareProductModelID');
-        var routerModel = firmwareProductModelElement ? firmwareProductModelElement.textContent.trim() : '';
+    // Get the router model from the hidden input //
+    var firmwareProductModelElement = document.getElementById('firmwareProductModelID');
+    var routerModel = firmwareProductModelElement ? firmwareProductModelElement.textContent.trim() : '';
 
-        // ROG Model Check //
-        var isROGModel = routerModel.includes('GT-');
-        var hasROGFWBuildType = custom_settings.hasOwnProperty('ROGBuild');
-        var rogFWBuildRow = document.getElementById('rogFWBuildRow');
+    // ROG Model Check //
+    var isROGModel = routerModel.includes('GT-');
+    var hasROGFWBuildType = custom_settings.hasOwnProperty('ROGBuild');
+    var rogFWBuildRow = document.getElementById('rogFWBuildRow');
 
-        if (!isROGModel || !hasROGFWBuildType)
-        {  // Hide //
-            if (rogFWBuildRow) { rogFWBuildRow.style.display = 'none'; }
-        }
-        else
-        {  // Show //
-            if (rogFWBuildRow) { rogFWBuildRow.style.display = ''; }
-        }
+    if (!isROGModel || !hasROGFWBuildType)
+    {  // Hide //
+        if (rogFWBuildRow) { rogFWBuildRow.style.display = 'none'; }
+    }
+    else
+    {  // Show //
+        if (rogFWBuildRow) { rogFWBuildRow.style.display = ''; }
+    }
 
-        // TUF Model Check //
-        var isTUFModel = routerModel.includes('TUF-');
-        var hasTUFWBuildType = custom_settings.hasOwnProperty('TUFBuild');
-        var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
+    // TUF Model Check //
+    var isTUFModel = routerModel.includes('TUF-');
+    var hasTUFWBuildType = custom_settings.hasOwnProperty('TUFBuild');
+    var tufFWBuildRow = document.getElementById('tuffFWBuildRow');
 
-        if (!isTUFModel || !hasTUFWBuildType)
-        {  // Hide //
-            if (tufFWBuildRow) { tufFWBuildRow.style.display = 'none'; }
-        }
-        else
-        {  // Show //
-            if (tufFWBuildRow) { tufFWBuildRow.style.display = ''; }
-        }
+    if (!isTUFModel || !hasTUFWBuildType)
+    {  // Hide //
+        if (tufFWBuildRow) { tufFWBuildRow.style.display = 'none'; }
+    }
+    else
+    {  // Show //
+        if (tufFWBuildRow) { tufFWBuildRow.style.display = ''; }
+    }
 }
 
 /**-------------------------------------**/
@@ -1926,19 +1926,45 @@ function updateTUFROGAvailText()
     }
 }
 
-function handleTUFROGChange(selectElem)
-{
-    // If user picks TUF or ROG, pop up alert //
-    if (selectElem.value === 'TUF' || selectElem.value === 'ROG')
-    {
-        alert("The TUF/ROG build will apply only if a corresponding TUF or ROG firmware image is available. Otherwise, the Pure build will be used.");
-    }
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Feb-18] **/
+/**-------------------------------------**/
+const ROG_BuildTypeMsg = 'The ROG build type preference will apply only if a compatible ROG firmware image is available. Otherwise, the Pure Non-ROG build will be used instead.';
+const TUF_BuildTypeMsg = 'The TUF build type preference will apply only if a compatible TUF firmware image is available. Otherwise, the Pure Non-TUF build will be used instead.';
 
+function ShowBuildTypeHint (formField, buildType)
+{
+   let showBuildMsg = false, buildTypeMsg = '';
+   if (buildType === 'ROG')
+   {
+       showBuildMsg = true;
+       buildTypeMsg = ROG_BuildTypeMsg;
+   }
+   else if (buildType === 'TUF')
+   {
+       showBuildMsg = true;
+       buildTypeMsg = TUF_BuildTypeMsg;
+   }
+   if (showBuildMsg)
+   {
+       $(formField)[0].onmouseout = nd;
+       return overlib(buildTypeMsg,0,0);
+   }
+}
+
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Feb-18] **/
+/**----------------------------------------**/
+function handleTUFROGChange (selectElem)
+{
     if (selectElem.id === 'rogFWBuildType')
     {
         let rogMsgSpan = document.getElementById('rogFWBuildTypeAvailMsg');
         if (selectElem.value === 'ROG')
-        { rogMsgSpan.style.display = 'inline-block'; }
+        {
+            alert(ROG_BuildTypeMsg);
+            rogMsgSpan.style.display = 'inline-block';
+        }
         else
         { rogMsgSpan.style.display = 'none'; }
     }
@@ -1946,7 +1972,10 @@ function handleTUFROGChange(selectElem)
     {
         let tufMsgSpan = document.getElementById('tuffFWBuildTypeAvailMsg');
         if (selectElem.value === 'TUF')
-        { tufMsgSpan.style.display = 'inline-block'; }
+        {
+            alert(TUF_BuildTypeMsg);
+            tufMsgSpan.style.display = 'inline-block';
+        }
         else
         { tufMsgSpan.style.display = 'none'; }
     }
@@ -2351,7 +2380,11 @@ function initializeCollapsibleSections()
    </td>
 </tr>
 <tr id="rogFWBuildRow">
-   <td style="text-align: left;"><label for="rogFWBuildType">ROG F/W Build Type</label></td>
+   <td style="text-align: left;">
+      <label for="rogFWBuildType">
+      <a class="hintstyle" href="javascript:void(0);" onclick="ShowBuildTypeHint(this,'ROG');">F/W Build Type Preference</a>
+      </label>
+   </td>
    <td>
       <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;" onchange="handleTUFROGChange(this)">
          <option value="ROG">ROG</option>
@@ -2359,12 +2392,16 @@ function initializeCollapsibleSections()
       </select>
     <span id="rogFWBuildTypeAvailMsg"
           style="margin-left:10px; display:none; font-size:12px; font-weight:bolder;">
-      Note: Only if available
+      NOTE: Applies only if available
     </span>
    </td>
 </tr>
 <tr id="tuffFWBuildRow">
-   <td style="text-align: left;"><label for="tuffFWBuildType">TUF F/W Build Type</label></td>
+   <td style="text-align: left;">
+      <label for="tuffFWBuildType">
+      <a class="hintstyle" href="javascript:void(0);" onclick="ShowBuildTypeHint(this,'TUF');">F/W Build Type Preference</a>
+      </label>
+   </td>
    <td>
       <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 20%;" onchange="handleTUFROGChange(this)">
          <option value="TUF">TUF</option>
@@ -2372,7 +2409,7 @@ function initializeCollapsibleSections()
       </select>
     <span id="tuffFWBuildTypeAvailMsg"
           style="margin-left:10px; display:none; font-size:12px; font-weight:bolder;">
-      Note: Only if available
+      NOTE: Applies only if available
     </span>
    </td>
 </tr>
