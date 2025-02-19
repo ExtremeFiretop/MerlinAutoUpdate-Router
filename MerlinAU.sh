@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-17
+# Last Modified: 2025-Feb-18
 ###################################################################
 set -u
 
@@ -61,7 +61,7 @@ routerModelCheckFailed=false
 offlineUpdateTrigger=false
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
+## Modified by Martinski W. [2025-Feb-18] ##
 ##----------------------------------------##
 readonly NOct="\e[0m"
 readonly BOLDct="\e[1m"
@@ -70,13 +70,17 @@ readonly REDct="\e[1;31m"
 readonly GRNct="\e[1;32m"
 readonly YLWct="\e[1;33m"
 readonly BLUEct="\e[1;34m"
-readonly MAGENTAct="\e[1;35m"
+readonly MGNTct="\e[1;35m"  #Magenta#
 readonly CYANct="\e[1;36m"
 readonly WHITEct="\e[1;37m"
 readonly CRITct="\e[1;41m"
-readonly InvREDct="\e[1;41m"
-readonly InvGRNct="\e[1;42m"
+readonly InvREDct="\e[41m"
+readonly InvGRNct="\e[42m"
+readonly InvMGNct="\e[45m"
+readonly InvBREDct="\e[30;101m"
+readonly InvBGRNct="\e[30;102m"
 readonly InvBYLWct="\e[30;103m"
+readonly InvBMGNct="\e[30;105m"
 
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
@@ -102,7 +106,8 @@ readonly WEBUI_LOCKFD=386
 readonly WEBUI_LOCKFILE="/tmp/addonwebui.lock"
 readonly TEMPFILE="/tmp/MerlinAU_settings_$$.txt"
 readonly webPageFileRegExp="user([1-9]|[1-2][0-9])[.]asp"
-readonly webPageLineRegExp="\{url: \"$webPageFileRegExp\", tabName: \"$SCRIPT_NAME\"\}"
+readonly webPageLineTabExp="\{url: \"$webPageFileRegExp\", tabName: "
+readonly webPageLineRegExp="${webPageLineTabExp}\"$SCRIPT_NAME\"\},"
 
 # Give FIRST priority to built-in binaries over any other #
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
@@ -315,18 +320,21 @@ _WaitForEnterKey_()
 }
 
 ##-------------------------------------##
-## Modified Martinski W. [2025-Jan-20] ##
+## Modified Martinski W. [2025-Feb-18] ##
 ##-------------------------------------##
 _WaitForYESorNO_()
 {
-   local retCode  defltAnswer  promptStr
+   local defltCode=0  defltAnswer=NO  promptStr
 
-   if [ $# -gt 0 ] && [ "$1" = "NO" ]
-   then retCode=1 ; defltAnswer="YES"
-   else retCode=0 ; defltAnswer="NO"
+   if [ $# -eq 0 ]
+   then defltCode=0 ; defltAnswer=NO
+   elif [ "$1" = "NO" ]
+   then defltCode=1 ; defltAnswer=NO
+   elif [ "$1" = "YES" ]
+   then defltCode=0 ; defltAnswer=YES
    fi
 
-   ! "$isInteractive" && return "$retCode"
+   ! "$isInteractive" && return "$defltCode"
 
    if [ $# -eq 0 ] || [ -z "$1" ] || \
       echo "$1" | grep -qE "^(YES|NO)$"
@@ -1789,7 +1797,7 @@ _Check_WebGUI_Page_Exists_()
    then echo "NONE" ; return 1 ; fi
 
    theWebPage="NONE"
-   webPageStr="$(grep -E -m1 "$webPageLineRegExp" "$TEMP_MENU_TREE")"
+   webPageStr="$(grep -E -m1 "^$webPageLineRegExp" "$TEMP_MENU_TREE")"
    if [ -n "$webPageStr" ]
    then
        webPageFile="$(echo "$webPageStr" | grep -owE "$webPageFileRegExp" | head -n1)"
@@ -2508,7 +2516,6 @@ _SCRIPT_UPDATE_()
 
           if _DownloadScriptFiles_ update
           then
-
               if "$inRouterSWmode"
               then _SetVersionSharedSettings_ local "$DLRepoVersion" ; fi
               printf "\n$(date) - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
@@ -4808,7 +4815,7 @@ _ChangeBuildType_TUF_()
    else
        display_choice="Pure Build"
    fi
-   printf "\n\nCurrent Build Type: ${GRNct}${display_choice}${NOct}.\n"
+   printf "\nCurrent Build Type: ${GRNct}${display_choice}${NOct}.\n"
 
    doReturnToMenu=false
    while true
@@ -4816,7 +4823,7 @@ _ChangeBuildType_TUF_()
        printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}TUF${NOct} themed user interface"
-       printf "\n     ${REDct}(Applies only if TUF F/W is available; otherwise, defaults to Pure build)${NOct}\n"
+       printf "\n     ${REDct}(Applies only if TUF F/W is available)${NOct}\n"
        printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}Non-TUF${NOct} themed user interface"
        printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
@@ -4831,7 +4838,7 @@ _ChangeBuildType_TUF_()
            1) buildtypechoice="ENABLED"
               printf "\n${InvBYLWct} NOTE: ${NOct}\n"
               printf "${CYANct}The TUF build will apply only if a compatible TUF firmware image is available."
-              printf "\nOtherwise, the Pure ${GRNct}Non-TUF${NOct}${CYANct} build will be used instead.${NOct}\n"
+              printf " Otherwise, the Pure ${GRNct}Non-TUF${NOct}${CYANct} build will be used instead.${NOct}\n"
               break
               ;;
            2) buildtypechoice="DISABLED" ; break
@@ -4870,7 +4877,7 @@ _ChangeBuildType_ROG_()
    else
        display_choice="Pure Build"
    fi
-   printf "\n\nCurrent Build Type: ${GRNct}${display_choice}${NOct}.\n"
+   printf "\nCurrent Build Type: ${GRNct}${display_choice}${NOct}.\n"
 
    doReturnToMenu=false
    while true
@@ -4878,7 +4885,7 @@ _ChangeBuildType_ROG_()
        printf "\n${SEPstr}"
        printf "\nChoose your preferred option for the build type to flash:\n"
        printf "\n  ${GRNct}1${NOct}. Original ${REDct}ROG${NOct} themed user interface"
-       printf "\n     ${REDct}(Applies only if ROG F/W is available; otherwise, defaults to Pure build)${NOct}\n"
+       printf "\n     ${REDct}(Applies only if ROG F/W is available)${NOct}\n"
        printf "\n  ${GRNct}2${NOct}. Pure ${GRNct}Non-ROG${NOct} themed user interface"
        printf "\n     ${GRNct}(Recommended)${NOct}\n"
        printf "\n  ${GRNct}e${NOct}. Exit to Advanced Menu\n"
@@ -4893,7 +4900,7 @@ _ChangeBuildType_ROG_()
            1) buildtypechoice="ENABLED"
               printf "\n${InvBYLWct} NOTE: ${NOct}\n"
               printf "${CYANct}The ROG build will apply only if a compatible ROG firmware image is available."
-              printf "\nOtherwise, the Pure ${GRNct}Non-ROG${NOct}${CYANct} build will be used instead.${NOct}\n"
+              printf " Otherwise, the Pure ${GRNct}Non-ROG${NOct}${CYANct} build will be used instead.${NOct}\n"
               break
               ;;
            2) buildtypechoice="DISABLED" ; break
@@ -6582,7 +6589,7 @@ _Set_FW_AutoUpdateCronSchedule_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-26] ##
+## Modified by Martinski W. [2025-Feb-18] ##
 ##----------------------------------------##
 _Toggle_ScriptAutoUpdate_Config_()
 {
@@ -6593,25 +6600,26 @@ _Toggle_ScriptAutoUpdate_Config_()
 
     if [ "$currentSetting" = "DISABLED" ]
     then
-        printf "\n${REDct}*NOTICE*${NOct}\n"
+        printf "\n${InvMGNct} *NOTICE* ${NOct}\n"
         printf "Enabling this feature allows the MerlinAU script to self-update automatically\n"
         printf "without user action when a newer version becomes available. This means both the\n"
         printf "script and the firmware updates become fully automatic. Proceed with caution.\n"
         printf "The recommendation is to always read the changelogs on SNBForums or Github.\n"
 
-        if _WaitForYESorNO_ "\nProceed to ${MAGENTAct}ENABLE${NOct}?"
+        if _WaitForYESorNO_ "\nProceed to ${MGNTct}ENABLE${NOct}?"
         then
             scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
             cronSchedStrHR="$(_TranslateCronSchedHR_ "$scriptUpdateCronSched")"
             printf "\nCurrent Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}\n"
             printf "[${GRNct}${cronSchedStrHR}${NOct}]\n"
 
-            if _WaitForYESorNO_ "\nConfirm the above schedule to check for automatic script updates?"
+            printf "\n${BOLDct}Confirm the above schedule to check for automatic script updates${NOct}"
+            if _WaitForYESorNO_ YES
             then
                 if _ValidateCronJobSchedule_ "$scriptUpdateCronSched"
                 then
                     Update_Custom_Settings "Allow_Script_Auto_Update" "ENABLED"
-                    printf "MerlinAU automatic script updates are now ${MAGENTAct}ENABLED${NOct}.\n"
+                    printf "MerlinAU automatic script updates are now ${MGNTct}ENABLED${NOct}.\n"
                     printf "Adding '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for automatic script updates...\n"
                     if _AddScriptAutoUpdateCronJob_
                     then
@@ -6634,13 +6642,13 @@ _Toggle_ScriptAutoUpdate_Config_()
             retCode=1 ; keepOptionDisabled=true
         fi
     else
-        printf "\n${REDct}*NOTICE*${NOct}\n"
+        printf "\n${InvREDct} *NOTICE* ${NOct}\n"
         printf "Disabling this feature will require user action to update the MerlinAU script\n"
         printf "when a newer version becomes available. This is the default setting.\n"
-        if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
+        if _WaitForYESorNO_ "\nProceed to ${MGNTct}DISABLE${NOct}?"
         then
             Update_Custom_Settings "Allow_Script_Auto_Update" "DISABLED"
-            printf "MerlinAU automatic script updates are now ${GRNct}DISABLED${NOct}.\n"
+            printf "MerlinAU automatic script updates are now ${MGNTct}DISABLED${NOct}.\n"
             printf "Removing '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' cron job for automatic script updates...\n"
             _DelScriptAutoUpdateHook_
             if _DelScriptAutoUpdateCronJob_
@@ -6652,13 +6660,13 @@ _Toggle_ScriptAutoUpdate_Config_()
                 # Error message is printed within function call #
             fi
         else
-            printf "MerlinAU automatic script updates remain ${MAGENTAct}ENABLED${NOct}.\n"
+            printf "MerlinAU automatic script updates remain ${MGNTct}ENABLED${NOct}.\n"
         fi
     fi
 
     if "$keepOptionDisabled"
     then
-        printf "MerlinAU automatic script updates remain ${GRNct}DISABLED.${NOct}\n"
+        printf "MerlinAU automatic script updates remain ${MGNTct}DISABLED.${NOct}\n"
     fi
     _WaitForEnterKey_
     return "$retCode"
@@ -7511,7 +7519,7 @@ _GetOfflineFirmwareVersion_()
 
     if [ -z "$firmware_version" ]
     then
-        fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MAGENTAct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
+        fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MGNTct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
         printf "\n${REDct}**WARNING**${NOct}\n"
         if "$isGNUtonFW"
@@ -9704,7 +9712,7 @@ _ShowMainMenuOptions_()
    fi
 
    if "$isGNUtonFW"
-   then FirmwareFlavor="${MAGENTAct}GNUton${NOct}"
+   then FirmwareFlavor="${MGNTct}GNUton${NOct}"
    else FirmwareFlavor="${BLUEct}Merlin${NOct}"
    fi
 
@@ -9713,7 +9721,7 @@ _ShowMainMenuOptions_()
    then
       if ! FW_NewUpdateVerStr="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
       then FW_NewUpdateVerStr=" ${REDct}NONE FOUND${NOct}"
-      else FW_NewUpdateVerStr="${InvGRNct} ${FW_NewUpdateVerStr} ${NOct}$arrowStr"
+      else FW_NewUpdateVerStr="${InvBGRNct} ${FW_NewUpdateVerStr} ${NOct}$arrowStr"
       fi
       printf "\n  Router's Product Name/Model ID:  ${FW_RouterModelIDstr}${padStr}(H)ide"
       printf "\n  USB-Attached Storage Connected:  $USBConnected"
@@ -9738,7 +9746,7 @@ _ShowMainMenuOptions_()
        printf "\n${padStr}[Currently ${InvREDct} DISABLED ${NOct}]"
    else
        printf "\n  ${GRNct}3${NOct}.  Toggle Automatic F/W Update Checks"
-       printf "\n${padStr}[Currently ${InvGRNct} ENABLED ${NOct}]"
+       printf "\n${padStr}[Currently ${InvBGRNct} ENABLED ${NOct}]"
    fi
    printf "\n${padStr}[Last Notification Date: $notificationStr]\n"
 
@@ -9771,7 +9779,7 @@ _ShowMainMenuOptions_()
    if [ "$scriptUpdateNotify" != "0" ]
    then
       printf "\n ${GRNct}up${NOct}.  Update $SCRIPT_NAME Script"
-      printf "\n${padStr}[Version ${InvGRNct} ${DLRepoVersion} ${NOct} Available for Download]\n"
+      printf "\n${padStr}[Version ${InvBGRNct} ${DLRepoVersion} ${NOct} Available for Download]\n"
    else
       printf "\n ${GRNct}up${NOct}.  Force Update $SCRIPT_NAME Script"
       printf "\n${padStr}[No Update Available]\n"
@@ -9793,7 +9801,7 @@ _ShowMainMenuOptions_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-16] ##
+## Modified by Martinski W. [2025-Feb-18] ##
 ##----------------------------------------##
 _ShowAdvancedOptionsMenu_()
 {
@@ -9850,7 +9858,7 @@ _ShowAdvancedOptionsMenu_()
    printf "\n ${GRNct}au${NOct}.  Toggle Auto-Updates for MerlinAU Script"
    if [ "$ScriptAutoUpdateSetting" = "DISABLED" ]
    then
-       printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
+       printf "\n${padStr}[Currently ${InvBMGNct} DISABLED ${NOct}]\n"
    else
        scriptUpdateCronSched="$(_GetScriptAutoUpdateCronSchedule_)"
        printf "\n${padStr}[Current Schedule: ${GRNct}${scriptUpdateCronSched}${NOct}]"
