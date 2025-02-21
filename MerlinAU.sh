@@ -10395,13 +10395,23 @@ then
                        sleep 1
                        ;;
                    "${SCRIPT_NAME}approvechangelog")
-                       local currApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+                       currApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
                        if [ "$currApprovalStatus" = "BLOCKED" ]
                        then
                            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
                        elif [ "$currApprovalStatus" = "APPROVED" ]
                        then
                            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+                       fi
+                       ;;
+                   "${SCRIPT_NAME}blockchangelog")
+                       currApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
+                       if [ "$currApprovalStatus" = "APPROVED" ]
+                       then
+                           Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
+                       elif [ "$currApprovalStatus" = "BLOCKED" ]
+                       then
+                           Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
                        fi
                        ;;
                    "${SCRIPT_NAME}checkupdate" | \
