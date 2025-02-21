@@ -1229,20 +1229,51 @@ function InitializeFields()
             // Always display the button
             approveChangelogButton.style.display = 'inline-block';
 
-            // Condition: Enable button only if
-            // 1. Changelog Check is enabled
-            // 2. Changelog Approval is neither empty nor "TBD"
-            if (isChangelogCheckEnabled && changelogApprovalValue && changelogApprovalValue !== 'TBD')
+            // Decide whether we want "Approve" or "Block"
+            if (changelogApprovalValue === 'APPROVED')
             {
-                approveChangelogButton.disabled = false; // Enable the button
-                approveChangelogButton.style.opacity = '1'; // Fully opaque
-                approveChangelogButton.style.cursor = 'pointer'; // Pointer cursor for enabled state
+                // Change button text to "Block Changelog"
+                approveChangelogButton.value = "Block Changelog";
+
+                // Make sure it calls a new function that sends a block command
+                approveChangelogButton.onclick = function() {
+                    blockChangelog();
+                    return false;  // Prevent default form submission
+                };
+
+                approveChangelogButton.disabled = false; 
+                approveChangelogButton.style.opacity = '1'; 
+                approveChangelogButton.style.cursor = 'pointer';
+            }
+            else if (changelogApprovalValue === 'BLOCKED')
+            {
+                // If it’s "BLOCKED", e.g. "Approve Changelog" again:
+                approveChangelogButton.value = "Approve Changelog";
+                approveChangelogButton.onclick = function() {
+                    changelogApproval();
+                    return false;
+                };
+                approveChangelogButton.disabled = false; 
             }
             else
             {
-                approveChangelogButton.disabled = true; // Disable the button
-                approveChangelogButton.style.opacity = '0.5'; // Grayed out appearance
-                approveChangelogButton.style.cursor = 'not-allowed'; // Indicate disabled state
+                approveChangelogButton.value = "Approve Changelog";
+
+                // Condition: Enable button only if
+                // 1. Changelog Check is enabled
+                // 2. Changelog Approval is neither empty nor "TBD"
+                if (isChangelogCheckEnabled && changelogApprovalValue && changelogApprovalValue !== 'TBD')
+                {
+                    approveChangelogButton.disabled = false; // Enable the button
+                    approveChangelogButton.style.opacity = '1'; // Fully opaque
+                    approveChangelogButton.style.cursor = 'pointer'; // Pointer cursor for enabled state
+                }
+                else
+                {
+                    approveChangelogButton.disabled = true; // Disable the button
+                    approveChangelogButton.style.opacity = '0.5'; // Grayed out appearance
+                    approveChangelogButton.style.cursor = 'not-allowed'; // Indicate disabled state
+                }
             }
         }
 
@@ -1776,6 +1807,22 @@ function changelogApproval()
    document.form.action_wait.value = 10;
    showLoading();
    document.form.submit();
+}
+
+function blockChangelog()
+{
+    console.log("Blocking Changelog...");
+
+    if (!confirm("Are you sure you want to block this changelog?"))
+    {
+        return;
+    }
+
+    document.form.action_script.value = 'start_MerlinAUblockchangelog';
+    document.form.action_wait.value   = 10;
+
+    showLoading();
+    document.form.submit();
 }
 
 /**----------------------------------------**/
