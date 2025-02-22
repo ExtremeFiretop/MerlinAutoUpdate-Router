@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Feb-18 **/
+/** Last Modified: 2025-Feb-21 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -65,6 +65,20 @@ var externalCheckMsg = '';
 var isEMailConfigEnabledInAMTM = false;
 var scriptAutoUpdateCronSchedHR = 'TBD';
 var fwAutoUpdateCheckCronSchedHR = 'TBD';
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Feb-21] **/
+/**-------------------------------------**/
+/** Set to false for Production Release **/
+var doConsoleLogDEBUG = false;
+function ConsoleLogDEBUG (debugMsg, debugVar)
+{
+   if (!doConsoleLogDEBUG) { return ; }
+   if (typeof debugVar === 'undefined' || debugVar === null)
+   { console.log(debugMsg); }
+   else
+   { console.log(debugMsg, debugVar); }
+}
 
 /**-------------------------------------**/
 /** Added by Martinski W. [2025-Jan-13] **/
@@ -906,7 +920,7 @@ function FWVersionStrToNum (verStr)
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-18] **/
+/** Modified by Martinski W. [2025-Feb-21] **/
 /**----------------------------------------**/
 function LoadCustomSettings()
 {
@@ -920,7 +934,7 @@ function LoadCustomSettings()
             { eval('delete shared_custom_settings.' + prop); }
         }
     }
-    console.log("Shared Custom Settings Loaded:", shared_custom_settings);
+    ConsoleLogDEBUG("Shared Custom Settings Loaded:", shared_custom_settings);
 }
 
 /**-------------------------------------**/
@@ -999,13 +1013,13 @@ function ToggleEmailDependents (isEmailNotifyChecked)
    {
        emailFormat.disabled = false;
        secondaryEmail.disabled = false;
-       SetStatus ('emailNotificationsStatus', 'ENABLED');
+       SetStatusForGUI ('emailNotificationsStatus', 'ENABLED');
    }
    else
    {
        emailFormat.disabled = true;
        secondaryEmail.disabled = true;
-       SetStatus ('emailNotificationsStatus', 'DISABLED');
+       SetStatusForGUI ('emailNotificationsStatus', 'DISABLED');
    }
 }
 
@@ -1041,8 +1055,86 @@ function SetUpEmailNotificationFields()
     }
 }
 
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Feb-21] **/
+/**-------------------------------------**/
+const emailNotifyHint = 'The Email Notifications option requires the AMTM email configuration settings to be enabled and set up.';
+
+const autoBackupsHint = 'The Automatic Backups option requires the BACKUPMON script to be installed on the router.';
+
+const ROG_BuildTypeMsg = 'The ROG build type preference will apply only if a compatible ROG firmware image is available. Otherwise, the Pure Non-ROG build will be used instead.';
+
+const TUF_BuildTypeMsg = 'The TUF build type preference will apply only if a compatible TUF firmware image is available. Otherwise, the Pure Non-TUF build will be used instead.';
+
+const changelogCheckHint = 'Enable verification check to look out for high-risk phrases in the F/W update changelog.';
+
+const approveChangelogHint ='Approve F/W update with changelog containing high-risk phrases.';
+const approveChangelogMsge = 'High-risk phrases were found in the latest F/W changelog. Are you sure you want to approve this changelog and allow the F/W update to proceed?';
+
+const blockChangelogHint = 'Block F/W update with changelog containing high-risk phrases.';
+const blockChangelogMsge = 'High-risk phrases were found in the latest F/W changelog. Are you sure you want to block this changelog and *not* allow the F/W update to proceed?';
+
+function ShowHintMsg (formField)
+{
+   let theHintMsg;
+   switch (formField.name)
+   {
+       case 'ROG_BUILDTYPE':
+           theHintMsg = ROG_BuildTypeMsg;
+           break;
+       case 'TUF_BUILDTYPE':
+           theHintMsg = TUF_BuildTypeMsg;
+           break;
+       case 'CHANGELOG_CHECK':
+           theHintMsg = changelogCheckHint;
+           break;
+       case 'AUTOMATIC_BACKUPS':
+           theHintMsg = autoBackupsHint;
+           break;
+       case 'EMAIL_NOTIFICATION':
+           theHintMsg = emailNotifyHint;
+           break;
+       default:
+           theHintMsg = '';
+           break;
+   }
+   if (theHintMsg.length > 0)
+   {
+       $(formField)[0].onmouseout = nd;
+       return overlib(theHintMsg,0,0);
+   }
+}
+
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-27] **/
+/** Modified by Martinski W. [2025-Feb-21] **/
+/**----------------------------------------**/
+function ApproveChangelog()
+{
+   console.log("Approving Changelog...");
+
+   if (!confirm (approveChangelogMsge)) { return; }
+   document.form.action_script.value = 'start_MerlinAUapprovechangelog';
+   document.form.action_wait.value = 10;
+   showLoading();
+   document.form.submit();
+}
+
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Feb-21] **/
+/**----------------------------------------**/
+function BlockChangelog()
+{
+    console.log("Blocking Changelog...");
+
+    if (!confirm (blockChangelogMsge)) { return; }
+    document.form.action_script.value = 'start_MerlinAUblockchangelog';
+    document.form.action_wait.value = 10;
+    showLoading();
+    document.form.submit();
+}
+
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Feb-21] **/
 /**----------------------------------------**/
 function InitializeFields()
 {
@@ -1076,7 +1168,7 @@ function InitializeFields()
     // Update the Firmware Status display //
     if (fwUpdateCheckStatus)
     {  // Pass the raw string ('ENABLED', 'DISABLED', or 'TBD') //
-       SetStatus('fwUpdateCheckStatus', storedFwUpdateEnabled);
+       SetStatusForGUI('fwUpdateCheckStatus', storedFwUpdateEnabled);
     }
 
     // Safe value assignments //
@@ -1137,11 +1229,11 @@ function InitializeFields()
         { fwUpdateDirectory.value = custom_settings.FW_New_Update_ZIP_Directory_Path || ''; }
 
         // Update Settings Status Table //
-        SetStatus('changelogCheckStatus', custom_settings.CheckChangeLog);
-        SetStatus('betaToReleaseUpdatesStatus', custom_settings.FW_Allow_Beta_Production_Up);
-        SetStatus('tailscaleVPNAccessStatus', custom_settings.Allow_Updates_OverVPN);
-        SetStatus('autoUpdatesScriptEnabledStatus', custom_settings.Allow_Script_Auto_Update);
-        SetStatus('autobackupEnabledStatus', custom_settings.FW_Auto_Backupmon);
+        SetStatusForGUI('changelogCheckStatus', custom_settings.CheckChangeLog);
+        SetStatusForGUI('betaToReleaseUpdatesStatus', custom_settings.FW_Allow_Beta_Production_Up);
+        SetStatusForGUI('tailscaleVPNAccessStatus', custom_settings.Allow_Updates_OverVPN);
+        SetStatusForGUI('autoUpdatesScriptEnabledStatus', custom_settings.Allow_Script_Auto_Update);
+        SetStatusForGUI('autobackupEnabledStatus', custom_settings.FW_Auto_Backupmon);
 
         // Handle fwNotificationsDate as a date //
         let notifyFullDateStr, notifyDateTimeStr;
@@ -1204,80 +1296,72 @@ function InitializeFields()
             { fwUpdateEstimatedRunDateElement.innerHTML = InvYLWct + "TBD" + InvCLEAR; }
         }
 
-        // **Handle Changelog Approval Display**
+        // **Handle Changelog Approval Display** //
         var changelogApprovalElement = document.getElementById('changelogApproval');
         if (changelogApprovalElement)
         {   // Default to "Disabled" if missing //
             var approvalStatus = custom_settings.hasOwnProperty('FW_New_Update_Changelog_Approval') ? custom_settings.FW_New_Update_Changelog_Approval : "Disabled";
-            if (approvalStatus === "TBD")
-            { changelogApprovalElement.innerHTML = InvYLWct + approvalStatus + InvCLEAR; }
-            else if (approvalStatus === "BLOCKED")
-            { changelogApprovalElement.innerHTML = InvREDct + approvalStatus + InvCLEAR; }
-            else if (approvalStatus === "APPROVED")
-            { changelogApprovalElement.innerHTML = InvGRNct + approvalStatus + InvCLEAR; }
-            else // Handle unexpected values gracefully //
-            { changelogApprovalElement.innerHTML = InvREDct + approvalStatus + InvCLEAR; }
+            SetStatusForGUI('changelogApproval', approvalStatus);
         }
 
-        // **Control "Approve Changelog" Button State**
-        var approveChangelogButton = document.getElementById('approveChangelogButton');
-        if (approveChangelogButton)
+        // **Control "Approve/Block Changelog" Button State** //
+        var approveBlockChangelogBtn = document.getElementById('approveBlockChangeLogBtn');
+        if (approveBlockChangelogBtn)
         {
             var isChangelogCheckEnabled = (custom_settings.CheckChangeLog === 'ENABLED');
             var changelogApprovalValue = custom_settings.FW_New_Update_Changelog_Approval;
 
-            // Always display the button
-            approveChangelogButton.style.display = 'inline-block';
+            approveBlockChangelogBtn.style.display = 'inline-block';
 
-            // Decide whether we want "Approve" or "Block"
+            // Decide whether we want "Approve" or "Block" //
             if (changelogApprovalValue === 'APPROVED')
-            {
-                // Change button text to "Block Changelog"
-                approveChangelogButton.value = "Block Changelog";
-
-                // Make sure it calls a new function that sends a block command
-                approveChangelogButton.onclick = function() {
-                    blockChangelog();
+            {   // Toggle functionality //
+                approveBlockChangelogBtn.value = "Block Changelog";
+                approveBlockChangelogBtn.title = blockChangelogHint;
+                approveBlockChangelogBtn.onclick = function() {
+                    BlockChangelog();
                     return false;  // Prevent default form submission
                 };
 
-                approveChangelogButton.disabled = false; 
-                approveChangelogButton.style.opacity = '1'; 
-                approveChangelogButton.style.cursor = 'pointer';
+                approveBlockChangelogBtn.disabled = false; 
+                approveBlockChangelogBtn.style.opacity = '1'; 
+                approveBlockChangelogBtn.style.cursor = 'pointer';
             }
             else if (changelogApprovalValue === 'BLOCKED')
-            {
-                // If it’s "BLOCKED", e.g. "Approve Changelog" again:
-                approveChangelogButton.value = "Approve Changelog";
-                approveChangelogButton.onclick = function() {
-                    changelogApproval();
+            {   // Toggle functionality //
+                approveBlockChangelogBtn.value = "Approve Changelog";
+                approveBlockChangelogBtn.title = approveChangelogHint;
+                approveBlockChangelogBtn.onclick = function() {
+                    ApproveChangelog();
                     return false;
                 };
-                approveChangelogButton.disabled = false; 
+                approveBlockChangelogBtn.disabled = false; 
             }
             else
             {
-                approveChangelogButton.value = "Approve Changelog";
+                approveBlockChangelogBtn.value = "Approve Changelog";
 
                 // Condition: Enable button only if
                 // 1. Changelog Check is enabled
                 // 2. Changelog Approval is neither empty nor "TBD"
                 if (isChangelogCheckEnabled && changelogApprovalValue && changelogApprovalValue !== 'TBD')
                 {
-                    approveChangelogButton.disabled = false; // Enable the button
-                    approveChangelogButton.style.opacity = '1'; // Fully opaque
-                    approveChangelogButton.style.cursor = 'pointer'; // Pointer cursor for enabled state
+                    approveBlockChangelogBtn.title = approveChangelogHint;
+                    approveBlockChangelogBtn.disabled = false;
+                    approveBlockChangelogBtn.style.opacity = '1';
+                    approveBlockChangelogBtn.style.cursor = 'pointer';
                 }
                 else
                 {
-                    approveChangelogButton.disabled = true; // Disable the button
-                    approveChangelogButton.style.opacity = '0.5'; // Grayed out appearance
-                    approveChangelogButton.style.cursor = 'not-allowed'; // Indicate disabled state
+                    approveBlockChangelogBtn.title = '';
+                    approveBlockChangelogBtn.disabled = true;
+                    approveBlockChangelogBtn.style.opacity = '0.5';
+                    approveBlockChangelogBtn.style.cursor = 'not-allowed';
                 }
             }
         }
 
-        // **New Logic to Update "F/W Variant Detected" Based on "extendno"**
+        // **New Logic to Update "F/W Variant Detected" Based on "extendno"** //
         var extendnoElement = document.getElementById('extendno');
         var extendno = extendnoElement ? extendnoElement.value.trim() : '';
 
@@ -1310,7 +1394,7 @@ function Tokenize (inputStr)
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-26] **/
+/** Modified by Martinski W. [2025-Feb-21] **/
 /**----------------------------------------**/
 function GetConfigSettings()
 {
@@ -1376,11 +1460,11 @@ function GetConfigSettings()
                     }
                 }
             }
-            console.log("AJAX Custom Settings Loaded:", ajax_custom_settings);
+            ConsoleLogDEBUG("AJAX Custom Settings Loaded:", ajax_custom_settings);
 
             // Merge both server and AJAX settings //
             custom_settings = Object.assign({}, shared_custom_settings, ajax_custom_settings);
-            console.log("Merged Custom Settings:", custom_settings);
+            ConsoleLogDEBUG("Merged Custom Settings:", custom_settings);
 
             // Initialize fields with the merged settings //
             InitializeFields();
@@ -1495,10 +1579,10 @@ function AssignAjaxSetting (keyName, keyValue)
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-05] **/
+/** Modified by Martinski W. [2025-Feb-21] **/
 /**----------------------------------------**/
 // Helper function to set status with color //
-function SetStatus (elementId, statusValue)
+function SetStatusForGUI (elementId, statusValue)
 {
     let element = document.getElementById(elementId);
     if (element)
@@ -1508,12 +1592,17 @@ function SetStatus (elementId, statusValue)
             case 'ENABLED':
                 element.innerHTML = InvGRNct + "Enabled" + InvCLEAR;
                 break;
+            case 'APPROVED':
+                element.innerHTML = InvGRNct + "Approved" + InvCLEAR;
+                break;
             case 'DISABLED':
                 element.innerHTML = InvREDct + "Disabled" + InvCLEAR;
                 break;
+            case 'BLOCKED':
+                element.innerHTML = InvREDct + "Blocked" + InvCLEAR;
+                break;
             case 'TBD':
-                // Yellow or Magenta?? //
-                element.innerHTML = InvYLWct + "TBD" + InvCLEAR; 
+                element.innerHTML = InvYLWct + "TBD" + InvCLEAR;
                 break;
             default:
                 // Fallback if some unexpected string appears //
@@ -1577,7 +1666,7 @@ function initial()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-24] **/
+/** Modified by Martinski W. [2025-Feb-21] **/
 /**----------------------------------------**/
 function SaveActionsConfig()
 {
@@ -1664,6 +1753,7 @@ function SaveActionsConfig()
 
     // Merge Server Custom Settings and prefixed Action form settings //
     var updatedSettings = Object.assign({}, shared_custom_settings, prefixedActionSettings);
+    ConsoleLogDEBUG("Actions Config Form submitted with settings:", updatedSettings);
 
     // Save merged settings to the hidden input field //
     document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
@@ -1674,11 +1764,10 @@ function SaveActionsConfig()
     showLoading();
     document.form.submit();
     isFormSubmitting = true;
-    console.log("Actions Config Form submitted with settings:", updatedSettings);
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-24] **/
+/** Modified by Martinski W. [2025-Feb-21] **/
 /**----------------------------------------**/
 function SaveAdvancedConfig()
 {
@@ -1759,8 +1848,9 @@ function SaveAdvancedConfig()
 
     // Merge Server Custom Settings and prefixed Advanced settings
     var updatedSettings = Object.assign({}, shared_custom_settings, prefixedAdvancedSettings);
+    ConsoleLogDEBUG("Advanced Config Form submitted with settings:", updatedSettings);
 
-    // Save merged settings to the hidden input field
+    // Save merged settings to the hidden input field //
     document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
 
     // Apply the settings //
@@ -1770,7 +1860,6 @@ function SaveAdvancedConfig()
     document.form.submit();
     isFormSubmitting = true;
     setTimeout(GetExternalCheckResults,4000);
-    console.log("Advanced Config Form submitted with settings:", updatedSettings);
 }
 
 /**----------------------------------------**/
@@ -1794,35 +1883,6 @@ function Uninstall()
    document.form.action_wait.value = 10;
    showLoading();
    document.form.submit();
-}
-
-function changelogApproval()
-{
-   console.log("Approving Changelog...");
-
-   if (!confirm("Are you sure you want to approve this changelog?"))
-   { return; }
-
-   document.form.action_script.value = 'start_MerlinAUapprovechangelog';
-   document.form.action_wait.value = 10;
-   showLoading();
-   document.form.submit();
-}
-
-function blockChangelog()
-{
-    console.log("Blocking Changelog...");
-
-    if (!confirm("Are you sure you want to block this changelog?"))
-    {
-        return;
-    }
-
-    document.form.action_script.value = 'start_MerlinAUblockchangelog';
-    document.form.action_wait.value   = 10;
-
-    showLoading();
-    document.form.submit();
 }
 
 /**----------------------------------------**/
@@ -1971,32 +2031,6 @@ function updateTUFROGAvailText()
         else
         { tufMsgSpan.style.display = 'none'; }
     }
-}
-
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Feb-18] **/
-/**-------------------------------------**/
-const ROG_BuildTypeMsg = 'The ROG build type preference will apply only if a compatible ROG firmware image is available. Otherwise, the Pure Non-ROG build will be used instead.';
-const TUF_BuildTypeMsg = 'The TUF build type preference will apply only if a compatible TUF firmware image is available. Otherwise, the Pure Non-TUF build will be used instead.';
-
-function ShowBuildTypeHint (formField, buildType)
-{
-   let showBuildMsg = false, buildTypeMsg = '';
-   if (buildType === 'ROG')
-   {
-       showBuildMsg = true;
-       buildTypeMsg = ROG_BuildTypeMsg;
-   }
-   else if (buildType === 'TUF')
-   {
-       showBuildMsg = true;
-       buildTypeMsg = TUF_BuildTypeMsg;
-   }
-   if (showBuildMsg)
-   {
-       $(formField)[0].onmouseout = nd;
-       return overlib(buildTypeMsg,0,0);
-   }
 }
 
 /**----------------------------------------**/
@@ -2223,8 +2257,9 @@ function initializeCollapsibleSections()
    </br>
 </td>
 <td style="text-align: center; border: none;" id="approveChangelogCell">
-   <input type="submit" id="approveChangelogButton" onclick="changelogApproval();
-    return false;" value="Approve Changelog" class="button_gen savebutton" name="button">
+   <input type="submit" class="button_gen savebutton" id="approveBlockChangeLogBtn"
+    onclick="ApproveChangelog(); return false;"
+    value="Approve Changelog" title="" name="button">
    <br><label style="margin-top: 5px; margin-bottom:8x"></br>
 </td>
 <td style="text-align: left; border: none;">
@@ -2297,7 +2332,12 @@ function initializeCollapsibleSections()
    </td>
 </tr>
 <tr>
-   <td style="text-align: left;"><label for="changelogCheckEnabled">Enable Changelog Check</label></td>
+   <td style="text-align: left;">
+      <label for="changelogCheckEnabled">
+      <a class="hintstyle" name="CHANGELOG_CHECK" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Enable F/W Changelog Check</a>
+      </label>
+   </td>
    <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
 </tr>
 <!--
@@ -2408,7 +2448,7 @@ function initializeCollapsibleSections()
    </td>
 </tr>
 <tr>
-   <td style="text-align: left;"><label for="betaToReleaseUpdatesEnabled">Beta-to-Release Updates</label></td>
+   <td style="text-align: left;"><label for="betaToReleaseUpdatesEnabled">Beta-to-Release F/W Updates</label></td>
    <td><input type="checkbox" id="betaToReleaseUpdatesEnabled" name="betaToReleaseUpdatesEnabled" /></td>
 </tr>
 <tr>
@@ -2416,7 +2456,12 @@ function initializeCollapsibleSections()
    <td><input type="checkbox" id="tailscaleVPNEnabled" name="tailscaleVPNEnabled" /></td>
 </tr>
 <tr>
-   <td style="text-align: left;"><label for="autobackupEnabled">Enable Auto-Backups</label></td>
+   <td style="text-align: left;">
+      <label for="autobackupEnabled">
+      <a class="hintstyle" name="AUTOMATIC_BACKUPS" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Enable Automatic Backups</a>
+      </label>
+   </td>
    <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
 </tr>
 <tr>
@@ -2429,7 +2474,8 @@ function initializeCollapsibleSections()
 <tr id="rogFWBuildRow">
    <td style="text-align: left;">
       <label for="rogFWBuildType">
-      <a class="hintstyle" href="javascript:void(0);" onclick="ShowBuildTypeHint(this,'ROG');">F/W Build Type Preference</a>
+      <a class="hintstyle" name="ROG_BUILDTYPE" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">F/W Build Type Preference</a>
       </label>
    </td>
    <td>
@@ -2446,7 +2492,8 @@ function initializeCollapsibleSections()
 <tr id="tuffFWBuildRow">
    <td style="text-align: left;">
       <label for="tuffFWBuildType">
-      <a class="hintstyle" href="javascript:void(0);" onclick="ShowBuildTypeHint(this,'TUF');">F/W Build Type Preference</a>
+      <a class="hintstyle" name="TUF_BUILDTYPE" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">F/W Build Type Preference</a>
       </label>
    </td>
    <td>
@@ -2461,7 +2508,12 @@ function initializeCollapsibleSections()
    </td>
 </tr>
 <tr>
-   <td style="text-align: left;"><label for="emailNotificationsEnabled">Enable F/W Update Email Notifications</label></td>
+   <td style="text-align: left;">
+      <label for="emailNotificationsEnabled">
+      <a class="hintstyle" name="EMAIL_NOTIFICATION" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Enable F/W Update Email Notifications</a>
+      </label>
+   </td>
    <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled"
        onclick="ToggleEmailDependents(this.checked);"/></td>
 </tr>
