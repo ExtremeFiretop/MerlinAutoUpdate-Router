@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-18
+# Last Modified: 2025-Feb-21
 ###################################################################
 set -u
 
@@ -637,8 +637,8 @@ _Reset_LEDs_()
    if [ -n "$Toggle_LEDs_PID" ] && \
       kill -EXIT "$Toggle_LEDs_PID" 2>/dev/null
    then
-       kill -TERM $Toggle_LEDs_PID
-       wait $Toggle_LEDs_PID
+       kill -TERM "$Toggle_LEDs_PID"
+       wait "$Toggle_LEDs_PID"
        # Set LEDs to their "initial state" #
        nvram set ${nvramLEDsVar}="$LEDsInitState"
        /sbin/service restart_leds >/dev/null 2>&1
@@ -2274,7 +2274,7 @@ _UpdateConfigFromWebUISettings_()
    local settingsMergeOK=true  logMsgTag="with errors."
 
    # Check for 'MerlinAU_' entries excluding 'version' #
-   if [ "$(grep "^MerlinAU_" "$SHARED_SETTINGS_FILE" | grep -v "_version" -c)" -gt 0 ]
+   if [ "$(grep "^MerlinAU_" "$SHARED_SETTINGS_FILE" | grep -vc "_version")" -gt 0 ]
    then
        Say "Updated settings from WebUI found, merging into $CONFIG_FILE"
        cp -a "$CONFIG_FILE" "${CONFIG_FILE}.bak"
@@ -5581,19 +5581,13 @@ _GetScriptAutoUpdateCronSchedule_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-24] ##
+## Modified by Martinski W. [2025-Feb-21] ##
 ##----------------------------------------##
 _AddScriptAutoUpdateCronJob_()
 {
-   local newSchedule  newSetting  retCode=1
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then
-       newSetting=true
-       newSchedule="$1"
-   else
-       newSetting=false
-       newSchedule="$(_GetScriptAutoUpdateCronSchedule_)"
-   fi
+   local newSchedule  retCode=1
+
+   newSchedule="$(_GetScriptAutoUpdateCronSchedule_)"
    if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD" ]
    then
        newSchedule="$ScriptAU_CRON_DefaultSchedule"
