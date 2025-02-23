@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-21
+# Last Modified: 2025-Feb-22
 ###################################################################
 set -u
 
@@ -500,25 +500,32 @@ _ShowLogo_()
   echo -e "${NOct}"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jul-03] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-22] ##
+##----------------------------------------##
 _ShowAbout_()
 {
     clear
     _ShowLogo_
     cat <<EOF
 About
-  $SCRIPT_NAME is a tool for automating firmware updates on AsusWRT Merlin,
-  ensuring your router stays up-to-date with the latest features and security
-  patches. It simplifies the update process by automatically checking for,
-  downloading, and applying new firmware versions.
-  Developed by ExtremeFiretop and Martinski W.
+  $SCRIPT_NAME is a tool for automating firmware updates on AsusWRT-Merlin,
+  ensuring your router stays up-to-date with the latest features and
+  security patches. It greatly simplifies the firmware update process
+  by automatically checking for, downloading, and applying the latest
+  firmware version update that is currently available.
+  [Developed by ExtremeFiretop and Martinski W.]
+
 License
   $SCRIPT_NAME is free to use under the GNU General Public License
   version 3 (GPL-3.0) https://opensource.org/licenses/GPL-3.0
+
 Help & Support
   https://www.snbforums.com/threads/merlinau-the-ultimate-firmware-auto-updater-addon.88577/
+
+Wiki page:
+  https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki
+
 Source code
   https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
 EOF
@@ -526,26 +533,29 @@ EOF
     _DoExit_ 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-22] ##
+##----------------------------------------##
 _ShowHelp_()
 {
     clear
     _ShowLogo_
     cat <<EOF
 Available commands:
-  ${SCRIPT_NAME}.sh about              explains functionality
-  ${SCRIPT_NAME}.sh help               display available commands
-  ${SCRIPT_NAME}.sh checkupdates       check for available MerlinAU script updates
-  ${SCRIPT_NAME}.sh forceupdate        updates to latest version (force update)
-  ${SCRIPT_NAME}.sh run_now            run update process on router
-  ${SCRIPT_NAME}.sh processNodes       run update check on nodes
-  ${SCRIPT_NAME}.sh develop            switch to development branch
-  ${SCRIPT_NAME}.sh stable             switch to stable branch
-  ${SCRIPT_NAME}.sh startup            runs startup initialization & mounts WebUI page
-  ${SCRIPT_NAME}.sh install            installs add-on files
-  ${SCRIPT_NAME}.sh uninstall          uninstalls add-on files
+  ${SCRIPT_NAME}.sh about           describe add-on functionality
+  ${SCRIPT_NAME}.sh help            show available commands & Wiki URL
+  ${SCRIPT_NAME}.sh checkupdates    check for available MerlinAU updates
+  ${SCRIPT_NAME}.sh forceupdate     update to latest MerlinAU version
+  ${SCRIPT_NAME}.sh run_now         run F/W update process
+  ${SCRIPT_NAME}.sh processNodes    run update check on nodes
+  ${SCRIPT_NAME}.sh develop         switch to development branch
+  ${SCRIPT_NAME}.sh stable          switch to stable master branch
+  ${SCRIPT_NAME}.sh startup         run startup initialization actions
+  ${SCRIPT_NAME}.sh install         install MerlinAU files
+  ${SCRIPT_NAME}.sh uninstall       uninstall MerlinAU files
+
+Wiki page:
+  https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki
 EOF
     echo
     _DoExit_ 0
@@ -7334,7 +7344,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Oct-04] ##
+## Modified by Martinski W. [2025-Feb-22] ##
 ##----------------------------------------##
 _RemoveCronJobsFromAddOns_()
 {
@@ -7375,7 +7385,10 @@ _RemoveCronJobsFromAddOns_()
    Say "Cron jobs [$cronJobCount] from 3rd-party add-ons were found."
    Say "---------------------------------------------------------------"
 
-   sleep 5
+   "$isInteractive" && \
+   printf "\nPlease wait to allow already started cron jobs to complete execution..."
+   sleep 15
+   "$isInteractive" && printf "\nDone.\n"
    return 0
 }
 
@@ -8459,6 +8472,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         echo
 
         # *WARNING*: NO MORE logging at this point & beyond #
+        sync ; sleep 2 ; echo 3 > /proc/sys/vm/drop_caches ; sleep 3
         /sbin/ejusb -1 0 -u 1 2>/dev/null
 
         #----------------------------------------------------------------------------------#

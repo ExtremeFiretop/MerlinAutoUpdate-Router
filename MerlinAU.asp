@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Feb-21 **/
+/** Last Modified: 2025-Feb-22 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -1062,6 +1062,8 @@ const emailNotifyHint = 'The Email Notifications option requires the AMTM email 
 
 const autoBackupsHint = 'The Automatic Backups option requires the BACKUPMON script to be installed on the router.';
 
+const addonAutoUpdatesHint = 'The daily schedule for automatic updates of MerlinAU is always configured to be 15 minutes *before* the scheduled time for automatic F/W Update checks.';
+
 const ROG_BuildTypeMsg = 'The ROG build type preference will apply only if a compatible ROG firmware image is available. Otherwise, the Pure Non-ROG build will be used instead.';
 
 const TUF_BuildTypeMsg = 'The TUF build type preference will apply only if a compatible TUF firmware image is available. Otherwise, the Pure Non-TUF build will be used instead.';
@@ -1090,6 +1092,9 @@ function ShowHintMsg (formField)
            break;
        case 'AUTOMATIC_BACKUPS':
            theHintMsg = autoBackupsHint;
+           break;
+       case 'ADDON_AUTO_UPDATES':
+           theHintMsg = addonAutoUpdatesHint;
            break;
        case 'EMAIL_NOTIFICATION':
            theHintMsg = emailNotifyHint;
@@ -1799,22 +1804,22 @@ function SaveAdvancedConfig()
     if (fwUpdateDirectory)
     { advanced_settings.FW_New_Update_ZIP_Directory_Path = fwUpdateDirectory.value || '/tmp/mnt/USB1'; }
 
-    // 3) Tailscale/ZeroTier VPN Access - only if not disabled
+    // 3) Tailscale/ZeroTier VPN Access - only if not disabled //
     let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
     if (tailscaleVPNEnabled && !tailscaleVPNEnabled.disabled)
     { advanced_settings.Allow_Updates_OverVPN = tailscaleVPNEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
-    // 4) Auto-Updates for Script - only if not disabled
+    // 4) Automatic Updates for Script - only if not disabled //
     let script_AutoUpdate_Check = document.getElementById('Script_AutoUpdate_Check');
     if (script_AutoUpdate_Check && !script_AutoUpdate_Check.disabled)
     { advanced_settings.Allow_Script_Auto_Update = script_AutoUpdate_Check.checked ? 'ENABLED' : 'DISABLED'; }
 
-    // 5) Beta-to-Release Updates - only if not disabled
+    // 5) Beta-to-Release Updates - only if not disabled //
     let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
     if (betaToReleaseUpdatesEnabled && !betaToReleaseUpdatesEnabled.disabled)
     { advanced_settings.FW_Allow_Beta_Production_Up = betaToReleaseUpdatesEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
-    // 6) Auto-Backup - only if not disabled
+    // 6) Automatic Backups - only if not disabled //
     let autobackupEnabled = document.getElementById('autobackupEnabled');
     if (autobackupEnabled && !autobackupEnabled.disabled)
     { advanced_settings.FW_Auto_Backupmon = autobackupEnabled.checked ? 'ENABLED' : 'DISABLED'; }
@@ -2133,7 +2138,13 @@ function initializeCollapsibleSections()
 <div>&nbsp;</div>
 <div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
 <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
-<div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI.</div>
+<div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI
+<span style="margin-left:8px;" id="WikiURL"">[
+   <a style="font-weight:bolder; text-decoration:underline; cursor:pointer;"
+      href="https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki"
+      title="Go to MerlinAU Wiki page" target="_blank">Wiki</a> ]
+</span>
+</div>
 <div style="line-height:10px;">&nbsp;</div>
 
 <!-- Parent Table to Arrange Firmware and Settings Status Side by Side -->
@@ -2218,7 +2229,7 @@ function initializeCollapsibleSections()
    <td style="padding: 4px; font-weight: bolder;" id="tailscaleVPNAccessStatus">Disabled</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 180px;"><strong>Auto-Backup Enabled:</strong></td>
+   <td style="padding: 4px; width: 180px;"><strong>Automatic Backups:</strong></td>
    <td style="padding: 4px; font-weight: bolder;" id="autobackupEnabledStatus">Disabled</td>
 </tr>
 <tr>
@@ -2465,7 +2476,12 @@ function initializeCollapsibleSections()
    <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
 </tr>
 <tr>
-   <td style="text-align: left;"><label for="Script_AutoUpdate_Check">Enable Auto-Updates for MerlinAU</label></td>
+   <td style="text-align: left;">
+      <label for="Script_AutoUpdate_Check">
+      <a class="hintstyle" name="ADDON_AUTO_UPDATES" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Enable Auto-Updates for MerlinAU</a>
+      </label>
+   </td>
    <td>
       <input type="checkbox" id="Script_AutoUpdate_Check" name="Script_AutoUpdate_Check"/>
       <span id="Script_AutoUpdate_SchedText" style="margin-left:10px; display:none; font-size: 12px; font-weight: bolder;"></span>
