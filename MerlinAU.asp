@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Feb-22 **/
+/** Last Modified: 2025-Feb-23 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -66,6 +66,8 @@ var isEMailConfigEnabledInAMTM = false;
 var scriptAutoUpdateCronSchedHR = 'TBD';
 var fwAutoUpdateCheckCronSchedHR = 'TBD';
 
+const validationErrorMsg = 'Validation failed. Please correct invalid value and try again.';
+
 /**-------------------------------------**/
 /** Added by Martinski W. [2025-Feb-21] **/
 /**-------------------------------------**/
@@ -74,7 +76,7 @@ var doConsoleLogDEBUG = false;
 function ConsoleLogDEBUG (debugMsg, debugVar)
 {
    if (!doConsoleLogDEBUG) { return ; }
-   if (typeof debugVar === 'undefined' || debugVar === null)
+   if (debugVar === null || typeof debugVar === 'undefined')
    { console.log(debugMsg); }
    else
    { console.log(debugMsg, debugVar); }
@@ -683,69 +685,120 @@ function FWConvertWebUISettingsToCronSchedule (oldRawCronSchedule)
    return (newRawCronSchedule);
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-15] **/
-/**-------------------------------------**/
-// To support 'fwUpdateDirectory' element //
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Feb-23] **/
+/**----------------------------------------**/
+// To support 'Directory Path' elements //
 const fwUpdateDirPath =
 {
-   minLen: 5, maxLen: 200,
-   currLen: 0, hasValidChars: true, thePath: '',
-   extCheckID: 0x01, extCheckOK: true, extCheckMsg: '',
+   minLen: 5, maxLen: 220,
+   ZIPpathLen: 0, ZIPpathStr: '', ZIPdirHasValidChars: true,
+   LOGpathLen: 0, LOGpathStr: '', LOGdirHasValidChars: true,
+   extCheckZIPdirID: 0x01, extCheckZIPdirOK: true, extCheckZIPdirMSG: '',
+   extCheckLOGdirID: 0x02, extCheckLOGdirOK: true, extCheckLOGdirMSG: '',
    pathRegExp: '^(/[a-zA-Z0-9 ._#-]+)(/[a-zA-Z0-9 ._#-]+)+$',
 
-   ErrorMsg: function()
+   ErrorMsg: function(dirType)
    {
+      let thePathLength = 0, hasValidChars = true;
       const errStr = 'The directory path is INVALID.';
-      if (this.currLen < this.minLen)
+
+      if (dirType === 'ZIP')
+      {
+          thePathLength = this.ZIPpathLen;
+          hasValidChars = this.ZIPdirHasValidChars;
+      }
+      else if (dirType === 'LOG')
+      {
+          thePathLength = this.LOGpathLen;
+          hasValidChars = this.LOGdirHasValidChars;
+      }
+      if (thePathLength < this.minLen)
       {
          const excMinLen = (this.minLen - 1);
          return (`${errStr}\nThe path string must be greater than ${excMinLen} characters.`);
       }
-      if (this.currLen > this.maxLen)
+      if (thePathLength > this.maxLen)
       {
          const excMaxLen = (this.maxLen + 1);
          return (`${errStr}\nThe path string must be less than ${excMaxLen} characters.`);
       }
-      if (!this.hasValidChars)
+      if (!hasValidChars)
       {
          return (`${errStr}\nThe path string does not meet syntax requirements.`);
       }
-      if (!this.extCheckOK && this.extCheckMsg.length > 0)
+      if (dirType === 'ZIP' &&
+          !this.extCheckZIPdirOK &&
+          this.extCheckZIPdirMSG !== 'OK' &&
+          this.extCheckZIPdirMSG.length > 0)
       {
-         let extErrorMsg = this.extCheckMsg;
-         //Reset for Next Check//
-         this.extCheckOK = true; this.extCheckMsg = '';
-         return (`The directory path was INVALID.\n${extErrorMsg}`);
+         return (`${errStr}\n\n${this.extCheckZIPdirMSG}\n`);
+      }
+      if (dirType === 'LOG' &&
+          !this.extCheckLOGdirOK &&
+          this.extCheckLOGdirMSG !== 'OK' &&
+          this.extCheckLOGdirMSG.length > 0)
+      {
+         return (`${errStr}\n\n${this.extCheckLOGdirMSG}\n`);
       }
       return (`${errStr}`);
    },
-   ValidatePath: function(formField)
+   ValidatePath: function(formField, dirType)
    {
       const inputVal = formField.value;
       const inputLen = formField.value.length;
-      this.thePath = inputVal;
-      this.currLen = inputLen;
 
-      if (inputLen < this.minLen || inputLen > this.maxLen)
-      { return false; }
+      let dirHasValidChars = true;
       let foundMatch = inputVal.match (`${this.pathRegExp}`);
-      if (foundMatch == null)
-      { this.hasValidChars = false; return false; }
-      else
-      { this.hasValidChars = true; }
-      if (!this.extCheckOK && this.extCheckMsg.length > 0)
+      if (foundMatch === null) { dirHasValidChars = false; }
+
+      if (dirType === 'ZIP')
+      {
+          this.ZIPpathLen = inputLen;
+          this.ZIPpathStr = inputVal;
+          this.ZIPdirHasValidChars = dirHasValidChars;
+      }
+      else if (dirType === 'LOG')
+      {
+          this.LOGpathLen = inputLen;
+          this.LOGpathStr = inputVal;
+          this.LOGdirHasValidChars = dirHasValidChars;
+      }
+
+      if (inputLen < this.minLen || inputLen > this.maxLen) { return false; }
+      if (!dirHasValidChars) { return false; }
+
+      if (dirType === 'ZIP' &&
+          !this.extCheckZIPdirOK &&
+          this.extCheckZIPdirMSG !== 'OK' &&
+          this.extCheckZIPdirMSG.length > 0)
       { return false; }
+
+      if (dirType === 'LOG' &&
+          !this.extCheckLOGdirOK &&
+          this.extCheckLOGdirMSG !== 'OK' &&
+          this.extCheckLOGdirMSG.length > 0)
+      { return false; }
+
       return true;
+   },
+   ResetExtCheckVars: function()
+   {   //Reset for Next Check//
+       this.extCheckZIPdirOK = true;
+       this.extCheckLOGdirOK = true;
+       this.extCheckZIPdirMSG = 'OK';
+       this.extCheckLOGdirMSG = 'OK';
    }
 };
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-15] **/
-/**-------------------------------------**/
-function ValidateDirectoryPath (formField)
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Feb-23] **/
+/**----------------------------------------**/
+function ValidateDirectoryPath (formField, dirType)
 {
-   if (fwUpdateDirPath.ValidatePath(formField))
+   if (formField === null) { return false; }
+
+   if (fwUpdateDirPath.ValidatePath(formField, dirType))
    {
       $(formField).removeClass('Invalid');
       $(formField).off('mouseover');
@@ -755,14 +808,14 @@ function ValidateDirectoryPath (formField)
    {
       formField.focus();
       $(formField).addClass('Invalid');
-      $(formField).on('mouseover',function(){return overlib(fwUpdateDirPath.ErrorMsg(),0,0);});
+      $(formField).on('mouseover',function(){return overlib(fwUpdateDirPath.ErrorMsg(dirType),0,0);});
       $(formField)[0].onmouseout = nd;
       return false;
    }
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-27] **/
+/** Modified by Martinski W. [2025-Feb-23] **/
 /**----------------------------------------**/
 function GetExternalCheckResults()
 {
@@ -781,25 +834,51 @@ function GetExternalCheckResults()
 
             // Skip during form submission //
             if (isFormSubmitting) { return true ; }
+            let validationFailed = false;
+            let validationStatus = '';
 
             if (externalCheckOK)
             {
-               fwUpdateDirPath.extCheckOK = true;
-               fwUpdateDirPath.extCheckMsg = '';
+               fwUpdateDirPath.ResetExtCheckVars();
                return true;
             }
-            if ((externalCheckID & fwUpdateDirPath.extCheckID) > 0)
-            {
-                externalCheckOK = true; //Reset for next check//
-                fwUpdateDirPath.extCheckOK = false;
-                fwUpdateDirPath.extCheckMsg = externalCheckMsg;
+            let fwUpdateZIPdirectory = document.getElementById('fwUpdateZIPDirectory');
+            let fwUpdateLOGdirectory = document.getElementById('fwUpdateLOGDirectory');
 
-                let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
-                if (!ValidateDirectoryPath (fwUpdateDirectory))
+            if ((externalCheckID & fwUpdateDirPath.extCheckZIPdirID) > 0)
+            {
+                fwUpdateDirPath.extCheckZIPdirOK = false;
+                fwUpdateDirPath.extCheckZIPdirMSG = externalCheckMsg;
+
+                if (fwUpdateZIPdirectory !== null &&
+                    typeof fwUpdateZIPdirectory !== 'undefined' &&
+                    !ValidateDirectoryPath (fwUpdateZIPdirectory, 'ZIP'))
                 {
-                    alert('Validation failed.\n\n' + fwUpdateDirPath.ErrorMsg());
-                    return false;
+                    validationFailed = true;
+                    validationStatus = fwUpdateDirPath.ErrorMsg('ZIP');
                 }
+            }
+            if ((externalCheckID & fwUpdateDirPath.extCheckLOGdirID) > 0)
+            {
+                fwUpdateDirPath.extCheckLOGdirOK = false;
+                fwUpdateDirPath.extCheckLOGdirMSG = externalCheckMsg;
+
+                if (fwUpdateLOGdirectory !== null &&
+                    typeof fwUpdateLOGdirectory !== 'undefined' &&
+                    !ValidateDirectoryPath (fwUpdateLOGdirectory, 'LOG'))
+                {
+                    validationFailed = true;
+                    validationStatus = fwUpdateDirPath.ErrorMsg('LOG');
+                }
+            }
+            if (validationFailed)
+            {
+                externalCheckOK = true; //Reset for Next Check//
+                fwUpdateDirPath.ResetExtCheckVars();
+                alert('Validation failed.\n' + validationStatus);
+                setTimeout(ValidateDirectoryPath, 5000, fwUpdateZIPdirectory, 'ZIP');
+                setTimeout(ValidateDirectoryPath, 5000, fwUpdateLOGdirectory, 'LOG');
+                return false;
             }
         }
     });
@@ -948,7 +1027,7 @@ function GetScriptVersion (versionType)
     else if (versionType == 'server')
     { versionProp = shared_custom_settings.MerlinAU_version_server; }
 
-    if (typeof versionProp == 'undefined' || versionProp == null)
+    if (versionProp === null || typeof versionProp === 'undefined')
     { return 'N/A'; }
     else
     { return versionProp; }
@@ -1055,14 +1134,22 @@ function SetUpEmailNotificationFields()
     }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Feb-21] **/
-/**-------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Feb-23] **/
+/**----------------------------------------**/
 const emailNotifyHint = 'The Email Notifications option requires the AMTM email configuration settings to be enabled and set up.';
 
 const autoBackupsHint = 'The Automatic Backups option requires the BACKUPMON script to be installed on the router.';
 
 const addonAutoUpdatesHint = 'The daily schedule for automatic updates of MerlinAU is always configured to be 15 minutes *before* the scheduled time for automatic F/W Update checks.';
+
+const FWUpdateDirZIPHint = 'This is the directory path where the subdirectory [MerlinAU.d] will be located to download and store the new F/W update files.';
+
+const FWUpdateDirLOGHint = 'This is the directory path where the subdirectory [MerlinAU.d] will be located to store the log files of the F/W update process.';
+
+const betaToReleaseHint = 'Enabling this option allows the F/W update process to detect an installed Beta version and proceed to update to the latest production release version.';
+
+const allowVPNAccessHint = 'Enabling this option allows Tailscale and ZeroTier VPN services (if installed) to remain active during the firmware update process. This may be needed when doing a firmware update to a router while connected remotely via a VPN.';
 
 const ROG_BuildTypeMsg = 'The ROG build type preference will apply only if a compatible ROG firmware image is available. Otherwise, the Pure Non-ROG build will be used instead.';
 
@@ -1081,6 +1168,12 @@ function ShowHintMsg (formField)
    let theHintMsg;
    switch (formField.name)
    {
+       case 'FW_UPDATE_ZIPDIR':
+           theHintMsg = FWUpdateDirZIPHint;
+           break;
+       case 'FW_UPDATE_LOGDIR':
+           theHintMsg = FWUpdateDirLOGHint;
+           break;
        case 'ROG_BUILDTYPE':
            theHintMsg = ROG_BuildTypeMsg;
            break;
@@ -1089,6 +1182,12 @@ function ShowHintMsg (formField)
            break;
        case 'CHANGELOG_CHECK':
            theHintMsg = changelogCheckHint;
+           break;
+       case 'BETA_TO_RELEASE':
+           theHintMsg = betaToReleaseHint;
+           break;
+       case 'ALLOW_VPN_ACCESS':
+           theHintMsg = allowVPNAccessHint;
            break;
        case 'AUTOMATIC_BACKUPS':
            theHintMsg = autoBackupsHint;
@@ -1139,7 +1238,7 @@ function BlockChangelog()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-21] **/
+/** Modified by Martinski W. [2025-Feb-23] **/
 /**----------------------------------------**/
 function InitializeFields()
 {
@@ -1154,7 +1253,8 @@ function InitializeFields()
     let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
     let script_AutoUpdate_Check = document.getElementById('Script_AutoUpdate_Check');
     let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
-    let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
+    let fwUpdateZIPdirectory = document.getElementById('fwUpdateZIPDirectory');
+    let fwUpdateLOGdirectory = document.getElementById('fwUpdateLOGDirectory');
 
     // Instead of reading from firmware_check_enable, read from the custom_settings //
     let storedFwUpdateEnabled = custom_settings.FW_Update_Check || 'DISABLED'; 
@@ -1230,8 +1330,11 @@ function InitializeFields()
         if (betaToReleaseUpdatesEnabled)
         { betaToReleaseUpdatesEnabled.checked = (custom_settings.FW_Allow_Beta_Production_Up === 'ENABLED'); }
 
-        if (fwUpdateDirectory)
-        { fwUpdateDirectory.value = custom_settings.FW_New_Update_ZIP_Directory_Path || ''; }
+        if (fwUpdateZIPdirectory !== null && typeof fwUpdateZIPdirectory !== 'undefined')
+        { fwUpdateZIPdirectory.value = custom_settings.FW_New_Update_ZIP_Directory_Path || ''; }
+
+        if (fwUpdateLOGdirectory !== null && typeof fwUpdateLOGdirectory !== 'undefined')
+        { fwUpdateLOGdirectory.value = custom_settings.FW_New_Update_LOG_Directory_Path || ''; }
 
         // Update Settings Status Table //
         SetStatusForGUI('changelogCheckStatus', custom_settings.CheckChangeLog);
@@ -1424,7 +1527,7 @@ function GetConfigSettings()
                 { continue; }  //Skip comments & empty lines//
 
                 tokenList = Tokenize (configLines[jIndx]);
-            
+
                 for (var kIndx = 0; kIndx < tokenList.length; kIndx++)
                 {
                     tokenStr = tokenList[kIndx];
@@ -1479,7 +1582,7 @@ function GetConfigSettings()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-26] **/
+/** Modified by Martinski W. [2025-Feb-23] **/
 /**----------------------------------------**/
 // Helper function to assign settings based on key //
 function AssignAjaxSetting (keyName, keyValue)
@@ -1508,6 +1611,10 @@ function AssignAjaxSetting (keyName, keyValue)
 
        case keyUpper === 'FW_NEW_UPDATE_ZIP_DIRECTORY_PATH':
            ajax_custom_settings.FW_New_Update_ZIP_Directory_Path = keyValue;
+           break;
+
+       case keyUpper === 'FW_NEW_UPDATE_LOG_DIRECTORY_PATH':
+           ajax_custom_settings.FW_New_Update_LOG_Directory_Path = keyValue;
            break;
 
        case keyUpper === 'ALLOW_UPDATES_OVERVPN':
@@ -1671,7 +1778,7 @@ function initial()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-21] **/
+/** Modified by Martinski W. [2025-Feb-23] **/
 /**----------------------------------------**/
 function SaveActionsConfig()
 {
@@ -1692,30 +1799,30 @@ function SaveActionsConfig()
     }
     if (!ValidatePasswordString (document.getElementById('routerPassword')))
     {
-        alert('Validation failed. Please correct invalid value and try again.\n\n' + loginPassword.ErrorMsg());
+        alert(`${validationErrorMsg}\n\n` + loginPassword.ErrorMsg());
         return false;
     }
     if (!ValidatePostponedDays (document.form.fwUpdatePostponement))
     {
-        alert('Validation failed. Please correct invalid value and try again.\n\n' + fwPostponedDays.ErrorMsg());
+        alert(`${validationErrorMsg}\n\n` + fwPostponedDays.ErrorMsg());
         return false;
     }
     if (document.form.fwScheduleHOUR.disabled === false &&
         !ValidateFWUpdateTime (document.form.fwScheduleHOUR, 'HOUR'))
     {
-        alert('Validation failed. Please correct invalid value and try again.\n\n' + fwScheduleTime.ErrorMsg('HOUR'));
+        alert(`${validationErrorMsg}\n\n` + fwScheduleTime.ErrorMsg('HOUR'));
         return false;
     }
     if (document.form.fwScheduleMINS.disabled === false &&
         !ValidateFWUpdateTime (document.form.fwScheduleMINS, 'MINS'))
     {
-        alert('Validation failed. Please correct invalid value and try again.\n\n' + fwScheduleTime.ErrorMsg('MINS'));
+        alert(`${validationErrorMsg}\n\n` + fwScheduleTime.ErrorMsg('MINS'));
         return false;
     }
     if (document.getElementById('fwSchedBoxDAYSX').checked &&
         !ValidateFWUpdateXDays (document.form.fwScheduleXDAYS, 'DAYS'))
     {
-        alert('Validation failed. Please correct invalid value and try again.\n\n' + fwScheduleTime.ErrorMsg('DAYS'));
+        alert(`${validationErrorMsg}\n\n` + fwScheduleTime.ErrorMsg('DAYS'));
         return false;
     }
     let fwUpdateRawCronSchedule = custom_settings.FW_New_Update_Cron_Job_Schedule;
@@ -1743,6 +1850,7 @@ function SaveActionsConfig()
         "MerlinAU_FW_Auto_Backupmon",
         "MerlinAU_FW_Allow_Beta_Production_Up",
         "MerlinAU_FW_New_Update_ZIP_Directory_Path",
+        "MerlinAU_FW_New_Update_LOG_Directory_Path",
         "MerlinAU_FW_New_Update_EMail_Notification",
         "MerlinAU_FW_New_Update_EMail_FormatType",
         "MerlinAU_FW_New_Update_EMail_CC_Address",
@@ -1772,14 +1880,14 @@ function SaveActionsConfig()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-21] **/
+/** Modified by Martinski W. [2025-Feb-23] **/
 /**----------------------------------------**/
 function SaveAdvancedConfig()
 {
     // Clear amng_custom for any existing content before saving //
     document.getElementById('amng_custom').value = '';
 
-    // 1) F/W Update Email Notifications - only if NOT disabled //
+    // F/W Update Email Notifications - only if NOT disabled //
     let emailFormat = document.getElementById('emailFormat');
     let secondaryEmail = document.getElementById('secondaryEmail');
     let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
@@ -1794,37 +1902,53 @@ function SaveAdvancedConfig()
     if (secondaryEmail && !secondaryEmail.disabled)
     { advanced_settings.FW_New_Update_EMail_CC_Address = secondaryEmail.value || 'TBD'; }
 
-    // 2) F/W Update Directory (more checks are made in the shell script) //
-    let fwUpdateDirectory = document.getElementById('fwUpdateDirectory');
-    if (!ValidateDirectoryPath (fwUpdateDirectory))
+    // F/W Update ZIP Directory (more checks are made in the shell script) //
+    let fwUpdateZIPdirectory = document.getElementById('fwUpdateZIPDirectory');
+    if (fwUpdateZIPdirectory !== null && typeof fwUpdateZIPdirectory !== 'undefined')
     {
-        alert('Validation failed. Please correct invalid value and try again.\n\n' + fwUpdateDirPath.ErrorMsg());
-        return false;
+        if (ValidateDirectoryPath (fwUpdateZIPdirectory, 'ZIP'))
+        { advanced_settings.FW_New_Update_ZIP_Directory_Path = fwUpdateZIPdirectory.value; }
+        else
+        {
+            alert(`${validationErrorMsg}\n\n` + fwUpdateDirPath.ErrorMsg('ZIP'));
+            return false;
+        }
     }
-    if (fwUpdateDirectory)
-    { advanced_settings.FW_New_Update_ZIP_Directory_Path = fwUpdateDirectory.value || '/tmp/mnt/USB1'; }
 
-    // 3) Tailscale/ZeroTier VPN Access - only if not disabled //
+    // F/W Update LOG Directory (more checks are made in the shell script) //
+    let fwUpdateLOGdirectory = document.getElementById('fwUpdateLOGDirectory');
+    if (fwUpdateLOGdirectory !== null && typeof fwUpdateLOGdirectory !== 'undefined')
+    {
+        if (ValidateDirectoryPath (fwUpdateLOGdirectory, 'LOG'))
+        { advanced_settings.FW_New_Update_LOG_Directory_Path = fwUpdateLOGdirectory.value; }
+        else
+        {
+            alert(`${validationErrorMsg}\n\n` + fwUpdateDirPath.ErrorMsg('LOG'));
+            return false;
+        }
+    }
+
+    // Tailscale/ZeroTier VPN Access - only if not disabled //
     let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
     if (tailscaleVPNEnabled && !tailscaleVPNEnabled.disabled)
     { advanced_settings.Allow_Updates_OverVPN = tailscaleVPNEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
-    // 4) Automatic Updates for Script - only if not disabled //
+    // Automatic Updates for Script - only if not disabled //
     let script_AutoUpdate_Check = document.getElementById('Script_AutoUpdate_Check');
     if (script_AutoUpdate_Check && !script_AutoUpdate_Check.disabled)
     { advanced_settings.Allow_Script_Auto_Update = script_AutoUpdate_Check.checked ? 'ENABLED' : 'DISABLED'; }
 
-    // 5) Beta-to-Release Updates - only if not disabled //
+    // Beta-to-Release Updates - only if not disabled //
     let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
     if (betaToReleaseUpdatesEnabled && !betaToReleaseUpdatesEnabled.disabled)
     { advanced_settings.FW_Allow_Beta_Production_Up = betaToReleaseUpdatesEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
-    // 6) Automatic Backups - only if not disabled //
+    // Automatic Backups - only if not disabled //
     let autobackupEnabled = document.getElementById('autobackupEnabled');
     if (autobackupEnabled && !autobackupEnabled.disabled)
     { advanced_settings.FW_Auto_Backupmon = autobackupEnabled.checked ? 'ENABLED' : 'DISABLED'; }
 
-    // 7) ROG/TUF F/W Build Type - handle conditional rows if visible
+    // ROG/TUF F/W Build Type - handle conditional rows if visible //
     let rogFWBuildRow = document.getElementById('rogFWBuildRow');
     let rogFWBuildType = document.getElementById('rogFWBuildType');
     if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none' && rogFWBuildType)
@@ -2447,23 +2571,52 @@ function initializeCollapsibleSections()
 </colgroup>
 <tr>
    <td style="text-align: left;">
-     <label for="fwUpdateDirectory">Set Directory for F/W Updates</label>
+      <label for="fwUpdateZIPDirectory">
+      <a class="hintstyle" name="FW_UPDATE_ZIPDIR" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Directory for F/W Update File</a>
+      </label>
    </td>
    <td>
    <input autocomplete="off" type="text"
-     id="fwUpdateDirectory" name="fwUpdateDirectory"
+     id="fwUpdateZIPDirectory" name="fwUpdateZIPDirectory"
      style="width: 275px;" maxlength="200"
      onKeyPress="return validator.isString(this, event)"
-     onblur="ValidateDirectoryPath(this)"
-     onkeyup="ValidateDirectoryPath(this)"/>
+     onblur="ValidateDirectoryPath(this,'ZIP')"
+     onkeyup="ValidateDirectoryPath(this,'ZIP')"/>
    </td>
 </tr>
 <tr>
-   <td style="text-align: left;"><label for="betaToReleaseUpdatesEnabled">Beta-to-Release F/W Updates</label></td>
+   <td style="text-align: left;">
+      <label for="fwUpdateLOGDirectory">
+      <a class="hintstyle" name="FW_UPDATE_LOGDIR" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Directory for F/W Update Log File</a>
+      </label>
+   </td>
+   <td>
+   <input autocomplete="off" type="text"
+     id="fwUpdateLOGDirectory" name="fwUpdateLOGDirectory"
+     style="width: 275px;" maxlength="200"
+     onKeyPress="return validator.isString(this, event)"
+     onblur="ValidateDirectoryPath(this,'LOG')"
+     onkeyup="ValidateDirectoryPath(this,'LOG')"/>
+   </td>
+</tr>
+<tr>
+   <td style="text-align: left;">
+      <label for="betaToReleaseUpdatesEnabled">
+      <a class="hintstyle" name="BETA_TO_RELEASE" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Beta-to-Release F/W Updates</a>
+      </label>
+   </td>
    <td><input type="checkbox" id="betaToReleaseUpdatesEnabled" name="betaToReleaseUpdatesEnabled" /></td>
 </tr>
 <tr>
-   <td style="text-align: left;"><label for="tailscaleVPNEnabled">Tailscale/ZeroTier VPN Access</label></td>
+   <td style="text-align: left;">
+      <label for="tailscaleVPNEnabled">
+      <a class="hintstyle" name="ALLOW_VPN_ACCESS" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Tailscale/ZeroTier VPN Access</a>
+      </label>
+   </td>
    <td><input type="checkbox" id="tailscaleVPNEnabled" name="tailscaleVPNEnabled" /></td>
 </tr>
 <tr>

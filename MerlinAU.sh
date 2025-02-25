@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-22
+# Last Modified: 2025-Feb-23
 ###################################################################
 set -u
 
@@ -1346,15 +1346,125 @@ _GetAllNodeSettings_()
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
+## Added by Martinski W. [2025-Feb-23] ##
 ##-------------------------------------##
+extCheckRETvarID=0x00
+extCheckZIPdirID=0x01
+extCheckLOGdirID=0x02
+extCheckALLvarID=0x0F
+extCheckZIPdirOK=true
+extCheckLOGdirOK=true
+extCheckRETvarOK=true
+extCheckZIPdirMG="OK"
+extCheckLOGdirMG="OK"
+extCheckRETvarMG="OK"
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-27] ##
+##----------------------------------------##
+_InitHelperJSFile_()
+{
+   ! "$inRouterSWmode" && return 0
+
+   [ ! -s "$HELPER_JSFILE" ] && \
+   {
+     echo "var externalCheckID = 0x00;"
+     echo "var externalCheckOK = true;"
+     echo "var externalCheckMsg = '';"
+   } > "$HELPER_JSFILE"
+
+   _WebUI_SetEmailConfigFileFromAMTM_
+   _WebUI_AutoScriptUpdateCronSchedule_
+   _WebUI_AutoFWUpdateCheckCronSchedule_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-23] ##
+##----------------------------------------##
+_UpdateHelperJSFile_()
+{
+   if [ $# -lt 2 ] || \
+      [ -z "$1" ] || [ -z "$2" ] || \
+      ! "$inRouterSWmode"
+   then return 1; fi
+
+   local extCheckMsg=""
+   if [ $# -gt 2 ] && [ -n "$3" ]
+   then extCheckMsg="$3" ; fi
+
+   if [ "$(($1 & extCheckZIPdirID))" -gt 0 ]
+   then
+       extCheckZIPdirOK="$2"
+       extCheckZIPdirMG="$extCheckMsg"
+   fi
+   if [ "$(($1 & extCheckLOGdirID))" -gt 0 ]
+   then
+       extCheckLOGdirOK="$2"
+       extCheckLOGdirMG="$extCheckMsg"
+   fi
+
+   if [ "$1" = "$extCheckALLvarID" ] || \
+      [ "$extCheckZIPdirOK" = "$extCheckLOGdirOK" ]
+   then
+       extCheckRETvarOK="$extCheckZIPdirOK"
+       extCheckRETvarID="$((extCheckZIPdirID | extCheckLOGdirID))"
+       if "$extCheckZIPdirOK"
+       then
+           extCheckRETvarMG="$extCheckZIPdirMG"
+       else
+           extCheckRETvarMG="${extCheckZIPdirMG}\n\n${extCheckLOGdirMG}"
+       fi
+   elif ! "$extCheckZIPdirOK"
+   then
+       extCheckRETvarOK="$extCheckZIPdirOK"
+       extCheckRETvarID="$extCheckZIPdirID"
+       extCheckRETvarMG="$extCheckZIPdirMG"
+   elif ! "$extCheckLOGdirOK"
+   then
+       extCheckRETvarOK="$extCheckLOGdirOK"
+       extCheckRETvarID="$extCheckLOGdirID"
+       extCheckRETvarMG="$extCheckLOGdirMG"
+   fi
+
+   {
+     echo "var externalCheckID = ${extCheckRETvarID};"
+     echo "var externalCheckOK = ${extCheckRETvarOK};"
+     echo "var externalCheckMsg = '${extCheckRETvarMG}';"
+   } > "$HELPER_JSFILE"
+
+   _WebUI_SetEmailConfigFileFromAMTM_
+   _WebUI_AutoScriptUpdateCronSchedule_
+   _WebUI_AutoFWUpdateCheckCronSchedule_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-23] ##
+##----------------------------------------##
 _Validate_FW_UpdateLOG_DirectoryPath_()
 {
-   if [ $# -eq 0 ] || [ -z "$1" ] || [ ! -d "$1" ]
-   then return 1 ; fi
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local updateHelperJS=false
+   if [ $# -eq 2 ] && [ "$2" = "true" ]
+   then updateHelperJS=true ; fi
+
+   if [ ! -d "$1" ]
+   then
+       if "$updateHelperJS"
+       then
+           checkErrorMsg="The directory path for F/W update log files is NOT found:\n[$1]"
+           _UpdateHelperJSFile_ "$extCheckLOGdirID" "false" "$checkErrorMsg"
+       fi
+       Say "${REDct}**ERROR**${NOct}: Directory path [${REDct}${1}${NOct}] for F/W update log files is NOT found."
+       _WaitForEnterKey_
+       return 1
+   fi
 
    if [ "$1" = "$FW_LOG_DIR" ] || [ "$1" = "$FW_LOG_BASE_DIR" ]
-   then return 0 ; fi
+   then
+       _UpdateHelperJSFile_ "$extCheckLOGdirID" "true"
+       return 0
+   fi
 
    local newFullDirPath=""  newBaseDirPath="$1"
 
@@ -1365,7 +1475,12 @@ _Validate_FW_UpdateLOG_DirectoryPath_()
    mkdir -p -m 755 "$newFullDirPath" 2>/dev/null
    if [ ! -d "$newFullDirPath" ]
    then
-       printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${newFullDirPath}${NOct}].\n"
+       if "$updateHelperJS"
+       then
+           checkErrorMsg="The directory path for F/W update log files cannot be created:\n[$newFullDirPath]"
+           _UpdateHelperJSFile_ "$extCheckLOGdirID" "false" "$checkErrorMsg"
+       fi
+       Say "${REDct}**ERROR**${NOct}: Could NOT create directory path [${REDct}${newFullDirPath}${NOct}] for F/W update log files."
        _WaitForEnterKey_
        return 1
    fi
@@ -1376,24 +1491,26 @@ _Validate_FW_UpdateLOG_DirectoryPath_()
    # Update the log directory paths after validation #
    Update_Custom_Settings FW_New_Update_LOG_Directory_Path "$newBaseDirPath"
    Update_Custom_Settings FW_New_Update_LOG_Preferred_Path "$newBaseDirPath"
+   _UpdateHelperJSFile_ "$extCheckLOGdirID" "true"
    return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jan-15] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-23] ##
+##----------------------------------------##
 _Set_FW_UpdateLOG_DirectoryPath_()
 {
-   local newLogBaseDirPath="$FW_LOG_BASE_DIR"  newLogFileDirPath=""
+   local newLOG_BaseDirPath="$FW_LOG_BASE_DIR"
 
    while true
    do
-      printf "\nEnter the directory path where the LOG subdirectory [${GRNct}${FW_LOG_SUBDIR}${NOct}] will be stored.\n"
-      printf "[${theADExitStr}] [CURRENT: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
+      printf "\nEnter the directory path where the subdirectory [${GRNct}${FW_LOG_SUBDIR}${NOct}] will be located.\n"
+      printf "[${theLGExitStr}]\n"
+      printf "[Current Base Path: ${GRNct}${FW_LOG_BASE_DIR}${NOct}]:  "
       read -r userInput
 
-      if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
-      then break ; fi
+      if [ -z "$userInput" ] ; then break ; fi
+      if echo "$userInput" | grep -qE "^(e|exit|Exit)$" ; then return 1 ; fi
 
       if echo "$userInput" | grep -q '/$'
       then userInput="${userInput%/*}" ; fi
@@ -1411,7 +1528,7 @@ _Set_FW_UpdateLOG_DirectoryPath_()
       fi
 
       if [ -d "$userInput" ]
-      then newLogBaseDirPath="$userInput" ; break ; fi
+      then newLOG_BaseDirPath="$userInput" ; break ; fi
 
       rootDir="${userInput%/*}"
       if [ ! -d "$rootDir" ]
@@ -1430,30 +1547,26 @@ _Set_FW_UpdateLOG_DirectoryPath_()
       else
           mkdir -m 755 "$userInput" 2>/dev/null
           if [ -d "$userInput" ]
-          then newLogBaseDirPath="$userInput" ; break
+          then newLOG_BaseDirPath="$userInput" ; break
           else printf "\n${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${userInput}${NOct}].\n\n"
           fi
       fi
    done
 
-   # Double-check current directory indeed exists after menu selection #
-   if [ "$newLogBaseDirPath" = "$FW_LOG_BASE_DIR" ] && [ ! -d "$FW_LOG_DIR" ]
-   then mkdir -p -m 755 "$FW_LOG_DIR" ; fi
-
-   if [ -d "$newLogBaseDirPath" ]
+   if [ -d "$newLOG_BaseDirPath" ]
    then
-       if ! _Validate_FW_UpdateLOG_DirectoryPath_ "$newLogBaseDirPath"
+       if ! _Validate_FW_UpdateLOG_DirectoryPath_ "$newLOG_BaseDirPath"
        then return 1
        fi
        echo "The directory path for the log files was updated successfully."
-       _WaitForEnterKey_ "$advnMenuReturnPromptStr"
+       _WaitForEnterKey_ "$logsMenuReturnPromptStr"
    fi
    return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-23] ##
+##----------------------------------------##
 _Validate_FW_UpdateZIP_DirectoryPath_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -1466,17 +1579,17 @@ _Validate_FW_UpdateZIP_DirectoryPath_()
    then
        if "$updateHelperJS"
        then
-           checkErrorMsg="The directory path [$1] was NOT found."
-           _UpdateHelperJSFile_ 0x01 "false" "$checkErrorMsg"
+           checkErrorMsg="The directory path for F/W update files is NOT found:\n[$1]"
+           _UpdateHelperJSFile_ "$extCheckZIPdirID" "false" "$checkErrorMsg"
        fi
-       Say "${REDct}**ERROR**${NOct}: Directory path [${REDct}${1}${NOct}] is NOT found."
+       Say "${REDct}**ERROR**${NOct}: Directory path [${REDct}${1}${NOct}] for F/W update files is NOT found."
        _WaitForEnterKey_
        return 1
    fi
 
    if [ "$1" = "$FW_ZIP_DIR" ] || [ "$1" = "$FW_ZIP_BASE_DIR" ]
    then
-       _UpdateHelperJSFile_ 0x01 "true"
+       _UpdateHelperJSFile_ "$extCheckZIPdirID" "true"
        return 0
    fi
 
@@ -1491,10 +1604,10 @@ _Validate_FW_UpdateZIP_DirectoryPath_()
    then
        if "$updateHelperJS"
        then
-           checkErrorMsg="The directory path [$newFullDirPath] could NOT be created."
-           _UpdateHelperJSFile_ 0x01 "false" "$checkErrorMsg"
+           checkErrorMsg="The directory path for F/W update files cannot be created:\n[$newFullDirPath]"
+           _UpdateHelperJSFile_ "$extCheckZIPdirID" "false" "$checkErrorMsg"
        fi
-       Say "${REDct}**ERROR**${NOct}: Could NOT create directory [${REDct}${newFullDirPath}${NOct}]"
+       Say "${REDct}**ERROR**${NOct}: Could NOT create directory path [${REDct}${newFullDirPath}${NOct}] for F/W update files."
        _WaitForEnterKey_
        return 1
    fi
@@ -1502,33 +1615,28 @@ _Validate_FW_UpdateZIP_DirectoryPath_()
    rm -fr "${FW_ZIP_DIR:?}"
    rm -f "${newFullDirPath}"/*.zip  "${newFullDirPath}"/*.sha256
    Update_Custom_Settings FW_New_Update_ZIP_Directory_Path "$newBaseDirPath"
-   _UpdateHelperJSFile_ 0x01 "true"
+   _UpdateHelperJSFile_ "$extCheckZIPdirID" "true"
    return 0
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
+## Modified by Martinski W. [2025-Feb-23] ##
 ##----------------------------------------##
 _Set_FW_UpdateZIP_DirectoryPath_()
 {
-   local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"  newZIP_FileDirPath=""
+   local newZIP_BaseDirPath="$FW_ZIP_BASE_DIR"
 
    while true
    do
-      if "$isGNUtonFW"
-      then
-          printf "\nEnter the directory path where the update subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n" 
-      else
-          printf "\nEnter the directory path where the ZIP subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be stored.\n"
-      fi
+      printf "\nEnter the directory path where the update subdirectory [${GRNct}${FW_ZIP_SUBDIR}${NOct}] will be located.\n" 
       if [ -n "$USBMountPoint" ] && _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
       then
           printf "Default directory for USB-attached drive: [${GRNct}${FW_ZIP_BASE_DIR}${NOct}]\n"
       else
           printf "Default directory for 'Local' storage is: [${GRNct}/home/root${NOct}]\n"
       fi
-      printf "\n[${theADExitStr}] [CURRENT: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
-
+      printf "\n[${theADExitStr}]\n"
+      printf "[Current Base Path: ${GRNct}${FW_ZIP_BASE_DIR}${NOct}]:  "
       read -r userInput
 
       if [ -z "$userInput" ] ; then break ; fi
@@ -2173,50 +2281,6 @@ _WebUI_SetEmailConfigFileFromAMTM_()
    _WriteVarDefToHelperJSFile_ "isEMailConfigEnabledInAMTM" "$isEMailConfigEnabledInAMTM" true
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-27] ##
-##----------------------------------------##
-_InitHelperJSFile_()
-{
-   ! "$inRouterSWmode" && return 0
-
-   [ ! -s "$HELPER_JSFILE" ] && \
-   {
-     echo "var externalCheckID = 0x00;"
-     echo "var externalCheckOK = true;"
-     echo "var externalCheckMsg = '';"
-   } > "$HELPER_JSFILE"
-
-   _WebUI_SetEmailConfigFileFromAMTM_
-   _WebUI_AutoScriptUpdateCronSchedule_
-   _WebUI_AutoFWUpdateCheckCronSchedule_
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-27] ##
-##----------------------------------------##
-_UpdateHelperJSFile_()
-{
-   if [ $# -lt 2 ] || \
-      [ -z "$1" ] || [ -z "$2" ] || \
-      ! "$inRouterSWmode"
-   then return 1; fi
-
-   local extCheckMsg=""
-   if [ $# -eq 3 ] && [ -n "$3" ]
-   then extCheckMsg="$3" ; fi
-
-   {
-     echo "var externalCheckID = ${1};"
-     echo "var externalCheckOK = ${2};"
-     echo "var externalCheckMsg = '${extCheckMsg}';"
-   } > "$HELPER_JSFILE"
-
-   _WebUI_SetEmailConfigFileFromAMTM_
-   _WebUI_AutoScriptUpdateCronSchedule_
-   _WebUI_AutoFWUpdateCheckCronSchedule_
-}
-
 ##-------------------------------------##
 ## Added by Martinski W. [2025-Jan-15] ##
 ##-------------------------------------##
@@ -2308,7 +2372,18 @@ _UpdateConfigFromWebUISettings_()
                    Say "**ERROR**: Could NOT update directory path [$keySettingValue]"
                fi
                continue
+           elif [ "$keySettingName" = "FW_New_Update_LOG_Directory_Path" ]
+           then
+               if _Validate_FW_UpdateLOG_DirectoryPath_ "$keySettingValue" true
+               then
+                   Say "Directory path [$keySettingValue] was updated successfully."
+               else
+                   settingsMergeOK=false
+                   Say "**ERROR**: Could NOT update directory path [$keySettingValue]"
+               fi
+               continue
            fi
+
            if [ "$keySettingName" = "FW_New_Update_Cron_Job_Schedule" ]
            then  # Replace delimiter char placed by the WebGUI #
                keySettingValue="$(echo "$keySettingValue" | sed 's/|/ /g')"
@@ -2333,7 +2408,7 @@ _UpdateConfigFromWebUISettings_()
 
        if ! "$settingsMergeOK"
        then  ## Reset for Next Check ##
-           { sleep 15 ; _UpdateHelperJSFile_ 0x01 "true" ; } &
+           { sleep 15 ; _UpdateHelperJSFile_ "$extCheckALLvarID" "true" ; } &
        fi
    else
        Say "No updated settings from WebUI found. No merge into $CONFIG_FILE necessary."
@@ -9397,16 +9472,17 @@ _GetFileSelectionIndex_()
    if [ $# -lt 2 ] || [ "$2" != "-MULTIOK" ]
    then
        multiIndexListOK=false
-       promptStr="Enter selection [${selectStr}] [${theLGExitStr}]?"
+       promptStr="Enter selection [${selectStr}]?"
    else
        multiIndexListOK=true
-       promptStr="Enter selection [${selectStr} | ${theAllStr}] [${theLGExitStr}]?"
+       promptStr="Enter selection [${selectStr} | ${theAllStr}]?"
    fi
    fileIndex=0  multiIndex=false
    numRegEx="([1-9]|[1-9][0-9])"
 
    while true
    do
+       printf "[${theLGExitStr}]\n"
        printf "${promptStr}  " ; read -r userInput
 
        if [ -z "$userInput" ] || \
