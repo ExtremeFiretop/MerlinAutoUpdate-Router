@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Feb-23 **/
+/** Last Modified: 2025-Feb-25 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -40,6 +40,10 @@ var shared_custom_settings = {};
 var ajax_custom_settings = {};
 let isFormSubmitting = false;
 let FW_NewUpdateVersAvailable = '';
+
+// Order of NVRAM keys to search for 'Model ID' and 'Product ID' //
+const modelKeys = ["nvram_odmpid", "nvram_wps_modelnum", "nvram_model", "nvram_build_name"];
+const productKeys = ["nvram_productid", "nvram_build_name", "nvram_odmpid"];
 
 // Define color formatting //
 const CYANct = "<span style='color:cyan;'>";
@@ -57,11 +61,12 @@ const InvCYNct = '<span style="margin-left:4px; background-color:cyan; color:bla
 const InvCLEAR = '&nbsp;</span>'
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-27] **/
+/** Modified by Martinski W. [2025-Feb-25] **/
 /**----------------------------------------**/
 var externalCheckID = 0x00;
 var externalCheckOK = true;
 var externalCheckMsg = '';
+var defaultFWUpdateZIPdirPath = '/home/root';
 var isEMailConfigEnabledInAMTM = false;
 var scriptAutoUpdateCronSchedHR = 'TBD';
 var fwAutoUpdateCheckCronSchedHR = 'TBD';
@@ -815,7 +820,7 @@ function ValidateDirectoryPath (formField, dirType)
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-23] **/
+/** Modified by Martinski W. [2025-Feb-25] **/
 /**----------------------------------------**/
 function GetExternalCheckResults()
 {
@@ -831,6 +836,7 @@ function GetExternalCheckResults()
             document.getElementById('Script_AutoUpdate_SchedText').textContent = 'Schedule: '+scriptAutoUpdateCronSchedHR;
             document.getElementById('FW_AutoUpdate_CheckSchedText').textContent = 'Schedule: '+fwAutoUpdateCheckCronSchedHR;
             SetUpEmailNotificationFields();
+            FWUpdateDirZIPHint = FWUpdateDirZIPHint.replace(/DefaultPATH/, defaultFWUpdateZIPdirPath);
 
             // Skip during form submission //
             if (isFormSubmitting) { return true ; }
@@ -876,8 +882,8 @@ function GetExternalCheckResults()
                 externalCheckOK = true; //Reset for Next Check//
                 fwUpdateDirPath.ResetExtCheckVars();
                 alert('Validation failed.\n' + validationStatus);
-                setTimeout(ValidateDirectoryPath, 5000, fwUpdateZIPdirectory, 'ZIP');
-                setTimeout(ValidateDirectoryPath, 5000, fwUpdateLOGdirectory, 'LOG');
+                setTimeout(ValidateDirectoryPath, 3000, fwUpdateZIPdirectory, 'ZIP');
+                setTimeout(ValidateDirectoryPath, 3000, fwUpdateLOGdirectory, 'LOG');
                 return false;
             }
         }
@@ -1135,7 +1141,7 @@ function SetUpEmailNotificationFields()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-23] **/
+/** Modified by Martinski W. [2025-Feb-25] **/
 /**----------------------------------------**/
 const emailNotifyHint = 'The Email Notifications option requires the AMTM email configuration settings to be enabled and set up.';
 
@@ -1143,9 +1149,9 @@ const autoBackupsHint = 'The Automatic Backups option requires the BACKUPMON scr
 
 const addonAutoUpdatesHint = 'The daily schedule for automatic updates of MerlinAU is always configured to be 15 minutes *before* the scheduled time for automatic F/W Update checks.';
 
-const FWUpdateDirZIPHint = 'This is the directory path where the subdirectory [MerlinAU.d] will be located to download and store the new F/W update files.';
+let FWUpdateDirZIPHint = "This is the base directory path where the subdirectory <br><b>MerlinAU.d/[RouterID]_firmware</b></br> will be located to download and store the new firmware update files.<br>Default base path:</br><b>DefaultPATH</b>";
 
-const FWUpdateDirLOGHint = 'This is the directory path where the subdirectory [MerlinAU.d] will be located to store the log files of the F/W update process.';
+const FWUpdateDirLOGHint = 'This is the base directory path where the subdirectory <br><b>MerlinAU.d/logs</b></br> will be located to store the log files of the firmware update process.';
 
 const betaToReleaseHint = 'Enabling this option allows the F/W update process to detect an installed Beta version and proceed to update to the latest production release version.';
 
@@ -2042,19 +2048,19 @@ function CheckFirmwareUpdate()
    document.form.submit();
 }
 
-// Function to get the first non-empty value from a list of element IDs
-function getFirstNonEmptyValue(ids)
+// Get first non-empty value from a list of element IDs //
+function GetFirstNonEmptyValue(elemIDs)
 {
-    for (var i = 0; i < ids.length; i++)
+    for (var indx = 0; indx < elemIDs.length; indx++)
     {
-        var elem = document.getElementById(ids[i]);
+        var elem = document.getElementById(elemIDs[indx]);
         if (elem)
         {
             var value = elem.value.trim();
             if (value.length > 0) { return value; }
         }
     }
-    return "";
+    return '';
 }
 
 /**----------------------------------------**/
@@ -2063,15 +2069,10 @@ function getFirstNonEmptyValue(ids)
 // Function to format and display the Router IDs //
 function FormatRouterIDs()
 {
-    // Define the order of NVRAM keys to search for Model ID and Product ID
-    var modelKeys = ["nvram_odmpid", "nvram_wps_modelnum", "nvram_model", "nvram_build_name"];
-    var productKeys = ["nvram_productid", "nvram_build_name", "nvram_odmpid"];
+    let MODEL_ID = GetFirstNonEmptyValue(modelKeys);
+    let PRODUCT_ID = GetFirstNonEmptyValue(productKeys);
 
-    // Retrieve the first non-empty values //
-    var MODEL_ID = getFirstNonEmptyValue(modelKeys);
-    var PRODUCT_ID = getFirstNonEmptyValue(productKeys);
-
-    // Convert MODEL_ID to uppercase for comparison //
+    // Convert to uppercase for comparison //
     var MODEL_ID_UPPER = MODEL_ID.toUpperCase();
 
     // Determine FW_RouterModelID based on comparison //

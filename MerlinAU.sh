@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-23
+# Last Modified: 2025-Feb-25
 ###################################################################
 set -u
 
@@ -1359,8 +1359,20 @@ extCheckZIPdirMG="OK"
 extCheckLOGdirMG="OK"
 extCheckRETvarMG="OK"
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Feb-25] ##
+##-------------------------------------##
+_WebUI_FW_UpdateZIPDirPathDefault_()
+{
+   local defltDirPath="/home/root"
+   if [ -n "$USBMountPoint" ] && \
+      _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
+   then defltDirPath="$FW_ZIP_BASE_DIR" ; fi
+   _WriteVarDefToHelperJSFile_ "defaultFWUpdateZIPdirPath" "$defltDirPath"
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-27] ##
+## Modified by Martinski W. [2025-Feb-25] ##
 ##----------------------------------------##
 _InitHelperJSFile_()
 {
@@ -1373,13 +1385,14 @@ _InitHelperJSFile_()
      echo "var externalCheckMsg = '';"
    } > "$HELPER_JSFILE"
 
+   _WebUI_FW_UpdateZIPDirPathDefault_
    _WebUI_SetEmailConfigFileFromAMTM_
    _WebUI_AutoScriptUpdateCronSchedule_
    _WebUI_AutoFWUpdateCheckCronSchedule_
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-23] ##
+## Modified by Martinski W. [2025-Feb-25] ##
 ##----------------------------------------##
 _UpdateHelperJSFile_()
 {
@@ -1432,6 +1445,7 @@ _UpdateHelperJSFile_()
      echo "var externalCheckMsg = '${extCheckRETvarMG}';"
    } > "$HELPER_JSFILE"
 
+   _WebUI_FW_UpdateZIPDirPathDefault_
    _WebUI_SetEmailConfigFileFromAMTM_
    _WebUI_AutoScriptUpdateCronSchedule_
    _WebUI_AutoFWUpdateCheckCronSchedule_
