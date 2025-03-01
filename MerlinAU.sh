@@ -14,6 +14,10 @@ readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
 
+##FOR TESTING/DEBUG ONLY##
+if true ; then SCRIPT_BRANCH="WebFun" ; fi
+##FOR TESTING/DEBUG ONLY##
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
 ##----------------------------------------##
@@ -8901,6 +8905,7 @@ _DoStartupInit_()
        _AutoStartupHook_ create 2>/dev/null
        _AutoServiceEvent_ create 2>/dev/null
    fi
+
 }
 
 ##----------------------------------------##
@@ -8933,6 +8938,7 @@ _DoInstallation_()
 
    if ! _AcquireLock_ cliMenuLock
    then Say "Exiting..." ; exit 1 ; fi
+   _ConfirmCronJobForFWAutoUpdates_
    _MainMenu_
 }
 
