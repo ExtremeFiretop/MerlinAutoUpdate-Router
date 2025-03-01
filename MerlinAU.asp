@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Feb-25 **/
+/** Last Modified: 2025-Mar-01 **/
 /** Intended for 1.4.0 Release **/
 /**----------------------------**/
 
@@ -1108,9 +1108,9 @@ function ToggleEmailDependents (isEmailNotifyChecked)
    }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-27] **/
-/**-------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Mar-01] **/
+/**----------------------------------------**/
 function SetUpEmailNotificationFields()
 {
     let emailFormat = document.getElementById('emailFormat');
@@ -1119,8 +1119,15 @@ function SetUpEmailNotificationFields()
 
     if (emailFormat)
     { emailFormat.value = custom_settings.FW_New_Update_EMail_FormatType || 'HTML'; }
+
+    // If not yet set show a blank field instead of 'TBD' //
     if (secondaryEmail)
-    { secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address || 'TBD'; }
+    {
+        if (custom_settings.FW_New_Update_EMail_CC_Address === 'TBD')
+        { secondaryEmail.value = ''; }
+        else
+        { secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address; }
+    }
 
     if (emailNotificationsEnabled && emailFormat && secondaryEmail)
     {
