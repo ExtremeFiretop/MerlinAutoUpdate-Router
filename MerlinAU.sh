@@ -14,10 +14,6 @@ readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
 
-##FOR TESTING/DEBUG ONLY##
-if true ; then SCRIPT_BRANCH="WebFun" ; fi
-##FOR TESTING/DEBUG ONLY##
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
 ##----------------------------------------##
