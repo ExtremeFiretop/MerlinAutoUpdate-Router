@@ -8933,6 +8933,7 @@ _DoInstallation_()
 
    if ! _AcquireLock_ cliMenuLock
    then Say "Exiting..." ; exit 1 ; fi
+   _ConfirmCronJobForFWAutoUpdates_
    _MainMenu_
 }
 
