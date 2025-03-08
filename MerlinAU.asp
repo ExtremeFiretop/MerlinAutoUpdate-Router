@@ -29,8 +29,8 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Mar-01 **/
-/** Intended for 1.4.0 Release **/
+/** Last Modified: 2025-Mar-07 **/
+/** Intended for 1.4.x Release **/
 /**----------------------------**/
 
 // Separate variables for shared and AJAX settings //
@@ -825,7 +825,7 @@ function ValidateDirectoryPath (formField, dirType)
 function GetExternalCheckResults()
 {
     $.ajax({
-        url: '/ext/MerlinAU/CheckHelper.js',
+        url: '/ext/MerlinAU/checkHelper.js',
         dataType: 'script',
         timeout: 5000,
         error: function(xhr){
@@ -890,45 +890,78 @@ function GetExternalCheckResults()
     });
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-13] **/
-/**-------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Mar-07] **/
+/**----------------------------------------**/
 // To support 'routerPassword' element //
 const loginPassword =
 {
-   minLen: 5, maxLen: 64, currLen: 0,
+   minLen: 5, maxLen: 64, pswdLen: 0, pswdStr: '',
+   pswdInvalid: false, pswdVerified: false, pswdUnverified: false,
+   allBlankCharsRegExp: '^[ ]+$',
+
    ErrorMsg: function()
    {
       const errStr = 'The password string is INVALID.';
-      if (this.currLen < this.minLen)
+      if (this.pswdLen < this.minLen)
       {
          const excMinLen = (this.minLen - 1);
-         return (`${errStr}\nThe string length must be greater than ${excMinLen} characters.`);
+         return (`${errStr} The string length must be greater than ${excMinLen} characters.`);
       }
-      if (this.currLen > this.maxLen)
+      if (this.pswdLen > this.maxLen)
       {
          const excMaxLen = (this.maxLen + 1);
-         return (`${errStr}\nThe string length must be less than ${excMaxLen} characters.`);
+         return (`${errStr} The string length must be less than ${excMaxLen} characters.`);
       }
+      if (this.pswdStr.match (`${this.allBlankCharsRegExp}`) !== null)
+      { return (`${errStr} The string cannot be all blank spaces.`); }
+      if (this.pswdInvalid) { return loginPswdInvalidMsge; }
    },
-   ValidateString: function(formField)
+   ErrorHint: function()
    {
-      const inputVal = formField.value;
-      const inputLen = formField.value.length;
-      this.currLen = inputLen;
-      if (inputLen < this.minLen || inputLen > this.maxLen)
+      const errStr = 'Password is <b>INVALID</b>.';
+      if (this.pswdLen < this.minLen)
+      {
+         const excMinLen = (this.minLen - 1);
+         return (`${errStr}<br>The string length must be greater than <b>${excMinLen}</b> characters.</br>`);
+      }
+      if (this.pswdLen > this.maxLen)
+      {
+         const excMaxLen = (this.maxLen + 1);
+         return (`${errStr}<br>The string length must be less than <b>${excMaxLen}</b> characters.</br>`);
+      }
+      if (this.pswdStr.match (`${this.allBlankCharsRegExp}`) !== null)
+      { return (`${errStr}<br>The string cannot be all blank spaces.<br>`); }
+      if (this.pswdInvalid) { return loginPswdInvalidHint; }
+      if (this.pswdVerified) { return loginPswdVerifiedMsg; }
+      if (this.pswdUnverified) { return loginPswdUnverifiedH; }
+   },
+   ValidateString: function (formField, eventID)
+   {
+      const pswdStr = formField.value;
+      if (this.pswdStr !== pswdStr && eventID === 'onKEYUP')
+      {
+          this.pswdInvalid = false;
+          this.pswdVerified = false;
+          this.pswdUnverified = false;
+      }
+      this.pswdStr = pswdStr;
+      this.pswdLen = pswdStr.length;
+      if (this.pswdInvalid || this.pswdVerified || this.pswdUnverified ||
+          this.pswdLen < this.minLen || this.pswdLen > this.maxLen ||
+          this.pswdStr.match (`${this.allBlankCharsRegExp}`) !== null)
       { return false; }
       else
       { return true; }
    }
 };
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-13] **/
-/**-------------------------------------**/
-function ValidatePasswordString (formField)
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Mar-07] **/
+/**----------------------------------------**/
+function ValidatePasswordString (formField, eventID)
 {
-   if (loginPassword.ValidateString(formField))
+   if (loginPassword.ValidateString(formField, eventID))
    {
       $(formField).removeClass('Invalid');
       $(formField).off('mouseover');
@@ -936,11 +969,18 @@ function ValidatePasswordString (formField)
    }
    else
    {
+      let retStatus;
+      if (loginPassword.pswdVerified || loginPassword.pswdUnverified)
+      { retStatus = true; }
+      else
+      {
+         retStatus = false;
+         $(formField).addClass('Invalid');
+      }
       formField.focus();
-      $(formField).addClass('Invalid');
-      $(formField).on('mouseover',function(){return overlib(loginPassword.ErrorMsg(),0,0);});
+      $(formField).on('mouseover',function(){return overlib(loginPassword.ErrorHint(),0,0);});
       $(formField)[0].onmouseout = nd;
-      return false;
+      return retStatus;
    }
 }
 
@@ -960,6 +1000,17 @@ function togglePassword()
         eyeDiv.style.background = "url('/images/icon-visible@2x.png') no-repeat center";
     }
     eyeDiv.style.backgroundSize = 'contain';
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Mar-07] **/
+/**-------------------------------------**/
+function ConfirmLoginTest(formInput)
+{
+   let confirmMsg = 'After saving the desired password, a router login test will be run to verify that MerlinAU can log in successfully.\n\nDuring this test, you will be automatically logged out of the WebUI. After the test is completed, you can log back in to check the status.\n\nPlease confirm you want to run the router login test when saving the password.';
+
+   if (formInput.checked && !confirm (confirmMsg))
+   { formInput.checked = false; }
 }
 
 /**----------------------------------------**/
@@ -1148,8 +1199,17 @@ function SetUpEmailNotificationFields()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-25] **/
+/** Modified by Martinski W. [2025-Mar-07] **/
 /**----------------------------------------**/
+var loginPswdCheckStatus = 6;
+var loginPswdCheckMsgStr = 'UNKNOWN';
+let loginPswdHint = '';
+const loginPswdStatHintMsg = 'Login password for user:<br><b>LoginUSER</b></br>PswdSTATUS';
+const loginPswdVerifiedMsg = 'Status:<br>Login was succcessful.</br>Password is <b>verified</b>.';
+const loginPswdUnverifiedH = 'Status:<br>Password is <b>not</b> verified.</br>';
+const loginPswdInvalidHint = 'Status:<br>Login attempt FAILED.</br>Password is <b>INVALID</b>.';
+const loginPswdInvalidMsge = 'Login attempt FAILED. The password string is INVALID.\nPlease correct value and try again.';
+
 const emailNotifyHint = 'The Email Notifications option requires the AMTM email configuration settings to be enabled and set up.';
 
 const autoBackupsHint = 'The Automatic Backups option requires the BACKUPMON script to be installed on the router.';
@@ -1193,6 +1253,9 @@ function ShowHintMsg (formField)
        case 'TUF_BUILDTYPE':
            theHintMsg = TUF_BuildTypeMsg;
            break;
+       case 'LOGIN_PASSWD':
+           theHintMsg = loginPswdHint;
+           break;
        case 'CHANGELOG_CHECK':
            theHintMsg = changelogCheckHint;
            break;
@@ -1220,6 +1283,92 @@ function ShowHintMsg (formField)
        $(formField)[0].onmouseout = nd;
        return overlib(theHintMsg,0,0);
    }
+}
+
+/**-------------------------------------**/
+/** Added by Martinski W. [2025-Mar-07] **/
+/**-------------------------------------**/
+function GetLoginPswdCheckStatus()
+{
+    $.ajax({
+        url: '/ext/MerlinAU/pswdCheckStatus.js',
+        dataType: 'script',
+        timeout: 5000,
+        error: function(xhr){
+            setTimeout(GetLoginPswdCheckStatus,1000);
+        },
+        success: function()
+        {
+            // Skip during form submission //
+            if (isFormSubmitting) { return ; }
+            let pswdStatusHint0, pswdStatusHint1;
+            let passwordFailed = false, pswdStatusText;
+            let pswdUnverified = false, pswdVerified = false;
+
+            switch (loginPswdCheckStatus)
+            {
+                case 0: //Empty String//
+                case 1: //No Access//
+                case 2: //Unchanged//
+                    pswdStatusText = 'Status:\n' + loginPswdCheckMsgStr;
+                    pswdStatusHint1 = 'Status:<br>' + loginPswdCheckMsgStr + '</br>';
+                    break;
+                case 4: //Verified//
+                    pswdVerified = true;
+                    pswdStatusText = 'Status:\n' + loginPswdCheckMsgStr;
+                    pswdStatusHint0 = loginPswdVerifiedMsg;
+                    pswdStatusHint1 = loginPswdVerifiedMsg;
+                    loginPassword.pswdVerified = true;
+                    loginPassword.pswdUnverified = false;
+                    break;
+                case 3: //Unverified//
+                    pswdUnverified = true;
+                    pswdStatusText = 'Status:\n' + loginPswdCheckMsgStr;
+                    pswdStatusHint0 = loginPswdUnverifiedH;
+                    pswdStatusHint1 = loginPswdUnverifiedH;
+                    loginPassword.pswdVerified = false;
+                    loginPassword.pswdUnverified = true;
+                    break;
+                case 5: //Failure//
+                    passwordFailed = true;
+                    pswdStatusText = 'Status:\n' + loginPswdCheckMsgStr;
+                    pswdStatusHint0 = loginPswdInvalidHint;
+                    pswdStatusHint1 = loginPswdInvalidHint;
+                    loginPassword.pswdInvalid = true;
+                    break;
+                case 6: //Unknown//
+                    pswdStatusText = 'Status:\n' + loginPswdCheckMsgStr;
+                    pswdStatusHint1 = 'Status:<br>UNKNOWN<br>';
+                    break;
+                default: //IGNORE//
+                    pswdStatusHint1 = '';
+                    break;
+            }
+
+            document.getElementById('LoginPswdStatusText').textContent = pswdStatusText;
+            showhide('LoginPswdStatusText',true);
+            loginPswdHint = loginPswdHint.replace (/PswdSTATUS/, pswdStatusHint1);
+
+            pswdField = document.getElementById('routerPassword');
+            if (passwordFailed || pswdVerified || pswdUnverified)
+            {
+                if (passwordFailed)
+                {
+                    alert(`**ERROR**\n${loginPswdInvalidMsge}`);
+                    $(pswdField).addClass('Invalid'); 
+                }
+                pswdField.focus();
+                $(pswdField).on('mouseover',function(){return overlib(pswdStatusHint0,0,0);});
+                $(pswdField)[0].onmouseout = nd;
+            }
+            else
+            {
+                $(pswdField).removeClass('Invalid');
+                $(pswdField).off('mouseover');
+            }
+            return;
+        }
+    });
 }
 
 /**----------------------------------------**/
@@ -1251,7 +1400,7 @@ function BlockChangelog()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-23] **/
+/** Modified by Martinski W. [2025-Mar-07] **/
 /**----------------------------------------**/
 function InitializeFields()
 {
@@ -1259,6 +1408,8 @@ function InitializeFields()
     let changelogCheckEnabled = document.getElementById('changelogCheckEnabled');
     let fwNotificationsDate = document.getElementById('fwNotificationsDate');
     let routerPassword = document.getElementById('routerPassword');
+    let usernameElem = document.getElementById('http_username');
+    let loginUsername = 'admin';
     let fwUpdatePostponement = document.getElementById('fwUpdatePostponement');
     let autobackupEnabled = document.getElementById('autobackupEnabled');
     let rogFWBuildType = document.getElementById('rogFWBuildType');
@@ -1275,6 +1426,7 @@ function InitializeFields()
 
     $('#KeepConfigFile').prop('checked',false);
     $('#BypassPostponedDays').prop('checked',false);
+    $('#RunLoginTestOnSave').prop('checked',false);
 
     let FW_AutoUpdate_Check = document.getElementById('FW_AutoUpdate_Check');
     let fwUpdateCheckStatus = document.getElementById('fwUpdateCheckStatus');
@@ -1293,7 +1445,14 @@ function InitializeFields()
     if (custom_settings)
     {
         if (routerPassword)
-        { routerPassword.value = custom_settings.routerPassword || ''; }
+        {
+           if (custom_settings.routerPassword === 'TBD')
+           { routerPassword.value = ''; }
+           else
+           { routerPassword.value = custom_settings.routerPassword; }
+        }
+        loginUsername = usernameElem ? usernameElem.value.trim() : 'admin';
+        loginPswdHint = loginPswdStatHintMsg.replace (/LoginUSER/, loginUsername);
 
         if (fwUpdatePostponement)
         {
@@ -1515,7 +1674,7 @@ function Tokenize (inputStr)
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-21] **/
+/** Modified by Martinski W. [2025-Mar-07] **/
 /**----------------------------------------**/
 function GetConfigSettings()
 {
@@ -1590,6 +1749,7 @@ function GetConfigSettings()
             // Initialize fields with the merged settings //
             InitializeFields();
             GetExternalCheckResults();
+            GetLoginPswdCheckStatus();
         }
     });
 }
@@ -1791,7 +1951,7 @@ function initial()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-23] **/
+/** Modified by Martinski W. [2025-Mar-07] **/
 /**----------------------------------------**/
 function SaveActionsConfig()
 {
@@ -1799,18 +1959,18 @@ function SaveActionsConfig()
     document.getElementById('amng_custom').value = '';
 
     // Collect Action form-specific settings //
-    var passwordStr = document.getElementById('routerPassword')?.value || '';
-    var usernameElement = document.getElementById('http_username');
-    var username = usernameElement ? usernameElement.value.trim() : 'admin';
+    var passwordElem = document.getElementById('routerPassword');
+    var usernameElem = document.getElementById('http_username');
+    var usernameStr = usernameElem ? usernameElem.value.trim() : 'admin';
 
-    // Validate that username is not empty //
-    if (!username)
+    // Validate that Username is not empty //
+    if (usernameStr === null || usernameStr.length === 0)
     {
-        console.error("HTTP username is missing.");
-        alert("HTTP username is not set. Please contact your administrator.");
+        console.error("HTTP Username is missing.");
+        alert("HTTP Username is not set. Please contact your administrator.");
         return false;
     }
-    if (!ValidatePasswordString (document.getElementById('routerPassword')))
+    if (!ValidatePasswordString (passwordElem, 'onSAVE'))
     {
         alert(`${validationErrorMsg}\n\n` + loginPassword.ErrorMsg());
         return false;
@@ -1842,7 +2002,7 @@ function SaveActionsConfig()
     fwUpdateRawCronSchedule = FWConvertWebUISettingsToCronSchedule (fwUpdateRawCronSchedule);
 
     // Encode credentials in Base64 //
-    var credentials = username + ':' + passwordStr;
+    var credentials = usernameStr + ':' + passwordElem.value;
     var encodedCredentials = btoa(credentials);
 
     // Collect only Action form-specific settings //
@@ -1884,8 +2044,14 @@ function SaveActionsConfig()
     // Save merged settings to the hidden input field //
     document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
 
+    let actionScriptValue;
+    if (!document.getElementById('RunLoginTestOnSave').checked)
+    { actionScriptValue = 'start_MerlinAUconfig'; }
+    else
+    { actionScriptValue = 'start_MerlinAUconfig_runLoginTest'; }
+
     // Apply the settings //
-    document.form.action_script.value = 'start_MerlinAUconfig';
+    document.form.action_script.value = actionScriptValue;
     document.form.action_wait.value = 10;
     showLoading();
     document.form.submit();
@@ -2014,14 +2180,14 @@ function Uninstall()
    if (!confirm("Are you sure you want to completely uninstall MerlinAU?"))
    { return; }
 
-   let actionScriptVal;
+   let actionScriptValue;
    let keepConfigFile = document.getElementById('KeepConfigFile');
    if (!keepConfigFile.checked)
-   { actionScriptVal = 'start_MerlinAUuninstall'; }
+   { actionScriptValue = 'start_MerlinAUuninstall'; }
    else
-   { actionScriptVal = 'start_MerlinAUuninstall_keepConfig'; }
+   { actionScriptValue = 'start_MerlinAUuninstall_keepConfig'; }
 
-   document.form.action_script.value = actionScriptVal;
+   document.form.action_script.value = actionScriptValue;
    document.form.action_wait.value = 10;
    showLoading();
    document.form.submit();
@@ -2034,22 +2200,22 @@ function CheckFirmwareUpdate()
 {
    console.log("Initiating F/W Update Check...");
 
-   let actionScriptVal;
+   let actionScriptValue;
    let bypassPostponedDays = document.getElementById('BypassPostponedDays');
    if (!bypassPostponedDays.checked)
    {
-       actionScriptVal = 'start_MerlinAUcheckupdate';
+       actionScriptValue = 'start_MerlinAUcheckupdate';
        if (!confirm("NOTE:\nIf you have no postponement days set or remaining, the firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
        { return; }
    }
    else
    {
-       actionScriptVal = 'start_MerlinAUcheckupdate_bypassDays';
+       actionScriptValue = 'start_MerlinAUcheckupdate_bypassDays';
        if (!confirm("NOTE:\nThe firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
        { return; }
    }
 
-   document.form.action_script.value = actionScriptVal;
+   document.form.action_script.value = actionScriptValue;
    document.form.action_wait.value = 60;
    showLoading();
    document.form.submit();
@@ -2425,20 +2591,27 @@ function initializeCollapsibleSections()
 </colgroup>
 <tr>
    <td style="text-align: left;">
-     <label for="routerPassword">Router Login Password</label>
+     <label for="routerPassword">
+     <a class="hintstyle" name="LOGIN_PASSWD" href="javascript:void(0);"
+        onclick="ShowHintMsg(this);">Router Login Password</a>
+     </label>
+     <br>
+     <span class="settingname" id="LoginPswdStatusText" name="LoginPswdStatusText"
+        style="margin-top:10px; display:none; font-size:12px; font-weight:bolder;"></span>
+     </br>
    </td>
    <td>
-      <div style="display: inline-block;">
+   <div style="display: inline-block;">
          <input
            type="password"
            id="routerPassword"
            name="routerPassword"
            placeholder="Enter password"
-           style="width: 278px; display: inline-block;"
+           style="width: 278px; display: inline-block; margin-left:2px; margin-top:3px;"
            maxlength="64"
            onKeyPress="return validator.isString(this, event)"
-           onblur="ValidatePasswordString(this)"
-           onkeyup="ValidatePasswordString(this)"/>
+           onblur="ValidatePasswordString(this,'onBLUR')"
+           onkeyup="ValidatePasswordString(this,'onKEYUP')"/>
          <div
              id="eyeToggle"
              onclick="togglePassword();"
@@ -2451,14 +2624,20 @@ function initializeCollapsibleSections()
                background:url('/images/icon-visible@2x.png') no-repeat center;
                background-size: contain;
                cursor: pointer;"></div>
-      </div>
+   </div>
+   <br>
+   <label style="color:#FFCC00; margin-left:0px; margin-top:0px; margin-bottom:0px;">
+   <input class="input" type="checkbox" checked="" name="RunLoginTestOnSave" id="RunLoginTestOnSave"
+        style="vertical-align:bottom; margin-left:2px; margin-right:5px; margin-top:13px; margin-bottom:4px;" onclick="ConfirmLoginTest(this);"/>Run login test when saving password</label>
+   </br>
    </td>
 </tr>
 <tr>
    <td style="text-align: left;"><label for="FW_AutoUpdate_Check">Enable Automatic F/W Update Checks</label></td>
    <td>
-      <input type="checkbox" id="FW_AutoUpdate_Check" name="FW_AutoUpdate_Check"/>
-      <span id="FW_AutoUpdate_CheckSchedText" style="margin-left:10px; display:none; font-size: 12px; font-weight: bolder;"></span>
+      <input type="checkbox" id="FW_AutoUpdate_Check" name="FW_AutoUpdate_Check" style="margin-left:2px;"/>
+      <span id="FW_AutoUpdate_CheckSchedText" name="FW_AutoUpdate_CheckSchedText"
+       style="vertical-align:bottom; margin-left:15px; display:none; font-size: 12px; font-weight: bolder;"></span>
    </td>
 </tr>
 <tr>
@@ -2468,7 +2647,7 @@ function initializeCollapsibleSections()
    <td>
    <input autocomplete="off" type="text"
      id="fwUpdatePostponement" name="fwUpdatePostponement"
-     style="width: 7%;" maxlength="3"
+     style="width: 7%; margin-left: 2px;" maxlength="3"
      onKeyPress="return validator.isNumber(this,event)"
      onkeyup="ValidatePostponedDays(this)"
      onblur="ValidatePostponedDays(this);FormatNumericSetting(this)"/>
@@ -2481,7 +2660,9 @@ function initializeCollapsibleSections()
          onclick="ShowHintMsg(this);">Enable F/W Changelog Check</a>
       </label>
    </td>
-   <td><input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" /></td>
+   <td>
+   <input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" style="margin-left:2px;"/>
+   </td>
 </tr>
 <!--
 ** F/W Update Check Cron Schedule **
@@ -2645,7 +2826,8 @@ function initializeCollapsibleSections()
    </td>
    <td>
       <input type="checkbox" id="Script_AutoUpdate_Check" name="Script_AutoUpdate_Check"/>
-      <span id="Script_AutoUpdate_SchedText" style="margin-left:10px; display:none; font-size: 12px; font-weight: bolder;"></span>
+      <span id="Script_AutoUpdate_SchedText" name="Script_AutoUpdate_SchedText"
+       style="vertical-align:bottom; margin-left:15px; display:none; font-size: 12px; font-weight: bolder;"></span>
    </td>
 </tr>
 <tr id="rogFWBuildRow">
