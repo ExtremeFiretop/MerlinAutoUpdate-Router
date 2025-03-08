@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-25
+# Last Modified: 2025-Mar-07
 ###################################################################
 set -u
 
@@ -91,6 +91,7 @@ readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly CONFIG_FILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPT_VERPATH="${SETTINGS_DIR}/version.txt"
 readonly HELPER_JSFILE="${SETTINGS_DIR}/CheckHelper.js"
+readonly PSWD_CHECK_JS="${SETTINGS_DIR}/PswdCheckStatus.js"
 readonly SHARED_SETTINGS_FILE="${ADDONS_PATH}/custom_settings.txt"
 readonly SHARED_WEB_DIR="$(readlink -f /www/user)"
 readonly SCRIPT_WEB_DIR="${SHARED_WEB_DIR}/$SCRIPT_NAME"
@@ -170,6 +171,7 @@ MerlinChangeLogURL=""
 GnutonChangeLogURL=""
 keepConfigFile=false
 bypassPostponedDays=false
+runLoginCredentialsTest=false
 
 # Main LAN Network Info #
 readonly myLAN_HostName="$(nvram get lan_hostname)"
@@ -235,7 +237,7 @@ routerLoginFailureMsg="Please try the following:
 1. Confirm that you are *not* already logged into the router webGUI using a web browser.
 2. Check that the \"Enable Access Restrictions\" option from the webGUI is *not* set up
    to restrict access to the router webGUI from the router's IP address [${GRNct}${mainLAN_IPaddr}${NOct}].
-3. Confirm your password via the \"Set Router Login Credentials\" option from the Main Menu."
+3. Confirm your password via the \"Set Router Login Password\" option from the Main Menu."
 
 [ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
 
@@ -1002,8 +1004,107 @@ _SetUp_FW_UpdateLOG_DirectoryPaths_()
    FW_LOG_DIR="${FW_LOG_BASE_DIR}/$FW_LOG_SUBDIR"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Mar-07] ##
+##-------------------------------------##
+_WriteVarDefToPswdCheckJSFile_()
+{
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1; fi
+
+   local varValue  fixedVal
+   if [ $# -eq 3 ] && [ "$3" = "true" ]
+   then varValue="$2"
+   else varValue="'${2}'"
+   fi
+
+   if [ ! -s "$PSWD_CHECK_JS" ]
+   then
+       echo "var $1 = ${varValue};" > "$PSWD_CHECK_JS"
+   elif ! grep -q "^var $1 =.*" "$PSWD_CHECK_JS"
+   then
+       echo "var $1 = ${varValue};" >> "$PSWD_CHECK_JS"
+   elif ! grep -q "^var $1 = ${varValue};" "$PSWD_CHECK_JS"
+   then
+       fixedVal="$(echo "$varValue" | sed 's/[\/&]/\\&/g')"
+       sed -i "s/^var $1 =.*/var $1 = ${fixedVal};/" "$PSWD_CHECK_JS"
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Mar-07] ##
+##-------------------------------------##
+_GetLoginPswdCheckStatusJS_()
+{
+   if [ ! -s "$PSWD_CHECK_JS" ] ; then echo "0" ; return 0 ; fi
+   local checkCode
+   checkCode="$(grep "^var loginPswdCheckStatus =" "$PSWD_CHECK_JS" | awk -F '[ ;]' '{print $4}')"
+   if [ -z "$checkCode" ]
+   then echo "0"
+   else echo "$checkCode"
+   fi
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Mar-07] ##
+##-------------------------------------##
+_UpdateLoginPswdCheckHelper_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+   local checkCode  checkMsge  prevChkCode
+
+   case "$1" in
+       InitPWD)
+           checkCode=0
+           checkMsge="Password is EMPTY."
+           ;;
+       NoACCESS)
+           checkCode=1
+           checkMsge="Login access is RESTRICTED."
+           ;;
+       OldPSWD)
+           prevChkCode="$(_GetLoginPswdCheckStatusJS_)"
+           if [ -n "$prevChkCode" ] && [ "$prevChkCode" -gt 1 ]
+           then
+               return 0
+           else
+               checkCode=2
+               checkMsge="Password is unchanged."
+           fi
+           ;;
+       NewPSWD)
+           checkCode=3
+           checkMsge="Password is NOT verified."
+           ;;
+       SUCCESS)
+           checkCode=4
+           checkMsge="Password is verified."
+           ;;
+       FAILURE)
+           checkCode=5
+           checkMsge="Password is INVALID."
+           ;;
+       UNKNOWN)
+           prevChkCode="$(_GetLoginPswdCheckStatusJS_)"
+           if [ -n "$prevChkCode" ] && [ "$prevChkCode" -gt 1 ]
+           then
+               return 0
+           else
+               checkCode=6
+               checkMsge="UNKNOWN"
+           fi
+           ;;
+       *) ##IGNORE##
+           return 1 ;;
+   esac
+
+   _WriteVarDefToPswdCheckJSFile_ "loginPswdCheckStatus" "$checkCode" true
+   _WriteVarDefToPswdCheckJSFile_ "loginPswdCheckMsgStr" "$checkMsge"
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Mar-07] ##
 ##----------------------------------------##
 _InitCustomSettingsConfig_()
 {
@@ -1023,6 +1124,7 @@ _InitCustomSettingsConfig_()
          echo "FW_New_Update_LOG_Preferred_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
          echo "FW_New_Update_EMail_CC_Name=TBD"
          echo "FW_New_Update_EMail_CC_Address=TBD"
+         echo "credentials_base64 TBD"
          echo "CheckChangeLog ENABLED"
          echo "FW_Update_Check TBD"
          echo "Allow_Updates_OverVPN DISABLED"
@@ -1031,6 +1133,7 @@ _InitCustomSettingsConfig_()
          echo "Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\""
       } > "$CONFIG_FILE"
       chmod 664 "$CONFIG_FILE"
+      _UpdateLoginPswdCheckHelper_ InitPWD
       return 1
    fi
    local retCode=0  preferredPath
@@ -1084,34 +1187,42 @@ _InitCustomSettingsConfig_()
        sed -i "9 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$CONFIG_FILE"
        retCode=1
    fi
+   if ! grep -q "^credentials_base64 " "$CONFIG_FILE"
+   then
+       sed -i "10 i credentials_base64 TBD" "$CONFIG_FILE"
+       _UpdateLoginPswdCheckHelper_ InitPWD
+       retCode=1
+   else
+       _UpdateLoginPswdCheckHelper_ UNKNOWN
+   fi
    if ! grep -q "^CheckChangeLog " "$CONFIG_FILE"
    then
-       sed -i "10 i CheckChangeLog ENABLED" "$CONFIG_FILE"
+       sed -i "11 i CheckChangeLog ENABLED" "$CONFIG_FILE"
        retCode=1
    fi
    if ! grep -q "^FW_Update_Check " "$CONFIG_FILE"
    then
-       sed -i "11 i FW_Update_Check TBD" "$CONFIG_FILE"
+       sed -i "12 i FW_Update_Check TBD" "$CONFIG_FILE"
        retCode=1
    fi
    if ! grep -q "^Allow_Updates_OverVPN " "$CONFIG_FILE"
    then
-       sed -i "12 i Allow_Updates_OverVPN DISABLED" "$CONFIG_FILE"
+       sed -i "13 i Allow_Updates_OverVPN DISABLED" "$CONFIG_FILE"
        retCode=1
    fi
    if ! grep -q "^FW_Allow_Beta_Production_Up " "$CONFIG_FILE"
    then
-       sed -i "13 i FW_Allow_Beta_Production_Up ENABLED" "$CONFIG_FILE"
+       sed -i "14 i FW_Allow_Beta_Production_Up ENABLED" "$CONFIG_FILE"
        retCode=1
    fi
    if ! grep -q "^Allow_Script_Auto_Update " "$CONFIG_FILE"
    then
-       sed -i "14 i Allow_Script_Auto_Update DISABLED" "$CONFIG_FILE"
+       sed -i "15 i Allow_Script_Auto_Update DISABLED" "$CONFIG_FILE"
        retCode=1
    fi
    if ! grep -q "^Script_Update_Cron_Job_SchedDays=" "$CONFIG_FILE"
    then
-       sed -i "15 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$CONFIG_FILE"
+       sed -i "16 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$CONFIG_FILE"
        retCode=1
    fi
    dos2unix "$CONFIG_FILE"
@@ -2217,7 +2328,7 @@ _CreateDirPaths_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-20] ##
+## Modified by Martinski W. [2025-Mar-07] ##
 ##----------------------------------------##
 _CreateSymLinks_()
 {
@@ -2227,19 +2338,20 @@ _CreateSymLinks_()
    fi
    ! "$inRouterSWmode" && return 0
 
-   ln -s "$CONFIG_FILE" "${SCRIPT_WEB_DIR}/config.htm" 2>/dev/null
-   ln -s "$HELPER_JSFILE" "${SCRIPT_WEB_DIR}/CheckHelper.js" 2>/dev/null
+   ln -sf "$CONFIG_FILE" "${SCRIPT_WEB_DIR}/config.htm" 2>/dev/null
+   ln -sf "$HELPER_JSFILE" "${SCRIPT_WEB_DIR}/checkHelper.js" 2>/dev/null
+   ln -sf "$PSWD_CHECK_JS" "${SCRIPT_WEB_DIR}/pswdCheckStatus.js" 2>/dev/null
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-08] ##
+## Modified by Martinski W. [2025-Mar-07] ##
 ##----------------------------------------##
 _WriteVarDefToHelperJSFile_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then return 1; fi
 
-   local varValue
+   local varValue  fixedVal
    if [ $# -eq 3 ] && [ "$3" = "true" ]
    then varValue="$2"
    else varValue="'${2}'"
@@ -2253,7 +2365,8 @@ _WriteVarDefToHelperJSFile_()
        echo "var $1 = ${varValue};" >> "$HELPER_JSFILE"
    elif ! grep -q "^var $1 = ${varValue};" "$HELPER_JSFILE"
    then
-       sed -i "s/^var $1 =.*/var $1 = ${varValue};/" "$HELPER_JSFILE"
+       fixedVal="$(echo "$varValue" | sed 's/[\/&]/\\&/g')"
+       sed -i "s/^var $1 =.*/var $1 = ${fixedVal};/" "$HELPER_JSFILE"
    fi
 }
 
@@ -2349,13 +2462,14 @@ _ActionsAfterNewConfigSettings_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-25] ##
+## Modified by Martinski W. [2025-Mar-07] ##
 ##----------------------------------------##
 _UpdateConfigFromWebUISettings_()
 {
    [ ! -f "$SHARED_SETTINGS_FILE" ] && return 1
 
    local settingsMergeOK=true  logMsgTag="with errors."
+   local oldLoginCredsENC  doRouterLoginTest=false
 
    # Check for 'MerlinAU_' entries excluding 'version' #
    if [ "$(grep "^MerlinAU_" "$SHARED_SETTINGS_FILE" | grep -vc "_version")" -gt 0 ]
@@ -2393,10 +2507,18 @@ _UpdateConfigFromWebUISettings_()
                fi
                continue
            fi
-
            if [ "$keySettingName" = "FW_New_Update_Cron_Job_Schedule" ]
            then  # Replace delimiter char placed by the WebGUI #
                keySettingValue="$(echo "$keySettingValue" | sed 's/|/ /g')"
+           fi
+           if [ "$keySettingName" = "credentials_base64" ]
+           then
+               oldLoginCredsENC="$(Get_Custom_Setting credentials_base64)"
+               if [ "$oldLoginCredsENC" = "$keySettingValue" ]
+               then _UpdateLoginPswdCheckHelper_ OldPSWD
+               else _UpdateLoginPswdCheckHelper_ NewPSWD
+               fi
+               doRouterLoginTest="$runLoginCredentialsTest"
            fi
            Update_Custom_Settings "$keySettingName" "$keySettingValue"
        done < "$TEMPFILE"
@@ -2420,6 +2542,9 @@ _UpdateConfigFromWebUISettings_()
        then  ## Reset for Next Check ##
            { sleep 15 ; _UpdateHelperJSFile_ "$extCheckALLvarID" "true" ; } &
        fi
+
+       // Do this ONLY IF requested by user //
+       "$doRouterLoginTest" && _TestLoginCredentials_
    else
        Say "No updated settings from WebUI found. No merge into $CONFIG_FILE necessary."
    fi
@@ -3530,12 +3655,16 @@ _CheckForMinimumModelSupport_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-15] ##
+## Modified by Martinski W. [2025-Mar-07] ##
 ##----------------------------------------##
 _TestLoginCredentials_()
 {
-    local credsBase64="$1"
-    local curl_response routerURLstr
+    local credsENC  curlResponse  routerURLstr
+
+    if [ $# -gt 0 ] && [ -n "$1" ]
+    then credsENC="$1"
+    else credsENC="$(Get_Custom_Setting credentials_base64)"
+    fi
 
     # Define routerURLstr #
     routerURLstr="$(_GetRouterURL_)"
@@ -3544,31 +3673,32 @@ _TestLoginCredentials_()
     /sbin/service restart_httpd >/dev/null 2>&1 &
     sleep 5
 
-    curl_response="$(curl -k "${routerURLstr}/login.cgi" \
+    curlResponse="$(curl -k "${routerURLstr}/login.cgi" \
     --referer "${routerURLstr}/Main_Login.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
     -H 'Content-Type: application/x-www-form-urlencoded' \
     -H "Origin: ${routerURLstr}/" \
     -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsBase64}" \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsENC}" \
     --cookie-jar /tmp/cookie.txt)"
 
-    # Interpret the curl_response to determine login success or failure #
-    # This is a basic check #
-    if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
+    # Determine login success or failure. This is a basic check #
+    if echo "$curlResponse" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
+        _UpdateLoginPswdCheckHelper_ SUCCESS
         printf "\n${GRNct}Router Login test passed.${NOct}"
         printf "\nRestarting web server... Please wait.\n"
         /sbin/service restart_httpd >/dev/null 2>&1 &
-        sleep 1
+        sleep 2
         return 0
     else
+        _UpdateLoginPswdCheckHelper_ FAILURE
         printf "\n${REDct}**ERROR**${NOct}: Router Login test failed.\n"
         printf "\n${routerLoginFailureMsg}\n\n"
         if _WaitForYESorNO_ "Would you like to try again?"
         then return 1  # Indicates failure but with intent to retry #
-        else return 0  # User opted not to retry; do a graceful exit #
+        else return 0  # User opted not to retry so just return #
         fi
     fi
 }
@@ -3795,13 +3925,13 @@ _GetKeypressInput_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jul-31] ##
+## Modified by Martinski W. [2025-Mar-07] ##
 ##----------------------------------------##
 _GetPasswordInput_()
 {
    local PSWDstrLenMIN=5  PSWDstrLenMAX=64
-   local newPSWDstring  newPSWDtmpStr  PSWDprompt
-   local retCode  charNum  newPSWDlength  showPSWD
+   local newPSWDtmpStr  PSWDprompt  showPSWD
+   local retCode=1  charNum  newPSWDlength
    # For more responsive TAB keypress debounce #
    local tabKeyDebounceSem="/tmp/var/tmp/${ScriptFNameTag}_TabKeySEM.txt"
 
@@ -3815,7 +3945,7 @@ _GetPasswordInput_()
    _TabKeyDebounceWait_()
    {
       touch "$tabKeyDebounceSem"
-      usleep 300000   #0.3 sec#
+      usleep 333000   #~0.3 sec#
       rm -f "$tabKeyDebounceSem"
    }
 
@@ -3830,16 +3960,23 @@ _GetPasswordInput_()
    _ShowPSWDPrompt_()
    {
       local pswdTemp  LENct  LENwd
-      [ "$showPSWD" = "1" ] && pswdTemp="$newPSWDstring" || pswdTemp="$newPSWDtmpStr"
-      if [ "$newPSWDlength" -lt "$PSWDstrLenMIN" ] || [ "$newPSWDlength" -gt "$PSWDstrLenMAX" ]
-      then LENct="$REDct" ; LENwd=""
-      else LENct="$GRNct" ; LENwd="02"
+      if [ "$showPSWD" = "1" ]
+      then pswdTemp="$newPSWDstring"
+      else pswdTemp="$newPSWDtmpStr"
       fi
-      printf "\r\033[0K$PSWDprompt [Length=${LENct}%${LENwd}d${NOct}]: %s" "$newPSWDlength" "$pswdTemp"
+      if [ "$newPSWDlength" -eq 0 ]
+      then LENwd="" ; else LENwd="02"
+      fi
+      if [ "$newPSWDlength" -lt "$PSWDstrLenMIN" ] || \
+         [ "$newPSWDlength" -gt "$PSWDstrLenMAX" ]
+      then LENct="$REDct" ; else LENct="$GRNct"
+      fi
+      printf "\033[1A\r\033[0K${PSWDprompt}\n"
+      printf "\r\033[0K[Length=${LENct}%${LENwd}d${NOct}]: %s" "$newPSWDlength" "$pswdTemp"
    }
 
-   showPSWD=0
    charNum=""
+   showPSWD=0
    newPSWDstring="$thePWSDstring"
    newPSWDlength="${#newPSWDstring}"
    newPSWDtmpStr="$(_ShowAsterisks_ "$newPSWDlength")"
@@ -3852,20 +3989,25 @@ _GetPasswordInput_()
 
       if [ "$charNum" -eq 0 ] || [ "$charNum" -eq 10 ] || [ "$charNum" -eq 13 ]
       then
-          if [ "$newPSWDlength" -ge "$PSWDstrLenMIN" ] && [ "$newPSWDlength" -le "$PSWDstrLenMAX" ]
+          if echo "$newPSWDstring" | grep -qE "^[[:blank:]]+$"
+          then
+              newPSWDstring=""
+              printf "\n\n${REDct}**ERROR**${NOct}: Password string cannot be all blank spaces.\n"
+              retCode=1
+          elif [ "$newPSWDlength" -ge "$PSWDstrLenMIN" ] && [ "$newPSWDlength" -le "$PSWDstrLenMAX" ]
           then
               echo
               retCode=0
           elif [ "$newPSWDlength" -lt "$PSWDstrLenMIN" ]
           then
               newPSWDstring=""
-              printf "\n${REDct}**ERROR**${NOct}: Password length is less than allowed minimum length "
+              printf "\n\n${REDct}**ERROR**${NOct}: Password length is less than allowed minimum length "
               printf "[MIN=${GRNct}${PSWDstrLenMIN}${NOct}].\n"
               retCode=1
           elif [ "$newPSWDlength" -gt "$PSWDstrLenMAX" ]
           then
               newPSWDstring=""
-              printf "\n${REDct}**ERROR**${NOct}: Password length is greater than allowed maximum length "
+              printf "\n\n${REDct}**ERROR**${NOct}: Password length is greater than allowed maximum length "
               printf "[MAX=${GRNct}${PSWDstrLenMAX}${NOct}].\n"
               retCode=1
           fi
@@ -3921,7 +4063,7 @@ _GetPasswordInput_()
       ## ONLY 7-bit ASCII printable characters are VALID ##
       if [ "$charNum" -gt 31 ] && [ "$charNum" -lt 127 ]
       then
-          if [ "$newPSWDlength" -le "$PSWDstrLenMAX" ]
+          if [ "$newPSWDlength" -lt "$PSWDstrLenMAX" ]
           then
               newPSWDstring="${newPSWDstring}${theChar}"
               newPSWDlength="${#newPSWDstring}"
@@ -3933,8 +4075,14 @@ _GetPasswordInput_()
    done
    IFS="$savedIFS"
 
+   if [ "$retCode" -ne 0 ]
+   then
+       _WaitForEnterKey_
+       _GetPasswordInput_ "$1"
+   fi
+
    thePWSDstring="$newPSWDstring"
-   return "$retCode"
+   return
 }
 
 ##-------------------------------------##
@@ -4031,18 +4179,19 @@ with the \"${GRNct}Web UI${NOct}\" access type on the \"Access restriction list\
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-16] ##
+## Modified by Martinski W. [2025-Mar-07] ##
 ##----------------------------------------##
 _GetLoginCredentials_()
 {
-    local retry="yes"  userName  savedMsg
-    local oldPWSDstring  thePWSDstring
+    local retry="yes"  userName  savedMsgStr
     local loginCredsENC  loginCredsDEC
+    local oldPWSDstring  newPSWDstring  thePWSDstring
 
     # Check if WebGUI access is NOT restricted #
     if ! _CheckWebGUILoginAccessOK_
     then
         _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        _UpdateLoginPswdCheckHelper_ NoACCESS
         return 1
     fi
 
@@ -4053,16 +4202,19 @@ _GetLoginCredentials_()
     if [ -z "$loginCredsENC" ] || [ "$loginCredsENC" = "TBD" ]
     then
         thePWSDstring=""
+        _UpdateLoginPswdCheckHelper_ InitPWD
     else
         loginCredsDEC="$(echo "$loginCredsENC" | openssl base64 -d)"
         thePWSDstring="$(echo "$loginCredsDEC" | sed "s/${userName}://")"
     fi
     oldPWSDstring="$thePWSDstring"
+    newPSWDstring="$thePWSDstring"
 
     while [ "$retry" = "yes" ]
     do
-        echo "=== Login Credentials ==="
+        printf "=== Login Credentials ===\n\n"
         _GetPasswordInput_ "Enter password for user ${GRNct}${userName}${NOct}"
+
         if [ -z "$thePWSDstring" ]
         then
             printf "\nPassword string is ${REDct}NOT${NOct} valid. Credentials were not saved.\n"
@@ -4076,10 +4228,14 @@ _GetLoginCredentials_()
         Update_Custom_Settings credentials_base64 "$loginCredsENC"
 
         if [ "$thePWSDstring" != "$oldPWSDstring" ]
-        then savedMsg="${GRNct}New credentials saved.${NOct}"
-        else savedMsg="${GRNct}Credentials remain unchanged.${NOct}"
+        then
+            _UpdateLoginPswdCheckHelper_ NewPSWD
+            savedMsgStr="${GRNct}New credentials saved.${NOct}"
+        else
+            _UpdateLoginPswdCheckHelper_ OldPSWD
+            savedMsgStr="${GRNct}Credentials remain unchanged.${NOct}"
         fi
-        printf "\n${savedMsg}\n"
+        printf "\n${savedMsgStr}\n"
         printf "Encoded Credentials:\n"
         printf "${GRNct}$loginCredsENC${NOct}\n"
 
@@ -4196,9 +4352,9 @@ _GetNodeURL_()
     echo "${urlProto}://${NodeIP_Address}${urlPort}"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Mar-26] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Mar-07] ##
+##----------------------------------------##
 _GetNodeInfo_()
 {
     local NodeIP_Address="$1"
@@ -4226,6 +4382,7 @@ _GetNodeInfo_()
     credsBase64="$(Get_Custom_Setting credentials_base64)"
     if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
     then
+        _UpdateLoginPswdCheckHelper_ InitPWD
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
@@ -4245,9 +4402,11 @@ _GetNodeInfo_()
 
     if [ $? -ne 0 ]
     then
+        _UpdateLoginPswdCheckHelper_ FAILURE
         printf "\n${REDct}Login failed for AiMesh Node [$NodeIP_Address].${NOct}\n"
         return 1
     fi
+    _UpdateLoginPswdCheckHelper_ SUCCESS
 
     # Retrieve the HTML content #
     htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
@@ -8064,7 +8223,7 @@ _RunOfflineUpdateNow_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
+## Modified by Martinski W. [2025-Mar-07] ##
 ##----------------------------------------##
 _RunFirmwareUpdateNow_()
 {
@@ -8229,6 +8388,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     credsBase64="$(Get_Custom_Setting credentials_base64)"
     if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
     then
+        _UpdateLoginPswdCheckHelper_ InitPWD
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
         "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
@@ -8490,6 +8650,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
+        _UpdateLoginPswdCheckHelper_ SUCCESS
         if [ -f /opt/bin/diversion ]
         then
             # Extract version number from Diversion
@@ -8608,6 +8769,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         _ReleaseLock_
         /sbin/service reboot
     else
+         _UpdateLoginPswdCheckHelper_ FAILURE
         Say "${REDct}**ERROR**${NOct}: Router Login failed."
         if "$inMenuMode" || "$isInteractive"
         then
@@ -9830,7 +9992,7 @@ _ShowMainMenuOptions_()
    printf "\n${SEPstr}"
 
    printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
-   printf "\n  ${GRNct}2${NOct}.  Set Router Login Credentials\n"
+   printf "\n  ${GRNct}2${NOct}.  Set Router Login Password\n"
 
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
@@ -10521,9 +10683,14 @@ then
                            _ReleaseLock_ cliFileLock
                        fi
                        ;;
-                   "${SCRIPT_NAME}config")
+                   "${SCRIPT_NAME}config" | \
+                   "${SCRIPT_NAME}config_runLoginTest")
                        if _AcquireLock_ cliFileLock
                        then
+                           if [ "$3" = "${SCRIPT_NAME}config_runLoginTest" ]
+                           then runLoginCredentialsTest=true
+                           else runLoginCredentialsTest=false
+                           fi
                            _UpdateConfigFromWebUISettings_
                            _ConfirmCronJobForFWAutoUpdates_
                            _ReleaseLock_ cliFileLock
