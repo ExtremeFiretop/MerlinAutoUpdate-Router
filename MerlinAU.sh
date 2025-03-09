@@ -92,7 +92,6 @@ readonly CONFIG_FILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPT_VERPATH="${SETTINGS_DIR}/version.txt"
 readonly HELPER_JSFILE="${SETTINGS_DIR}/CheckHelper.js"
 readonly PSWD_CHECK_JS="${SETTINGS_DIR}/PswdCheckStatus.js"
-readonly CHANGELOG_PATH="$(ls "${SETTINGS_DIR}"/[Cc]hange[Ll]og* 2>/dev/null | head -n 1)"
 readonly SHARED_SETTINGS_FILE="${ADDONS_PATH}/custom_settings.txt"
 readonly SHARED_WEB_DIR="$(readlink -f /www/user)"
 readonly SCRIPT_WEB_DIR="${SHARED_WEB_DIR}/$SCRIPT_NAME"
@@ -2342,7 +2341,6 @@ _CreateSymLinks_()
    ln -sf "$CONFIG_FILE" "${SCRIPT_WEB_DIR}/config.htm" 2>/dev/null
    ln -sf "$HELPER_JSFILE" "${SCRIPT_WEB_DIR}/checkHelper.js" 2>/dev/null
    ln -sf "$PSWD_CHECK_JS" "${SCRIPT_WEB_DIR}/pswdCheckStatus.js" 2>/dev/null
-   ln -sf "$CHANGELOG_PATH" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
 }
 
 ##----------------------------------------##
@@ -7187,6 +7185,8 @@ _ManageChangelogMerlin_()
     fi
     cp -fp "$changeLogFile" "${SETTINGS_DIR}/changelog.txt"
     rm -f "$changeLogFile" "$wgetLogFile"
+    CHANGELOG_PATH="$(ls "${SETTINGS_DIR}"/[Cc]hange[Ll]og* 2>/dev/null | head -n 1)"
+    ln -sf "$CHANGELOG_PATH" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
     return 0
 }
 
@@ -7246,6 +7246,8 @@ _ManageChangelogGnuton_()
     fi
     cp -fp "$changeLogFile" "${SETTINGS_DIR}/changelog.txt"
     rm -f "$FW_Changelog_GITHUB" "$wgetLogFile"
+    CHANGELOG_PATH="$(ls "${SETTINGS_DIR}"/[Cc]hange[Ll]og* 2>/dev/null | head -n 1)"
+    ln -sf "$CHANGELOG_PATH" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
     return 1
 }
 
