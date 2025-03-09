@@ -92,6 +92,7 @@ readonly CONFIG_FILE="${SETTINGS_DIR}/custom_settings.txt"
 readonly SCRIPT_VERPATH="${SETTINGS_DIR}/version.txt"
 readonly HELPER_JSFILE="${SETTINGS_DIR}/CheckHelper.js"
 readonly PSWD_CHECK_JS="${SETTINGS_DIR}/PswdCheckStatus.js"
+readonly CHANGELOG_PATH="${SETTINGS_DIR}/changelog.txt"
 readonly SHARED_SETTINGS_FILE="${ADDONS_PATH}/custom_settings.txt"
 readonly SHARED_WEB_DIR="$(readlink -f /www/user)"
 readonly SCRIPT_WEB_DIR="${SHARED_WEB_DIR}/$SCRIPT_NAME"
@@ -2341,6 +2342,7 @@ _CreateSymLinks_()
    ln -sf "$CONFIG_FILE" "${SCRIPT_WEB_DIR}/config.htm" 2>/dev/null
    ln -sf "$HELPER_JSFILE" "${SCRIPT_WEB_DIR}/checkHelper.js" 2>/dev/null
    ln -sf "$PSWD_CHECK_JS" "${SCRIPT_WEB_DIR}/pswdCheckStatus.js" 2>/dev/null
+   ln -sf "$CHANGELOG_PATH" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
 }
 
 ##----------------------------------------##
@@ -7123,7 +7125,7 @@ _ManageChangelogMerlin_()
     # Create directory to download changelog if missing #
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
-    if [ "$mode" = "view" ]
+    if [ "$mode" = "view" ] || [ "$mode" = "webuidownload" ]
     then
         if [ "$fwInstalledBaseVers" -eq 3006 ]
         then
@@ -7183,7 +7185,9 @@ _ManageChangelogMerlin_()
             "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr"
         fi
     fi
+    cp -fp "$changeLogFile" "${SETTINGS_DIR}/changelog.txt"
     rm -f "$changeLogFile" "$wgetLogFile"
+    ln -sf "${SETTINGS_DIR}/changelog.txt" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
     return 0
 }
 
@@ -7196,7 +7200,6 @@ _ManageChangelogGnuton_()
     then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
     local mode="$1"  # Mode should be 'download' or 'view' #
-    local newUpdateVerStr=""
     local wgetLogFile  changeLogFile  changeLogTag
 
     # Create directory to download changelog if missing
@@ -7242,7 +7245,9 @@ _ManageChangelogGnuton_()
             less "$FW_Changelog_GITHUB"
         fi
     fi
+    cp -fp "$changeLogFile" "${SETTINGS_DIR}/changelog.txt"
     rm -f "$FW_Changelog_GITHUB" "$wgetLogFile"
+    ln -sf "${SETTINGS_DIR}/changelog.txt" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
     return 1
 }
 
@@ -7295,7 +7300,7 @@ _CheckNewUpdateFirmwareNotification_()
            then
                if "$isGNUtonFW"
                then
-                   _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
+                   _ManageChangelogGnuton_ "download"
                else
                    _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
                fi
@@ -7313,7 +7318,7 @@ _CheckNewUpdateFirmwareNotification_()
        then
            if "$isGNUtonFW"
            then
-               _ManageChangelogGnuton_ "download" "$fwNewUpdateNotificationVers"
+               _ManageChangelogGnuton_ "download"
            else
                _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
            fi
@@ -10650,6 +10655,14 @@ then
                        fi
                        _DoUnInstallation_
                        sleep 1
+                       ;;
+                   "${SCRIPT_NAME}downloadchangelog")
+                        if "$isGNUtonFW"
+                        then
+                            _ManageChangelogGnuton_ "webuidownload"
+                        else
+                            _ManageChangelogMerlin_ "webuidownload"
+                       fi
                        ;;
                    "${SCRIPT_NAME}approvechangelog")
                        currApprovalStatus="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
