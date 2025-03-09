@@ -796,6 +796,82 @@ const fwUpdateDirPath =
    }
 };
 
+function ShowLatestChangelog() {
+    document.form.action_script.value = 'start_MerlinAUdownloadchangelog';
+    document.form.action_wait.value = 10;
+
+    // Open popup **before** form submission to avoid browser popup blocking
+    var changelogWindow = window.open("", "ChangelogPopup", "width=800,height=600,scrollbars=1,resizable=1");
+
+    if (!changelogWindow) {
+        alert("Popup blocked! Please allow popups for this site to view the changelog.");
+        return;
+    }
+
+    changelogWindow.document.open();
+    changelogWindow.document.write("<html><head><title>Latest Changelog</title></head>");
+    changelogWindow.document.write("<body style='font-family:monospace; white-space:pre-wrap;'>");
+    changelogWindow.document.write("<p>Loading latest changelog...</p>");
+    changelogWindow.document.write("</body></html>");
+    changelogWindow.document.close();
+
+    // Now submit the form (which might trigger a page refresh)
+    showLoading();
+    document.form.submit();
+
+    // Delay the AJAX request slightly (but make sure it runs before page refresh)
+    setTimeout(function() {
+        $.ajax({
+            url: '/ext/MerlinAU/changelog.htm',
+            dataType: 'text',
+            timeout: 9000,
+            success: function(data) {
+                // Ensure the popup is still open before modifying it
+                if (changelogWindow && !changelogWindow.closed) {
+                    changelogWindow.document.open();
+                    changelogWindow.document.write("<html><head><title>Latest Changelog</title></head>");
+                    changelogWindow.document.write("<body style='font-family:monospace; white-space:pre-wrap;'>");
+                    changelogWindow.document.write("<pre>" + data + "</pre>");
+                    changelogWindow.document.write("</body></html>");
+                    changelogWindow.document.close();
+                }
+            },
+            error: function() {
+                if (changelogWindow && !changelogWindow.closed) {
+                    changelogWindow.document.open();
+                    changelogWindow.document.write("<html><head><title>Changelog Error</title></head>");
+                    changelogWindow.document.write("<body style='font-family:monospace; white-space:pre-wrap;'>");
+                    changelogWindow.document.write("<p>Failed to load the changelog.</p>");
+                    changelogWindow.document.write("</body></html>");
+                    changelogWindow.document.close();
+                }
+            }
+        });
+    }, 8000); // Delay slightly to allow form processing, but not too much
+}
+
+// **Control "Approve/Block Changelog" Checkbox State** //
+function ToggleChangelogApproval(checkboxElem) {
+    if (checkboxElem.checked) {
+        // They are approving
+        if (!confirm(approveChangelogMsge)) {
+            // If user cancels at the confirm prompt, revert checkbox
+            checkboxElem.checked = false;
+            return;
+        }
+        ApproveChangelog();
+    }
+    else {
+        // They are blocking
+        if (!confirm(blockChangelogMsge)) {
+            // If user cancels at the confirm prompt, revert checkbox
+            checkboxElem.checked = true;
+            return;
+        }
+        BlockChangelog();
+    }
+}
+
 /**----------------------------------------**/
 /** Modified by Martinski W. [2025-Feb-23] **/
 /**----------------------------------------**/
@@ -1378,7 +1454,6 @@ function ApproveChangelog()
 {
    console.log("Approving Changelog...");
 
-   if (!confirm (approveChangelogMsge)) { return; }
    document.form.action_script.value = 'start_MerlinAUapprovechangelog';
    document.form.action_wait.value = 10;
    showLoading();
@@ -1392,7 +1467,6 @@ function BlockChangelog()
 {
     console.log("Blocking Changelog...");
 
-    if (!confirm (blockChangelogMsge)) { return; }
     document.form.action_script.value = 'start_MerlinAUblockchangelog';
     document.form.action_wait.value = 10;
     showLoading();
@@ -1577,6 +1651,7 @@ function InitializeFields()
         }
 
         // **Handle Changelog Approval Display** //
+        // Now we handle the new Approve Changelog checkbox
         var changelogApprovalElement = document.getElementById('changelogApproval');
         if (changelogApprovalElement)
         {   // Default to "Disabled" if missing //
@@ -1584,59 +1659,26 @@ function InitializeFields()
             SetStatusForGUI('changelogApproval', approvalStatus);
         }
 
-        // **Control "Approve/Block Changelog" Button State** //
-        var approveBlockChangelogBtn = document.getElementById('approveBlockChangeLogBtn');
-        if (approveBlockChangelogBtn)
-        {
+        var approveChangelogCheck = document.getElementById('approveChangelogCheck');
+        if (approveChangelogCheck) {
             var isChangelogCheckEnabled = (custom_settings.CheckChangeLog === 'ENABLED');
-            var changelogApprovalValue = custom_settings.FW_New_Update_Changelog_Approval;
+            var approvalValue = custom_settings.FW_New_Update_Changelog_Approval; // e.g. "APPROVED" or "BLOCKED"
 
-            approveBlockChangelogBtn.style.display = 'inline-block';
-
-            // Decide whether we want "Approve" or "Block" //
-            if (changelogApprovalValue === 'APPROVED')
-            {   // Toggle functionality //
-                approveBlockChangelogBtn.value = "Block Changelog";
-                approveBlockChangelogBtn.title = blockChangelogHint;
-                approveBlockChangelogBtn.onclick = function() {
-                    BlockChangelog();
-                    return false;  // Prevent default form submission
-                };
-
-                approveBlockChangelogBtn.disabled = false; 
-                approveBlockChangelogBtn.style.opacity = '1'; 
-                approveBlockChangelogBtn.style.cursor = 'pointer';
+            // If Changelog Check is disabled, also disable our checkbox
+            if (!isChangelogCheckEnabled || !approvalValue || approvalValue === 'TBD') {
+                approveChangelogCheck.disabled = true;
+                approveChangelogCheck.checked = false;
             }
-            else if (changelogApprovalValue === 'BLOCKED')
-            {   // Toggle functionality //
-                approveBlockChangelogBtn.value = "Approve Changelog";
-                approveBlockChangelogBtn.title = approveChangelogHint;
-                approveBlockChangelogBtn.onclick = function() {
-                    ApproveChangelog();
-                    return false;
-                };
-                approveBlockChangelogBtn.disabled = false; 
-            }
-            else
-            {
-                approveBlockChangelogBtn.value = "Approve Changelog";
+            else {
+                approveChangelogCheck.disabled = false;
 
-                // Condition: Enable button only if
-                // 1. Changelog Check is enabled
-                // 2. Changelog Approval is neither empty nor "TBD"
-                if (isChangelogCheckEnabled && changelogApprovalValue && changelogApprovalValue !== 'TBD')
-                {
-                    approveBlockChangelogBtn.title = approveChangelogHint;
-                    approveBlockChangelogBtn.disabled = false;
-                    approveBlockChangelogBtn.style.opacity = '1';
-                    approveBlockChangelogBtn.style.cursor = 'pointer';
+                // If the stored approval is "APPROVED", default to checked
+                if (approvalValue === 'APPROVED') {
+                    approveChangelogCheck.checked = true;
                 }
-                else
-                {
-                    approveBlockChangelogBtn.title = '';
-                    approveBlockChangelogBtn.disabled = true;
-                    approveBlockChangelogBtn.style.opacity = '0.5';
-                    approveBlockChangelogBtn.style.cursor = 'not-allowed';
+                // Otherwise, set as unchecked for "BLOCKED," "Disabled," etc.
+                else {
+                    approveChangelogCheck.checked = false;
                 }
             }
         }
@@ -2566,10 +2608,13 @@ function initializeCollapsibleSections()
    </br>
 </td>
 <td style="text-align: center; border: none;" id="approveChangelogCell">
-   <input type="submit" class="button_gen savebutton" id="approveBlockChangeLogBtn"
-    onclick="ApproveChangelog(); return false;"
-    value="Approve Changelog" title="" name="button">
-   <br><label style="margin-top: 5px; margin-bottom:8x"></br>
+   <input type="submit" id="LatestChangelogButton" onclick="ShowLatestChangelog();
+    return false;" value="Latest Changelog" class="button_gen savebutton" title="View the latest changelog" name="button">
+   <br>
+   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+   <input type="checkbox" id="approveChangelogCheck" name="approveChangelogCheck" onclick="ToggleChangelogApproval(this);"
+   style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Approve Changelog</label>
+   </br>
 </td>
 <td style="text-align: left; border: none;">
    <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;"
