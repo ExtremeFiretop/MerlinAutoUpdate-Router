@@ -2532,8 +2532,8 @@ function initializeCollapsibleSections()
    <td style="padding: 4px; font-weight: bolder;" id="fwNotificationsDate">TBD</td>
 </tr>
 <tr>
-   <td style="padding: 4px; width: 165px;"><strong>F/W Update Check:</strong></td>
-   <td style="padding: 4px; font-weight: bolder;" id="fwUpdateCheckStatus">Disabled</td>
+   <td style="padding: 4px; width: 180px;"><strong>Changelog Approval:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="changelogApproval">Disabled</td>
 </tr>
 </table></td></tr></tbody></table></td>
 
@@ -2553,8 +2553,8 @@ function initializeCollapsibleSections()
 <td style="vertical-align: top; width: 50%;">
 <table style="margin: 0; text-align: left; width: 100%; border: none;">
 <tr>
-   <td style="padding: 4px; width: 180px;"><strong>Changelog Approval:</strong></td>
-   <td style="padding: 4px; font-weight: bolder;" id="changelogApproval">Disabled</td>
+   <td style="padding: 4px; width: 165px;"><strong>F/W Update Check:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="fwUpdateCheckStatus">Disabled</td>
 </tr>
 <tr>
    <td style="padding: 4px; width: 180px;"><strong>Changelog Check:</strong></td>
