@@ -2846,7 +2846,7 @@ _CreateEMailContent_()
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    if ! "$offlineUpdateTrigger"
    then
-        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
    else
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
@@ -8381,6 +8381,16 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         then
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 0
+        fi
+    fi
+
+    if ! "$offlineUpdateTrigger"
+    then
+        NewUpdate_VersionVerify="$(_GetLatestFWUpdateVersionFromRouter_)"
+        if [ "$NewUpdate_VersionVerify" != "$release_version" ]
+        then
+            Say "WARNING: The release version found by MerlinAU [$release_version] does not match the F/W update version from the router [$NewUpdate_VersionVerify]."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr" || return 1
         fi
     fi
 
