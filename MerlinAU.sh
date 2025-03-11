@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Mar-07
+# Last Modified: 2025-Mar-10
 ###################################################################
 set -u
 
@@ -2545,7 +2545,7 @@ _UpdateConfigFromWebUISettings_()
            { sleep 15 ; _UpdateHelperJSFile_ "$extCheckALLvarID" "true" ; } &
        fi
 
-       // Do this ONLY IF requested by user //
+       ## Do this ONLY IF requested by user ##
        "$doRouterLoginTest" && _TestLoginCredentials_
    else
        Say "No updated settings from WebUI found. No merge into $CONFIG_FILE necessary."
@@ -7185,9 +7185,9 @@ _ManageChangelogMerlin_()
             "$inMenuMode" && _WaitForEnterKey_ "$logsMenuReturnPromptStr"
         fi
     fi
-    cp -fp "$changeLogFile" "${SETTINGS_DIR}/changelog.txt"
+    cp -fp "$changeLogFile" "$CHANGELOG_PATH"
     rm -f "$changeLogFile" "$wgetLogFile"
-    ln -sf "${SETTINGS_DIR}/changelog.txt" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
+    ln -sf "$CHANGELOG_PATH" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
     return 0
 }
 
@@ -7245,10 +7245,10 @@ _ManageChangelogGnuton_()
             less "$FW_Changelog_GITHUB"
         fi
     fi
-    cp -fp "$changeLogFile" "${SETTINGS_DIR}/changelog.txt"
+    cp -fp "$changeLogFile" "$CHANGELOG_PATH"
     rm -f "$FW_Changelog_GITHUB" "$wgetLogFile"
-    ln -sf "${SETTINGS_DIR}/changelog.txt" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
-    return 1
+    ln -sf "$CHANGELOG_PATH" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
+    return 0
 }
 
 ##----------------------------------------##
@@ -10657,11 +10657,11 @@ then
                        sleep 1
                        ;;
                    "${SCRIPT_NAME}downloadchangelog")
-                        if "$isGNUtonFW"
-                        then
-                            _ManageChangelogGnuton_ "webuidownload"
-                        else
-                            _ManageChangelogMerlin_ "webuidownload"
+                       if "$isGNUtonFW"
+                       then
+                           _ManageChangelogGnuton_ "webuidownload"
+                       else
+                           _ManageChangelogMerlin_ "webuidownload"
                        fi
                        ;;
                    "${SCRIPT_NAME}approvechangelog")
