@@ -2846,7 +2846,7 @@ _CreateEMailContent_()
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    if ! "$offlineUpdateTrigger"
    then
-        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
    else
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
@@ -4545,29 +4545,52 @@ _GetLatestFWUpdateVersionFromGithub_()
         search_type="pure\|squashfs\|ubi"
     fi
 
+    if ! "$offlineUpdateTrigger"
+    then
+        # Get the router version from the router itself
+        local router_version="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+    else
+        # Get the router version from the router itself
+        local router_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+    fi
+
+    if [ -z "$router_version" ]; then
+        echo "**ERROR** **NO_ROUTER_VERSION**"
+        return 1
+    fi
+
     # Fetch the latest release data from GitHub #
     local release_data="$(curl -s "$url")"
 
     # Construct the grep pattern based on search_type #
     local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
 
-    # Filter the JSON for the desired firmware using grep and head to fetch the URL
-    local download_url="$(echo "$release_data" | 
-        grep -o "$grep_pattern" | 
-        grep -o "https://[^ ]*\.\(w\|pkgtb\)" | 
-        head -1)"
+    # Extract all matched download URLs
+    local download_urls="$(echo "$release_data" | \
+        grep -o "$grep_pattern" | \
+        grep -o "https://[^ ]*\.\(w\|pkgtb\)")"
 
     # Check if a URL was found
-    if [ -z "$download_url" ]
+    if [ -z "$download_urls" ]
     then
         echo "**ERROR** **NO_GITHUB_URL**"
         return 1
     else
-        # Extract the version from the download URL or release data
-        local version="$(echo "$download_url" | grep -oE "${PRODUCT_ID}[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.w$//;s/_/./g")"
-        echo "$version"
-        echo "$download_url"
-        return 0
+        # Loop through each matching URL and compare version to router_version
+        local url_item version
+        for url_item in $download_urls; do
+            # Extract the version portion from the URL
+            local version="$(echo "$url_item" \
+                | grep -oE "${PRODUCT_ID}_[^ ]*\.(w|pkgtb)" \
+                | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
+
+            # If this URL’s version matches the router version, we're done
+            if [ "$version" = "$router_version" ]; then
+                echo "$version"
+                echo "$url_item"
+                return 0
+            fi
+        done
     fi
 }
 
@@ -4586,25 +4609,51 @@ GetLatestFirmwareMD5Url()
         search_type="pure\|squashfs\|ubi"
     fi
 
+    if ! "$offlineUpdateTrigger"
+    then
+        # Get the router version from the router itself
+        local router_version="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+    else
+        # Get the router version from the router itself
+        local router_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+    fi
+
+    if [ -z "$router_version" ]; then
+        echo "**ERROR** **NO_ROUTER_VERSION**"
+        return 1
+    fi
+
     # Fetch the latest release data from GitHub
     local release_data="$(curl -s "$url")"
 
     # Construct the grep pattern based on search_type
     local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.md5\""
 
-    # Filter the JSON for the desired firmware using grep and sed
-    local md5_url="$(echo "$release_data" |
+    # Extract all matched download URLs
+    local md5_urls="$(echo "$release_data" |
         grep -o "$grep_pattern" | 
-        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/' |
-        head -1)"
+        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')"
 
     # Check if a URL was found and output result or error
-    if [ -z "$md5_url" ]
+    if [ -z "$md5_urls" ]
     then
-        echo "**ERROR** **NO_FIRMWARE_FILE_URL_FOUND**"
+        echo "**ERROR** **NO_MD5_FILE_URL_FOUND**"
         return 1
     else
-        echo "$md5_url"
+        # Loop through each matching URL and compare version to router_version
+        local url_item version
+        for url_item in $md5_urls; do
+            # Extract the version portion from the URL
+            local md5="$(echo "$url_item" \
+                | grep -oE "${PRODUCT_ID}_[^ ]*\.(md5)" \
+                | sed "s/${PRODUCT_ID}_//;s/.md5$//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
+
+            # If this URL’s version matches the router version, we're done
+            if [ "$md5" = "$router_version" ]; then
+                echo "$md5"
+                return 0
+            fi
+        done
     fi
 }
 
@@ -8381,6 +8430,16 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         then
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 0
+        fi
+    fi
+
+    if ! "$offlineUpdateTrigger"
+    then
+        NewUpdate_VersionVerify="$(_GetLatestFWUpdateVersionFromRouter_)"
+        if [ "$NewUpdate_VersionVerify" != "$release_version" ]
+        then
+            Say "WARNING: The release version found by MerlinAU [$release_version] does not match the F/W update version from the router [$NewUpdate_VersionVerify]."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr" || return 1
         fi
     fi
 
