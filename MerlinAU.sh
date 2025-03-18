@@ -4788,7 +4788,7 @@ _UnzipMerlin_()
         rm -f "$FW_ZIP_FPATH"
         _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-        _return 1
+        return 1
     fi
     return 0
 }
