@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Mar-10
+# Last Modified: 2025-Mar-18
 ###################################################################
 set -u
 
@@ -207,7 +207,12 @@ case "$fwInstalledBranchVer" in
    "3006.102") MinSupportedFirmwareVers="$MinSupportedFW_3006_102_Ver" ;;
 esac
 
-if [ "$(nvram get sw_mode)" -eq 1 ]
+##----------------------------------------##
+## Modified by Martinski W. [2025-Mar-18] ##
+##----------------------------------------##
+nvramSWmode="$(nvram get sw_mode)"
+## FOR TESTING WebGUI support when AP Mode ##
+if [ "$nvramSWmode" -eq 1 ] || [ "$nvramSWmode" -eq 3 ]
 then inRouterSWmode=true
 else inRouterSWmode=false
 fi
