@@ -221,11 +221,14 @@ then
     mountWebGUI_OK=true
     aiMeshNodes_OK=true
     inMainRouterMode=true
-elif [ "$nvramSWmode" = "3" ]
-then
-    mountWebGUI_OK=true
-    aiMeshNodes_OK=true
-    inAccessPointMode=true
+else
+    if [ "$nvramSWmode" = "3" ] && \
+       [ "$(nvram get wlc_psta)" = "0" ]
+    then
+        mountWebGUI_OK=true
+        aiMeshNodes_OK=true  ##??TBD??##
+        inAccessPointMode=true
+    fi
 fi
 
 readonly mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
