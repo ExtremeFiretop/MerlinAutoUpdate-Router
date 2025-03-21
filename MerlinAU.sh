@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Mar-18
+# Last Modified: 2025-Mar-20
 ###################################################################
 set -u
 
@@ -208,13 +208,27 @@ case "$fwInstalledBranchVer" in
 esac
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-18] ##
+## Modified by Martinski W. [2025-Mar-19] ##
 ##----------------------------------------##
-nvramSWmode="$(nvram get sw_mode)"
-## FOR TESTING WebGUI support when AP Mode ##
-if [ "$nvramSWmode" -eq 1 ] || [ "$nvramSWmode" -eq 3 ]
-then inRouterSWmode=true
-else inRouterSWmode=false
+aiMeshNodes_OK=false
+mountWebGUI_OK=false
+inMainRouterMode=false
+inAccessPointMode=false
+
+readonly nvramSWmode="$(nvram get sw_mode)"
+if [ "$nvramSWmode" = "1" ]
+then
+    mountWebGUI_OK=true
+    aiMeshNodes_OK=true
+    inMainRouterMode=true
+else
+    if [ "$nvramSWmode" = "3" ] && \
+       [ "$(nvram get wlc_psta)" = "0" ]
+    then
+        mountWebGUI_OK=true
+        aiMeshNodes_OK=false
+        inAccessPointMode=true
+    fi
 fi
 
 readonly mainMenuReturnPromptStr="Press <Enter> to return to the Main Menu..."
@@ -505,10 +519,19 @@ _ShowLogo_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-22] ##
+## Modified by Martinski W. [2025-Mar-19] ##
 ##----------------------------------------##
 _ShowAbout_()
 {
+    local webUI_Page  webUI_URL="[Not Available]"
+    if "$mountWebGUI_OK"
+    then
+        webUI_Page="$(_Check_WebGUI_Page_Exists_)"
+        if [ "$webUI_Page" != "NONE" ]
+        then webUI_URL="$(_GetRouterURL_)/$webUI_Page"
+        fi
+    fi
+
     clear
     _ShowLogo_
     cat <<EOF
@@ -519,6 +542,9 @@ About
   by automatically checking for, downloading, and applying the latest
   firmware version update that is currently available.
   [Developed by ExtremeFiretop and Martinski W.]
+
+WebUI Tab URL
+  $webUI_URL
 
 License
   $SCRIPT_NAME is free to use under the GNU General Public License
@@ -813,13 +839,13 @@ _FWVersionStrToNum_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-27] ##
+## Modified by Martinski W. [2025-Mar-19] ##
 ##----------------------------------------##
-if "$inRouterSWmode" 
+if "$inMainRouterMode" 
 then
     readonly FW_Update_CRON_DefaultSchedule="0 0 * * *"
 else
-    ## Recommended 20 minutes AFTER for AiMesh Nodes ##
+    ## Set 20 minutes AFTER for APs and AiMesh Nodes ##
     readonly FW_Update_CRON_DefaultSchedule="20 0 * * *"
 fi
 
@@ -1489,7 +1515,7 @@ _WebUI_FW_UpdateZIPDirPathDefault_()
 ##----------------------------------------##
 _InitHelperJSFile_()
 {
-   ! "$inRouterSWmode" && return 0
+   ! "$mountWebGUI_OK" && return 0
 
    [ ! -s "$HELPER_JSFILE" ] && \
    {
@@ -1511,7 +1537,7 @@ _UpdateHelperJSFile_()
 {
    if [ $# -lt 2 ] || \
       [ -z "$1" ] || [ -z "$2" ] || \
-      ! "$inRouterSWmode"
+      ! "$mountWebGUI_OK"
    then return 1; fi
 
    local extCheckMsg=""
@@ -2128,7 +2154,7 @@ _Mount_WebUI_()
 ##-------------------------------------##
 _CheckFor_WebGUI_Page_()
 {
-   if "$inRouterSWmode" && \
+   if "$mountWebGUI_OK" && \
       [ "$(_Check_WebGUI_Page_Exists_)" = "NONE" ]
    then _Mount_WebUI_ ; fi
 }
@@ -2324,7 +2350,7 @@ _CreateDirPaths_()
       mkdir -p "$SETTINGS_DIR"
       chmod 755 "$SETTINGS_DIR"
    fi
-   ! "$inRouterSWmode" && return 0
+   ! "$mountWebGUI_OK" && return 0
 
    if [ ! -d "$SCRIPT_WEB_DIR" ]
    then
@@ -2342,7 +2368,7 @@ _CreateSymLinks_()
    then
        rm -rf "${SCRIPT_WEB_DIR:?}/"* 2>/dev/null
    fi
-   ! "$inRouterSWmode" && return 0
+   ! "$mountWebGUI_OK" && return 0
 
    ln -sf "$CONFIG_FILE" "${SCRIPT_WEB_DIR}/config.htm" 2>/dev/null
    ln -sf "$HELPER_JSFILE" "${SCRIPT_WEB_DIR}/checkHelper.js" 2>/dev/null
@@ -2382,7 +2408,7 @@ _WriteVarDefToHelperJSFile_()
 ##-------------------------------------##
 _WebUI_AutoFWUpdateCheckCronSchedule_()
 {
-   ! "$inRouterSWmode" && return 0
+   ! "$mountWebGUI_OK" && return 0
    local fwUpdtCronScheduleRaw  fwUpdtCronScheduleStr
    fwUpdtCronScheduleRaw="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
    fwUpdtCronScheduleStr="$(_TranslateCronSchedHR_ "$fwUpdtCronScheduleRaw")"
@@ -2394,7 +2420,7 @@ _WebUI_AutoFWUpdateCheckCronSchedule_()
 ##-------------------------------------##
 _WebUI_AutoScriptUpdateCronSchedule_()
 {
-   ! "$inRouterSWmode" && return 0
+   ! "$mountWebGUI_OK" && return 0
    local scriptUpdtCronSchedRaw  scriptUpdtCronSchedStr
    scriptUpdtCronSchedRaw="$(_GetScriptAutoUpdateCronSchedule_)"
    scriptUpdtCronSchedStr="$(_TranslateCronSchedHR_ "$scriptUpdtCronSchedRaw")"
@@ -2406,7 +2432,7 @@ _WebUI_AutoScriptUpdateCronSchedule_()
 ##-------------------------------------##
 _WebUI_SetEmailConfigFileFromAMTM_()
 {
-   ! "$inRouterSWmode" && return 0
+   ! "$mountWebGUI_OK" && return 0
    _CheckEMailConfigFileFromAMTM_ 0
    _WriteVarDefToHelperJSFile_ "isEMailConfigEnabledInAMTM" "$isEMailConfigEnabledInAMTM" true
 }
@@ -2634,7 +2660,7 @@ _DownloadScriptFiles_()
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
    fi
-   if "$inRouterSWmode" && \
+   if "$mountWebGUI_OK" && \
       _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
    then
        chmod 664 "$SCRIPT_WEB_ASP_PATH"
@@ -2650,7 +2676,7 @@ _DownloadScriptFiles_()
            "$isUpdateAction" && _Mount_WebUI_
        fi
        retCode=0
-   elif "$inRouterSWmode"
+   elif "$mountWebGUI_OK"
    then
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
@@ -2687,7 +2713,7 @@ _SCRIPT_UPDATE_()
        if _DownloadScriptFiles_ update
        then
            printf "${CYANct}$SCRIPT_NAME files were successfully updated.${NOct}\n\n"
-           if "$inRouterSWmode"
+           if "$mountWebGUI_OK"
            then
                _SetVersionSharedSettings_ local "$DLRepoVersion"
                _SetVersionSharedSettings_ server "$DLRepoVersion"
@@ -2709,7 +2735,7 @@ _SCRIPT_UPDATE_()
    printf "${CYANct}Version Currently Installed:  ${YLWct}${SCRIPT_VERSION}${NOct}\n"
    printf "${CYANct}Update Version Available Now: ${YLWct}${DLRepoVersion}${NOct}\n\n"
 
-   if "$inRouterSWmode"
+   if "$mountWebGUI_OK"
    then _SetVersionSharedSettings_ server "$DLRepoVersion" ; fi
 
    if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ]
@@ -2722,7 +2748,7 @@ _SCRIPT_UPDATE_()
 
           if _DownloadScriptFiles_ update
           then
-              if "$inRouterSWmode"
+              if "$mountWebGUI_OK"
               then _SetVersionSharedSettings_ local "$DLRepoVersion" ; fi
               printf "\n${CYANct}Download successful!${NOct}\n"
               printf "$(date) - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
@@ -2743,7 +2769,7 @@ _SCRIPT_UPDATE_()
 
           if _DownloadScriptFiles_ update
           then
-              if "$inRouterSWmode"
+              if "$mountWebGUI_OK"
               then _SetVersionSharedSettings_ local "$DLRepoVersion" ; fi
               printf "\n$(date) - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
               printf "${CYANct}Update successful! Restarting script...${NOct}\n"
@@ -2885,7 +2911,7 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        AGGREGATED_UPDATE_NOTIFICATION)
-           if "$inRouterSWmode" && [ -n "$node_list" ]; then
+           if "$aiMeshNodes_OK" && [ -n "$node_list" ]; then
               nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
            fi
            if [ -z "$nodefwNewUpdateVersion" ]
@@ -7349,7 +7375,7 @@ _CheckNewUpdateFirmwareNotification_()
            fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-           "$inRouterSWmode" && sendNewUpdateStatusEmail=true
+           "$mountWebGUI_OK" && sendNewUpdateStatusEmail=true
            if ! "$FlashStarted"
            then
                if "$isGNUtonFW"
@@ -7367,7 +7393,7 @@ _CheckNewUpdateFirmwareNotification_()
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
-       "$inRouterSWmode" && sendNewUpdateStatusEmail=true
+       "$mountWebGUI_OK" && sendNewUpdateStatusEmail=true
        if ! "$FlashStarted"
        then
            if "$isGNUtonFW"
@@ -9126,7 +9152,7 @@ _DoStartupInit_()
    _InitHelperJSFile_
    _SetVersionSharedSettings_ local "$SCRIPT_VERSION"
 
-   if "$inRouterSWmode"
+   if "$mountWebGUI_OK"
    then
        _Mount_WebUI_
        _AutoStartupHook_ create 2>/dev/null
@@ -9151,7 +9177,7 @@ _DoInstallation_()
    _SetVersionSharedSettings_ server "$SCRIPT_VERSION"
    _DownloadScriptFiles_ install
 
-   if "$inRouterSWmode"
+   if "$mountWebGUI_OK"
    then
        ! _Mount_WebUI_ && webguiOK=false
        _AutoStartupHook_ create 2>/dev/null
@@ -9196,7 +9222,7 @@ _DoUnInstallation_()
    _DelPostUpdateEmailNotifyScriptHook_
    _SetVersionSharedSettings_ delete
 
-   if "$inRouterSWmode"
+   if "$mountWebGUI_OK"
    then
        _Unmount_WebUI_
        _AutoStartupHook_ delete 2>/dev/null
@@ -9447,7 +9473,7 @@ _ProcessMeshNodes_()
     if ! node_list="$(_GetNodeIPv4List_)"
     then node_list="" ; fi
 
-    if "$inRouterSWmode"
+    if "$aiMeshNodes_OK"
     then
         if [ -n "$node_list" ]
         then
@@ -10115,7 +10141,7 @@ _ShowMainMenuOptions_()
    printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
 
    # Check for AiMesh Nodes #
-   if "$inRouterSWmode" && [ -n "$node_list" ]; then
+   if "$aiMeshNodes_OK" && [ -n "$node_list" ]; then
       printf "\n ${GRNct}mn${NOct}.  AiMesh Node(s) Info\n"
    fi
 
@@ -10266,7 +10292,7 @@ _ShowAdvancedOptionsMenu_()
    if _CheckEMailConfigFileFromAMTM_ 0
    then
        # F/W Update Email Notifications #
-       if "$inRouterSWmode" 
+       if "$mountWebGUI_OK" 
        then
            printf "\n ${GRNct}em${NOct}.  Toggle F/W Update Email Notifications"
        else
@@ -10565,7 +10591,7 @@ _MainMenu_()
              ;;
          ad) _AdvancedOptionsMenu_
              ;;
-         mn) if "$inRouterSWmode" && [ -n "$node_list" ]
+         mn) if "$aiMeshNodes_OK" && [ -n "$node_list" ]
              then _ShowNodesMenuOptions_
              else _InvalidMenuSelection_
              fi
@@ -10610,7 +10636,7 @@ _DoInitializationStartup_()
    _InitHelperJSFile_
    _SetVersionSharedSettings_ local "$SCRIPT_VERSION"
 
-   if "$inRouterSWmode"
+   if "$mountWebGUI_OK"
    then
        _AutoStartupHook_ create 2>/dev/null
        _AutoServiceEvent_ create 2>/dev/null
