@@ -2563,57 +2563,59 @@ function initializeCollapsibleSections()
 
                         <div style="line-height:10px;">&nbsp;</div>
 
-<!-- Original "Actions" remain for F/W Update Check, Changelog, Uninstall -->
-<div style="line-height:10px;">&nbsp;</div>
-<table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-<thead class="collapsible-jquery" id="actionsSection2">
-   <tr><td colspan="2">Actions (click to expand/collapse)</td></tr>
-</thead>
-<tbody>
-<tr>
-<td colspan="2">
-<div style="text-align: center; margin-top: 3px;">
-<table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; background-color: transparent;">
-<colgroup>
-   <col style="width: 33%;" />
-   <col style="width: 33%;" />
-   <col style="width: 33%;" />
-</colgroup>
-<tr>
-<td style="text-align: right; border: none;">
-   <input type="submit" id="FWUpdateCheckButton" onclick="CheckFirmwareUpdate();
-    return false;" value="F/W Update Check" class="button_gen savebutton" name="button">
-   <br>
-   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
-   <input type="checkbox" checked="" id="BypassPostponedDays" name="BypassPostponedDays"
-    style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Bypass postponed days</label>
-   </br>
-</td>
-<td style="text-align: center; border: none;" id="approveChangelogCell">
-   <input type="submit" id="LatestChangelogButton" onclick="ShowLatestChangelog();
-    return false;" value="Latest Changelog" class="button_gen savebutton" title="View the latest changelog" name="button">
-   <br>
-   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
-   <input type="checkbox" id="approveChangelogCheck" name="approveChangelogCheck" onclick="ToggleChangelogApproval(this);"
-   style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Approve Changelog</label>
-   </br>
-</td>
-<td style="text-align: left; border: none;">
-   <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;"
-    value="Uninstall" class="button_gen savebutton" name="button">
-   <br>
-   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
-   <input type="checkbox" checked="" id="KeepConfigFile" name="KeepConfigFile"
-    style="padding:0; vertical-align:middle; position:relative; margin-left:-3px; margin-top:5px; margin-bottom:8px"/>Keep configuration file</label>
-   </br>
-</td>
-</tr>
-</table>
-</div>
-</td>
-</tr>
-</tbody>
-</table>
+                        <!-- Original "Actions" remain for F/W Update Check, Changelog, Uninstall -->
+                        <div style="line-height:10px;">&nbsp;</div>
+                        <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
+                          <thead class="collapsible-jquery" id="actionsSection2">
+                            <tr>
+                              <td colspan="2">Actions (click to expand/collapse)</td>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td colspan="2">
+                                <div style="text-align: center; margin-top: 3px;">
+                                  <table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; background-color: transparent;">
+                                    <colgroup>
+                                      <col style="width: 33%;" />
+                                      <col style="width: 33%;" />
+                                      <col style="width: 33%;" />
+                                    </colgroup>
+                                    <tr>
+                                      <td style="text-align: right; border: none;">
+                                        <input type="submit" id="FWUpdateCheckButton" onclick="CheckFirmwareUpdate(); return false;" value="F/W Update Check" class="button_gen savebutton" name="button">
+                                        <br>
+                                        <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+                                          <input type="checkbox" checked="" id="BypassPostponedDays" name="BypassPostponedDays" style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>
+                                          Bypass postponed days
+                                        </label>
+                                        </br>
+                                      </td>
+                                      <td style="text-align: center; border: none;" id="approveChangelogCell">
+                                        <input type="submit" id="LatestChangelogButton" onclick="ShowLatestChangelog(); return false;" value="Latest Changelog" class="button_gen savebutton" title="View the latest changelog" name="button">
+                                        <br>
+                                        <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+                                          <input type="checkbox" id="approveChangelogCheck" name="approveChangelogCheck" onclick="ToggleChangelogApproval(this);" style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>
+                                          Approve Changelog
+                                        </label>
+                                        </br>
+                                      </td>
+                                      <td style="text-align: left; border: none;">
+                                        <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;" value="Uninstall" class="button_gen savebutton" name="button">
+                                        <br>
+                                        <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+                                          <input type="checkbox" checked="" id="KeepConfigFile" name="KeepConfigFile" style="padding:0; vertical-align:middle; position:relative; margin-left:-3px; margin-top:5px; margin-bottom:8px"/>
+                                          Keep configuration file
+                                        </label>
+                                        </br>
+                                      </td>
+                                    </tr>
+                                  </table>
+                                </div>
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
 
                         <div style="line-height:10px;">&nbsp;</div>
 
