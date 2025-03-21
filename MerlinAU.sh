@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Mar-19
+# Last Modified: 2025-Mar-20
 ###################################################################
 set -u
 
@@ -226,7 +226,7 @@ else
        [ "$(nvram get wlc_psta)" = "0" ]
     then
         mountWebGUI_OK=true
-        aiMeshNodes_OK=true  ##??TBD??##
+        aiMeshNodes_OK=false
         inAccessPointMode=true
     fi
 fi
