@@ -2618,11 +2618,11 @@ function initializeCollapsibleSections()
 
                         <div style="line-height:10px;">&nbsp;</div>
 
-                        <!-- Advanced Options Section -->
+                        <!-- Configuration Section -->
                         <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
                           <thead class="collapsible-jquery" id="advancedOptionsSection">
                             <tr>
-                              <td colspan="2">Advanced Options (click to expand/collapse)</td>
+                              <td colspan="2">Configurations (click to expand/collapse)</td>
                             </tr>
                           </thead>
                           <tbody>
@@ -2933,7 +2933,7 @@ function initializeCollapsibleSections()
                                     </tr>
                                   </table>
                                   <div style="text-align: center; margin-top: 10px;">
-                                    <input type="submit" onclick="SaveAdvancedConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
+                                    <input type="submit" onclick="SaveCombinedConfig(); return false;" value="Save Configuration" class="button_gen savebutton" name="button">
                                   </div>
                                 </form>
                               </td>
