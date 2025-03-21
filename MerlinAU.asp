@@ -2496,7 +2496,7 @@ function initializeCollapsibleSections()
 <div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
 <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 <div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI
-<span style="margin-left:8px;" id="WikiURL"">[
+<span style="margin-left:8px;" id="WikiURL">[
    <a style="font-weight:bolder; text-decoration:underline; cursor:pointer;"
       href="https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki"
       title="Go to MerlinAU Wiki page" target="_blank">Wiki</a> ]
