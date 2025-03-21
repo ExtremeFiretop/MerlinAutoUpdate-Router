@@ -77,7 +77,7 @@ const validationErrorMsg = 'Validation failed. Please correct invalid value and 
 /** Added by Martinski W. [2025-Feb-21] **/
 /**-------------------------------------**/
 /** Set to false for Production Release **/
-var doConsoleLogDEBUG = true;
+var doConsoleLogDEBUG = false;
 function ConsoleLogDEBUG (debugMsg, debugVar)
 {
    if (!doConsoleLogDEBUG) { return ; }
@@ -823,7 +823,7 @@ function ShowLatestChangelog(e) {
 
     // If the modal already exists, clear its content to force a fresh fetch.
     if ($('#changelogModal').length) {
-       $('#changelogData').html('<p>Loading latest changelog...</p>');
+       $('#changelogData').html('<p>Please wait...</p>');
     } else {
         // Create modal overlay if it doesn't exist
         $('body').append(
@@ -834,7 +834,7 @@ function ShowLatestChangelog(e) {
                     '<h2 style="margin-top:0; color:#000;">Latest Changelog</h2>' +
                     '<button id="closeChangelogModal" style="float:right; font-size:14px; cursor:pointer;">Close</button>' +
                     '<div id="changelogData" style="font-family:monospace; white-space:pre-wrap; margin-top:10px; color:#000;">' +
-                        '<p>Loading latest changelog...</p>' +
+                        '<p>Please wait and allow up to 10 seconds for changelog to load...</p>' +
                     '</div>' +
                 '</div>' +
             '</div>'
@@ -2563,10 +2563,9 @@ function initializeCollapsibleSections()
 
                         <div style="line-height:10px;">&nbsp;</div>
 
-                        <!-- Original "Actions" remain for F/W Update Check, Changelog, Uninstall -->
-                        <div style="line-height:10px;">&nbsp;</div>
+                        <!-- Actions Section -->
                         <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-                          <thead class="collapsible-jquery" id="actionsSection2">
+                          <thead class="collapsible-jquery" id="actionsSection">
                             <tr>
                               <td colspan="2">Actions (click to expand/collapse)</td>
                             </tr>
@@ -2619,17 +2618,17 @@ function initializeCollapsibleSections()
 
                         <div style="line-height:10px;">&nbsp;</div>
 
-                        <!-- Configuration Section -->
+                        <!-- Advanced Options Section -->
                         <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
                           <thead class="collapsible-jquery" id="advancedOptionsSection">
                             <tr>
-                              <td colspan="2">Configuration (click to expand/collapse)</td>
+                              <td colspan="2">Advanced Options (click to expand/collapse)</td>
                             </tr>
                           </thead>
                           <tbody>
                             <tr>
                               <td colspan="2">
-                                <form id="actionsForm">
+                                <form id="advancedOptionsForm">
                                   <table class="FormTable SettingsTable" width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
                                     <colgroup>
                                       <col style="width: 37%;" />
@@ -2668,9 +2667,7 @@ function initializeCollapsibleSections()
                                       </td>
                                     </tr>
                                     <tr>
-                                      <td style="text-align: left;">
-                                        <label for="FW_AutoUpdate_Check">Enable Automatic F/W Update Checks</label>
-                                      </td>
+                                      <td style="text-align: left;"><label for="FW_AutoUpdate_Check">Enable Automatic F/W Update Checks</label></td>
                                       <td>
                                         <input type="checkbox" id="FW_AutoUpdate_Check" name="FW_AutoUpdate_Check" style="margin-left:2px;"/>
                                         <span id="FW_AutoUpdate_CheckSchedText" name="FW_AutoUpdate_CheckSchedText"
@@ -2702,7 +2699,9 @@ function initializeCollapsibleSections()
                                         <input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" style="margin-left:2px;"/>
                                       </td>
                                     </tr>
-                                    <!-- ** F/W Update Check Cron Schedule ** -->
+                                    <!--
+                                    ** F/W Update Check Cron Schedule **
+                                    -->
                                     <tr>
                                       <td style="text-align: left;">
                                         <label id="fwUpdateCheckScheduleLabel" for="fwUpdateCheckSchedule">
@@ -2714,14 +2713,10 @@ function initializeCollapsibleSections()
                                           <span style="margin-left:1px; margin-top:5px; font-size: 12px; font-weight: bolder;">Days:</span>
                                           <label style="margin-left:-3px;">
                                             <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYS1" value="Every day" class="input"
-                                                   style="margin-left:22px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'1');"/>
-                                            Every day
-                                          </label>
+                                                   style="margin-left:22px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'1');"/>Every day</label>
                                           <label style="margin-left:-3px;">
                                             <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYSX" value="Every X Days" class="input"
-                                                   style="margin-left:28px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'X');"/>
-                                            Every
-                                          </label>
+                                                   style="margin-left:28px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'X');"/>Every</label>
                                           <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
                                                  style="width: 5%; margin-left: 2px; margin-top:3px; margin-bottom:7px" maxlength="2"
                                                  id="fwScheduleXDAYS" name="fwScheduleXDAYS" value="2"
@@ -2922,9 +2917,7 @@ function initializeCollapsibleSections()
                                       </td>
                                     </tr>
                                     <tr>
-                                      <td style="text-align: left;">
-                                        <label for="emailFormat">Email Notification Format</label>
-                                      </td>
+                                      <td style="text-align: left;"><label for="emailFormat">Email Notification Format</label></td>
                                       <td>
                                         <select id="emailFormat" name="emailFormat" style="width: 21%;">
                                           <option value="HTML">HTML</option>
@@ -2933,16 +2926,14 @@ function initializeCollapsibleSections()
                                       </td>
                                     </tr>
                                     <tr>
-                                      <td style="text-align: left;">
-                                        <label for="secondaryEmail">Secondary Email for Notifications</label>
-                                      </td>
+                                      <td style="text-align: left;"><label for="secondaryEmail">Secondary Email for Notifications</label></td>
                                       <td>
                                         <input type="email" id="secondaryEmail" name="secondaryEmail" style="width: 275px;" />
                                       </td>
                                     </tr>
                                   </table>
                                   <div style="text-align: center; margin-top: 10px;">
-                                    <input type="submit" onclick="SaveCombinedConfig(); return false;" value="Save Configuration" class="button_gen savebutton" name="button">
+                                    <input type="submit" onclick="SaveAdvancedConfig(); return false;" value="Save" class="button_gen savebutton" name="button">
                                   </div>
                                 </form>
                               </td>
