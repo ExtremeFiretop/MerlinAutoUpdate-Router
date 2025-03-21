@@ -823,7 +823,7 @@ function ShowLatestChangelog(e) {
 
     // If the modal already exists, clear its content to force a fresh fetch.
     if ($('#changelogModal').length) {
-       $('#changelogData').html('<p>Loading latest changelog...</p>');
+       $('#changelogData').html('<p>Please wait...</p>');
     } else {
         // Create modal overlay if it doesn't exist
         $('body').append(
@@ -834,7 +834,7 @@ function ShowLatestChangelog(e) {
                     '<h2 style="margin-top:0; color:#000;">Latest Changelog</h2>' +
                     '<button id="closeChangelogModal" style="float:right; font-size:14px; cursor:pointer;">Close</button>' +
                     '<div id="changelogData" style="font-family:monospace; white-space:pre-wrap; margin-top:10px; color:#000;">' +
-                        '<p>Loading latest changelog...</p>' +
+                        '<p>Please wait and allow up to 10 seconds for changelog to load...</p>' +
                     '</div>' +
                 '</div>' +
             '</div>'
