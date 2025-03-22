@@ -821,9 +821,14 @@ function fetchChangelog(startTime) {
 function ShowLatestChangelog(e) {
     if (e) e.preventDefault();
 
-    // If the modal already exists, clear its content to force a fresh fetch.
+    // Define the loading message
+    var loadingMessage = '<p>Please wait and allow up to 10 seconds for the changelog to load.<br>' +
+                         'Click on "Cancel" button to stop and exit this dialog.</p>';
+
+    // If the modal already exists, update its content for a fresh fetch.
     if ($('#changelogModal').length) {
-       $('#changelogData').html('<p>Please wait...</p>');
+       $('#changelogData').html(loadingMessage);
+       $('#closeChangelogModal').text("Cancel");
     } else {
         // Create modal overlay if it doesn't exist
         $('body').append(
@@ -832,9 +837,9 @@ function ShowLatestChangelog(e) {
                 '<div id="changelogContent" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); ' +
                     'background:#fff; color:#000; padding:20px; max-height:90%; overflow:auto; width:80%; max-width:800px;">' +
                     '<h2 style="margin-top:0; color:#000;">Latest Changelog</h2>' +
-                    '<button id="closeChangelogModal" style="float:right; font-size:14px; cursor:pointer;">Close</button>' +
+                    '<button id="closeChangelogModal" style="float:right; font-size:14px; cursor:pointer;">Cancel</button>' +
                     '<div id="changelogData" style="font-family:monospace; white-space:pre-wrap; margin-top:10px; color:#000;">' +
-                        '<p>Please wait and allow up to 10 seconds for changelog to load...</p>' +
+                        loadingMessage +
                     '</div>' +
                 '</div>' +
             '</div>'
@@ -864,6 +869,8 @@ function ShowLatestChangelog(e) {
     var startTime = new Date().getTime();
     setTimeout(function() {
          fetchChangelog(startTime);
+         // Once the changelog has loaded, update the button text to "Close"
+         $('#closeChangelogModal').text("Close");
     }, 8000);
 
     return false;
