@@ -821,9 +821,14 @@ function fetchChangelog(startTime) {
 function ShowLatestChangelog(e) {
     if (e) e.preventDefault();
 
-    // If the modal already exists, clear its content to force a fresh fetch.
+    // Define the loading message
+    var loadingMessage = '<p>Please wait and allow up to 10 seconds for the changelog to load.<br>' +
+                         'Click on "Cancel" button to stop and exit this dialog.</p>';
+
+    // If the modal already exists, update its content for a fresh fetch.
     if ($('#changelogModal').length) {
-       $('#changelogData').html('<p>Please wait...</p>');
+       $('#changelogData').html(loadingMessage);
+       $('#closeChangelogModal').text("Cancel");
     } else {
         // Create modal overlay if it doesn't exist
         $('body').append(
@@ -832,9 +837,9 @@ function ShowLatestChangelog(e) {
                 '<div id="changelogContent" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); ' +
                     'background:#fff; color:#000; padding:20px; max-height:90%; overflow:auto; width:80%; max-width:800px;">' +
                     '<h2 style="margin-top:0; color:#000;">Latest Changelog</h2>' +
-                    '<button id="closeChangelogModal" style="float:right; font-size:14px; cursor:pointer;">Close</button>' +
+                    '<button id="closeChangelogModal" style="float:right; font-size:14px; cursor:pointer;">Cancel</button>' +
                     '<div id="changelogData" style="font-family:monospace; white-space:pre-wrap; margin-top:10px; color:#000;">' +
-                        '<p>Please wait and allow up to 10 seconds for changelog to load...</p>' +
+                        loadingMessage +
                     '</div>' +
                 '</div>' +
             '</div>'
@@ -864,6 +869,8 @@ function ShowLatestChangelog(e) {
     var startTime = new Date().getTime();
     setTimeout(function() {
          fetchChangelog(startTime);
+         // Once the changelog has loaded, update the button text to "Close"
+         $('#closeChangelogModal').text("Close");
     }, 8000);
 
     return false;
@@ -2399,560 +2406,504 @@ function initializeCollapsibleSections()
 </script>
 </head>
 <body onload="initial();" class="bg">
-  <div id="TopBanner"></div>
-  <div id="Loading" class="popup_bg"></div>
-  <iframe name="hidden_frame" id="hidden_frame" src="" width="0" height="0" frameborder="0"></iframe>
+<div id="TopBanner"></div>
+<div id="Loading" class="popup_bg"></div>
+<iframe name="hidden_frame" id="hidden_frame" src="" width="0" height="0" frameborder="0"></iframe>
 
-  <form method="post" name="form" action="start_apply.htm" target="hidden_frame">
-    <input type="hidden" name="action_script" value="start_MerlinAUconfig" />
-    <input type="hidden" name="current_page" value="" />
-    <input type="hidden" name="next_page" value="" />
-    <input type="hidden" name="modified" value="0" />
-    <input type="hidden" name="action_mode" value="apply" />
-    <input type="hidden" name="action_wait" value="90" />
-    <input type="hidden" name="first_time" value="">
-    <input type="hidden" id="http_username" value="<% nvram_get("http_username"); %>" />
-    <input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>" />
-    <!-- Consolidated firmver input -->
-    <input type="hidden" name="extendno" id="extendno" value="<% nvram_get("extendno"); %>" />
-    <input type="hidden" name="firmver" id="firmver" value="<% nvram_get('firmver'); %>.<% nvram_get('buildno'); %>.<% nvram_get('extendno'); %>" />
-    <input type="hidden" id="nvram_odmpid" value="<% nvram_get("odmpid"); %>" />
-    <input type="hidden" id="nvram_wps_modelnum" value="<% nvram_get("wps_modelnum"); %>" />
-    <input type="hidden" id="nvram_model" value="<% nvram_get("model"); %>" />
-    <input type="hidden" id="nvram_build_name" value="<% nvram_get("build_name"); %>" />
-    <input type="hidden" id="nvram_productid" value="<% nvram_get("productid"); %>" />
-    <input type="hidden" name="installedfirm" value="<% nvram_get("innerver"); %>" />
-    <input type="hidden" name="amng_custom" id="amng_custom" value="" />
+<form method="post" name="form" action="start_apply.htm" target="hidden_frame">
+<input type="hidden" name="action_script" value="start_MerlinAUconfig" />
+<input type="hidden" name="current_page" value="" />
+<input type="hidden" name="next_page" value="" />
+<input type="hidden" name="modified" value="0" />
+<input type="hidden" name="action_mode" value="apply" />
+<input type="hidden" name="action_wait" value="90" />
+<input type="hidden" name="first_time" value="">
+<input type="hidden" id="http_username" value="<% nvram_get("http_username"); %>" />
+<input type="hidden" name="preferred_lang" id="preferred_lang" value="<% nvram_get("preferred_lang"); %>" />
+<!-- Consolidated firmver input -->
+<input type="hidden" name="extendno" id="extendno" value="<% nvram_get("extendno"); %>" />
+<input type="hidden" name="firmver" id="firmver" value="<% nvram_get('firmver'); %>.<% nvram_get('buildno'); %>.<% nvram_get('extendno'); %>" />
+<input type="hidden" id="nvram_odmpid" value="<% nvram_get("odmpid"); %>" />
+<input type="hidden" id="nvram_wps_modelnum" value="<% nvram_get("wps_modelnum"); %>" />
+<input type="hidden" id="nvram_model" value="<% nvram_get("model"); %>" />
+<input type="hidden" id="nvram_build_name" value="<% nvram_get("build_name"); %>" />
+<input type="hidden" id="nvram_productid" value="<% nvram_get("productid"); %>" />
+<input type="hidden" name="installedfirm" value="<% nvram_get("innerver"); %>" />
+<input type="hidden" name="amng_custom" id="amng_custom" value="" />
 
-    <table class="content" cellpadding="0" cellspacing="0" style="margin:0 auto;">
-      <tr>
-        <td width="17">&nbsp;</td>
-        <td width="202" valign="top">
-          <div id="mainMenu"></div>
-          <div id="subMenu"></div>
-        </td>
-        <td valign="top">
-          <div id="tabMenu" class="submenuBlock"></div>
+<table class="content" cellpadding="0" cellspacing="0" style="margin:0 auto;">
+<tr>
+<td width="17">&nbsp;</td>
+<td width="202" valign="top">
+   <div id="mainMenu"></div>
+   <div id="subMenu"></div>
+</td>
+<td valign="top">
+<div id="tabMenu" class="submenuBlock"></div>
 
-          <table width="98%" border="0" cellpadding="0" cellspacing="0">
-            <tr>
-              <td valign="top">
-                <table width="760px" cellpadding="4" cellspacing="0" class="FormTitle" style="height: 1169px;">
-                  <tbody>
-                    <tr style="background-color:#4D595D;">
-                      <td valign="top">
-                        <div>&nbsp;</div>
-                        <div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
-                        <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
-                        <div class="formfontdesc">
-                          This is the MerlinAU add-on integrated into the router WebUI
-                          <span style="margin-left:8px;" id="WikiURL">
-                            [<a style="font-weight:bolder; text-decoration:underline; cursor:pointer;" 
-                                href="https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki" 
-                                title="Go to MerlinAU Wiki page" target="_blank">Wiki</a>]
-                          </span>
-                        </div>
-                        <div style="line-height:10px;">&nbsp;</div>
+<table width="98%" border="0" cellpadding="0" cellspacing="0">
+<tr>
+<td valign="top">
+<table width="760px" cellpadding="4" cellspacing="0" class="FormTitle" style="height: 1169px;">
+<tbody>
+<tr style="background-color:#4D595D;">
+<td valign="top">
+<div>&nbsp;</div>
+<div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
+<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
+<div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI
+<span style="margin-left:8px;" id="WikiURL"">[
+   <a style="font-weight:bolder; text-decoration:underline; cursor:pointer;"
+      href="https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki"
+      title="Go to MerlinAU Wiki page" target="_blank">Wiki</a> ]
+</span>
+</div>
+<div style="line-height:10px;">&nbsp;</div>
 
-                        <!-- Parent Table to Arrange Firmware and Settings Status Side by Side -->
-                        <table width="100%" cellpadding="0" cellspacing="0" style="border: none; background-color: transparent;">
-                          <tr>
-                            <!-- Firmware Status Column -->
-                            <td valign="top" width="57%" style="padding-right: 5px;">
-                              <!-- Firmware Status Section -->
-                              <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-                                <thead class="collapsible-jquery" id="firmwareStatusSection">
-                                  <tr>
-                                    <!-- Adjust colspan to match the number of internal tables -->
-                                    <td colspan="2">Firmware Status (click to expand/collapse)</td>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr>
-                                    <!-- First internal table in the first column -->
-                                    <td style="vertical-align: top; width: 50%;">
-                                      <table style="margin: 0; text-align: left; width: 100%; border: none;">
-                                        <tr>
-                                          <td style="padding: 4px; width: 165px;"><strong>F/W Product/Model ID:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="firmwareProductModelID"></td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 165px;"><strong>F/W Variant Detected:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="fwVariantDetected">Unknown</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 165px;"><strong>F/W Version Installed:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="fwVersionInstalled">
-                                            <% nvram_get("firmver"); %>.<% nvram_get("buildno"); %>.<% nvram_get("extendno"); %>
-                                          </td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 165px;"><strong>F/W Update Available:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="fwUpdateAvailable">NONE FOUND</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 165px;"><strong>Estimated Update Time:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="fwUpdateEstimatedRunDate">TBD</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 165px;"><strong>Last Notification Date:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="fwNotificationsDate">TBD</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 180px;"><strong>Changelog Approval:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="changelogApproval">Disabled</td>
-                                        </tr>
-                                      </table>
-                                    </td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </td>
+<!-- Parent Table to Arrange Firmware and Settings Status Side by Side -->
+<table width="100%" cellpadding="0" cellspacing="0" style="border: none; background-color: transparent;">
+<tr>
+<!-- Firmware Status Column -->
+<td valign="top" width="57%" style="padding-right: 5px;">
+<!-- Firmware Status Section -->
+<table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
+<thead class="collapsible-jquery" id="firmwareStatusSection">
+   <tr>
+      <!-- Adjust colspan to match the number of internal tables -->
+      <td colspan="2">Firmware Status (click to expand/collapse)</td>
+   </tr>
+</thead>
+<tbody>
+<tr>
+<!-- First internal table in the first column -->
+<td style="vertical-align: top; width: 50%;">
+<table style="margin: 0; text-align: left; width: 100%; border: none;">
+<tr>
+   <td style="padding: 4px; width: 165px;"><strong>F/W Product/Model ID:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="firmwareProductModelID"></td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 165px;"><strong>F/W Variant Detected:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="fwVariantDetected">Unknown</td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 165px;"><strong>F/W Version Installed:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="fwVersionInstalled">
+      <% nvram_get("firmver"); %>.<% nvram_get("buildno"); %>.<% nvram_get("extendno"); %>
+   </td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 165px;"><strong>F/W Update Available:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="fwUpdateAvailable">NONE FOUND</td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 165px;"><strong>Estimated Update Time:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="fwUpdateEstimatedRunDate">TBD</td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 165px;"><strong>Last Notification Date:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="fwNotificationsDate">TBD</td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 180px;"><strong>Changelog Approval:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="changelogApproval">Disabled</td>
+</tr>
+</table></td></tr></tbody></table></td>
 
-                            <!-- Settings Status Column -->
-                            <td valign="top" width="43%" style="padding-left: 5px;">
-                              <!-- Settings Status Section -->
-                              <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-                                <thead class="collapsible-jquery" id="settingsStatusSection">
-                                  <tr>
-                                    <!-- Adjust colspan to match the number of internal tables -->
-                                    <td colspan="2">Settings Status (click to expand/collapse)</td>
-                                  </tr>
-                                </thead>
-                                <tbody>
-                                  <tr>
-                                    <!-- Second internal table in the second column -->
-                                    <td style="vertical-align: top; width: 50%;">
-                                      <table style="margin: 0; text-align: left; width: 100%; border: none;">
-                                        <tr>
-                                          <td style="padding: 4px; width: 165px;"><strong>F/W Update Check:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="fwUpdateCheckStatus">Disabled</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 180px;"><strong>Changelog Check:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="changelogCheckStatus">Disabled</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 180px;"><strong>Beta-to-Release Updates:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="betaToReleaseUpdatesStatus">Disabled</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 180px;"><strong>Tailscale VPN Access:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="tailscaleVPNAccessStatus">Disabled</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 180px;"><strong>Automatic Backups:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="autobackupEnabledStatus">Disabled</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 180px;"><strong>Auto-Updates for MerlinAU:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="autoUpdatesScriptEnabledStatus">Disabled</td>
-                                        </tr>
-                                        <tr>
-                                          <td style="padding: 4px; width: 180px;"><strong>Email Notifications:</strong></td>
-                                          <td style="padding: 4px; font-weight: bolder;" id="emailNotificationsStatus">Disabled</td>
-                                        </tr>
-                                      </table>
-                                    </td>
-                                  </tr>
-                                </tbody>
-                              </table>
-                            </td>
-                          </tr>
-                        </table>
+<!-- Settings Status Column -->
+<td valign="top" width="43%" style="padding-left: 5px;">
+<!-- Settings Status Section -->
+<table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
+<thead class="collapsible-jquery" id="settingsStatusSection">
+   <tr>
+      <!-- Adjust colspan to match the number of internal tables -->
+      <td colspan="2">Settings Status (click to expand/collapse)</td>
+   </tr>
+</thead>
+<tbody>
+<tr>
+<!-- Second internal table in the second column -->
+<td style="vertical-align: top; width: 50%;">
+<table style="margin: 0; text-align: left; width: 100%; border: none;">
+<tr>
+   <td style="padding: 4px; width: 165px;"><strong>F/W Update Check:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="fwUpdateCheckStatus">Disabled</td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 180px;"><strong>Changelog Check:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="changelogCheckStatus">Disabled</td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 180px;"><strong>Beta-to-Release Updates:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="betaToReleaseUpdatesStatus">Disabled</td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 180px;"><strong>Tailscale VPN Access:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="tailscaleVPNAccessStatus">Disabled</td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 180px;"><strong>Automatic Backups:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="autobackupEnabledStatus">Disabled</td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 180px;"><strong>Auto-Updates for MerlinAU:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="autoUpdatesScriptEnabledStatus">Disabled</td>
+</tr>
+<tr>
+   <td style="padding: 4px; width: 180px;"><strong>Email Notifications:</strong></td>
+   <td style="padding: 4px; font-weight: bolder;" id="emailNotificationsStatus">Disabled</td>
+</tr>
+</table></td></tr></tbody></table></td></tr></table>
 
-                        <div style="line-height:10px;">&nbsp;</div>
+<div style="line-height:10px;">&nbsp;</div>
 
-                        <!-- Actions Section -->
-                        <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-                          <thead class="collapsible-jquery" id="actionsSection">
-                            <tr>
-                              <td colspan="2">Actions (click to expand/collapse)</td>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td colspan="2">
-                                <div style="text-align: center; margin-top: 3px;">
-                                  <table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; background-color: transparent;">
-                                    <colgroup>
-                                      <col style="width: 33%;" />
-                                      <col style="width: 33%;" />
-                                      <col style="width: 33%;" />
-                                    </colgroup>
-                                    <tr>
-                                      <td style="text-align: right; border: none;">
-                                        <input type="submit" id="FWUpdateCheckButton" onclick="CheckFirmwareUpdate(); return false;" value="F/W Update Check" class="button_gen savebutton" name="button">
-                                        <br>
-                                        <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
-                                          <input type="checkbox" checked="" id="BypassPostponedDays" name="BypassPostponedDays" style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>
-                                          Bypass postponed days
-                                        </label>
-                                        </br>
-                                      </td>
-                                      <td style="text-align: center; border: none;" id="approveChangelogCell">
-                                        <input type="submit" id="LatestChangelogButton" onclick="ShowLatestChangelog(); return false;" value="Latest Changelog" class="button_gen savebutton" title="View the latest changelog" name="button">
-                                        <br>
-                                        <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
-                                          <input type="checkbox" id="approveChangelogCheck" name="approveChangelogCheck" onclick="ToggleChangelogApproval(this);" style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>
-                                          Approve Changelog
-                                        </label>
-                                        </br>
-                                      </td>
-                                      <td style="text-align: left; border: none;">
-                                        <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;" value="Uninstall" class="button_gen savebutton" name="button">
-                                        <br>
-                                        <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
-                                          <input type="checkbox" checked="" id="KeepConfigFile" name="KeepConfigFile" style="padding:0; vertical-align:middle; position:relative; margin-left:-3px; margin-top:5px; margin-bottom:8px"/>
-                                          Keep configuration file
-                                        </label>
-                                        </br>
-                                      </td>
-                                    </tr>
-                                  </table>
-                                </div>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+<!-- Actions Section -->
+<table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
+<thead class="collapsible-jquery" id="actionsSection">
+   <tr><td colspan="2">Actions (click to expand/collapse)</td></tr>
+</thead>
+<tbody><tr><td colspan="2">
+<div style="text-align: center; margin-top: 3px;">
+<table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; border-collapse: collapse; background-color: transparent;">
+<colgroup>
+   <col style="width: 33%;" />
+   <col style="width: 33%;" />
+   <col style="width: 33%;" />
+</colgroup>
+<tr>
+<td style="text-align: right; border: none;">
+   <input type="submit" id="FWUpdateCheckButton" onclick="CheckFirmwareUpdate();
+    return false;" value="F/W Update Check" class="button_gen savebutton" name="button">
+   <br>
+   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+   <input type="checkbox" checked="" id="BypassPostponedDays" name="BypassPostponedDays"
+    style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Bypass postponed days</label>
+   </br>
+</td>
+<td style="text-align: center; border: none;" id="approveChangelogCell">
+   <input type="submit" id="LatestChangelogButton" onclick="ShowLatestChangelog();
+    return false;" value="Latest Changelog" class="button_gen savebutton" title="View the latest changelog" name="button">
+   <br>
+   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+   <input type="checkbox" id="approveChangelogCheck" name="approveChangelogCheck" onclick="ToggleChangelogApproval(this);"
+   style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Approve Changelog</label>
+   </br>
+</td>
+<td style="text-align: left; border: none;">
+   <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;"
+    value="Uninstall" class="button_gen savebutton" name="button">
+   <br>
+   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+   <input type="checkbox" checked="" id="KeepConfigFile" name="KeepConfigFile"
+    style="padding:0; vertical-align:middle; position:relative; margin-left:-3px; margin-top:5px; margin-bottom:8px"/>Keep configuration file</label>
+   </br>
+</td></tr></table></div></td></tr></tbody></table>
 
-                        <div style="line-height:10px;">&nbsp;</div>
+<div style="line-height:10px;">&nbsp;</div>
 
-                        <!-- Configuration Section -->
-                        <table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
-                          <thead class="collapsible-jquery" id="advancedOptionsSection">
-                            <tr>
-                              <td colspan="2">Configurations (click to expand/collapse)</td>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr>
-                              <td colspan="2">
-                                <form id="advancedOptionsForm">
-                                  <table class="FormTable SettingsTable" width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
-                                    <colgroup>
-                                      <col style="width: 37%;" />
-                                      <col style="width: 63%;" />
-                                    </colgroup>
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label for="routerPassword">
-                                          <a class="hintstyle" name="LOGIN_PASSWD" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            Router Login Password
-                                          </a>
-                                        </label>
-                                        <br>
-                                        <span class="settingname" id="LoginPswdStatusText" name="LoginPswdStatusText"
-                                              style="margin-top:10px; display:none; font-size:12px; font-weight:bolder;"></span>
-                                        </br>
-                                      </td>
-                                      <td>
-                                        <div style="display: inline-block;">
-                                          <input type="password" id="routerPassword" name="routerPassword" placeholder="Enter password"
-                                                 style="width: 278px; display: inline-block; margin-left:2px; margin-top:3px;" maxlength="64"
-                                                 onKeyPress="return validator.isString(this, event)"
-                                                 onblur="ValidatePasswordString(this,'onBLUR')"
-                                                 onkeyup="ValidatePasswordString(this,'onKEYUP')"/>
-                                          <div id="eyeToggle" onclick="togglePassword();"
-                                               style="position: absolute; display: inline-block; margin-left: 5px; vertical-align: middle; width:24px; height:24px; background:url('/images/icon-visible@2x.png') no-repeat center; background-size: contain; cursor: pointer;">
-                                          </div>
-                                        </div>
-                                        <br>
-                                        <label style="color:#FFCC00; margin-left:0px; margin-top:0px; margin-bottom:0px;">
-                                          <input class="input" type="checkbox" checked="" name="RunLoginTestOnSave" id="RunLoginTestOnSave"
-                                                 style="vertical-align:bottom; margin-left:2px; margin-right:5px; margin-top:13px; margin-bottom:4px;" onclick="ConfirmLoginTest(this);"/>
-                                          Run login test when saving password
-                                        </label>
-                                        </br>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;"><label for="FW_AutoUpdate_Check">Enable Automatic F/W Update Checks</label></td>
-                                      <td>
-                                        <input type="checkbox" id="FW_AutoUpdate_Check" name="FW_AutoUpdate_Check" style="margin-left:2px;"/>
-                                        <span id="FW_AutoUpdate_CheckSchedText" name="FW_AutoUpdate_CheckSchedText"
-                                              style="vertical-align:bottom; margin-left:15px; display:none; font-size: 12px; font-weight: bolder;">
-                                        </span>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label id="fwUpdatePostponementLabel" for="fwUpdatePostponement">F/W Update Postponement</label>
-                                      </td>
-                                      <td>
-                                        <input autocomplete="off" type="text" id="fwUpdatePostponement" name="fwUpdatePostponement"
-                                               style="width: 7%; margin-left: 2px;" maxlength="3"
-                                               onKeyPress="return validator.isNumber(this,event)"
-                                               onkeyup="ValidatePostponedDays(this)"
-                                               onblur="ValidatePostponedDays(this);FormatNumericSetting(this)"/>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label for="changelogCheckEnabled">
-                                          <a class="hintstyle" name="CHANGELOG_CHECK" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            Enable F/W Changelog Check
-                                          </a>
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" style="margin-left:2px;"/>
-                                      </td>
-                                    </tr>
-                                    <!--
-                                    ** F/W Update Check Cron Schedule **
-                                    -->
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label id="fwUpdateCheckScheduleLabel" for="fwUpdateCheckSchedule">
-                                          Schedule for F/W Update Checks
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <div id="fwCronScheduleDAYofWEEK">
-                                          <span style="margin-left:1px; margin-top:5px; font-size: 12px; font-weight: bolder;">Days:</span>
-                                          <label style="margin-left:-3px;">
-                                            <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYS1" value="Every day" class="input"
-                                                   style="margin-left:22px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'1');"/>Every day</label>
-                                          <label style="margin-left:-3px;">
-                                            <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYSX" value="Every X Days" class="input"
-                                                   style="margin-left:28px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'X');"/>Every</label>
-                                          <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
-                                                 style="width: 5%; margin-left: 2px; margin-top:3px; margin-bottom:7px" maxlength="2"
-                                                 id="fwScheduleXDAYS" name="fwScheduleXDAYS" value="2"
-                                                 onKeyPress="return validator.isNumber(this,event)"
-                                                 onkeyup="ValidateFWUpdateXDays(this,'DAYS')"
-                                                 onblur="ValidateFWUpdateXDays(this,'DAYS');FormatNumericSetting(this)"/>
-                                          <label style="margin-left:2px; margin-top:3px; font-size: 12px;">days</label>
-                                          <br>
-                                          <label style="margin-left:0px;">
-                                            <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_SUN" value="Sun" class="input"
-                                                   style="margin-left:55px; margin-bottom:7px"/>
-                                            Sun
-                                          </label>
-                                          <label style="margin-left:0px;">
-                                            <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_MON" value="Mon" class="input"
-                                                   style="margin-left:14px; margin-bottom:7px"/>
-                                            Mon
-                                          </label>
-                                          <label style="margin-left:0px;">
-                                            <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_TUE" value="Tue" class="input"
-                                                   style="margin-left:14px; margin-bottom:7px"/>
-                                            Tue
-                                          </label>
-                                          <label style="margin-left:0px;">
-                                            <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_WED" value="Wed" class="input"
-                                                   style="margin-left:14px; margin-bottom:7px"/>
-                                            Wed
-                                          </label>
-                                          <label style="margin-left:0px;">
-                                            <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_THU" value="Thu" class="input"
-                                                   style="margin-left:14px; margin-bottom:7px"/>
-                                            Thu
-                                          </label>
-                                          <label style="margin-left:0px;">
-                                            <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_FRI" value="Fri" class="input"
-                                                   style="margin-left:14px; margin-bottom:7px"/>
-                                            Fri
-                                          </label>
-                                          <label style="margin-left:0px;">
-                                            <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_SAT" value="Sat" class="input"
-                                                   style="margin-left:14px; margin-bottom:7px"/>
-                                            Sat
-                                          </label>
-                                          </br>
-                                        </div>
-                                        <div id="fwCronScheduleHOUR">
-                                          <span style="margin-left:1px; margin-top:10px; font-size: 12px; font-weight: bolder;">Hour:</span>
-                                          <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
-                                                 style="width: 7%; margin-left: 20px; margin-top:10px; margin-bottom:7px" maxlength="2"
-                                                 id="fwScheduleHOUR" name="fwScheduleHOUR" value="0"
-                                                 onKeyPress="return validator.isNumber(this,event)"
-                                                 onkeyup="ValidateFWUpdateTime(this,'HOUR')"
-                                                 onblur="ValidateFWUpdateTime(this,'HOUR');FormatNumericSetting(this)"/>
-                                        </div>
-                                        <div id="fwCronScheduleMINS">
-                                          <span style="margin-left:1px; margin-top:10px; font-size: 12px; font-weight: bolder;">Minutes:</span>
-                                          <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
-                                                 style="width: 7%; margin-left: 1px; margin-top:7px; margin-bottom:10px" maxlength="2"
-                                                 id="fwScheduleMINS" name="fwScheduleMINS" value="0"
-                                                 onKeyPress="return validator.isNumber(this,event)"
-                                                 onkeyup="ValidateFWUpdateTime(this,'MINS')"
-                                                 onblur="ValidateFWUpdateTime(this,'MINS');FormatNumericSetting(this)"/>
-                                        </div>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label for="fwUpdateZIPDirectory">
-                                          <a class="hintstyle" name="FW_UPDATE_ZIPDIR" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            Directory for F/W Update File
-                                          </a>
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <input autocomplete="off" type="text" id="fwUpdateZIPDirectory" name="fwUpdateZIPDirectory"
-                                               style="width: 275px;" maxlength="200"
-                                               onKeyPress="return validator.isString(this, event)"
-                                               onblur="ValidateDirectoryPath(this,'ZIP')"
-                                               onkeyup="ValidateDirectoryPath(this,'ZIP')"/>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label for="fwUpdateLOGDirectory">
-                                          <a class="hintstyle" name="FW_UPDATE_LOGDIR" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            Directory for F/W Update Log File
-                                          </a>
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <input autocomplete="off" type="text" id="fwUpdateLOGDirectory" name="fwUpdateLOGDirectory"
-                                               style="width: 275px;" maxlength="200"
-                                               onKeyPress="return validator.isString(this, event)"
-                                               onblur="ValidateDirectoryPath(this,'LOG')"
-                                               onkeyup="ValidateDirectoryPath(this,'LOG')"/>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label for="betaToReleaseUpdatesEnabled">
-                                          <a class="hintstyle" name="BETA_TO_RELEASE" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            Beta-to-Release F/W Updates
-                                          </a>
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <input type="checkbox" id="betaToReleaseUpdatesEnabled" name="betaToReleaseUpdatesEnabled" />
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label for="tailscaleVPNEnabled">
-                                          <a class="hintstyle" name="ALLOW_VPN_ACCESS" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            Tailscale/ZeroTier VPN Access
-                                          </a>
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <input type="checkbox" id="tailscaleVPNEnabled" name="tailscaleVPNEnabled" />
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label for="autobackupEnabled">
-                                          <a class="hintstyle" name="AUTOMATIC_BACKUPS" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            Enable Automatic Backups
-                                          </a>
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" />
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label for="Script_AutoUpdate_Check">
-                                          <a class="hintstyle" name="ADDON_AUTO_UPDATES" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            Enable Auto-Updates for MerlinAU
-                                          </a>
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <input type="checkbox" id="Script_AutoUpdate_Check" name="Script_AutoUpdate_Check"/>
-                                        <span id="Script_AutoUpdate_SchedText" name="Script_AutoUpdate_SchedText"
-                                              style="vertical-align:bottom; margin-left:15px; display:none; font-size: 12px; font-weight: bolder;">
-                                        </span>
-                                      </td>
-                                    </tr>
-                                    <tr id="rogFWBuildRow">
-                                      <td style="text-align: left;">
-                                        <label for="rogFWBuildType">
-                                          <a class="hintstyle" name="ROG_BUILDTYPE" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            F/W Build Type Preference
-                                          </a>
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;" onchange="handleTUFROGChange(this)">
-                                          <option value="ROG">ROG</option>
-                                          <option value="Pure">Pure</option>
-                                        </select>
-                                        <span id="rogFWBuildTypeAvailMsg"
-                                              style="margin-left:10px; display:none; font-size:12px; font-weight:bolder;">
-                                          NOTE: Applies only if available
-                                        </span>
-                                      </td>
-                                    </tr>
-                                    <tr id="tuffFWBuildRow">
-                                      <td style="text-align: left;">
-                                        <label for="tuffFWBuildType">
-                                          <a class="hintstyle" name="TUF_BUILDTYPE" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            F/W Build Type Preference
-                                          </a>
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 20%;" onchange="handleTUFROGChange(this)">
-                                          <option value="TUF">TUF</option>
-                                          <option value="Pure">Pure</option>
-                                        </select>
-                                        <span id="tuffFWBuildTypeAvailMsg"
-                                              style="margin-left:10px; display:none; font-size:12px; font-weight:bolder;">
-                                          NOTE: Applies only if available
-                                        </span>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;">
-                                        <label for="emailNotificationsEnabled">
-                                          <a class="hintstyle" name="EMAIL_NOTIFICATION" href="javascript:void(0);" onclick="ShowHintMsg(this);">
-                                            Enable F/W Update Email Notifications
-                                          </a>
-                                        </label>
-                                      </td>
-                                      <td>
-                                        <input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled"
-                                               onclick="ToggleEmailDependents(this.checked);"/>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;"><label for="emailFormat">Email Notification Format</label></td>
-                                      <td>
-                                        <select id="emailFormat" name="emailFormat" style="width: 21%;">
-                                          <option value="HTML">HTML</option>
-                                          <option value="PlainText">Plain Text</option>
-                                        </select>
-                                      </td>
-                                    </tr>
-                                    <tr>
-                                      <td style="text-align: left;"><label for="secondaryEmail">Secondary Email for Notifications</label></td>
-                                      <td>
-                                        <input type="email" id="secondaryEmail" name="secondaryEmail" style="width: 275px;" />
-                                      </td>
-                                    </tr>
-                                  </table>
-                                  <div style="text-align: center; margin-top: 10px;">
-                                    <input type="submit" onclick="SaveCombinedConfig(); return false;" value="Save Configuration" class="button_gen savebutton" name="button">
-                                  </div>
-                                </form>
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
-                        <div id="footerTitle" style="margin-top:10px;text-align:center;">MerlinAU</div>
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </td>
-            </tr>
-          </table>
-        </td>
-        <td width="10"></td>
-      </tr>
-    </table>
-  </form>
-  <div id="footer"></div>
+<!-- Configuration Section -->
+<table width="100%" cellpadding="4" cellspacing="0" class="FormTable">
+  <thead class="collapsible-jquery" id="advancedOptionsSection">
+    <tr>
+      <td colspan="2">Configuration (click to expand/collapse)</td>
+    </tr>
+  </thead>
+<tbody>
+  <tr>
+    <td colspan="2">
+      <form id="advancedOptionsForm">
+        <table class="FormTable SettingsTable" width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
+<colgroup>
+  <col style="width: 37%;" />
+  <col style="width: 63%;" />
+ </colgroup>
+<tr>
+  <td style="text-align: left;">
+    <label for="routerPassword">
+      <a class="hintstyle" name="LOGIN_PASSWD" href="javascript:void(0);" onclick="ShowHintMsg(this);">
+        Router Login Password
+      </a>
+    </label>
+    <br>
+    <span class="settingname" id="LoginPswdStatusText" name="LoginPswdStatusText"
+          style="margin-top:10px; display:none; font-size:12px; font-weight:bolder;"></span>
+    </br>
+  </td>
+ <td>
+    <div style="display: inline-block;">
+      <input type="password" id="routerPassword" name="routerPassword" placeholder="Enter password"
+             style="width: 278px; display: inline-block; margin-left:2px; margin-top:3px;" maxlength="64"
+             onKeyPress="return validator.isString(this, event)"
+             onblur="ValidatePasswordString(this,'onBLUR')"
+             onkeyup="ValidatePasswordString(this,'onKEYUP')"/>
+      <div id="eyeToggle" onclick="togglePassword();"
+           style="position: absolute; display: inline-block; margin-left: 5px; vertical-align: middle; width:24px; height:24px; background:url('/images/icon-visible@2x.png') no-repeat center; background-size: contain; cursor: pointer;">
+      </div>
+    </div>
+    <br>
+    <label style="color:#FFCC00; margin-left:0px; margin-top:0px; margin-bottom:0px;">
+      <input class="input" type="checkbox" checked="" name="RunLoginTestOnSave" id="RunLoginTestOnSave"
+             style="vertical-align:bottom; margin-left:2px; margin-right:5px; margin-top:13px; margin-bottom:4px;" onclick="ConfirmLoginTest(this);"/>
+      Run login test when saving password
+    </label>
+    </br>
+  </td>
+</tr>
+<tr>
+  <td style="text-align: left;"><label for="FW_AutoUpdate_Check">Enable Automatic F/W Update Checks</label></td>
+  <td>
+    <input type="checkbox" id="FW_AutoUpdate_Check" name="FW_AutoUpdate_Check" style="margin-left:2px;"/>
+    <span id="FW_AutoUpdate_CheckSchedText" name="FW_AutoUpdate_CheckSchedText"
+          style="vertical-align:bottom; margin-left:15px; display:none; font-size: 12px; font-weight: bolder;">
+    </span>
+  </td>
+</tr>
+<tr>
+  <td style="text-align: left;">
+    <label id="fwUpdatePostponementLabel" for="fwUpdatePostponement">F/W Update Postponement</label>
+  </td>
+  <td>
+    <input autocomplete="off" type="text" id="fwUpdatePostponement" name="fwUpdatePostponement"
+           style="width: 7%; margin-left: 2px;" maxlength="3"
+           onKeyPress="return validator.isNumber(this,event)"
+           onkeyup="ValidatePostponedDays(this)"
+           onblur="ValidatePostponedDays(this);FormatNumericSetting(this)"/>
+  </td>
+</tr>
+<tr>
+  <td style="text-align: left;">
+    <label for="changelogCheckEnabled">
+      <a class="hintstyle" name="CHANGELOG_CHECK" href="javascript:void(0);" onclick="ShowHintMsg(this);">
+        Enable F/W Changelog Check
+      </a>
+    </label>
+  </td>
+  <td>
+    <input type="checkbox" id="changelogCheckEnabled" name="changelogCheckEnabled" style="margin-left:2px;"/>
+  </td>
+</tr>
+<!--** F/W Update Check Cron Schedule **-->
+<tr>
+  <td style="text-align: left;">
+    <label id="fwUpdateCheckScheduleLabel" for="fwUpdateCheckSchedule">
+      Schedule for F/W Update Checks
+    </label>
+  </td>
+  <td>
+   <div id="fwCronScheduleDAYofWEEK">
+      <span style="margin-left:1px; margin-top:5px; font-size: 12px; font-weight: bolder;">Days:</span>
+      <label style="margin-left:-3px;">
+        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYS1" value="Every day" class="input"
+               style="margin-left:22px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'1');"/>Every day</label>
+      <label style="margin-left:-3px;">
+        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYSX" value="Every X Days" class="input"
+               style="margin-left:28px; margin-top:1px;" onclick="ToggleDaysOfWeek(this.checked,'X');"/>Every</label>
+      <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
+             style="width: 5%; margin-left: 2px; margin-top:3px; margin-bottom:7px" maxlength="2"
+             id="fwScheduleXDAYS" name="fwScheduleXDAYS" value="2"
+             onKeyPress="return validator.isNumber(this,event)"
+             onkeyup="ValidateFWUpdateXDays(this,'DAYS')"
+             onblur="ValidateFWUpdateXDays(this,'DAYS');FormatNumericSetting(this)"/>
+      <label style="margin-left:2px; margin-top:3px; font-size: 12px;">days</label>
+      <br>
+      <label style="margin-left:0px;">
+        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_SUN" value="Sun" class="input"
+               style="margin-left:55px; margin-bottom:7px"/>
+        Sun
+      </label>
+      <label style="margin-left:0px;">
+        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_MON" value="Mon" class="input"
+               style="margin-left:14px; margin-bottom:7px"/>
+        Mon
+      </label>
+      <label style="margin-left:0px;">
+        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_TUE" value="Tue" class="input"
+               style="margin-left:14px; margin-bottom:7px"/>
+        Tue
+      </label>
+      <label style="margin-left:0px;">
+        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_WED" value="Wed" class="input"
+               style="margin-left:14px; margin-bottom:7px"/>
+        Wed
+      </label>
+      <label style="margin-left:0px;">
+        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_THU" value="Thu" class="input"
+               style="margin-left:14px; margin-bottom:7px"/>
+        Thu
+      </label>
+      <label style="margin-left:0px;">
+        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_FRI" value="Fri" class="input"
+               style="margin-left:14px; margin-bottom:7px"/>
+        Fri
+      </label>
+      <label style="margin-left:0px;">
+        <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_SAT" value="Sat" class="input"
+               style="margin-left:14px; margin-bottom:7px"/>
+        Sat
+      </label>
+      </br>
+    </div>
+    <div id="fwCronScheduleHOUR">
+      <span style="margin-left:1px; margin-top:10px; font-size: 12px; font-weight: bolder;">Hour:</span>
+      <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
+             style="width: 7%; margin-left: 20px; margin-top:10px; margin-bottom:7px" maxlength="2"
+             id="fwScheduleHOUR" name="fwScheduleHOUR" value="0"
+             onKeyPress="return validator.isNumber(this,event)"
+             onkeyup="ValidateFWUpdateTime(this,'HOUR')"
+             onblur="ValidateFWUpdateTime(this,'HOUR');FormatNumericSetting(this)"/>
+    </div>
+    <div id="fwCronScheduleMINS">
+      <span style="margin-left:1px; margin-top:10px; font-size: 12px; font-weight: bolder;">Minutes:</span>
+      <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
+             style="width: 7%; margin-left: 1px; margin-top:7px; margin-bottom:10px" maxlength="2"
+             id="fwScheduleMINS" name="fwScheduleMINS" value="0"
+             onKeyPress="return validator.isNumber(this,event)"
+             onkeyup="ValidateFWUpdateTime(this,'MINS')"
+             onblur="ValidateFWUpdateTime(this,'MINS');FormatNumericSetting(this)"/>
+    </div>
+  </td>
+</tr>
+<tr>
+   <td style="text-align: left;">
+      <label for="fwUpdateZIPDirectory">
+      <a class="hintstyle" name="FW_UPDATE_ZIPDIR" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Directory for F/W Update File</a>
+      </label>
+   </td>
+   <td>
+   <input autocomplete="off" type="text"
+     id="fwUpdateZIPDirectory" name="fwUpdateZIPDirectory"
+     style="width: 275px;" maxlength="200"
+     onKeyPress="return validator.isString(this, event)"
+     onblur="ValidateDirectoryPath(this,'ZIP')"
+     onkeyup="ValidateDirectoryPath(this,'ZIP')"/>
+   </td>
+</tr>
+<tr>
+   <td style="text-align: left;">
+      <label for="fwUpdateLOGDirectory">
+      <a class="hintstyle" name="FW_UPDATE_LOGDIR" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Directory for F/W Update Log File</a>
+      </label>
+   </td>
+   <td>
+   <input autocomplete="off" type="text"
+     id="fwUpdateLOGDirectory" name="fwUpdateLOGDirectory"
+     style="width: 275px;" maxlength="200"
+     onKeyPress="return validator.isString(this, event)"
+     onblur="ValidateDirectoryPath(this,'LOG')"
+     onkeyup="ValidateDirectoryPath(this,'LOG')"/>
+   </td>
+</tr>
+<tr>
+   <td style="text-align: left;">
+      <label for="betaToReleaseUpdatesEnabled">
+      <a class="hintstyle" name="BETA_TO_RELEASE" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Beta-to-Release F/W Updates</a>
+      </label>
+   </td>
+   <td><input type="checkbox" id="betaToReleaseUpdatesEnabled" name="betaToReleaseUpdatesEnabled" /></td>
+</tr>
+<tr>
+   <td style="text-align: left;">
+      <label for="tailscaleVPNEnabled">
+      <a class="hintstyle" name="ALLOW_VPN_ACCESS" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Tailscale/ZeroTier VPN Access</a>
+      </label>
+   </td>
+   <td><input type="checkbox" id="tailscaleVPNEnabled" name="tailscaleVPNEnabled" /></td>
+</tr>
+<tr>
+   <td style="text-align: left;">
+      <label for="autobackupEnabled">
+      <a class="hintstyle" name="AUTOMATIC_BACKUPS" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Enable Automatic Backups</a>
+      </label>
+   </td>
+   <td><input type="checkbox" id="autobackupEnabled" name="autobackupEnabled" /></td>
+</tr>
+<tr>
+   <td style="text-align: left;">
+      <label for="Script_AutoUpdate_Check">
+      <a class="hintstyle" name="ADDON_AUTO_UPDATES" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Enable Auto-Updates for MerlinAU</a>
+      </label>
+   </td>
+   <td>
+      <input type="checkbox" id="Script_AutoUpdate_Check" name="Script_AutoUpdate_Check"/>
+      <span id="Script_AutoUpdate_SchedText" name="Script_AutoUpdate_SchedText"
+       style="vertical-align:bottom; margin-left:15px; display:none; font-size: 12px; font-weight: bolder;"></span>
+   </td>
+</tr>
+<tr id="rogFWBuildRow">
+   <td style="text-align: left;">
+      <label for="rogFWBuildType">
+      <a class="hintstyle" name="ROG_BUILDTYPE" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">F/W Build Type Preference</a>
+      </label>
+   </td>
+   <td>
+      <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;" onchange="handleTUFROGChange(this)">
+         <option value="ROG">ROG</option>
+         <option value="Pure">Pure</option>
+      </select>
+    <span id="rogFWBuildTypeAvailMsg"
+          style="margin-left:10px; display:none; font-size:12px; font-weight:bolder;">
+      NOTE: Applies only if available
+    </span>
+   </td>
+</tr>
+<tr id="tuffFWBuildRow">
+   <td style="text-align: left;">
+      <label for="tuffFWBuildType">
+      <a class="hintstyle" name="TUF_BUILDTYPE" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">F/W Build Type Preference</a>
+      </label>
+   </td>
+   <td>
+      <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 20%;" onchange="handleTUFROGChange(this)">
+         <option value="TUF">TUF</option>
+         <option value="Pure">Pure</option>
+      </select>
+    <span id="tuffFWBuildTypeAvailMsg"
+          style="margin-left:10px; display:none; font-size:12px; font-weight:bolder;">
+      NOTE: Applies only if available
+    </span>
+   </td>
+</tr>
+<tr>
+   <td style="text-align: left;">
+      <label for="emailNotificationsEnabled">
+      <a class="hintstyle" name="EMAIL_NOTIFICATION" href="javascript:void(0);"
+         onclick="ShowHintMsg(this);">Enable F/W Update Email Notifications</a>
+      </label>
+   </td>
+   <td><input type="checkbox" id="emailNotificationsEnabled" name="emailNotificationsEnabled"
+       onclick="ToggleEmailDependents(this.checked);"/></td>
+</tr>
+<tr>
+   <td style="text-align: left;"><label for="emailFormat">Email Notification Format</label></td>
+   <td>
+      <select id="emailFormat" name="emailFormat" style="width: 21%;">
+         <option value="HTML">HTML</option>
+         <option value="PlainText">Plain Text</option>
+      </select>
+   </td>
+</tr>
+<tr>
+   <td style="text-align: left;"><label for="secondaryEmail">Secondary Email for Notifications</label></td>
+   <td><input type="email" id="secondaryEmail" name="secondaryEmail" style="width: 275px;" /></td>
+</tr>
+</table>
+<div style="text-align: center; margin-top: 10px;">
+   <input type="submit" onclick="SaveAdvancedConfig(); return false;"
+    value="Save" class="button_gen savebutton" name="button">
+</div>
+</form></td></tr></tbody></table>
+<div id="footerTitle" style="margin-top:10px;text-align:center;">MerlinAU</div>
+</td></tr></tbody></table></td></tr></table></td>
+<td width="10"></td>
+</tr></table></form>
+<div id="footer"></div>
 </body>
 </html>
