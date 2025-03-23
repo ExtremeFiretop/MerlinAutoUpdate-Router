@@ -796,64 +796,84 @@ const fwUpdateDirPath =
    }
 };
 
-function ShowLatestChangelog()
-{
-    document.form.action_script.value = 'start_MerlinAUdownloadchangelog';
-    document.form.action_wait.value = 10;
-
-    // Open popup **before** form submission to avoid browser popup blocking //
-    var changelogWindow = window.open("", "ChangelogPopup", "width=800,height=600,scrollbars=1,resizable=1");
-
-    if (!changelogWindow)
-    {
-        alert("Popup blocked! Please allow popups for this site to view the changelog.");
-        return;
-    }
-
-    changelogWindow.document.open();
-    changelogWindow.document.write("<html><head><title>Latest Changelog</title></head>");
-    changelogWindow.document.write("<body style='font-family:monospace; white-space:pre-wrap;'>");
-    changelogWindow.document.write("<p>Loading latest changelog...</p>");
-    changelogWindow.document.write("</body></html>");
-    changelogWindow.document.close();
-
-    // Now submit the form (which might trigger a page refresh) //
-    showLoading();
-    document.form.submit();
-
-    // Delay the AJAX request slightly (but make sure it runs before page refresh) //
-    setTimeout(function() {
-        $.ajax({
-            url: '/ext/MerlinAU/changelog.htm',
-            dataType: 'text',
-            timeout: 9000,
-            success: function(data)
-            {
-                // Ensure the popup is still open before modifying it //
-                if (changelogWindow && !changelogWindow.closed)
-                {
-                    changelogWindow.document.open();
-                    changelogWindow.document.write("<html><head><title>Latest Changelog</title></head>");
-                    changelogWindow.document.write("<body style='font-family:monospace; white-space:pre-wrap;'>");
-                    changelogWindow.document.write("<pre>" + data + "</pre>");
-                    changelogWindow.document.write("</body></html>");
-                    changelogWindow.document.close();
-                }
-            },
-            error: function()
-            {
-                if (changelogWindow && !changelogWindow.closed)
-                {
-                    changelogWindow.document.open();
-                    changelogWindow.document.write("<html><head><title>Changelog Error</title></head>");
-                    changelogWindow.document.write("<body style='font-family:monospace; white-space:pre-wrap;'>");
-                    changelogWindow.document.write("<p>Failed to load the changelog.</p>");
-                    changelogWindow.document.write("</body></html>");
-                    changelogWindow.document.close();
-                }
+function fetchChangelog(startTime) {
+    $.ajax({
+        url: '/ext/MerlinAU/changelog.htm',
+        dataType: 'text',
+        timeout: 1500, // each attempt times out after 9 seconds
+        success: function(data) {
+            $('#changelogData').html('<pre>' + data + '</pre>');
+        },
+        error: function() {
+            var currentTime = new Date().getTime();
+            // if less than 10 seconds have elapsed since we started, retry after 500ms
+            if (currentTime - startTime < 10000) {
+                setTimeout(function() {
+                    fetchChangelog(startTime);
+                }, 500);
+            } else {
+                $('#changelogData').html('<p>Failed to load the changelog.</p>');
             }
+        }
+    });
+}
+
+function ShowLatestChangelog(e) {
+    if (e) e.preventDefault();
+
+    // Define the loading message
+    var loadingMessage = '<p>Please wait and allow up to 10 seconds for the changelog to load.<br>' +
+                         'Click on "Cancel" button to stop and exit this dialog.</p>';
+
+    // If the modal already exists, update its content for a fresh fetch.
+    if ($('#changelogModal').length) {
+       $('#changelogData').html(loadingMessage);
+       $('#closeChangelogModal').text("Cancel");
+    } else {
+        // Create modal overlay if it doesn't exist
+        $('body').append(
+            '<div id="changelogModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; ' +
+                'background:rgba(0,0,0,0.8); z-index:10000;">' +
+                '<div id="changelogContent" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); ' +
+                    'background:#fff; color:#000; padding:20px; max-height:90%; overflow:auto; width:80%; max-width:800px;">' +
+                    '<h2 style="margin-top:0; color:#000;">Latest Changelog</h2>' +
+                    '<button id="closeChangelogModal" style="float:right; font-size:14px; cursor:pointer;">Cancel</button>' +
+                    '<div id="changelogData" style="font-family:monospace; white-space:pre-wrap; margin-top:10px; color:#000;">' +
+                        loadingMessage +
+                    '</div>' +
+                '</div>' +
+            '</div>'
+        );
+        $('#closeChangelogModal').on('click', function(){
+            $('#changelogModal').hide();
         });
-    }, 8000); // Delay slightly to allow form processing, but not too much //
+    }
+    
+    // Show the modal overlay
+    $('#changelogModal').show();
+
+    // Trigger the backend shell script via form submission (using AJAX)
+    var formData = $('form[name="form"]').serializeArray();
+    formData.push({ name: "action_script", value: "start_MerlinAUdownloadchangelog" });
+    formData.push({ name: "action_wait", value: "10" });
+    
+    $.post('start_apply.htm', formData)
+      .done(function(response) {
+         console.log("Changelog trigger submitted successfully.");
+      })
+      .fail(function() {
+         console.error("Failed to submit changelog trigger.");
+      });
+
+    // Record the start time and wait 8 seconds before attempting to fetch the changelog
+    var startTime = new Date().getTime();
+    setTimeout(function() {
+         fetchChangelog(startTime);
+         // Once the changelog has loaded, update the button text to "Close"
+         $('#closeChangelogModal').text("Close");
+    }, 8000);
+
+    return false;
 }
 
 // **Control "Approve/Block Changelog" Checkbox State** //
@@ -2483,7 +2503,7 @@ function initializeCollapsibleSections()
 <div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
 <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 <div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI
-<span style="margin-left:8px;" id="WikiURL"">[
+<span style="margin-left:8px;" id="WikiURL">[
    <a style="font-weight:bolder; text-decoration:underline; cursor:pointer;"
       href="https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki"
       title="Go to MerlinAU Wiki page" target="_blank">Wiki</a> ]
