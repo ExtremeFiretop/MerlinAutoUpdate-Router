@@ -2897,7 +2897,7 @@ function initializeCollapsibleSections()
 </table>
 <div style="text-align: center; margin-top: 10px;">
    <input type="submit" onclick="SaveCombinedConfig(); return false;"
-    value="Save" class="button_gen savebutton" name="button">
+    value="Save Configuration" class="button_gen savebutton" name="button">
 </div>
 </form></td></tr></tbody></table>
 <div id="footerTitle" style="margin-top:10px;text-align:center;">MerlinAU</div>
