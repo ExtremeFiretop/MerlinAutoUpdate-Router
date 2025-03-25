@@ -2853,8 +2853,8 @@ _CheckForNewScriptUpdates_()
 
    if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ] || \
       {
-        [ "$DLRepoVersionNum" -eq "$ScriptVersionNum" ] && \
-        [ "$DLRepoBuildNum" -gt "$ScriptBuildNum" ]
+        [ "$DLRepoBuildNum" -gt "$ScriptBuildNum" ] && \
+        [ "$DLRepoVersionNum" -eq "$ScriptVersionNum" ]
       }
    then
        scriptUpdateNotify="New script update available.
