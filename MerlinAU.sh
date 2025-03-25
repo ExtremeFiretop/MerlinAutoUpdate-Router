@@ -422,6 +422,7 @@ _ShowAbout_()
     clear
     logo
     cat <<EOF
+About
   $SCRIPT_NAME is a tool for automating firmware updates on AsusWRT-Merlin,
   ensuring your router stays up-to-date with the latest features and
   security patches. It greatly simplifies the firmware update process
