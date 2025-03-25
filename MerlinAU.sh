@@ -429,13 +429,17 @@ About
   by automatically checking for, downloading, and applying the latest
   firmware version update that is currently available.
   [Developed by ExtremeFiretop and Martinski W.]
+
 License
   $SCRIPT_NAME is free to use under the GNU General Public License
   version 3 (GPL-3.0) https://opensource.org/licenses/GPL-3.0
+
 Help & Support
   https://www.snbforums.com/threads/merlinau-the-ultimate-firmware-auto-updater-addon.88577/
+
 Wiki page:
   https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki
+
 Source code
   https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
 EOF
@@ -463,6 +467,7 @@ Available commands:
   ${SCRIPT_NAME}.sh startup         run startup initialization actions
   ${SCRIPT_NAME}.sh install         install MerlinAU files
   ${SCRIPT_NAME}.sh uninstall       uninstall MerlinAU files
+
 Wiki page:
   https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki
 EOF
