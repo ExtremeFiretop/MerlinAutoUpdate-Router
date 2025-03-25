@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Feb-17
+# Last Modified: 2025-March-25
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.10
+readonly SCRIPT_VERSION=1.3.11
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -414,25 +414,27 @@ logo() {
   echo -e "${NOct}"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Jul-03] ##
-##---------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-22] ##
+##----------------------------------------##
 _ShowAbout_()
 {
     clear
     logo
     cat <<EOF
-About
-  $SCRIPT_NAME is a tool for automating firmware updates on AsusWRT Merlin,
-  ensuring your router stays up-to-date with the latest features and security
-  patches. It simplifies the update process by automatically checking for,
-  downloading, and applying new firmware versions.
-  Developed by ExtremeFiretop and Martinski W.
+  $SCRIPT_NAME is a tool for automating firmware updates on AsusWRT-Merlin,
+  ensuring your router stays up-to-date with the latest features and
+  security patches. It greatly simplifies the firmware update process
+  by automatically checking for, downloading, and applying the latest
+  firmware version update that is currently available.
+  [Developed by ExtremeFiretop and Martinski W.]
 License
   $SCRIPT_NAME is free to use under the GNU General Public License
   version 3 (GPL-3.0) https://opensource.org/licenses/GPL-3.0
 Help & Support
   https://www.snbforums.com/threads/merlinau-the-ultimate-firmware-auto-updater-addon.88577/
+Wiki page:
+  https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki
 Source code
   https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
 EOF
@@ -440,24 +442,28 @@ EOF
     _DoExit_ 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Feb-22] ##
+##----------------------------------------##
 _ShowHelp_()
 {
     clear
     logo
     cat <<EOF
 Available commands:
-  ${SCRIPT_NAME}.sh about              explains functionality
-  ${SCRIPT_NAME}.sh help               display available commands
-  ${SCRIPT_NAME}.sh checkupdates       check for available MerlinAU script updates
-  ${SCRIPT_NAME}.sh forceupdate        updates to latest version (force update)
-  ${SCRIPT_NAME}.sh run_now            run update process on router
-  ${SCRIPT_NAME}.sh processNodes       run update check on nodes
-  ${SCRIPT_NAME}.sh develop            switch to development branch
-  ${SCRIPT_NAME}.sh stable             switch to stable branch
-  ${SCRIPT_NAME}.sh uninstall          uninstalls script
+  ${SCRIPT_NAME}.sh about           describe add-on functionality
+  ${SCRIPT_NAME}.sh help            show available commands & Wiki URL
+  ${SCRIPT_NAME}.sh checkupdates    check for available MerlinAU updates
+  ${SCRIPT_NAME}.sh forceupdate     update to latest MerlinAU version
+  ${SCRIPT_NAME}.sh run_now         run F/W update process
+  ${SCRIPT_NAME}.sh processNodes    run update check on nodes
+  ${SCRIPT_NAME}.sh develop         switch to development branch
+  ${SCRIPT_NAME}.sh stable          switch to stable master branch
+  ${SCRIPT_NAME}.sh startup         run startup initialization actions
+  ${SCRIPT_NAME}.sh install         install MerlinAU files
+  ${SCRIPT_NAME}.sh uninstall       uninstall MerlinAU files
+Wiki page:
+  https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki
 EOF
     printf "\n"
     _DoExit_ 0
@@ -1741,7 +1747,7 @@ _CreateEMailContent_()
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    if ! "$offlineUpdateTrigger"
    then
-        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
    else
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
@@ -3308,29 +3314,52 @@ _GetLatestFWUpdateVersionFromGithub_()
         search_type="pure\|squashfs\|ubi"
     fi
 
+    if ! "$offlineUpdateTrigger"
+    then
+        # Get the router version from the router itself
+        local router_version="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+    else
+        # Get the router version from the router itself
+        local router_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+    fi
+
+    if [ -z "$router_version" ]; then
+        echo "**ERROR** **NO_ROUTER_VERSION**"
+        return 1
+    fi
+
     # Fetch the latest release data from GitHub #
     local release_data="$(curl -s "$url")"
 
     # Construct the grep pattern based on search_type #
     local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
 
-    # Filter the JSON for the desired firmware using grep and head to fetch the URL
-    local download_url="$(echo "$release_data" | 
-        grep -o "$grep_pattern" | 
-        grep -o "https://[^ ]*\.\(w\|pkgtb\)" | 
-        head -1)"
+    # Extract all matched download URLs
+    local download_urls="$(echo "$release_data" | \
+        grep -o "$grep_pattern" | \
+        grep -o "https://[^ ]*\.\(w\|pkgtb\)")"
 
     # Check if a URL was found
-    if [ -z "$download_url" ]
+    if [ -z "$download_urls" ]
     then
         echo "**ERROR** **NO_GITHUB_URL**"
         return 1
     else
-        # Extract the version from the download URL or release data
-        local version="$(echo "$download_url" | grep -oE "${PRODUCT_ID}[_-][0-9.]+[^/]*" | sed "s/${PRODUCT_ID}[_-]//;s/.w$//;s/_/./g")"
-        echo "$version"
-        echo "$download_url"
-        return 0
+        # Loop through each matching URL and compare version to router_version
+        local url_item version
+        for url_item in $download_urls; do
+            # Extract the version portion from the URL
+            local version="$(echo "$url_item" \
+                | grep -oE "${PRODUCT_ID}_[^ ]*\.(w|pkgtb)" \
+                | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
+
+            # If this URL’s version matches the router version, we're done
+            if [ "$version" = "$router_version" ]; then
+                echo "$version"
+                echo "$url_item"
+                return 0
+            fi
+        done
     fi
 }
 
@@ -3349,25 +3378,51 @@ GetLatestFirmwareMD5Url()
         search_type="pure\|squashfs\|ubi"
     fi
 
+    if ! "$offlineUpdateTrigger"
+    then
+        # Get the router version from the router itself
+        local router_version="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+    else
+        # Get the router version from the router itself
+        local router_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+    fi
+
+    if [ -z "$router_version" ]; then
+        echo "**ERROR** **NO_ROUTER_VERSION**"
+        return 1
+    fi
+
     # Fetch the latest release data from GitHub
     local release_data="$(curl -s "$url")"
 
     # Construct the grep pattern based on search_type
     local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.md5\""
 
-    # Filter the JSON for the desired firmware using grep and sed
-    local md5_url="$(echo "$release_data" |
+    # Extract all matched download URLs
+    local md5_urls="$(echo "$release_data" |
         grep -o "$grep_pattern" | 
-        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/' |
-        head -1)"
+        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')"
 
     # Check if a URL was found and output result or error
-    if [ -z "$md5_url" ]
+    if [ -z "$md5_urls" ]
     then
-        echo "**ERROR** **NO_FIRMWARE_FILE_URL_FOUND**"
+        echo "**ERROR** **NO_MD5_FILE_URL_FOUND**"
         return 1
     else
-        echo "$md5_url"
+        # Loop through each matching URL and compare version to router_version
+        local url_item version
+        for url_item in $md5_urls; do
+            # Extract the version portion from the URL
+            local md5="$(echo "$url_item" \
+                | grep -oE "${PRODUCT_ID}_[^ ]*\.(md5)" \
+                | sed "s/${PRODUCT_ID}_//;s/.md5$//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
+
+            # If this URL’s version matches the router version, we're done
+            if [ "$md5" = "$router_version" ]; then
+                echo "$md5"
+                return 0
+            fi
+        done
     fi
 }
 
@@ -3502,7 +3557,7 @@ _UnzipMerlin_()
         rm -f "$FW_ZIP_FPATH"
         _SendEMailNotification_ FAILED_FW_UNZIP_STATUS
         Say "${REDct}**ERROR**${NOct}: Unable to decompress the firmware ZIP file [$FW_ZIP_FPATH]."
-        _return 1
+        return 1
     fi
     return 0
 }
@@ -6356,7 +6411,7 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Oct-04] ##
+## Modified by Martinski W. [2025-Feb-22] ##
 ##----------------------------------------##
 _RemoveCronJobsFromAddOns_()
 {
@@ -6397,7 +6452,10 @@ _RemoveCronJobsFromAddOns_()
    Say "Cron jobs [$cronJobCount] from 3rd-party add-ons were found."
    Say "---------------------------------------------------------------"
 
-   sleep 5
+   "$isInteractive" && \
+   printf "\nPlease wait to allow already started cron jobs to complete execution..."
+   sleep 15
+   "$isInteractive" && printf "\nDone.\n"
    return 0
 }
 
@@ -7129,6 +7187,16 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
+    if ! "$offlineUpdateTrigger"
+    then
+        NewUpdate_VersionVerify="$(_GetLatestFWUpdateVersionFromRouter_)"
+        if [ "$NewUpdate_VersionVerify" != "$release_version" ]
+        then
+            Say "WARNING: The release version found by MerlinAU [$release_version] does not match the F/W update version from the router [$NewUpdate_VersionVerify]."
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr" || return 1
+        fi
+    fi
+
     # Extracting the F/W Update codebase number #
     fwUpdateBaseNum="$(echo "$release_version" | cut -d'.' -f1)"
     # Inserting dots between each number #
@@ -7490,6 +7558,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         echo
 
         # *WARNING*: NO MORE logging at this point & beyond #
+        sync ; sleep 2 ; echo 3 > /proc/sys/vm/drop_caches ; sleep 3
         /sbin/ejusb -1 0 -u 1 2>/dev/null
 
         #----------------------------------------------------------------------------------#
