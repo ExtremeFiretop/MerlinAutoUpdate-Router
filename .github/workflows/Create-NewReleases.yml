@@ -30,7 +30,7 @@ jobs:
         id: nextver
         run: |
           if [[ -f version.txt ]]; then
-             NEXT_TAG=$(cat version.txt)
+             NEXT_TAG=$(head -n 1 version.txt)
           else
             CURRENT_TAG=$(git tag --sort=-v:refname | head -n 1)
             if [[ $CURRENT_TAG == '' ]]; then 

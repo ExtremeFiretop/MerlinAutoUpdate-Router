@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Mar-20
+# Last Modified: 2025-Mar-24
 ###################################################################
 set -u
 
@@ -37,11 +37,13 @@ readonly CL_URL_3006="${FW_SFURL_BASE}/Documentation/Changelog-3006.txt/download
 readonly high_risk_terms="factory default reset|features are disabled|break backward compatibility|must be manually|strongly recommended"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-31] ##
+## Modified by Martinski W. [2025-Mar-24] ##
 ##----------------------------------------##
 # For new script version updates from source repository #
 DLRepoVersion=""
 DLRepoVersionNum=""
+DLRepoBuildNum=0
+ScriptBuildNum=0
 ScriptVersionNum=""
 scriptUpdateNotify=0
 
@@ -2608,6 +2610,24 @@ _CheckForNewGUIVersionUpdate_()
    return "$retCode"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Mar-24] ##
+##-------------------------------------##
+_GetDLScriptVersion_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ] || [ ! -s "$1" ]
+    then echo ; return 1 ; fi
+
+    local DLversBuildNum=0
+    if [ "$(wc -l < "$1")" -eq 2 ]
+    then
+        DLversBuildNum="$(tail -n1 "$1")"
+        [ -z "$DLversBuildNum" ] && DLversBuildNum=0
+    fi
+    echo "$(head -n1 "$1")|$DLversBuildNum"
+    return 0
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
@@ -2692,7 +2712,7 @@ _DownloadScriptFiles_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
+## Modified by Martinski W. [2025-Mar-24] ##
 ##----------------------------------------##
 _SCRIPT_UPDATE_()
 {
@@ -2701,10 +2721,7 @@ _SCRIPT_UPDATE_()
    if [ $# -gt 0 ] && [ "$1" = "force" ]
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
-       if ! _CheckForNewScriptUpdates_ -quietcheck
-       then
-           DLRepoVersion="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
-       fi
+       _CheckForNewScriptUpdates_ -quietcheck
        if _CheckForNewGUIVersionUpdate_ "$SCRIPT_VERSION" "$DLRepoVersion"
        then extraParam="install"
        fi
@@ -2749,7 +2766,8 @@ _SCRIPT_UPDATE_()
           if _DownloadScriptFiles_ update
           then
               if "$mountWebGUI_OK"
-              then _SetVersionSharedSettings_ local "$DLRepoVersion" ; fi
+              then _SetVersionSharedSettings_ local "$DLRepoVersion"
+              fi
               printf "\n${CYANct}Download successful!${NOct}\n"
               printf "$(date) - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
           fi
@@ -2770,7 +2788,8 @@ _SCRIPT_UPDATE_()
           if _DownloadScriptFiles_ update
           then
               if "$mountWebGUI_OK"
-              then _SetVersionSharedSettings_ local "$DLRepoVersion" ; fi
+              then _SetVersionSharedSettings_ local "$DLRepoVersion"
+              fi
               printf "\n$(date) - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
               printf "${CYANct}Update successful! Restarting script...${NOct}\n"
               sleep 1
@@ -2791,23 +2810,37 @@ _SCRIPT_UPDATE_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
+## Modified by Martinski W. [2025-Mar-24] ##
 ##----------------------------------------##
 _CheckForNewScriptUpdates_()
 {
+   local verStr  DLScriptVerPath="${SCRIPT_VERPATH}.DL.tmp"
    echo
    DLRepoVersion="$SCRIPT_VERSION"
-   [ -s "$SCRIPT_VERPATH" ] && DLRepoVersion="$(cat "$SCRIPT_VERPATH")"
-   rm -f "$SCRIPT_VERPATH"
+   if [ -s "$SCRIPT_VERPATH" ]
+   then
+       if verStr="$(_GetDLScriptVersion_ "$SCRIPT_VERPATH")"
+       then
+           DLRepoVersion="$(echo "$verStr" | awk -F '|' '{print $1}')"
+           DLRepoBuildNum="$(echo "$verStr" | awk -F '|' '{print $2}')"
+           ScriptBuildNum="$DLRepoBuildNum"
+       fi
+   fi
 
-   if ! _CurlFileDownload_ "version.txt" "$SCRIPT_VERPATH"
+   if ! _CurlFileDownload_ "version.txt" "$DLScriptVerPath"
    then
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
        scriptUpdateNotify=0
        return 1
    fi
 
-   DLRepoVersion="$(cat "$SCRIPT_VERPATH")"
+   if verStr="$(_GetDLScriptVersion_ "$DLScriptVerPath")"
+   then
+       DLRepoVersion="$(echo "$verStr" | awk -F '|' '{print $1}')"
+       DLRepoBuildNum="$(echo "$verStr" | awk -F '|' '{print $2}')"
+   fi
+   rm -f "$DLScriptVerPath"
+
    if [ -z "$DLRepoVersion" ]
    then
        Say "${REDct}**ERROR**${NOct}: Variable for downloaded version is empty."
@@ -2818,7 +2851,11 @@ _CheckForNewScriptUpdates_()
    DLRepoVersionNum="$(_ScriptVersionStrToNum_ "$DLRepoVersion")"
    ScriptVersionNum="$(_ScriptVersionStrToNum_ "$SCRIPT_VERSION")"
 
-   if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ]
+   if [ "$DLRepoVersionNum" -gt "$ScriptVersionNum" ] || \
+      {
+        [ "$DLRepoBuildNum" -gt "$ScriptBuildNum" ] && \
+        [ "$DLRepoVersionNum" -eq "$ScriptVersionNum" ]
+      }
    then
        scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
