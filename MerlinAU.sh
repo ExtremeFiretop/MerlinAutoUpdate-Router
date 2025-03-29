@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-March-25
+# Last Modified: 2025-Mar-28
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.3.11
+readonly SCRIPT_VERSION=1.3.12
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -85,7 +85,7 @@ readonly ADDONS_PATH="/jffs/addons"
 readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly SETTINGSFILE="${SETTINGS_DIR}/custom_settings.txt"
-readonly SCRIPTVERPATH="${SETTINGS_DIR}/version.txt"
+readonly SCRIPT_VERPATH="${SETTINGS_DIR}/version.txt"
 
 # Give FIRST priority to built-in binaries over any other #
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
@@ -1561,7 +1561,7 @@ _CurlFileDownload_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
+## Modified by Martinski W. [2025-Mar-27] ##
 ##----------------------------------------##
 _SCRIPTUPDATE_()
 {
@@ -1570,9 +1570,9 @@ _SCRIPTUPDATE_()
    _DownloadScriptFiles_()
    {
       local retCode
-      if _CurlFileDownload_ "version.txt" "$SCRIPTVERPATH"
+      if _CurlFileDownload_ "version.txt" "$SCRIPT_VERPATH"
       then
-          retCode=0 ; chmod 664 "$SCRIPTVERPATH"
+          retCode=0 ; chmod 664 "$SCRIPT_VERPATH"
       else
           retCode=1
           Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
@@ -1590,10 +1590,7 @@ _SCRIPTUPDATE_()
    if [ $# -gt 0 ] && [ "$1" = "force" ]
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
-       if ! _CheckForNewScriptUpdates_ -quietcheck
-       then
-           DLRepoVersion="$(/usr/sbin/curl -LSs --retry 4 --retry-delay 5 "${SCRIPT_URL_REPO}/version.txt")"
-       fi
+       _CheckForNewScriptUpdates_ -quietcheck
        if _CheckForNewGUIVersionUpdate_ "$SCRIPT_VERSION" "$DLRepoVersion"
        then extraParam="install"
        fi
@@ -1667,23 +1664,25 @@ _SCRIPTUPDATE_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
+## Modified by Martinski W. [2025-Mar-27] ##
 ##----------------------------------------##
 _CheckForNewScriptUpdates_()
 {
+   local DLScriptVerPath="${SCRIPT_VERPATH}.DL.tmp"
    echo
    DLRepoVersion="$SCRIPT_VERSION"
-   [ -s "$SCRIPTVERPATH" ] && DLRepoVersion="$(cat "$SCRIPTVERPATH")"
-   rm -f "$SCRIPTVERPATH"
+   [ -s "$SCRIPT_VERPATH" ] && DLRepoVersion="$(head -n1 "$SCRIPT_VERPATH")"
 
-   if ! _CurlFileDownload_ "version.txt" "$SCRIPTVERPATH"
+   if ! _CurlFileDownload_ "version.txt" "$DLScriptVerPath"
    then
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
        scriptUpdateNotify=0
        return 1
    fi
 
-   DLRepoVersion="$(cat "$SCRIPTVERPATH")"
+   DLRepoVersion="$(head -n1 "$DLScriptVerPath")"
+   rm -f "$DLScriptVerPath"
+
    if [ -z "$DLRepoVersion" ]
    then
        Say "${REDct}**ERROR**${NOct}: Variable for downloaded version is empty."
@@ -2315,19 +2314,19 @@ _GetFreeRAM_KB_()
 ##----------------------------------------##
 _GetRequiredRAM_KB_()
 {
-    local url="$1"
+    local theURL="$1"
     local zip_file_size_bytes  zip_file_size_kb  overhead_kb
     local total_required_kb  overhead_percentage=50
 
-    # Size of the ZIP file in bytes
-    zip_file_size_bytes="$(curl -LsI --retry 4 --retry-delay 5 "$url" | grep -i Content-Length | tail -1 | awk '{print $2}')"
-    # Convert bytes to kilobytes
+    # Size of the ZIP file in bytes #
+    zip_file_size_bytes="$(curl -LsI --retry 4 --retry-delay 5 "$theURL" | grep -i Content-Length | tail -1 | awk '{print $2}')"
+    # Convert bytes to KBytes #
     zip_file_size_kb="$((zip_file_size_bytes / 1024))"
 
-    # Calculate overhead based on the percentage
+    # Calculate overhead based on the percentage #
     overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
 
-    # Calculate total required space
+    # Calculate total required space #
     total_required_kb="$((zip_file_size_kb + overhead_kb))"
     echo "$total_required_kb"
 }
@@ -3276,13 +3275,14 @@ _GetLatestFWUpdateVersionFromNode_()
 ##----------------------------------------##
 _GetLatestFWUpdateVersionFromWebsite_()
 {
-    local url="$1"
+    local theURL="$1"
 
-    local links_and_versions="$(curl -Ls --retry 4 --retry-delay 5 "$url" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | \
+    local links_and_versions="$(curl -Ls --retry 4 --retry-delay 5 "$theURL" | grep -o 'href="[^"]*'"$PRODUCT_ID"'[^"]*\.zip' | sed 's/amp;//g; s/href="//' | \
         awk -F'[_\.]' '{print $3"."$4"."$5" "$0}' | sort -t. -k1,1n -k2,2n -k3,3n)"
 
     if [ -z "$links_and_versions" ]
-    then echo "**ERROR** **NO_URL**" ; return 1 ; fi
+    then echo "**ERROR** **NO_URL**" ; return 1
+    fi
 
     local latest="$(echo "$links_and_versions" | tail -n 1)"
     local linkStr="$(echo "$latest" | cut -d' ' -f2-)"
@@ -3305,13 +3305,14 @@ _GetLatestFWUpdateVersionFromWebsite_()
     return 0
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Feb-23] ##
-##---------------------------------------##
-_GetLatestFWUpdateVersionFromGithub_()
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-27] ##
+##----------------------------------------##
+_GetLatestFWUpdateVersionFromGitHub_()
 {
-    local url="$1"  # GitHub API URL for the latest release
-    local firmware_type="$2"  # Type of firmware, e.g., "tuf", "rog" or "pure"
+    local routerVersion
+    local gitURL="$1"  # GitHub URL for the latest release #
+    local firmware_type="$2"  # "tuf", "rog" or "pure" #
 
     local search_type="$firmware_type"  # Default to the input firmware_type
 
@@ -3322,137 +3323,134 @@ _GetLatestFWUpdateVersionFromGithub_()
 
     if ! "$offlineUpdateTrigger"
     then
-        # Get the router version from the router itself
-        local router_version="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
     else
-        # Get the router version from the router itself
-        local router_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+        routerVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
     fi
 
-    if [ -z "$router_version" ]; then
+    if [ -z "$routerVersion" ]
+    then
         echo "**ERROR** **NO_ROUTER_VERSION**"
         return 1
     fi
 
     # Fetch the latest release data from GitHub #
-    local release_data="$(curl -s "$url")"
+    local release_data="$(curl -s "$gitURL")"
 
     # Construct the grep pattern based on search_type #
     local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
 
-    # Extract all matched download URLs
-    local download_urls="$(echo "$release_data" | \
+    # Extract all matched download URLs #
+    local downloadURLs="$(echo "$release_data" | \
         grep -o "$grep_pattern" | \
         grep -o "https://[^ ]*\.\(w\|pkgtb\)")"
 
-    # Check if a URL was found
-    if [ -z "$download_urls" ]
+    if [ -z "$downloadURLs" ]
     then
         echo "**ERROR** **NO_GITHUB_URL**"
         return 1
     else
-        # Loop through each matching URL and compare version to router_version
-        local url_item version
-        for url_item in $download_urls; do
-            # Extract the version portion from the URL
-            local version="$(echo "$url_item" \
+        local theURL  urlVersion
+        for theURL in $downloadURLs
+        do
+            # Extract the version portion from the URL #
+            urlVersion="$(echo "$theURL" \
                 | grep -oE "${PRODUCT_ID}_[^ ]*\.(w|pkgtb)" \
                 | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
 
-            # If this URL’s version matches the router version, we're done
-            if [ "$version" = "$router_version" ]; then
-                echo "$version"
-                echo "$url_item"
+            if [ "$urlVersion" = "$routerVersion" ]
+            then
+                echo "$urlVersion"
+                echo "$theURL"
                 return 0
             fi
         done
     fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-05] ##
-##---------------------------------------##
-GetLatestFirmwareMD5Url()
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-27] ##
+##----------------------------------------##
+GetLatestFirmwareMD5URL()
 {
-    local url="$1"  # GitHub API URL for the latest release
-    local firmware_type="$2"  # Type of firmware, e.g., "tuf", "rog" or "pure"
+    local routerVersion
+    local gitURL="$1"  # GitHub URL for the latest release #
+    local firmware_type="$2"  # "tuf", "rog" or "pure" #
 
-    local search_type="$firmware_type"  # Default to the input firmware_type
+    local search_type="$firmware_type"  # Default to the input firmware_type #
 
-    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    # If firmware_type is "pure", set search_type to include "squashfs" as well #
     if [ "$firmware_type" = "pure" ]; then
         search_type="pure\|squashfs\|ubi"
     fi
 
     if ! "$offlineUpdateTrigger"
     then
-        # Get the router version from the router itself
-        local router_version="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
     else
-        # Get the router version from the router itself
-        local router_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+        routerVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
     fi
 
-    if [ -z "$router_version" ]; then
+    if [ -z "$routerVersion" ]
+    then
         echo "**ERROR** **NO_ROUTER_VERSION**"
         return 1
     fi
 
-    # Fetch the latest release data from GitHub
-    local release_data="$(curl -s "$url")"
+    # Fetch the latest release data from GitHub #
+    local release_data="$(curl -s "$gitURL")"
 
-    # Construct the grep pattern based on search_type
+    # Construct the grep pattern based on search_type #
     local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.md5\""
 
-    # Extract all matched download URLs
-    local md5_urls="$(echo "$release_data" |
+    # Extract all matched download URLs #
+    local md5_URLs="$(echo "$release_data" |
         grep -o "$grep_pattern" | 
         sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')"
 
-    # Check if a URL was found and output result or error
-    if [ -z "$md5_urls" ]
+    if [ -z "$md5_URLs" ]
     then
         echo "**ERROR** **NO_MD5_FILE_URL_FOUND**"
         return 1
     else
-        # Loop through each matching URL and compare version to router_version
-        local url_item version
-        for url_item in $md5_urls; do
-            # Extract the version portion from the URL
-            local md5="$(echo "$url_item" \
+        local theURL  md5Version
+        for theURL in $md5_URLs
+        do
+            # Extract the version portion from the URL #
+            md5Version="$(echo "$theURL" \
                 | grep -oE "${PRODUCT_ID}_[^ ]*\.(md5)" \
                 | sed "s/${PRODUCT_ID}_//;s/.md5$//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
 
-            # If this URL’s version matches the router version, we're done
-            if [ "$md5" = "$router_version" ]; then
-                echo "$md5"
+            if [ "$md5Version" = "$routerVersion" ]
+            then
+                echo "$theURL"
                 return 0
             fi
         done
     fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-17] ##
-##---------------------------------------##
-GetLatestChangelogUrl()
+##----------------------------------------##
+## Modified by Martinski W. [2024-Mar-27] ##
+##----------------------------------------##
+GetLatestChangelogURL()
 {
-    local url="$1"  # GitHub API URL for the latest release
+    local gitURL="$1"  # GitHub URL for the latest release #
+    local changelogURL
 
-    # Fetch the latest release data from GitHub
-    local release_data="$(curl -s "$url")"
+    # Fetch the latest release data from GitHub #
+    local release_data="$(curl -s "$gitURL")"
 
     # Parse the release data to find the download URL of the CHANGELOG file
     # Directly find the URL without matching a specific model number
-    local changelog_url="$(echo "$release_data" | grep -o "\"browser_download_url\": \".*CHANGELOG.*\"" | grep -o "https://[^ ]*\"" | tr -d '"' | head -1)"
+    changelogURL="$(echo "$release_data" | grep -o "\"browser_download_url\": \".*CHANGELOG.*\"" | grep -o "https://[^ ]*\"" | tr -d '"' | head -n1)"
 
-    # Check if the URL has been found
-    if [ -z "$changelog_url" ]
+    if [ -z "$changelogURL" ]
     then
         echo "**ERROR** **NO_CHANGELOG_FILE_URL_FOUND**"
         return 1
     else
-        echo "$changelog_url"
+        echo "$changelogURL"
     fi
 }
 
@@ -4660,19 +4658,13 @@ _GetScriptAutoUpdateCronSchedule_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-24] ##
+## Modified by Martinski W. [2025-Mar-27] ##
 ##----------------------------------------##
 _AddScriptAutoUpdateCronJob_()
 {
-   local newSchedule  newSetting  retCode=1
-   if [ $# -gt 0 ] && [ -n "$1" ]
-   then
-       newSetting=true
-       newSchedule="$1"
-   else
-       newSetting=false
-       newSchedule="$(_GetScriptAutoUpdateCronSchedule_)"
-   fi
+   local newSchedule  retCode=1
+   
+   newSchedule="$(_GetScriptAutoUpdateCronSchedule_)"
    if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD" ]
    then
        newSchedule="$ScriptAU_CRON_DefaultSchedule"
@@ -6032,7 +6024,7 @@ _ManageChangelogGnuton_()
     # Create directory to download changelog if missing
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
 
-    GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+    GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
 
     # Follow redirects and capture the effective URL
     local effective_url="$(curl -Ls -o /dev/null -w %{url_effective} "$GnutonChangeLogURL")"
@@ -6205,7 +6197,7 @@ _CheckNodeFWUpdateNotification_()
              echo "Please click here to review the latest changelog:"
              if "$NodeGNUtonFW"
              then
-                 GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+                 GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
                  echo "$GnutonChangeLogURL"
              else
                  if [ "$node_firmver" -eq 3006 ]
@@ -6237,7 +6229,7 @@ _CheckNodeFWUpdateNotification_()
          echo "Please click here to review the latest changelog:"
          if "$NodeGNUtonFW"
          then
-             GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
+             GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
              echo "$GnutonChangeLogURL"
          else
              if [ "$node_firmver" -eq 3006 ]
@@ -7007,7 +6999,7 @@ _RunOfflineUpdateNow_()
                 extension="${sanitized_filename##*.}"
                 FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
                 _GnutonBuildSelection_
-                set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
+                set -- $(_GetLatestFWUpdateVersionFromGitHub_ "$FW_GITURL_RELEASE" "$firmware_choice")
                 retCode="$?"
             else
                 set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
@@ -7166,9 +7158,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         then
            Say "Using release information for Gnuton Firmware."
            _GnutonBuildSelection_
-           md5_url="$(GetLatestFirmwareMD5Url "$FW_GITURL_RELEASE" "$firmware_choice")"
-           GnutonChangeLogURL="$(GetLatestChangelogUrl "$FW_GITURL_RELEASE")"
-           set -- $(_GetLatestFWUpdateVersionFromGithub_ "$FW_GITURL_RELEASE" "$firmware_choice")
+           md5_url="$(GetLatestFirmwareMD5URL "$FW_GITURL_RELEASE" "$firmware_choice")"
+           GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
+           set -- $(_GetLatestFWUpdateVersionFromGitHub_ "$FW_GITURL_RELEASE" "$firmware_choice")
            retCode="$?"
         else
            Say "Using release information for Merlin Firmware."
