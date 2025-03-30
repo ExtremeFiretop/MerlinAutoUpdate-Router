@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Mar-10 **/
+/** Last Modified: 2025-Mar-29 **/
 /** Intended for 1.4.x Release **/
 /**----------------------------**/
 
@@ -796,41 +796,42 @@ const fwUpdateDirPath =
    }
 };
 
-function fetchChangelog(startTime) {
+function FetchChangelog(startTime)
+{
     $.ajax({
         url: '/ext/MerlinAU/changelog.htm',
         dataType: 'text',
-        timeout: 1500, // each attempt times out after 9 seconds
-        success: function(data) {
+        timeout: 1500, // each attempt times out after 9 seconds //
+        success: function(data)
+        {
             $('#changelogData').html('<pre>' + data + '</pre>');
         },
-        error: function() {
+        error: function()
+        {
             var currentTime = new Date().getTime();
-            // if less than 10 seconds have elapsed since we started, retry after 500ms
-            if (currentTime - startTime < 10000) {
-                setTimeout(function() {
-                    fetchChangelog(startTime);
-                }, 500);
-            } else {
-                $('#changelogData').html('<p>Failed to load the changelog.</p>');
-            }
+            // if less than 10 sec. have elapsed since we started, retry after 500ms //
+            if (currentTime - startTime < 10000)
+            { setTimeout(function() { FetchChangelog(startTime); }, 500); }
+            else
+            { $('#changelogData').html('<p>Failed to load the changelog.</p>'); }
         }
     });
 }
 
-function ShowLatestChangelog(e) {
+function ShowLatestChangelog(e)
+{
     if (e) e.preventDefault();
 
-    // Define the loading message
-    var loadingMessage = '<p>Please wait and allow up to 10 seconds for the changelog to load.<br>' +
+    let loadingMessage = '<p>Please wait and allow up to 10 seconds for the changelog to load.<br>' +
                          'Click on "Cancel" button to stop and exit this dialog.</p>';
 
-    // If the modal already exists, update its content for a fresh fetch.
-    if ($('#changelogModal').length) {
+    if ($('#changelogModal').length)
+    {
        $('#changelogData').html(loadingMessage);
        $('#closeChangelogModal').text("Cancel");
-    } else {
-        // Create modal overlay if it doesn't exist
+    }
+    else
+    {   // Create modal overlay if it doesn't exist //
         $('body').append(
             '<div id="changelogModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; ' +
                 'background:rgba(0,0,0,0.8); z-index:10000;">' +
@@ -848,11 +849,10 @@ function ShowLatestChangelog(e) {
             $('#changelogModal').hide();
         });
     }
-    
-    // Show the modal overlay
+
     $('#changelogModal').show();
 
-    // Trigger the backend shell script via form submission (using AJAX)
+    // Trigger the backend shell script via form submission //
     var formData = $('form[name="form"]').serializeArray();
     formData.push({ name: "action_script", value: "start_MerlinAUdownloadchangelog" });
     formData.push({ name: "action_wait", value: "10" });
@@ -865,10 +865,10 @@ function ShowLatestChangelog(e) {
          console.error("Failed to submit changelog trigger.");
       });
 
-    // Record the start time and wait 8 seconds before attempting to fetch the changelog
+    // Record the start time and wait 8 seconds before attempting to fetch the changelog //
     var startTime = new Date().getTime();
     setTimeout(function() {
-         fetchChangelog(startTime);
+         FetchChangelog(startTime);
          // Once the changelog has loaded, update the button text to "Close"
          $('#closeChangelogModal').text("Close");
     }, 8000);
@@ -2019,57 +2019,64 @@ function initial()
 /**----------------------------------------**/
 /** Modified by Martinski W. [2025-Mar-07] **/
 /**----------------------------------------**/
-function SaveCombinedConfig() {
-    // Clear the hidden field before saving
+function SaveCombinedConfig()
+{
+    // Clear the hidden field before saving //
     document.getElementById('amng_custom').value = '';
 
-    /*==============================
-      ACTIONS CONFIG SECTION
-    ==============================*/
+    /**========================**/
+    /** ACTIONS CONFIG SECTION **/
+    /**========================**/
     var passwordElem = document.getElementById('routerPassword');
     var usernameElem = document.getElementById('http_username');
     var usernameStr = usernameElem ? usernameElem.value.trim() : 'admin';
 
-    // Validate that Username is not empty
-    if (usernameStr === null || usernameStr.length === 0) {
+    if (usernameStr === null || usernameStr.length === 0)
+    {
         console.error("HTTP Username is missing.");
         alert("HTTP Username is not set. Please contact your administrator.");
         return false;
     }
-    if (!ValidatePasswordString(passwordElem, 'onSAVE')) {
+    if (!ValidatePasswordString(passwordElem, 'onSAVE'))
+    {
         alert(`${validationErrorMsg}\n\n` + loginPassword.ErrorMsg());
         return false;
     }
-    if (!ValidatePostponedDays(document.form.fwUpdatePostponement)) {
+    if (!ValidatePostponedDays(document.form.fwUpdatePostponement))
+    {
         alert(`${validationErrorMsg}\n\n` + fwPostponedDays.ErrorMsg());
         return false;
     }
     if (document.form.fwScheduleHOUR.disabled === false &&
-        !ValidateFWUpdateTime(document.form.fwScheduleHOUR, 'HOUR')) {
+        !ValidateFWUpdateTime(document.form.fwScheduleHOUR, 'HOUR'))
+    {
         alert(`${validationErrorMsg}\n\n` + fwScheduleTime.ErrorMsg('HOUR'));
         return false;
     }
     if (document.form.fwScheduleMINS.disabled === false &&
-        !ValidateFWUpdateTime(document.form.fwScheduleMINS, 'MINS')) {
+        !ValidateFWUpdateTime(document.form.fwScheduleMINS, 'MINS'))
+    {
         alert(`${validationErrorMsg}\n\n` + fwScheduleTime.ErrorMsg('MINS'));
         return false;
     }
     if (document.getElementById('fwSchedBoxDAYSX').checked &&
-        !ValidateFWUpdateXDays(document.form.fwScheduleXDAYS, 'DAYS')) {
+        !ValidateFWUpdateXDays(document.form.fwScheduleXDAYS, 'DAYS'))
+    {
         alert(`${validationErrorMsg}\n\n` + fwScheduleTime.ErrorMsg('DAYS'));
         return false;
     }
 
-    // Process FW update cron schedule conversion
+    // F/W Update cron schedule //
     let fwUpdateRawCronSchedule = custom_settings.FW_New_Update_Cron_Job_Schedule;
     fwUpdateRawCronSchedule = FWConvertWebUISettingsToCronSchedule(fwUpdateRawCronSchedule);
 
-    // Encode credentials in Base64
+    // Encode credentials in Base64 //
     var credentials = usernameStr + ':' + passwordElem.value;
     var encodedCredentials = btoa(credentials);
 
-    // Build the Actions settings object
-    var action_settings = {
+    // Build the Actions settings object //
+    var action_settings =
+    {
         credentials_base64: encodedCredentials,
         FW_New_Update_Cron_Job_Schedule: fwUpdateRawCronSchedule,
         FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
@@ -2077,13 +2084,13 @@ function SaveCombinedConfig() {
         FW_Update_Check: document.getElementById('FW_AutoUpdate_Check').checked ? 'ENABLED' : 'DISABLED'
     };
 
-    // Prefix the Actions settings
+    // Prefix Actions settings //
     var prefixedActionSettings = PrefixCustomSettings(action_settings, 'MerlinAU_');
 
-    /*==============================
-      ADVANCED CONFIG SECTION
-    ==============================*/
-    // Process Email Notification settings (only if enabled)
+    /**=========================**/
+    /** ADVANCED CONFIG SECTION **/
+    /**=========================**/
+    // Email Notifications (only if enabled) //
     let emailFormat = document.getElementById('emailFormat');
     let secondaryEmail = document.getElementById('secondaryEmail');
     let emailNotificationsEnabled = document.getElementById('emailNotificationsEnabled');
@@ -2098,53 +2105,57 @@ function SaveCombinedConfig() {
         advanced_settings.FW_New_Update_EMail_CC_Address = secondaryEmail.value || 'TBD';
     }
 
-    // Process F/W Update ZIP Directory
+    // F/W Update ZIP Directory //
     let fwUpdateZIPdirectory = document.getElementById('fwUpdateZIPDirectory');
-    if (fwUpdateZIPdirectory !== null && typeof fwUpdateZIPdirectory !== 'undefined') {
+    if (fwUpdateZIPdirectory !== null && typeof fwUpdateZIPdirectory !== 'undefined')
+    {
         if (ValidateDirectoryPath(fwUpdateZIPdirectory, 'ZIP')) {
             advanced_settings.FW_New_Update_ZIP_Directory_Path = fwUpdateZIPdirectory.value;
-        } else {
+        }
+        else {
             alert(`${validationErrorMsg}\n\n` + fwUpdateDirPath.ErrorMsg('ZIP'));
             return false;
         }
     }
 
-    // Process F/W Update LOG Directory
+    // F/W Update LOG Directory //
     let fwUpdateLOGdirectory = document.getElementById('fwUpdateLOGDirectory');
-    if (fwUpdateLOGdirectory !== null && typeof fwUpdateLOGdirectory !== 'undefined') {
+    if (fwUpdateLOGdirectory !== null && typeof fwUpdateLOGdirectory !== 'undefined')
+    {
         if (ValidateDirectoryPath(fwUpdateLOGdirectory, 'LOG')) {
             advanced_settings.FW_New_Update_LOG_Directory_Path = fwUpdateLOGdirectory.value;
-        } else {
+        }
+        else {
             alert(`${validationErrorMsg}\n\n` + fwUpdateDirPath.ErrorMsg('LOG'));
             return false;
         }
     }
 
-    // Process Tailscale/ZeroTier VPN Access
+    // Tailscale/ZeroTier VPN Access //
     let tailscaleVPNEnabled = document.getElementById('tailscaleVPNEnabled');
     if (tailscaleVPNEnabled && !tailscaleVPNEnabled.disabled) {
         advanced_settings.Allow_Updates_OverVPN = tailscaleVPNEnabled.checked ? 'ENABLED' : 'DISABLED';
     }
 
-    // Process Automatic Script Updates
+    // Automatic Script Updates //
     let script_AutoUpdate_Check = document.getElementById('Script_AutoUpdate_Check');
     if (script_AutoUpdate_Check && !script_AutoUpdate_Check.disabled) {
         advanced_settings.Allow_Script_Auto_Update = script_AutoUpdate_Check.checked ? 'ENABLED' : 'DISABLED';
     }
 
-    // Process Beta-to-Release Updates
+    // Beta-to-Release Updates //
     let betaToReleaseUpdatesEnabled = document.getElementById('betaToReleaseUpdatesEnabled');
     if (betaToReleaseUpdatesEnabled && !betaToReleaseUpdatesEnabled.disabled) {
         advanced_settings.FW_Allow_Beta_Production_Up = betaToReleaseUpdatesEnabled.checked ? 'ENABLED' : 'DISABLED';
     }
 
-    // Process Automatic Backups
+    // Automatic Backups //
     let autobackupEnabled = document.getElementById('autobackupEnabled');
     if (autobackupEnabled && !autobackupEnabled.disabled) {
         advanced_settings.FW_Auto_Backupmon = autobackupEnabled.checked ? 'ENABLED' : 'DISABLED';
     }
 
-    // Process ROG/TUF F/W Build Types (if the rows are visible)
+    // ROG/TUF F/W Build Types (if rows are visible) //
     let rogFWBuildRow = document.getElementById('rogFWBuildRow');
     let rogFWBuildType = document.getElementById('rogFWBuildType');
     if (rogFWBuildRow && rogFWBuildRow.style.display !== 'none' && rogFWBuildType) {
@@ -2156,26 +2167,25 @@ function SaveCombinedConfig() {
         advanced_settings.TUFBuild = (tuffFWBuildType.value === 'TUF') ? 'ENABLED' : 'DISABLED';
     }
 
-    // Prefix the Advanced settings
+    // Prefix Advanced settings //
     var prefixedAdvancedSettings = PrefixCustomSettings(advanced_settings, 'MerlinAU_');
 
-    /*==============================
-      MERGE SETTINGS & SUBMIT FORM
-    ==============================*/
-    // Merge shared settings with both prefixed Action and Advanced settings
+    /**==============================**/
+    /** MERGE SETTINGS & SUBMIT FORM **/
+    /**==============================**/
+    // Merge shared settings with prefixed Action and Advanced settings //
     var updatedSettings = Object.assign({}, shared_custom_settings, prefixedActionSettings, prefixedAdvancedSettings);
     ConsoleLogDEBUG("Combined Config Form submitted with settings:", updatedSettings);
 
-    // Save merged settings to the hidden input field
+    // Save merged settings to the hidden input field //
     document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);
 
-    // Determine action script based on the RunLoginTestOnSave checkbox
+    // Action script is based on 'RunLoginTestOnSave' checkbox //
     let actionScriptValue;
-    if (!document.getElementById('RunLoginTestOnSave').checked) {
-        actionScriptValue = 'start_MerlinAUconfig';
-    } else {
-        actionScriptValue = 'start_MerlinAUconfig_runLoginTest';
-    }
+    if (!document.getElementById('RunLoginTestOnSave').checked)
+    { actionScriptValue = 'start_MerlinAUconfig'; }
+    else
+    { actionScriptValue = 'start_MerlinAUconfig_runLoginTest'; }
     document.form.action_script.value = actionScriptValue;
     document.form.action_wait.value = 10;
 
@@ -2708,39 +2718,25 @@ function initializeCollapsibleSections()
       <br>
       <label style="margin-left:0px;">
         <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_SUN" value="Sun" class="input"
-               style="margin-left:55px; margin-bottom:7px"/>
-        Sun
-      </label>
+               style="margin-left:55px; margin-bottom:7px"/>Sun</label>
       <label style="margin-left:0px;">
         <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_MON" value="Mon" class="input"
-               style="margin-left:14px; margin-bottom:7px"/>
-        Mon
-      </label>
+               style="margin-left:14px; margin-bottom:7px"/>Mon</label>
       <label style="margin-left:0px;">
         <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_TUE" value="Tue" class="input"
-               style="margin-left:14px; margin-bottom:7px"/>
-        Tue
-      </label>
+               style="margin-left:14px; margin-bottom:7px"/>Tue</label>
       <label style="margin-left:0px;">
         <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_WED" value="Wed" class="input"
-               style="margin-left:14px; margin-bottom:7px"/>
-        Wed
-      </label>
+               style="margin-left:14px; margin-bottom:7px"/>Wed</label>
       <label style="margin-left:0px;">
         <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_THU" value="Thu" class="input"
-               style="margin-left:14px; margin-bottom:7px"/>
-        Thu
-      </label>
+               style="margin-left:14px; margin-bottom:7px"/>Thu</label>
       <label style="margin-left:0px;">
         <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_FRI" value="Fri" class="input"
-               style="margin-left:14px; margin-bottom:7px"/>
-        Fri
-      </label>
+               style="margin-left:14px; margin-bottom:7px"/>Fri</label>
       <label style="margin-left:0px;">
         <input type="checkbox" name="fwSchedDAYWEEK" id="fwSched_SAT" value="Sat" class="input"
-               style="margin-left:14px; margin-bottom:7px"/>
-        Sat
-      </label>
+               style="margin-left:14px; margin-bottom:7px"/>Sat</label>
       </br>
     </div>
     <div id="fwCronScheduleHOUR">
