@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Mar-29 **/
+/** Last Modified: 2025-Mar-30 **/
 /** Intended for 1.4.x Release **/
 /**----------------------------**/
 
@@ -154,6 +154,7 @@ function FormatNumericSetting (formInput)
 /** Added by Martinski W. [2025-Jan-24] **/
 /**-------------------------------------**/
 const numberRegExp = '^[0-9]+$';
+const daysOfWeekNumbr = ['0', '1', '2', '3', '4', '5', '6'];
 const daysOfWeekNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const daysOfWeekRexpN = '([S|s]un|[M|m]on|[T|t]ue|[W|w]ed|[T|t]hu|[F|f]ri|[S|s]at)';
 const daysOfWeekRexp1 = `${daysOfWeekRexpN}|[0-6]`;
@@ -357,15 +358,24 @@ function ValidateScheduleDAYofWEEK (cronDAYofWEEK)
    { return false; }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-25] **/
-/**-------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Mar-30] **/
+/**----------------------------------------**/
 function GetListFromRangeDAYofWEEK (cronRangeDAYofWEEK)
 {
-   let theDaysArray = [];
+   let indexMin = 0, indexMax = 0, theDaysArray = [];
    let theDaysRange = cronRangeDAYofWEEK.split ('-');
-   let indexMin = daysOfWeekNames.indexOf (theDaysRange[0]);
-   let indexMax = daysOfWeekNames.indexOf (theDaysRange[1]);
+   
+   if (theDaysRange[0].match ('[0-6]'))
+   { indexMin = daysOfWeekNumbr.indexOf (theDaysRange[0]); }
+   else
+   { indexMin = daysOfWeekNames.indexOf (theDaysRange[0]); }
+
+   if (theDaysRange[1].match ('[0-6]'))
+   { indexMax = daysOfWeekNumbr.indexOf (theDaysRange[1]); }
+   else
+   { indexMax = daysOfWeekNames.indexOf (theDaysRange[1]); }
+
    for (var indx = indexMin; indx <= indexMax; indx++)
    { theDaysArray.push (daysOfWeekNames[indx]) ; }
    return (theDaysArray.toString());
@@ -397,9 +407,9 @@ function GetCronDAYofWEEK (daysOfWeekIndex, daysOfWeekArray)
    return (theDaysOfWeek);
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-25] **/
-/**-------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Mar-30] **/
+/**----------------------------------------**/
 function SetScheduleDAYofWEEK (cronDAYofWEEK)
 {
    let fwScheduleDAYS1, fwSchedBoxDAYSX, fwScheduleXDAYS;
@@ -430,47 +440,47 @@ function SetScheduleDAYofWEEK (cronDAYofWEEK)
    ToggleDaysOfWeek (false, 'X');
    let theDAYofWEEK = cronDAYofWEEK;
 
-   if (cronDAYofWEEK.match (`${daysOfWeekRexpN}[-]${daysOfWeekRexpN}`) !== null)
+   if (cronDAYofWEEK.match (`${daysOfWeekRexp2}`) !== null)
    {
        theDAYofWEEK = GetListFromRangeDAYofWEEK (cronDAYofWEEK);
    }
-   if (theDAYofWEEK.match ('[,]?[M|m]on[,]?') !== null)
+   if (theDAYofWEEK.match ('[,]?(1|[M|m]on)[,]?') !== null)
    {
        fwScheduleMON = document.getElementById('fwSched_MON');
        fwScheduleMON.checked = true;
        fwScheduleMON.disabled = false;
    }
-   if (theDAYofWEEK.match ('[,]?[T|t]ue[,]?') !== null)
+   if (theDAYofWEEK.match ('[,]?(2|[T|t]ue)[,]?') !== null)
    {
        fwScheduleTUE = document.getElementById('fwSched_TUE');
        fwScheduleTUE.checked = true;
        fwScheduleTUE.disabled = false;
    }
-   if (theDAYofWEEK.match ('[,]?[W|w]ed[,]?') !== null)
+   if (theDAYofWEEK.match ('[,]?(3|[W|w]ed)[,]?') !== null)
    {
        fwScheduleWED = document.getElementById('fwSched_WED');
        fwScheduleWED.checked = true;
        fwScheduleWED.disabled = false;
    }
-   if (theDAYofWEEK.match ('[,]?[T|t]hu[,]?') !== null)
+   if (theDAYofWEEK.match ('[,]?(4|[T|t]hu)[,]?') !== null)
    {
        fwScheduleTHU = document.getElementById('fwSched_THU');
        fwScheduleTHU.checked = true;
        fwScheduleTHU.disabled = false;
    }
-   if (theDAYofWEEK.match ('[,]?[F|f]ri[,]?') !== null)
+   if (theDAYofWEEK.match ('[,]?(5|[F|f]ri)[,]?') !== null)
    {
        fwScheduleFRI = document.getElementById('fwSched_FRI');
        fwScheduleFRI.checked = true;
        fwScheduleFRI.disabled = false;
    }
-   if (theDAYofWEEK.match ('[,]?[S|s]at[,]?') !== null)
+   if (theDAYofWEEK.match ('[,]?(6|[S|s]at)[,]?') !== null)
    {
        fwScheduleSAT = document.getElementById('fwSched_SAT');
        fwScheduleSAT.checked = true;
        fwScheduleSAT.disabled = false;
    }
-   if (theDAYofWEEK.match ('[,]?[S|s]un[,]?') !== null)
+   if (theDAYofWEEK.match ('[,]?(0|[S|s]un)[,]?') !== null)
    {
        fwScheduleSUN = document.getElementById('fwSched_SUN');
        fwScheduleSUN.checked = true;
