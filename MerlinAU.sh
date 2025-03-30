@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Mar-28
+# Last Modified: 2025-Mar-30
 ###################################################################
 set -u
 
@@ -6060,7 +6060,7 @@ _Set_FW_UpdatePostponementDays_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-22] ##
+## Modified by Martinski W. [2025-Mar-29] ##
 ##----------------------------------------##
 _TranslateCronSchedHR_()
 {
@@ -6105,6 +6105,7 @@ _TranslateCronSchedHR_()
    theCronHOUR="$(echo "$1" | awk -F ' ' '{print $2}')"
    theCronDAYM="$(echo "$1" | awk -F ' ' '{print $3}')"
    theCronDAYW="$(echo "$1" | awk -F ' ' '{print $5}')"
+   theCronDAYW="$(_ConvertDayOfWeekToHR_ "$theCronDAYW")"
 
    if [ "$theCronDAYW" = "*" ] && [ "$theCronDAYM" = "*" ]
    then
@@ -6269,15 +6270,39 @@ _ValidateCronScheduleHOUR_()
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2024-Nov-23] ##
+## Added by Martinski W. [2025-Mar-29] ##
 ##-------------------------------------##
+_ConvertDAYW_NumberToName_()
+{ echo "$1" | sed 's/0/Sun/g;s/1/Mon/g;s/2/Tue/g;s/3/Wed/g;s/4/Thu/g;s/5/Fri/g;s/6/Sat/g' ; }
+
+##-------------------------------------##
+## Added by Martinski W. [2024-Nov-24] ##
+##-------------------------------------##
+_ConvertDAYW_NameToNumber_()
+{
+   if [ $# -eq 0 ] && [ -z "$1" ] ; then echo ; return 1; fi
+   echo "$1" | sed 's/[Ss]un/0/g;s/[Mm]on/1/g;s/[Tt]ue/2/g;s/[Ww]ed/3/g;s/[Tt]hu/4/g;s/[Ff]ri/5/g;s/[Ss]at/6/g'
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2025-Mar-29] ##
+##----------------------------------------##
 _ConvertDAYW_NumToName_()
 {
    if [ $# -eq 0 ] && [ -z "$1" ] ; then echo ; return 1; fi
-   local rangeDays  rangeFreq
+   local daysOfWeek  rangeDays  rangeFreq
+
+   if ! echo "$1" | grep -q "/" && \
+      echo "$1" | grep -q "[0-6]"
+   then
+       daysOfWeek="$(_ConvertDAYW_NumberToName_ "$1")"
+       echo "$daysOfWeek"
+       return 0
+   fi
+
    rangeDays="$(echo "$1" | awk -F '/' '{print $1}')"
    rangeFreq="$(echo "$1" | awk -F '/' '{print $2}')"
-   rangeDays="$(echo "$rangeDays" | sed 's/0/Sun/g;s/1/Mon/g;s/2/Tue/g;s/3/Wed/g;s/4/Thu/g;s/5/Fri/g;s/6/Sat/g')"
+   rangeDays="$(_ConvertDAYW_NumberToName_ "$rangeDays")"
    if [ -z "$rangeFreq" ]
    then echo "$rangeDays"
    else echo "${rangeDays}/$rangeFreq"
@@ -6285,10 +6310,22 @@ _ConvertDAYW_NumToName_()
    return 0
 }
 
-_ConvertDAYW_NameToNum_()
+##-------------------------------------##
+## Added by Martinski W. [2025-Mar-29] ##
+##-------------------------------------##
+_ConvertDayOfWeekToHR_()
 {
    if [ $# -eq 0 ] && [ -z "$1" ] ; then echo ; return 1; fi
-   echo "$1" | sed 's/[Ss]un/0/g;s/[Mm]on/1/g;s/[Tt]ue/2/g;s/[Ww]ed/3/g;s/[Tt]hu/4/g;s/[Ff]ri/5/g;s/[Ss]at/6/g'
+   local daysOfWeek="$1"
+   if echo "$1" | grep -qE "^[fmstw]"
+   then
+       daysOfWeek="$(_CapitalizeFirstChar_ "$1")"
+   elif ! echo "$1" | grep -q '[*/]' && \
+        echo "$1" | grep -q "[0-6]"
+   then
+       daysOfWeek="$(_ConvertDAYW_NumToName_ "$1")"
+   fi
+   echo "$daysOfWeek"
    return 0
 }
 
@@ -6301,7 +6338,7 @@ _ValidateCronNumOrderDAYW_()
    local numDAYS  numDays1  numDays2
    if ! echo "$1" | grep -qE "[a-zA-Z]"
    then numDAYS="$1"
-   else numDAYS="$(_ConvertDAYW_NameToNum_ "$1")"
+   else numDAYS="$(_ConvertDAYW_NameToNumber_ "$1")"
    fi
    numDays1="$(echo "$numDAYS" | awk -F '[-/]' '{print $1}')"
    numDays2="$(echo "$numDAYS" | awk -F '[-/]' '{print $2}')"
@@ -6341,19 +6378,19 @@ _ValidateCronScheduleDAYofWEEK_()
    return 1
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Nov-24] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Mar-30] ##
+##----------------------------------------##
 #----------------------------------------------------------#
 # Allow ONLY full numbers within the range [1-31]
-# some intervals [ *  */[2-9]  */10  */12  */15 ],
+# some intervals [ *  */[2-9]  */10  */12  */14  */15 ],
 # lists and ranges for the purposes of doing F/W Updates.
 #----------------------------------------------------------#
 _ValidateCronScheduleDAYofMONTH_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    if [ "$1" = "*" ] || \
-      echo "$1" | grep -qE "^[*]/([2-9]|10|12|15)$"
+      echo "$1" | grep -qE "^[*]/([2-9]|10|12|14|15)$"
    then return 0 ; fi
    if echo "$1" | grep -qE "^${CRON_DAYofMONTH_RegEx}$"
    then
@@ -6369,8 +6406,8 @@ _ValidateCronScheduleDAYofMONTH_()
        fi
    fi
    printf "\n${REDct}INVALID cron value for 'DAY of MONTH' [$1]${NOct}\n"
-   printf "${REDct}NOTE${NOct}: Only numbers within the range [1-31],\n"
-   printf "specific intervals (* */[2-9] */10 */12 */15),\n"
+   printf "${REDct}NOTE${NOct}: Only numbers within the range [1-31], some\n"
+   printf "specific intervals (* */[2-9] */10 */12 */14 */15),\n"
    printf "lists of numbers, and single ranges are valid.\n"
    return 1
 }
@@ -6530,14 +6567,14 @@ _ShowCronMenuHeader_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-20] ##
+## Modified by Martinski W. [2025-Mar-29] ##
 ##----------------------------------------##
 _GetCronScheduleInputDAYofMONTH_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    local oldSchedDAYM  newSchedDAYM  oldSchedDAYHR
 
-   _GetSchedDaysHR_()
+   _GetSchedDayOfMonthHR_()
    {
       local cruDAYS="$1"
       [ "$1" = "*" ] && cruDAYS="Every day"
@@ -6546,7 +6583,7 @@ _GetCronScheduleInputDAYofMONTH_()
 
    newSchedDAYM=""
    oldSchedDAYM="$1"
-   oldSchedDAYHR="$(_GetSchedDaysHR_ "$1")"
+   oldSchedDAYHR="$(_GetSchedDayOfMonthHR_ "$1")"
 
    while true
    do
@@ -6578,7 +6615,7 @@ _GetCronScheduleInputDAYofMONTH_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Dec-20] ##
+## Modified by Martinski W. [2025-Mar-29] ##
 ##----------------------------------------##
 _GetCronScheduleInputDAYofWEEK_()
 {
@@ -6588,7 +6625,7 @@ _GetCronScheduleInputDAYofWEEK_()
    _DayOfWeekNumToDayName_()
    { echo "$1" | sed 's/0/Sun/;s/1/Mon/;s/2/Tue/;s/3/Wed/;s/4/Thu/;s/5/Fri/;s/6/Sat/;' ; }
 
-   _GetSchedDaysHR_()
+   _GetSchedDayOfWeekHR_()
    {
       local cruDAYS="$1"
       if [ "$1" = "*" ]
@@ -6601,7 +6638,7 @@ _GetCronScheduleInputDAYofWEEK_()
 
    newSchedDAYW=""
    oldSchedDAYW="$1"
-   oldSchedDAYHR="$(_GetSchedDaysHR_ "$1")"
+   oldSchedDAYHR="$(_GetSchedDayOfWeekHR_ "$1")"
 
    while true
    do
@@ -6622,7 +6659,9 @@ _GetCronScheduleInputDAYofWEEK_()
        then
            newSchedDAYW="$oldSchedDAYW"
            if _ValidateCronScheduleDAYofWEEK_ "$oldSchedDAYW"
-           then break  #Keep Current Value#
+           then  #Keep Current Value#
+               newSchedDAYW="$(_ConvertDayOfWeekToHR_ "$oldSchedDAYW")"
+               break
            fi
        elif _CheckForCancelAndExitMenu_ "$newSchedDAYW" || \
             _CheckForReturnToBeginMenu_ "$newSchedDAYW" || \
@@ -6630,14 +6669,7 @@ _GetCronScheduleInputDAYofWEEK_()
        then break
        elif _ValidateCronScheduleDAYofWEEK_ "$newSchedDAYW"
        then
-           if echo "$newSchedDAYW" | grep -qE "[fmstw]"
-           then
-               newSchedDAYW="$(_CapitalizeFirstChar_ "$newSchedDAYW")"
-           elif ! echo "$newSchedDAYW" | grep -q '[*/]' && \
-                echo "$newSchedDAYW" | grep -q "[0-6]"
-           then
-               newSchedDAYW="$(_ConvertDAYW_NumToName_ "$newSchedDAYW")"
-           fi
+           newSchedDAYW="$(_ConvertDayOfWeekToHR_ "$newSchedDAYW")"
            break
        fi
        _WaitForEnterKey_
