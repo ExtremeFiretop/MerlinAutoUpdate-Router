@@ -1273,7 +1273,7 @@ function ToggleEmailDependents (isEmailNotifyChecked)
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Mar-01] **/
+/** Modified by Martinski W. [2025-Mar-30] **/
 /**----------------------------------------**/
 function SetUpEmailNotificationFields()
 {
@@ -1287,7 +1287,9 @@ function SetUpEmailNotificationFields()
     // If not yet set show a blank field instead of 'TBD' //
     if (secondaryEmail)
     {
-        if (custom_settings.FW_New_Update_EMail_CC_Address === 'TBD')
+        if (custom_settings.FW_New_Update_EMail_CC_Address === null ||
+            custom_settings.FW_New_Update_EMail_CC_Address === 'TBD' ||
+            typeof custom_settings.FW_New_Update_EMail_CC_Address === 'undefined')
         { secondaryEmail.value = ''; }
         else
         { secondaryEmail.value = custom_settings.FW_New_Update_EMail_CC_Address; }
