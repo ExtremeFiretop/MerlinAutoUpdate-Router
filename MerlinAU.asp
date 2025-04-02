@@ -1623,7 +1623,6 @@ function InitializeFields()
                 $('#autobackupEnabled').prop('disabled', false);
                 setCheckboxDisabledById('autobackupEnabled', false);
                 autobackupEnabled.checked = (custom_settings.FW_Auto_Backupmon === 'ENABLED');
-                autobackupEnabled.style.opacity = '1'; // Fully opaque
             }
             else
             {
@@ -1632,7 +1631,7 @@ function InitializeFields()
                 $('#autobackupEnabled').prop('disabled', true);
                 setCheckboxDisabledById('autobackupEnabled', true);
                 autobackupEnabled.checked = false; // Optionally uncheck
-                autobackupEnabled.style.opacity = '0.5'; // Grayed out appearance
+
             }
         }
 
