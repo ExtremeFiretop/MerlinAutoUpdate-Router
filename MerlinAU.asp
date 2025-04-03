@@ -87,6 +87,15 @@ function ConsoleLogDEBUG (debugMsg, debugVar)
    { console.log(debugMsg, debugVar); }
 }
 
+// Helper function to set the disabled state and inline opacity for a checkbox by its ID
+function setCheckboxDisabledById(elementId, isDisabled) {
+  var checkbox = document.getElementById(elementId);
+  if (checkbox) {
+    checkbox.disabled = isDisabled;
+    checkbox.style.opacity = isDisabled ? '0.5' : '1';
+  }
+}
+
 /**-------------------------------------**/
 /** Added by Martinski W. [2025-Jan-13] **/
 /**-------------------------------------**/
@@ -284,26 +293,43 @@ function ToggleDaysOfWeek (isEveryXDayChecked, numberOfDays)
    let numOfDays = ['1', 'X'];
    if (isEveryXDayChecked)
    {
-       for (var indx = 0; indx < daysOfWeekNames.length; indx++)
-       { $('#fwSched_' + daysOfWeekNames[indx].toUpperCase()).prop('disabled', true); }
+       for (var indx = 0; indx < daysOfWeekNames.length; indx++) {
+           var checkboxId = 'fwSched_' + daysOfWeekNames[indx].toUpperCase();
+           $('#' + checkboxId).prop('disabled', true);
+           setCheckboxDisabledById(checkboxId, true);
+       }
        if (numberOfDays === 'X')
-       { $('#fwScheduleXDAYS').prop('disabled', false); }
+       { 
+           $('#fwScheduleXDAYS').prop('disabled', false);
+           setCheckboxDisabledById('fwScheduleXDAYS', false);
+       }
        else
-       { $('#fwScheduleXDAYS').prop('disabled', true); }
+       { 
+           $('#fwScheduleXDAYS').prop('disabled', true);
+           setCheckboxDisabledById('fwScheduleXDAYS', true);
+       }
    }
    else
    {
-       for (var indx = 0; indx < daysOfWeekNames.length; indx++)
-       { $('#fwSched_' + daysOfWeekNames[indx].toUpperCase()).prop('disabled', false); }
+       for (var indx = 0; indx < daysOfWeekNames.length; indx++) {
+           var checkboxId = 'fwSched_' + daysOfWeekNames[indx].toUpperCase();
+           $('#' + checkboxId).prop('disabled', false);
+           setCheckboxDisabledById(checkboxId, false);
+       }
        if (numberOfDays === 'X')
-       { $('#fwScheduleXDAYS').prop('disabled', true); }
+       { 
+           $('#fwScheduleXDAYS').prop('disabled', true);
+           setCheckboxDisabledById('fwScheduleXDAYS', true);
+       }
    }
    for (var indx = 0; indx < numOfDays.length; indx++)
    {
        if (numOfDays[indx] !== numberOfDays)
        {
-           $('#fwSchedBoxDAYS' + numOfDays[indx]).prop('checked', false);
-           $('#fwSchedBoxDAYS' + numOfDays[indx]).prop('disabled', false);
+           var checkboxId = 'fwSchedBoxDAYS' + numOfDays[indx];
+           $('#'+ checkboxId).prop('checked', false);
+           $('#'+ checkboxId).prop('disabled', false);
+           setCheckboxDisabledById(checkboxId, false);
        }
    }
 }
@@ -1594,15 +1620,18 @@ function InitializeFields()
             {
                 // If the setting exists, enable the checkbox and set its state
                 autobackupEnabled.disabled = false;
+                $('#autobackupEnabled').prop('disabled', false);
+                setCheckboxDisabledById('autobackupEnabled', false);
                 autobackupEnabled.checked = (custom_settings.FW_Auto_Backupmon === 'ENABLED');
-                autobackupEnabled.style.opacity = '1'; // Fully opaque
             }
             else
             {
                 // If the setting is missing, disable and gray out the checkbox
                 autobackupEnabled.disabled = true;
+                $('#autobackupEnabled').prop('disabled', true);
+                setCheckboxDisabledById('autobackupEnabled', true);
                 autobackupEnabled.checked = false; // Optionally uncheck
-                autobackupEnabled.style.opacity = '0.5'; // Grayed out appearance
+
             }
         }
 
@@ -1707,11 +1736,15 @@ function InitializeFields()
             if (!isChangelogCheckEnabled || !approvalValue || approvalValue === 'TBD')
             {
                 approveChangelogCheck.disabled = true;
+                $('#approveChangelogCheck').prop('disabled', true);
+                setCheckboxDisabledById('approveChangelogCheck', true);
                 approveChangelogCheck.checked = false;
             }
             else
             {
                 approveChangelogCheck.disabled = false;
+                $('#approveChangelogCheck').prop('disabled', false);
+                setCheckboxDisabledById('approveChangelogCheck', false);
                 if (approvalValue === 'APPROVED')
                 { approveChangelogCheck.checked = true; }
                 else
