@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Mar-30 **/
+/** Last Modified: 2025-Apr-02 **/
 /** Intended for 1.4.x Release **/
 /**----------------------------**/
 
@@ -87,13 +87,20 @@ function ConsoleLogDEBUG (debugMsg, debugVar)
    { console.log(debugMsg, debugVar); }
 }
 
-// Helper function to set the disabled state and inline opacity for a checkbox by its ID
-function setCheckboxDisabledById(elementId, isDisabled) {
-  var checkbox = document.getElementById(elementId);
-  if (checkbox) {
-    checkbox.disabled = isDisabled;
-    checkbox.style.opacity = isDisabled ? '0.5' : '1';
-  }
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Apr-02] **/
+/**----------------------------------------**/
+// Set the disabled state and inline opacity for checkbox.  //
+// This is a fix for the iPadOS/Safari visual presentation. //
+/**--------------------------------------------------------**/
+function SetCheckboxDisabledById(elementId, isDisabled)
+{
+   var theCheckbox = document.getElementById(elementId);
+   if (theCheckbox !== null && typeof theCheckbox !== 'undefined')
+   {
+       theCheckbox.disabled = isDisabled;
+       theCheckbox.style.opacity = isDisabled ? '0.5' : '1';
+   }
 }
 
 /**-------------------------------------**/
@@ -285,51 +292,47 @@ function ValidateFWUpdateXDays (formField, timeInput)
    }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-24] **/
-/**-------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Apr-02] **/
+/**----------------------------------------**/
 function ToggleDaysOfWeek (isEveryXDayChecked, numberOfDays)
 {
-   let numOfDays = ['1', 'X'];
+   let checkboxId, numOfDays = ['1', 'X'];
    if (isEveryXDayChecked)
    {
-       for (var indx = 0; indx < daysOfWeekNames.length; indx++) {
-           var checkboxId = 'fwSched_' + daysOfWeekNames[indx].toUpperCase();
-           $('#' + checkboxId).prop('disabled', true);
-           setCheckboxDisabledById(checkboxId, true);
+       for (var indx = 0; indx < daysOfWeekNames.length; indx++)
+       {
+           checkboxId = 'fwSched_' + daysOfWeekNames[indx].toUpperCase();
+           SetCheckboxDisabledById(checkboxId, true);
        }
        if (numberOfDays === 'X')
        { 
-           $('#fwScheduleXDAYS').prop('disabled', false);
-           setCheckboxDisabledById('fwScheduleXDAYS', false);
+           SetCheckboxDisabledById('fwScheduleXDAYS', false);
        }
        else
        { 
-           $('#fwScheduleXDAYS').prop('disabled', true);
-           setCheckboxDisabledById('fwScheduleXDAYS', true);
+           SetCheckboxDisabledById('fwScheduleXDAYS', true);
        }
    }
    else
    {
-       for (var indx = 0; indx < daysOfWeekNames.length; indx++) {
-           var checkboxId = 'fwSched_' + daysOfWeekNames[indx].toUpperCase();
-           $('#' + checkboxId).prop('disabled', false);
-           setCheckboxDisabledById(checkboxId, false);
+       for (var indx = 0; indx < daysOfWeekNames.length; indx++)
+       {
+           checkboxId = 'fwSched_' + daysOfWeekNames[indx].toUpperCase();
+           SetCheckboxDisabledById(checkboxId, false);
        }
        if (numberOfDays === 'X')
        { 
-           $('#fwScheduleXDAYS').prop('disabled', true);
-           setCheckboxDisabledById('fwScheduleXDAYS', true);
+           SetCheckboxDisabledById('fwScheduleXDAYS', true);
        }
    }
    for (var indx = 0; indx < numOfDays.length; indx++)
    {
        if (numOfDays[indx] !== numberOfDays)
        {
-           var checkboxId = 'fwSchedBoxDAYS' + numOfDays[indx];
+           checkboxId = 'fwSchedBoxDAYS' + numOfDays[indx];
            $('#'+ checkboxId).prop('checked', false);
-           $('#'+ checkboxId).prop('disabled', false);
-           setCheckboxDisabledById(checkboxId, false);
+           SetCheckboxDisabledById(checkboxId, false);
        }
    }
 }
@@ -1276,9 +1279,9 @@ function handleROGFWBuildTypeVisibility()
     }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-27] **/
-/**-------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Apr-02] **/
+/**----------------------------------------**/
 function ToggleEmailDependents (isEmailNotifyChecked)
 {
    let emailFormat = document.getElementById('emailFormat');
@@ -1287,12 +1290,14 @@ function ToggleEmailDependents (isEmailNotifyChecked)
    if (isEmailNotifyChecked)
    {
        emailFormat.disabled = false;
+       emailFormat.style.opacity = '1';
        secondaryEmail.disabled = false;
        SetStatusForGUI ('emailNotificationsStatus', 'ENABLED');
    }
    else
    {
        emailFormat.disabled = true;
+       emailFormat.style.opacity = '0.5';
        secondaryEmail.disabled = true;
        SetStatusForGUI ('emailNotificationsStatus', 'DISABLED');
    }
@@ -1618,19 +1623,15 @@ function InitializeFields()
         {
             if (custom_settings.hasOwnProperty('FW_Auto_Backupmon'))
             {
-                // If the setting exists, enable the checkbox and set its state
-                autobackupEnabled.disabled = false;
-                $('#autobackupEnabled').prop('disabled', false);
-                setCheckboxDisabledById('autobackupEnabled', false);
+                // If the setting exists, enable the checkbox and set its state //
+                SetCheckboxDisabledById('autobackupEnabled', false);
                 autobackupEnabled.checked = (custom_settings.FW_Auto_Backupmon === 'ENABLED');
             }
             else
             {
-                // If the setting is missing, disable and gray out the checkbox
-                autobackupEnabled.disabled = true;
-                $('#autobackupEnabled').prop('disabled', true);
-                setCheckboxDisabledById('autobackupEnabled', true);
-                autobackupEnabled.checked = false; // Optionally uncheck
+                // If the setting is missing, disable and gray out the checkbox //
+                SetCheckboxDisabledById('autobackupEnabled', true);
+                autobackupEnabled.checked = false; // Optionally uncheck //
 
             }
         }
@@ -1735,16 +1736,12 @@ function InitializeFields()
             // If Changelog Check is disabled, also disable checkbox //
             if (!isChangelogCheckEnabled || !approvalValue || approvalValue === 'TBD')
             {
-                approveChangelogCheck.disabled = true;
-                $('#approveChangelogCheck').prop('disabled', true);
-                setCheckboxDisabledById('approveChangelogCheck', true);
+                SetCheckboxDisabledById('approveChangelogCheck', true);
                 approveChangelogCheck.checked = false;
             }
             else
             {
-                approveChangelogCheck.disabled = false;
-                $('#approveChangelogCheck').prop('disabled', false);
-                setCheckboxDisabledById('approveChangelogCheck', false);
+                SetCheckboxDisabledById('approveChangelogCheck', false);
                 if (approvalValue === 'APPROVED')
                 { approveChangelogCheck.checked = true; }
                 else
