@@ -2661,7 +2661,7 @@ _CurlFileDownload_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
+## Modified by Martinski W. [2025-Mar-27] ##
 ##----------------------------------------##
 _DownloadScriptFiles_()
 {
@@ -4671,7 +4671,7 @@ GetLatestFirmwareMD5URL()
     local gitURL="$1"  # GitHub URL for the latest release #
     local firmware_type="$2"  # "tuf", "rog" or "pure" #
 
-    local search_type="$firmware_type"  # Default to the input firmware_type
+    local search_type="$firmware_type"  # Default to the input firmware_type #
 
     # If firmware_type is "pure", set search_type to include "squashfs" as well
     if [ "$firmware_type" = "pure" ]
