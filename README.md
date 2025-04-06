@@ -3,13 +3,17 @@
 ## 2025-Apr-05
 
 ## WebUI:
-![image](https://github.com/user-attachments/assets/10d0971c-b3c6-477a-8904-d4bf013f72df)
+![image](https://github.com/user-attachments/assets/92701007-a902-4724-9bae-b255856a686a)
 
-## Core Shell Script:
-![image](https://github.com/user-attachments/assets/06db50c7-bff7-4d8b-8a29-a304235896a2)
-![image](https://github.com/user-attachments/assets/404b7a03-580a-4248-802d-a406fe1fe819)
-![image](https://github.com/user-attachments/assets/959d7bb6-20b4-4e97-ab3e-b7b90cc08744)
-![image](https://github.com/user-attachments/assets/2e92af06-a6b1-4573-9a89-6986e739b514)
+## CLI Shell Script:
+![image](https://github.com/user-attachments/assets/5c6460c1-d3c2-4374-a18a-14270dd578c6)
+![image](https://github.com/user-attachments/assets/d05ec713-bacb-411b-903f-31bd1f04f49d)
+![image](https://github.com/user-attachments/assets/8119aee0-e8ac-4bfb-a371-dfd74433ec5a)
+![image](https://github.com/user-attachments/assets/33ef2735-acff-48c4-ab59-37622f2b8595)
+
+## Manual Update Process:
+![image](https://github.com/user-attachments/assets/62d60c39-9bb0-40db-bb80-dda3de08c508)
+![image](https://github.com/user-attachments/assets/16beb8b2-162d-4c80-83e9-6eb76b9e39b2)
 
 ## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
