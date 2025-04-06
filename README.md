@@ -13,7 +13,7 @@
 
 ## Manual Update Process:
 ![image](https://github.com/user-attachments/assets/62d60c39-9bb0-40db-bb80-dda3de08c508)
-![image](https://github.com/user-attachments/assets/16beb8b2-162d-4c80-83e9-6eb76b9e39b2)
+![image](https://github.com/user-attachments/assets/5661b0eb-0305-46c3-a474-0674719f41c0)
 
 ## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
