@@ -2158,8 +2158,7 @@ _CheckFor_WebGUI_Page_()
 {
     if "$mountWebGUI_OK" && \
        [ "$(_Check_WebGUI_Page_Exists_)" = "NONE" ]
-    then 
-        updatedWebUIPage=false
+    then
         # Only try to download if the local .asp file does NOT exist:
         if [ ! -f "$SCRIPT_WEB_ASP_FILE" ]
         then
