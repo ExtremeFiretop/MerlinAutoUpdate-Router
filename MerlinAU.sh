@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Mar-30
+# Last Modified: 2025-Apr-07
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.0
+readonly SCRIPT_VERSION=1.4.1
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -2151,14 +2151,39 @@ _Mount_WebUI_()
    return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Feb-12] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-07] ##
+##------------------------------------------##
 _CheckFor_WebGUI_Page_()
 {
-   if "$mountWebGUI_OK" && \
-      [ "$(_Check_WebGUI_Page_Exists_)" = "NONE" ]
-   then _Mount_WebUI_ ; fi
+    if "$mountWebGUI_OK" && \
+       [ "$(_Check_WebGUI_Page_Exists_)" = "NONE" ]
+    then 
+       updatedWebUIPage=false
+       # Only try to download if the local .asp file does NOT exist:
+       if [ ! -f "$SCRIPT_WEB_ASP_FILE" ]
+       then
+           if _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
+           then
+               chmod 664 "$SCRIPT_WEB_ASP_PATH"
+               if "$updatedWebUIPage"
+               then
+                   theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
+                   if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
+                   then
+                       sed -i "/url: \"$theWebPage\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+                       rm -f "${SHARED_WEB_DIR}/$theWebPage"
+                       rm -f "${SHARED_WEB_DIR}/$(echo "$theWebPage" | cut -f1 -d'.').title"
+                   fi
+                   _Mount_WebUI_
+                fi
+            else
+                Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
+             fi
+        else
+            _Mount_WebUI_ 
+        fi
+    fi
 }
 
 ##----------------------------------------##
@@ -9587,13 +9612,12 @@ then
     _ReleaseLock_ ; exit 0
 fi
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-Feb-08] ##
-##---------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-07] ##
+##------------------------------------------##
 _CheckAndSetBackupOption_()
 {
-    local currentBackupOption
-    currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+    local currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
     if [ -f "/jffs/scripts/backupmon.sh" ]
     then
         # If setting is empty, add it to the configuration file #
@@ -9661,15 +9685,16 @@ _EnableFWAutoUpdateChecks_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-12] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-07] ##
+##------------------------------------------##
 _ConfirmCronJobForFWAutoUpdates_()
 {
     if [ $# -gt 0 ] && [ -n "$1" ] && \
        echo "$1" | grep -qE "^(install|startup)$"
     then return 1 ; fi
 
+    FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
     # Check if the PREVIOUS Cron Job ID already exists #
     if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
     then  #If it exists, delete the OLD one & create a NEW one#
@@ -10683,9 +10708,9 @@ _MainMenu_()
    done
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-07] ##
+##------------------------------------------##
 _DoInitializationStartup_()
 {
    if ! _CheckForMinimumRequirements_
@@ -10693,6 +10718,9 @@ _DoInitializationStartup_()
        printf "\n${CRITct}Minimum requirements for $SCRIPT_NAME were not met. See the reason(s) above.${NOct}\n"
        _DoExit_ 1
    fi
+
+   _CheckAndSetBackupOption_
+   _SetDefaultBuildType_
 
    if [ $# -gt 0 ] && [ -n "$1" ] && \
       echo "$1" | grep -qE "^(install|startup)$"
@@ -10709,9 +10737,6 @@ _DoInitializationStartup_()
        _AutoStartupHook_ create 2>/dev/null
        _AutoServiceEvent_ create 2>/dev/null
    fi
-
-   _CheckAndSetBackupOption_
-   _SetDefaultBuildType_
 }
 
 FW_InstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
