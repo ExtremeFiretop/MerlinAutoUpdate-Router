@@ -2159,27 +2159,24 @@ _CheckFor_WebGUI_Page_()
     if "$mountWebGUI_OK" && \
        [ "$(_Check_WebGUI_Page_Exists_)" = "NONE" ]
     then 
-       updatedWebUIPage=false
-       # Only try to download if the local .asp file does NOT exist:
-       if [ ! -f "$SCRIPT_WEB_ASP_FILE" ]
-       then
-           if _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
-           then
-               chmod 664 "$SCRIPT_WEB_ASP_PATH"
-               if "$updatedWebUIPage"
-               then
-                   theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
-                   if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
-                   then
-                       sed -i "/url: \"$theWebPage\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
-                       rm -f "${SHARED_WEB_DIR}/$theWebPage"
-                       rm -f "${SHARED_WEB_DIR}/$(echo "$theWebPage" | cut -f1 -d'.').title"
-                   fi
-                   _Mount_WebUI_
+        updatedWebUIPage=false
+        # Only try to download if the local .asp file does NOT exist:
+        if [ ! -f "$SCRIPT_WEB_ASP_FILE" ]
+        then
+            if _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
+            then
+                chmod 664 "$SCRIPT_WEB_ASP_PATH"
+                theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
+                if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
+                then
+                   sed -i "/url: \"$theWebPage\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+                   rm -f "${SHARED_WEB_DIR}/$theWebPage"
+                   rm -f "${SHARED_WEB_DIR}/$(echo "$theWebPage" | cut -f1 -d'.').title"
                 fi
+                _Mount_WebUI_
             else
                 Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
-             fi
+            fi
         else
             _Mount_WebUI_ 
         fi
