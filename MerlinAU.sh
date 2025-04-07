@@ -176,6 +176,14 @@ keepConfigFile=false
 bypassPostponedDays=false
 runLoginCredentialsTest=false
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Apr-07] ##
+##---------------------------------------##
+MerlinAUInstall=$(grep -F '#MerlinAU#' /jffs/scripts/services-start)
+if [ -z "$MerlinAUInstall" ] && tty >/dev/null 2>&1; then
+	set "install"
+fi
+
 # Main LAN Network Info #
 readonly myLAN_HostName="$(nvram get lan_hostname)"
 readonly mainLAN_IFname="$(nvram get lan_ifname)"
@@ -2151,35 +2159,14 @@ _Mount_WebUI_()
    return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-07] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2025-Feb-12] ##
+##-------------------------------------##
 _CheckFor_WebGUI_Page_()
 {
-    if "$mountWebGUI_OK" && \
-       [ "$(_Check_WebGUI_Page_Exists_)" = "NONE" ]
-    then
-        # Only try to download if the local .asp file does NOT exist:
-        if [ ! -f "$SCRIPT_WEB_ASP_FILE" ]
-        then
-            if _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
-            then
-                chmod 664 "$SCRIPT_WEB_ASP_PATH"
-                theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
-                if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
-                then
-                   sed -i "/url: \"$theWebPage\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
-                   rm -f "${SHARED_WEB_DIR}/$theWebPage"
-                   rm -f "${SHARED_WEB_DIR}/$(echo "$theWebPage" | cut -f1 -d'.').title"
-                fi
-                _Mount_WebUI_
-            else
-                Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
-            fi
-        else
-            _Mount_WebUI_ 
-        fi
-    fi
+  if "$mountWebGUI_OK" && \
+      [ "$(_Check_WebGUI_Page_Exists_)" = "NONE" ]
+   then _Mount_WebUI_ ; fi
 }
 
 ##----------------------------------------##
