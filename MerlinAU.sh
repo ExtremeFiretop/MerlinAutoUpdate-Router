@@ -10829,6 +10829,8 @@ then
 
    inMenuMode=true
    _DoInitializationStartup_
+   _CheckFor_VersionFile_
+
    if _AcquireLock_ cliFileLock
    then
        _CheckForNewScriptUpdates_
@@ -10839,7 +10841,6 @@ then
 
    _ConfirmCronJobForFWAutoUpdates_
    _CheckFor_WebGUI_Page_
-   _CheckFor_VersionFile_
 
    _MainMenu_ "$@"
    _DoExit_ 0
