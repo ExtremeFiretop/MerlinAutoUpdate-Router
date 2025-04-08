@@ -2243,6 +2243,19 @@ _CheckFor_WebGUI_Page_()
    fi
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Apr-07] ##
+##-------------------------------------##
+_CheckFor_VersionFile_()
+{
+   if [ ! -s "$SCRIPT_VERPATH" ]
+   then
+       _ReleaseLock_
+       exec "$ScriptFilePath" install
+       exit 0
+   fi
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-11] ##
 ##----------------------------------------##
@@ -10806,7 +10819,7 @@ FW_InstalledVerStr="${GRNct}${FW_InstalledVersion}${NOct}"
 FW_NewUpdateVerInit=TBD
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-12] ##
+## Modified by Martinski W. [2025-Apr-07] ##
 ##----------------------------------------##
 if [ $# -eq 0 ] || [ -z "$1" ] || \
    { [ $# -gt 1 ] && [ "$1" = "reload" ] ; }
@@ -10823,8 +10836,10 @@ then
    fi
    if [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
    then _AddScriptAutoUpdateCronJob_ ; fi
+
    _ConfirmCronJobForFWAutoUpdates_
    _CheckFor_WebGUI_Page_
+   _CheckFor_VersionFile_
 
    _MainMenu_ "$@"
    _DoExit_ 0
