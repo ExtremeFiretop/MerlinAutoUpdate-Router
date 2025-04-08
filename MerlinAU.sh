@@ -176,14 +176,6 @@ keepConfigFile=false
 bypassPostponedDays=false
 runLoginCredentialsTest=false
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-Apr-07] ##
-##---------------------------------------##
-MerlinAUInstall=$(grep -F '#MerlinAU#' /jffs/scripts/services-start)
-if [ -z "$MerlinAUInstall" ] && tty >/dev/null 2>&1; then
-	set "install"
-fi
-
 # Main LAN Network Info #
 readonly myLAN_HostName="$(nvram get lan_hostname)"
 readonly mainLAN_IFname="$(nvram get lan_ifname)"
@@ -1146,9 +1138,9 @@ _UpdateLoginPswdCheckHelper_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-07] ##
+## Modified by Martinski W. [2025-Apr-07] ##
 ##----------------------------------------##
-_InitCustomSettingsConfig_()
+_InitCustomDefaultsConfig_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
@@ -1185,53 +1177,99 @@ _InitCustomSettingsConfig_()
 
    if ! grep -q "^FW_New_Update_Notification_Date " "$CONFIG_FILE"
    then
-       sed -i "1 i FW_New_Update_Notification_Date TBD" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 1 ]
+       then echo "FW_New_Update_Notification_Date TBD" >> "$CONFIG_FILE"
+       else sed -i "1 i FW_New_Update_Notification_Date TBD" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_Notification_Vers " "$CONFIG_FILE"
    then
-       sed -i "2 i FW_New_Update_Notification_Vers TBD" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 2 ]
+       then echo "FW_New_Update_Notification_Vers TBD" >> "$CONFIG_FILE"
+       else sed -i "2 i FW_New_Update_Notification_Vers TBD" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_Postponement_Days=" "$CONFIG_FILE"
    then
-       sed -i "3 i FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 3 ]
+       then echo "FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" >> "$CONFIG_FILE"
+       else sed -i "3 i FW_New_Update_Postponement_Days=$FW_UpdateDefaultPostponementDays" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_EMail_Notification " "$CONFIG_FILE"
    then
-       sed -i "4 i FW_New_Update_EMail_Notification $FW_UpdateEMailNotificationDefault" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 4 ]
+       then echo "FW_New_Update_EMail_Notification $FW_UpdateEMailNotificationDefault" >> "$CONFIG_FILE"
+       else sed -i "4 i FW_New_Update_EMail_Notification $FW_UpdateEMailNotificationDefault" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_EMail_FormatType=" "$CONFIG_FILE"
    then
-       sed -i "5 i FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\"" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 5 ]
+       then echo "FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\"" >> "$CONFIG_FILE"
+       else sed -i "5 i FW_New_Update_EMail_FormatType=\"${FW_UpdateEMailFormatTypeDefault}\"" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_Cron_Job_Schedule=" "$CONFIG_FILE"
    then
-       sed -i "6 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 6 ]
+       then echo "FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" >> "$CONFIG_FILE"
+       else sed -i "6 i FW_New_Update_Cron_Job_Schedule=\"${FW_Update_CRON_DefaultSchedule}\"" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_ZIP_Directory_Path=" "$CONFIG_FILE"
    then
-       sed -i "7 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 7 ]
+       then echo "FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" >> "$CONFIG_FILE"
+       else sed -i "7 i FW_New_Update_ZIP_Directory_Path=\"${FW_Update_ZIP_DefaultSetupDIR}\"" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_LOG_Directory_Path=" "$CONFIG_FILE"
    then
-       sed -i "8 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 8 ]
+       then echo "FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" >> "$CONFIG_FILE"
+       else sed -i "8 i FW_New_Update_LOG_Directory_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\"" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^FW_New_Update_LOG_Preferred_Path=" "$CONFIG_FILE"
    then
        preferredPath="$(Get_Custom_Setting FW_New_Update_LOG_Directory_Path)"
-       sed -i "9 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 9 ]
+       then       echo "FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" >> "$CONFIG_FILE"
+       else sed -i "9 i FW_New_Update_LOG_Preferred_Path=\"${preferredPath}\"" "$CONFIG_FILE"
+       fi
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_EMail_CC_Name=" "$CONFIG_FILE"
+   then
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 10 ]
+       then echo "FW_New_Update_EMail_CC_Name=TBD" >> "$CONFIG_FILE"
+       else sed -i "10 i FW_New_Update_EMail_CC_Name=TBD" "$CONFIG_FILE"
+       fi
+       retCode=1
+   fi
+   if ! grep -q "^FW_New_Update_EMail_CC_Address=" "$CONFIG_FILE"
+   then
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 11 ]
+       then echo "FW_New_Update_EMail_CC_Address=TBD" >> "$CONFIG_FILE"
+       else sed -i "11 i FW_New_Update_EMail_CC_Address=TBD" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^credentials_base64 " "$CONFIG_FILE"
    then
-       sed -i "10 i credentials_base64 TBD" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 12 ]
+       then echo "credentials_base64 TBD" >> "$CONFIG_FILE"
+       else sed -i "12 i credentials_base64 TBD" "$CONFIG_FILE"
+       fi
        _UpdateLoginPswdCheckHelper_ InitPWD
        retCode=1
    else
@@ -1239,38 +1277,82 @@ _InitCustomSettingsConfig_()
    fi
    if ! grep -q "^CheckChangeLog " "$CONFIG_FILE"
    then
-       sed -i "11 i CheckChangeLog ENABLED" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 13 ]
+       then echo "CheckChangeLog ENABLED" >> "$CONFIG_FILE"
+       else sed -i "13 i CheckChangeLog ENABLED" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^FW_Update_Check " "$CONFIG_FILE"
    then
-       sed -i "12 i FW_Update_Check TBD" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 14 ]
+       then echo "FW_Update_Check TBD" >> "$CONFIG_FILE"
+       else sed -i "14 i FW_Update_Check TBD" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^Allow_Updates_OverVPN " "$CONFIG_FILE"
    then
-       sed -i "13 i Allow_Updates_OverVPN DISABLED" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 15 ]
+       then echo "Allow_Updates_OverVPN DISABLED" >> "$CONFIG_FILE"
+       else sed -i "15 i Allow_Updates_OverVPN DISABLED" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^FW_Allow_Beta_Production_Up " "$CONFIG_FILE"
    then
-       sed -i "14 i FW_Allow_Beta_Production_Up ENABLED" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 16 ]
+       then echo "FW_Allow_Beta_Production_Up ENABLED" >> "$CONFIG_FILE"
+       else sed -i "16 i FW_Allow_Beta_Production_Up ENABLED" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^Allow_Script_Auto_Update " "$CONFIG_FILE"
    then
-       sed -i "15 i Allow_Script_Auto_Update DISABLED" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 17 ]
+       then echo "Allow_Script_Auto_Update DISABLED" >> "$CONFIG_FILE"
+       else sed -i "17 i Allow_Script_Auto_Update DISABLED" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    if ! grep -q "^Script_Update_Cron_Job_SchedDays=" "$CONFIG_FILE"
    then
-       sed -i "16 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$CONFIG_FILE"
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 18 ]
+       then echo "Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" >> "$CONFIG_FILE"
+       else sed -i "18 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$CONFIG_FILE"
+       fi
        retCode=1
    fi
    dos2unix "$CONFIG_FILE"
    chmod 664 "$CONFIG_FILE"
 
    return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Apr-07] ##
+##-------------------------------------##
+_InitCustomUserSettings_()
+{
+   FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   ScriptAutoUpdateSetting="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+   ScriptUpdateCronSchedDays="$(Get_Custom_Setting Script_Update_Cron_Job_SchedDays)"
+
+   FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
+   FW_UpdateExpectedRunDate="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
+
+   # F/W Update Email Notifications #
+   sendEMailFormaType="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
+   sendEMailNotificationsFlag="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
+   sendEMail_CC_Name="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
+   sendEMail_CC_Address="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
+   if [ "$sendEMailFormaType" = "HTML" ]
+   then isEMailFormatHTML=true
+   else isEMailFormatHTML=false
+   fi
+
+   _SetUp_FW_UpdateZIP_DirectoryPaths_
+   _SetUp_FW_UpdateLOG_DirectoryPaths_
 }
 
 ##----------------------------------------##
@@ -1982,40 +2064,23 @@ readonly hookScriptFName="services-start"
 readonly hookScriptFPath="${SCRIPTS_PATH}/$hookScriptFName"
 readonly hookScriptTagStr="#Added by $ScriptFNameTag#"
 
-# Postponement Days for F/W Update Check #
-FW_UpdatePostponementDays="$(Get_Custom_Setting FW_New_Update_Postponement_Days)"
-FW_UpdateExpectedRunDate="$(Get_Custom_Setting FW_New_Update_Expected_Run_Date)"
-
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Feb-18] ##
+## Modified by Martinski W. [2025-Apr-07] ##
 ##----------------------------------------##
 # F/W Update Email Notifications #
 isEMailFormatHTML=true
 isEMailConfigEnabledInAMTM=false
-sendEMailFormaType="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
-sendEMailNotificationsFlag="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
-sendEMail_CC_Name="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
-sendEMail_CC_Address="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
-if [ "$sendEMailFormaType" = "HTML" ]
-then isEMailFormatHTML=true
-else isEMailFormatHTML=false
-fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-27] ##
+## Modified by Martinski W. [2025-Apr-07] ##
 ##----------------------------------------##
 # Define the CRON job command to execute #
-# Define the hook script file to be used #
-ScriptAutoUpdateSetting="$(Get_Custom_Setting Allow_Script_Auto_Update)"
-ScriptUpdateCronSchedDays="$(Get_Custom_Setting Script_Update_Cron_Job_SchedDays)"
-
 readonly SCRIPT_UP_CRON_JOB_RUN="sh $ScriptFilePath checkupdates"
 readonly SCRIPT_UP_CRON_JOB_TAG="${ScriptFNameTag}_ScriptUpdate"
 readonly DAILY_SCRIPT_UPDATE_CHECK_JOB="sh $ScriptFilePath scriptAUCronJob &  $hookScriptTagStr"
 readonly DAILY_SCRIPT_UPDATE_CHECK_HOOK="[ -f $ScriptFilePath ] && $DAILY_SCRIPT_UPDATE_CHECK_JOB"
 
 # Define the CRON job command to execute #
-FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
 readonly CRON_JOB_RUN="sh $ScriptFilePath run_now"
 readonly CRON_JOB_TAG_OLD="$ScriptFNameTag"
 readonly CRON_JOB_TAG="${ScriptFNameTag}_FWUpdate"
@@ -2159,14 +2224,23 @@ _Mount_WebUI_()
    return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Feb-12] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Apr-07] ##
+##----------------------------------------##
 _CheckFor_WebGUI_Page_()
 {
-  if "$mountWebGUI_OK" && \
+   if "$mountWebGUI_OK" && \
       [ "$(_Check_WebGUI_Page_Exists_)" = "NONE" ]
-   then _Mount_WebUI_ ; fi
+   then
+       if [ ! -s "$SCRIPT_WEB_ASP_PATH" ]
+       then
+           _ReleaseLock_
+           exec "$ScriptFilePath" install
+           exit 0
+       else
+           _Mount_WebUI_
+       fi
+   fi
 }
 
 ##----------------------------------------##
@@ -5073,9 +5147,9 @@ _toggle_change_log_check_()
     _WaitForEnterKey_
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jul-23] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Apr-07] ##
+##----------------------------------------##
 _Toggle_VPN_Access_()
 {
     local currentSetting="$(Get_Custom_Setting "Allow_Updates_OverVPN")"
@@ -5086,23 +5160,23 @@ _Toggle_VPN_Access_()
         printf "Disabling this feature will shut down Tailscale/ZeroTier VPN access during updates.\n"
         printf "Proceed if you do not need remote VPN access during firmware updates.\n"
 
-        if _WaitForYESorNO_ "\nProceed to ${GRNct}DISABLE${NOct}?"
+        if _WaitForYESorNO_ "\nProceed to ${REDct}DISABLE${NOct}?"
         then
             Update_Custom_Settings "Allow_Updates_OverVPN" "DISABLED"
-            printf "VPN access will now be ${GRNct}DISABLED.${NOct}\n"
+            printf "VPN access will now be ${REDct}DISABLED.${NOct}\n"
         else
-            printf "VPN access during updates remains ${REDct}ENABLED.${NOct}\n"
+            printf "VPN access during updates remains ${GRNct}ENABLED.${NOct}\n"
         fi
     else
         printf "\n${REDct}*WARNING*${NOct}\n"
         printf "Enabling this feature will keep Tailscale/ZeroTier VPN access active during updates.\n"
         printf "Proceed only if you require Tailscale/ZeroTier to connect remotely via an SSH session during firmware updates.\n"
-        if _WaitForYESorNO_ "\nProceed to ${REDct}ENABLE${NOct}?"
+        if _WaitForYESorNO_ "\nProceed to ${GRNct}ENABLE${NOct}?"
         then
             Update_Custom_Settings "Allow_Updates_OverVPN" "ENABLED"
-            printf "VPN access will now be ${REDct}ENABLED.${NOct}\n"
+            printf "VPN access will now be ${GRNct}ENABLED.${NOct}\n"
         else
-            printf "VPN access during updates remains ${GRNct}DISABLED.${NOct}\n"
+            printf "VPN access during updates remains ${REDct}DISABLED.${NOct}\n"
         fi
     fi
     _WaitForEnterKey_
@@ -9223,7 +9297,8 @@ _CheckForMinimumRequirements_()
 _DoStartupInit_()
 {
    _CreateDirPaths_
-   _InitCustomSettingsConfig_
+   _InitCustomDefaultsConfig_
+   _InitCustomUserSettings_
    _CreateSymLinks_
    _InitHelperJSFile_
    _SetVersionSharedSettings_ local "$SCRIPT_VERSION"
@@ -9237,21 +9312,24 @@ _DoStartupInit_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
+## Modified by Martinski W. [2025-Apr-07] ##
 ##----------------------------------------##
 _DoInstallation_()
 {
    local webguiOK=true
-   
+
    if ! _AcquireLock_ cliFileLock ; then return 1 ; fi
 
    _CreateDirPaths_
-   _InitCustomSettingsConfig_
+   _InitCustomDefaultsConfig_
+   _InitCustomUserSettings_
    _CreateSymLinks_
    _InitHelperJSFile_
    _SetVersionSharedSettings_ local "$SCRIPT_VERSION"
    _SetVersionSharedSettings_ server "$SCRIPT_VERSION"
    _DownloadScriptFiles_ install
+   _CheckAndSetBackupOption_
+   _SetDefaultBuildType_
 
    if "$mountWebGUI_OK"
    then
@@ -9595,12 +9673,13 @@ then
     _ReleaseLock_ ; exit 0
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-07] ##
-##------------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Feb-08] ##
+##---------------------------------------##
 _CheckAndSetBackupOption_()
 {
-    local currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
+    local currentBackupOption
+    currentBackupOption="$(Get_Custom_Setting "FW_Auto_Backupmon")"
     if [ -f "/jffs/scripts/backupmon.sh" ]
     then
         # If setting is empty, add it to the configuration file #
@@ -9668,16 +9747,15 @@ _EnableFWAutoUpdateChecks_()
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-07] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jan-12] ##
+##----------------------------------------##
 _ConfirmCronJobForFWAutoUpdates_()
 {
     if [ $# -gt 0 ] && [ -n "$1" ] && \
        echo "$1" | grep -qE "^(install|startup)$"
     then return 1 ; fi
 
-    FW_UpdateCronJobSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
     # Check if the PREVIOUS Cron Job ID already exists #
     if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
     then  #If it exists, delete the OLD one & create a NEW one#
@@ -10263,9 +10341,9 @@ _ShowAdvancedOptionsMenu_()
    printf "\n  ${GRNct}4${NOct}.  Toggle Tailscale/ZeroTier Access During Updates"
    if [ "$VPNAccess" = "DISABLED" ]
    then
-       printf "\n${padStr}[Currently ${GRNct}DISABLED${NOct}]\n"
+       printf "\n${padStr}[Currently ${REDct}DISABLED${NOct}]\n"
    else
-       printf "\n${padStr}[Currently ${REDct}ENABLED${NOct}]\n"
+       printf "\n${padStr}[Currently ${GRNct}ENABLED${NOct}]\n"
    fi
 
    # Check if the file BACKUPMON exists #
@@ -10691,9 +10769,9 @@ _MainMenu_()
    done
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-07] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2025-Jan-15] ##
+##-------------------------------------##
 _DoInitializationStartup_()
 {
    if ! _CheckForMinimumRequirements_
@@ -10702,15 +10780,13 @@ _DoInitializationStartup_()
        _DoExit_ 1
    fi
 
-   _CheckAndSetBackupOption_
-   _SetDefaultBuildType_
-
    if [ $# -gt 0 ] && [ -n "$1" ] && \
       echo "$1" | grep -qE "^(install|startup)$"
    then return 1 ; fi
 
    _CreateDirPaths_
-   _InitCustomSettingsConfig_
+   _InitCustomDefaultsConfig_
+   _InitCustomUserSettings_
    _CreateSymLinks_
    _InitHelperJSFile_
    _SetVersionSharedSettings_ local "$SCRIPT_VERSION"
@@ -10720,6 +10796,9 @@ _DoInitializationStartup_()
        _AutoStartupHook_ create 2>/dev/null
        _AutoServiceEvent_ create 2>/dev/null
    fi
+
+   _CheckAndSetBackupOption_
+   _SetDefaultBuildType_
 }
 
 FW_InstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
