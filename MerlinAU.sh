@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Apr-07
+# Last Modified: 2025-Apr-08
 ###################################################################
 set -u
 
@@ -2806,9 +2806,9 @@ _DownloadScriptFiles_()
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-08] ##
+##------------------------------------------##
 _SCRIPT_UPDATE_()
 {
    local extraParam=""
@@ -2850,7 +2850,7 @@ _SCRIPT_UPDATE_()
    if "$mountWebGUI_OK"
    then _SetVersionSharedSettings_ server "$DLRepoVersion" ; fi
 
-   if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ]
+   if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ] && { [ -z "$DLRepoBuildNum" ] || [ "$DLRepoBuildNum" = "$ScriptBuildNum" ]; }
    then
       echo -e "${CYANct}You are on the latest version! Would you like to download anyways?${NOct}"
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
@@ -2865,9 +2865,13 @@ _SCRIPT_UPDATE_()
               fi
               printf "\n${CYANct}Download successful!${NOct}\n"
               printf "$(date) - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
+              printf "${CYANct}Update successful! Restarting script...${NOct}\n"
+              sleep 1
+              _CheckForNewGUIVersionUpdate_ && extraParam="install"
+              _ReleaseLock_
+              exec "$ScriptFilePath" $extraParam
+              exit 0
           fi
-          _WaitForEnterKey_
-          return
       else
           printf "\n\n${GRNct}Exiting Script Update Utility...${NOct}\n"
           sleep 1
@@ -2875,6 +2879,9 @@ _SCRIPT_UPDATE_()
       fi
    elif [ "$scriptUpdateNotify" != "0" ]
    then
+      if [ -n "$DLRepoBuildNum" ] && [ "$DLRepoBuildNum" -gt "$ScriptBuildNum" ]
+      then echo -e "${CYANct}Developer update with timestamp $DLRepoBuildNum available!${NOct}"
+      fi 
       echo -e "${CYANct}Bingo! New version available! Would you like to update now?${NOct}"
       if _WaitForYESorNO_
       then
@@ -2885,6 +2892,7 @@ _SCRIPT_UPDATE_()
               if "$mountWebGUI_OK"
               then _SetVersionSharedSettings_ local "$DLRepoVersion"
               fi
+              printf "\n${CYANct}Download successful!${NOct}\n"
               printf "\n$(date) - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
               printf "${CYANct}Update successful! Restarting script...${NOct}\n"
               sleep 1
