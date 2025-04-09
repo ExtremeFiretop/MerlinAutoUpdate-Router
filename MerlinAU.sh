@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Apr-08
+# Last Modified: 2025-Apr-09
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.1
+readonly SCRIPT_VERSION=1.4.2
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -46,13 +46,6 @@ DLRepoBuildNum=0
 ScriptBuildNum=0
 ScriptVersionNum=""
 scriptUpdateNotify=0
-
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Oct-02] ##
-##------------------------------------------##
-# For minimum supported firmware version check #
-MinFirmwareVerCheckFailed=false
-MinSupportedFirmwareVers="3004.386.12.6"
 
 # For router model check #
 routerModelCheckFailed=false
@@ -196,12 +189,15 @@ readonly fwInstalledExtendNum="$(nvram get extendno)"
 readonly fwInstalledInnerVers="$(nvram get innerver)"
 readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildVers" | awk -F'.' '{print $1}')"
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Oct-03] ##
-##-------------------------------------##
-readonly MinSupportedFW_3004_386_Ver="3004.386.12.6"
-readonly MinSupportedFW_3004_388_Ver="3004.388.6.2"
-readonly MinSupportedFW_3006_102_Ver="3004.388.8.0"
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-Oct-02] ##
+##------------------------------------------##
+# For minimum supported firmware version check #
+MinFirmwareVerCheckFailed=false
+readonly MinSupportedFW_3004_386_Ver="3004.386.13.2"
+readonly MinSupportedFW_3004_388_Ver="3004.388.8.0"
+readonly MinSupportedFW_3006_102_Ver="3004.388.8.2"
 
 case "$fwInstalledBranchVer" in
    "3004.386") MinSupportedFirmwareVers="$MinSupportedFW_3004_386_Ver" ;;
@@ -1137,9 +1133,9 @@ _UpdateLoginPswdCheckHelper_()
    _WriteVarDefToPswdCheckJSFile_ "loginPswdCheckMsgStr" "$checkMsge"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-07] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-09] ##
+##------------------------------------------##
 _InitCustomDefaultsConfig_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -1158,6 +1154,7 @@ _InitCustomDefaultsConfig_()
          echo "FW_New_Update_LOG_Preferred_Path=\"${FW_Update_LOG_BASE_DefaultDIR}\""
          echo "FW_New_Update_EMail_CC_Name=TBD"
          echo "FW_New_Update_EMail_CC_Address=TBD"
+         echo "FW_New_Update_Changelog_Approval=TBD"
          echo "credentials_base64 TBD"
          echo "CheckChangeLog ENABLED"
          echo "FW_Update_Check TBD"
@@ -2852,7 +2849,7 @@ _SCRIPT_UPDATE_()
 
    if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ] && { [ -z "$DLRepoBuildNum" ] || [ "$DLRepoBuildNum" = "$ScriptBuildNum" ]; }
    then
-      echo -e "${CYANct}You are on the latest version! Would you like to download anyways?${NOct}"
+      echo -e "${CYANct}You are on the latest version! Would you like to download anyway?${NOct}"
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
       if _WaitForYESorNO_
       then
@@ -4415,6 +4412,8 @@ _GetLoginCredentials_()
         if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"
         then
             _TestLoginCredentials_ "$loginCredsENC" || continue
+		else
+			_UpdateLoginPswdCheckHelper_ UNKNOWN
         fi
 
         # Stop the loop if the test passes or if the user chooses not to test #
@@ -7195,7 +7194,7 @@ _high_risk_phrases_interactive_()
             if [ "$inMenuMode" = true ]
             then
                 printf "\n ${REDct}*WARNING*: Found high-risk phrases in the changelog file.${NOct}"
-                printf "\n ${REDct}Would you like to continue with the firmware update anyways?${NOct}"
+                printf "\n ${REDct}Would you like to continue with the firmware update anyway?${NOct}"
                 if ! _WaitForYESorNO_
                 then
                     Say "Exiting for changelog review."
@@ -10261,8 +10260,10 @@ _ShowMainMenuOptions_()
    fi
    printf "\n${SEPstr}"
 
+   loginStatusMsg=$(grep "^var loginPswdCheckMsgStr =" "$PSWD_CHECK_JS" | awk -F"'" '{print $2}')
    printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
-   printf "\n  ${GRNct}2${NOct}.  Set Router Login Password\n"
+   printf "\n  ${GRNct}2${NOct}.  Set Router Login Password"
+   printf "\n${padStr}[Currently ${InvBMGNct}$loginStatusMsg${NOct}]\n"
 
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
