@@ -2784,7 +2784,7 @@ function initializeCollapsibleSections()
     <div id="fwCronScheduleHOUR">
       <span style="margin-left:1px; margin-top:10px; font-size: 12px; font-weight: bolder;">Hour:</span>
       <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
-             style="width: 7%; margin-left: 20px; margin-top:10px; margin-bottom:7px" maxlength="2"
+             style="width: 7%; margin-left: 19px; margin-top:10px; margin-bottom:7px" maxlength="2"
              id="fwScheduleHOUR" name="fwScheduleHOUR" value="0"
              onKeyPress="return validator.isNumber(this,event)"
              onkeyup="ValidateFWUpdateTime(this,'HOUR')"
