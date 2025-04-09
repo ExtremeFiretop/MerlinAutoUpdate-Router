@@ -2684,7 +2684,7 @@ function initializeCollapsibleSections()
  <td>
     <div style="display: inline-block;">
       <input type="password" id="routerPassword" name="routerPassword" placeholder="Enter password"
-             style="width: 278px; display: inline-block; margin-left:2px; margin-top:3px;" maxlength="64"
+             style="width: 275px; display: inline-block; margin-left:2px; margin-top:3px;" maxlength="64"
              onKeyPress="return validator.isString(this, event)"
              onblur="ValidatePasswordString(this,'onBLUR')"
              onkeyup="ValidatePasswordString(this,'onKEYUP')"/>
@@ -2881,7 +2881,7 @@ function initializeCollapsibleSections()
       </label>
    </td>
    <td>
-      <select id="rogFWBuildType" name="rogFWBuildType" style="width: 20%;" onchange="handleTUFROGChange(this)">
+      <select id="rogFWBuildType" name="rogFWBuildType" style="width: 21%;" onchange="handleTUFROGChange(this)">
          <option value="ROG">ROG</option>
          <option value="Pure">Pure</option>
       </select>
@@ -2899,7 +2899,7 @@ function initializeCollapsibleSections()
       </label>
    </td>
    <td>
-      <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 20%;" onchange="handleTUFROGChange(this)">
+      <select id="tuffFWBuildType" name="tuffFWBuildType" style="width: 21%;" onchange="handleTUFROGChange(this)">
          <option value="TUF">TUF</option>
          <option value="Pure">Pure</option>
       </select>
