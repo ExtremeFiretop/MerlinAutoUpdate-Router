@@ -191,7 +191,7 @@ readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildV
 
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Oct-02] ##
+## Modified by ExtremeFiretop [2025-Apr-09] ##
 ##------------------------------------------##
 # For minimum supported firmware version check #
 MinFirmwareVerCheckFailed=false
@@ -4347,9 +4347,9 @@ with the \"${GRNct}Web UI${NOct}\" access type on the \"Access restriction list\
    return 1
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-07] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-09] ##
+##------------------------------------------##
 _GetLoginCredentials_()
 {
     local retry="yes"  userName  savedMsgStr
@@ -4412,8 +4412,8 @@ _GetLoginCredentials_()
         if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"
         then
             _TestLoginCredentials_ "$loginCredsENC" || continue
-		else
-			_UpdateLoginPswdCheckHelper_ UNKNOWN
+        else
+            _UpdateLoginPswdCheckHelper_ UNKNOWN
         fi
 
         # Stop the loop if the test passes or if the user chooses not to test #
@@ -10176,9 +10176,9 @@ _InvalidMenuSelection_()
    _WaitForEnterKey_
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-09] ##
+##------------------------------------------##
 _ShowMainMenuOptions_()
 {
    local FW_NewUpdateVerStr  FW_NewUpdateVersion
