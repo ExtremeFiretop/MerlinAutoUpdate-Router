@@ -189,7 +189,6 @@ readonly fwInstalledExtendNum="$(nvram get extendno)"
 readonly fwInstalledInnerVers="$(nvram get innerver)"
 readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildVers" | awk -F'.' '{print $1}')"
 
-
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2025-Apr-09] ##
 ##------------------------------------------##
@@ -199,10 +198,14 @@ readonly MinSupportedFW_3004_386_Ver="3004.386.13.2"
 readonly MinSupportedFW_3004_388_Ver="3004.388.8.0"
 readonly MinSupportedFW_3006_102_Ver="3004.388.8.2"
 
+##----------------------------------------##
+## Modified by Martinski W. [2025-Apr-09] ##
+##----------------------------------------##
 case "$fwInstalledBranchVer" in
    "3004.386") MinSupportedFirmwareVers="$MinSupportedFW_3004_386_Ver" ;;
    "3004.388") MinSupportedFirmwareVers="$MinSupportedFW_3004_388_Ver" ;;
    "3006.102") MinSupportedFirmwareVers="$MinSupportedFW_3006_102_Ver" ;;
+            *) MinSupportedFirmwareVers="$MinSupportedFW_3004_386_Ver"
 esac
 
 ##----------------------------------------##
@@ -1064,7 +1067,7 @@ _WriteVarDefToPswdCheckJSFile_()
 ##-------------------------------------##
 ## Added by Martinski W. [2025-Mar-07] ##
 ##-------------------------------------##
-_GetLoginPswdCheckStatusJS_()
+_GetLoginPswdCheckStatusCodeJS_()
 {
    if [ ! -s "$PSWD_CHECK_JS" ] ; then echo "0" ; return 0 ; fi
    local checkCode
@@ -1072,6 +1075,21 @@ _GetLoginPswdCheckStatusJS_()
    if [ -z "$checkCode" ]
    then echo "0"
    else echo "$checkCode"
+   fi
+   return 0
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Apr-09] ##
+##-------------------------------------##
+_GetLoginPswdCheckStatusMsgeJS_()
+{
+   if [ ! -s "$PSWD_CHECK_JS" ] ; then echo "UNKNOWN" ; return 0 ; fi
+   local checkMsge
+   checkMsge="$(grep "^var loginPswdCheckMsgStr =" "$PSWD_CHECK_JS" | awk -F "[=']" '{print $3}')"
+   if [ -z "$checkMsge" ]
+   then echo "UNKNOWN"
+   else echo "$checkMsge"
    fi
    return 0
 }
@@ -1094,7 +1112,7 @@ _UpdateLoginPswdCheckHelper_()
            checkMsge="Login access is RESTRICTED."
            ;;
        OldPSWD)
-           prevChkCode="$(_GetLoginPswdCheckStatusJS_)"
+           prevChkCode="$(_GetLoginPswdCheckStatusCodeJS_)"
            if [ -n "$prevChkCode" ] && [ "$prevChkCode" -gt 1 ]
            then
                return 0
@@ -1116,7 +1134,7 @@ _UpdateLoginPswdCheckHelper_()
            checkMsge="Password is INVALID."
            ;;
        UNKNOWN)
-           prevChkCode="$(_GetLoginPswdCheckStatusJS_)"
+           prevChkCode="$(_GetLoginPswdCheckStatusCodeJS_)"
            if [ -n "$prevChkCode" ] && [ "$prevChkCode" -gt 1 ]
            then
                return 0
@@ -1133,9 +1151,9 @@ _UpdateLoginPswdCheckHelper_()
    _WriteVarDefToPswdCheckJSFile_ "loginPswdCheckMsgStr" "$checkMsge"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-09] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Apr-09] ##
+##----------------------------------------##
 _InitCustomDefaultsConfig_()
 {
    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
@@ -1261,11 +1279,19 @@ _InitCustomDefaultsConfig_()
        fi
        retCode=1
    fi
-   if ! grep -q "^credentials_base64 " "$CONFIG_FILE"
+   if ! grep -q "^FW_New_Update_Changelog_Approval=" "$CONFIG_FILE"
    then
        if [ "$(wc -l < "$CONFIG_FILE")" -lt 12 ]
+       then echo "FW_New_Update_Changelog_Approval=TBD" >> "$CONFIG_FILE"
+       else sed -i "12 i FW_New_Update_Changelog_Approval=TBD" "$CONFIG_FILE"
+       fi
+       retCode=1
+   fi
+   if ! grep -q "^credentials_base64 " "$CONFIG_FILE"
+   then
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 13 ]
        then echo "credentials_base64 TBD" >> "$CONFIG_FILE"
-       else sed -i "12 i credentials_base64 TBD" "$CONFIG_FILE"
+       else sed -i "13 i credentials_base64 TBD" "$CONFIG_FILE"
        fi
        _UpdateLoginPswdCheckHelper_ InitPWD
        retCode=1
@@ -1274,49 +1300,49 @@ _InitCustomDefaultsConfig_()
    fi
    if ! grep -q "^CheckChangeLog " "$CONFIG_FILE"
    then
-       if [ "$(wc -l < "$CONFIG_FILE")" -lt 13 ]
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 14 ]
        then echo "CheckChangeLog ENABLED" >> "$CONFIG_FILE"
-       else sed -i "13 i CheckChangeLog ENABLED" "$CONFIG_FILE"
+       else sed -i "14 i CheckChangeLog ENABLED" "$CONFIG_FILE"
        fi
        retCode=1
    fi
    if ! grep -q "^FW_Update_Check " "$CONFIG_FILE"
    then
-       if [ "$(wc -l < "$CONFIG_FILE")" -lt 14 ]
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 15 ]
        then echo "FW_Update_Check TBD" >> "$CONFIG_FILE"
-       else sed -i "14 i FW_Update_Check TBD" "$CONFIG_FILE"
+       else sed -i "15 i FW_Update_Check TBD" "$CONFIG_FILE"
        fi
        retCode=1
    fi
    if ! grep -q "^Allow_Updates_OverVPN " "$CONFIG_FILE"
    then
-       if [ "$(wc -l < "$CONFIG_FILE")" -lt 15 ]
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 16 ]
        then echo "Allow_Updates_OverVPN DISABLED" >> "$CONFIG_FILE"
-       else sed -i "15 i Allow_Updates_OverVPN DISABLED" "$CONFIG_FILE"
+       else sed -i "16 i Allow_Updates_OverVPN DISABLED" "$CONFIG_FILE"
        fi
        retCode=1
    fi
    if ! grep -q "^FW_Allow_Beta_Production_Up " "$CONFIG_FILE"
    then
-       if [ "$(wc -l < "$CONFIG_FILE")" -lt 16 ]
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 17 ]
        then echo "FW_Allow_Beta_Production_Up ENABLED" >> "$CONFIG_FILE"
-       else sed -i "16 i FW_Allow_Beta_Production_Up ENABLED" "$CONFIG_FILE"
+       else sed -i "17 i FW_Allow_Beta_Production_Up ENABLED" "$CONFIG_FILE"
        fi
        retCode=1
    fi
    if ! grep -q "^Allow_Script_Auto_Update " "$CONFIG_FILE"
    then
-       if [ "$(wc -l < "$CONFIG_FILE")" -lt 17 ]
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 18 ]
        then echo "Allow_Script_Auto_Update DISABLED" >> "$CONFIG_FILE"
-       else sed -i "17 i Allow_Script_Auto_Update DISABLED" "$CONFIG_FILE"
+       else sed -i "18 i Allow_Script_Auto_Update DISABLED" "$CONFIG_FILE"
        fi
        retCode=1
    fi
    if ! grep -q "^Script_Update_Cron_Job_SchedDays=" "$CONFIG_FILE"
    then
-       if [ "$(wc -l < "$CONFIG_FILE")" -lt 18 ]
+       if [ "$(wc -l < "$CONFIG_FILE")" -lt 19 ]
        then echo "Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" >> "$CONFIG_FILE"
-       else sed -i "18 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$CONFIG_FILE"
+       else sed -i "19 i Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\"" "$CONFIG_FILE"
        fi
        retCode=1
    fi
@@ -2847,7 +2873,8 @@ _SCRIPT_UPDATE_()
    if "$mountWebGUI_OK"
    then _SetVersionSharedSettings_ server "$DLRepoVersion" ; fi
 
-   if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ] && { [ -z "$DLRepoBuildNum" ] || [ "$DLRepoBuildNum" = "$ScriptBuildNum" ]; }
+   if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ] && \
+      { [ -z "$DLRepoBuildNum" ] || [ "$DLRepoBuildNum" = "$ScriptBuildNum" ]; }
    then
       echo -e "${CYANct}You are on the latest version! Would you like to download anyway?${NOct}"
       echo -e "${CYANct}This will overwrite your currently installed version.${NOct}"
@@ -2861,8 +2888,8 @@ _SCRIPT_UPDATE_()
               then _SetVersionSharedSettings_ local "$DLRepoVersion"
               fi
               printf "\n${CYANct}Download successful!${NOct}\n"
-              printf "$(date) - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
-              printf "${CYANct}Update successful! Restarting script...${NOct}\n"
+              printf "$(date) - Successfully updated $SCRIPT_NAME v${DLRepoVersion}\n"
+              printf "${CYANct}Restarting script...${NOct}\n"
               sleep 1
               _CheckForNewGUIVersionUpdate_ && extraParam="install"
               _ReleaseLock_
@@ -2890,8 +2917,8 @@ _SCRIPT_UPDATE_()
               then _SetVersionSharedSettings_ local "$DLRepoVersion"
               fi
               printf "\n${CYANct}Download successful!${NOct}\n"
-              printf "\n$(date) - Successfully downloaded $SCRIPT_NAME v${DLRepoVersion}\n"
-              printf "${CYANct}Update successful! Restarting script...${NOct}\n"
+              printf "\n$(date) - Successfully updated $SCRIPT_NAME v${DLRepoVersion}\n"
+              printf "${CYANct}Restarting script...${NOct}\n"
               sleep 1
               _CheckForNewGUIVersionUpdate_ && extraParam="install"
               _ReleaseLock_
@@ -4347,9 +4374,9 @@ with the \"${GRNct}Web UI${NOct}\" access type on the \"Access restriction list\
    return 1
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-09] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Apr-09] ##
+##----------------------------------------##
 _GetLoginCredentials_()
 {
     local retry="yes"  userName  savedMsgStr
@@ -4408,15 +4435,12 @@ _GetLoginCredentials_()
         printf "Encoded Credentials:\n"
         printf "${GRNct}$loginCredsENC${NOct}\n"
 
-        # Prompt to test the credentials #
         if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"
         then
             _TestLoginCredentials_ "$loginCredsENC" || continue
-        else
-            _UpdateLoginPswdCheckHelper_ UNKNOWN
         fi
 
-        # Stop the loop if the test passes or if the user chooses not to test #
+        # Stop the loop if test passes or if user chooses not to test #
         retry="no"
     done
 
@@ -10176,12 +10200,13 @@ _InvalidMenuSelection_()
    _WaitForEnterKey_
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-09] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Apr-09] ##
+##----------------------------------------##
 _ShowMainMenuOptions_()
 {
    local FW_NewUpdateVerStr  FW_NewUpdateVersion
+   local loginPswdStatusMsg  pswdChckCTag
 
    #-----------------------------------------------------------#
    # Check if router reports a new F/W update is available.
@@ -10260,10 +10285,15 @@ _ShowMainMenuOptions_()
    fi
    printf "\n${SEPstr}"
 
-   loginStatusMsg=$(grep "^var loginPswdCheckMsgStr =" "$PSWD_CHECK_JS" | awk -F"'" '{print $2}')
    printf "\n  ${GRNct}1${NOct}.  Run F/W Update Check Now\n"
+
+   loginPswdStatusMsg="$(_GetLoginPswdCheckStatusMsgeJS_)"
+   if [ "$(_GetLoginPswdCheckStatusCodeJS_)" -eq 4 ]
+   then pswdChckCTag="$InvBGRNct"  ##SUCCESS##
+   else pswdChckCTag="$InvBMGNct"
+   fi
    printf "\n  ${GRNct}2${NOct}.  Set Router Login Password"
-   printf "\n${padStr}[Currently ${InvBMGNct}$loginStatusMsg${NOct}]\n"
+   printf "\n${padStr}[Currently ${pswdChckCTag}$loginPswdStatusMsg${NOct}]\n"
 
    # Enable/Disable the ASUS Router's built-in "F/W Update Check" #
    FW_UpdateCheckState="$(nvram get firmware_check_enable)"
