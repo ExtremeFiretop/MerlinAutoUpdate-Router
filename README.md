@@ -24,6 +24,7 @@
  - GT-AX11000_PRO (Tested)
  - GT-AX11000 (Tested)
  - GT-AC2900 **(Untested)**
+ - RT-BE92U **(Untested)**
  - RT-BE96U **(Untested)**
  - RT-BE88U **(Untested)**
  - RT-BE86U **(Untested)**
