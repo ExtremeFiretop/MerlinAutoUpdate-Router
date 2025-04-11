@@ -3841,7 +3841,7 @@ _CheckForMinimumModelSupport_()
     # List of unsupported models as a space-separated string
     local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC68UF RT-AC68P RT-AC1900P RT-AC1900 RT-N66U RT-N16 DSL-AC68U"
 
-    local current_model="$(_GetRouterProductID_)"
+    local current_model="RT-AC66U"
 
     # Check if current model is in the list of unsupported models #
     if echo "$unsupported_models" | grep -wq "$current_model"
@@ -10837,11 +10837,6 @@ _MainMenu_()
 ##-------------------------------------##
 _DoInitializationStartup_()
 {
-   if ! _CheckForMinimumRequirements_
-   then
-       printf "\n${CRITct}Minimum requirements for $SCRIPT_NAME were not met. See the reason(s) above.${NOct}\n"
-       _DoExit_ 1
-   fi
 
    if [ $# -gt 0 ] && [ -n "$1" ] && \
       echo "$1" | grep -qE "^(install|startup)$"
@@ -10858,6 +10853,12 @@ _DoInitializationStartup_()
    then
        _AutoStartupHook_ create 2>/dev/null
        _AutoServiceEvent_ create 2>/dev/null
+   fi
+
+   if ! _CheckForMinimumRequirements_
+   then
+       printf "\n${CRITct}Minimum requirements for $SCRIPT_NAME were not met. See the reason(s) above.${NOct}\n"
+       return 1
    fi
 
    _CheckAndSetBackupOption_
