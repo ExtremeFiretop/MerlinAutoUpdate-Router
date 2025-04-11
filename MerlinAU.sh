@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Apr-09
+# Last Modified: 2025-Apr-11
 ###################################################################
 set -u
 
@@ -7196,9 +7196,9 @@ _Toggle_ScriptAutoUpdate_Config_()
     return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-11] ##
+##------------------------------------------##
 _high_risk_phrases_interactive_()
 {
     local changelog_contents="$1"
@@ -7232,9 +7232,8 @@ _high_risk_phrases_interactive_()
                 Say "*WARNING*: Found high-risk phrases in the changelog file."
                 Say "Please run script interactively to approve the firmware update."
                 Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
-                _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
                 _DoCleanUp_ 1
-                _DoExit_ 1
+                return 1
             fi
         fi
     else
@@ -7384,9 +7383,9 @@ _ChangelogVerificationCheck_()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-11] ##
+##------------------------------------------##
 _ManageChangelogMerlin_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]
@@ -7447,7 +7446,16 @@ _ManageChangelogMerlin_()
     else
         if [ "$mode" = "download" ]
         then
-            _ChangelogVerificationCheck_ "auto"
+           if ! "$FlashStarted"
+           then
+               _ChangelogVerificationCheck_ "auto"
+           else
+               if ! _ChangelogVerificationCheck_ "interactive"
+               then
+                   _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+                   return 1
+               fi
+           fi
         elif [ "$mode" = "view" ]
         then
             clear
@@ -7465,9 +7473,9 @@ _ManageChangelogMerlin_()
     return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-11] ##
+##------------------------------------------##
 _ManageChangelogGnuton_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]
@@ -7508,7 +7516,16 @@ _ManageChangelogGnuton_()
     else
         if [ "$mode" = "download" ]
         then
-            _ChangelogVerificationCheck_ "auto"
+           if ! "$FlashStarted"
+           then
+               _ChangelogVerificationCheck_ "auto"
+           else
+               if ! _ChangelogVerificationCheck_ "interactive"
+               then
+                   _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
+                   return 1
+               fi
+           fi
         elif [ "$mode" = "view" ]
         then
             clear
@@ -7525,9 +7542,9 @@ _ManageChangelogGnuton_()
     return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-10] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-11] ##
+##------------------------------------------##
 _CheckNewUpdateFirmwareNotification_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -7570,14 +7587,11 @@ _CheckNewUpdateFirmwareNotification_()
            Update_Custom_Settings FW_New_Update_Notification_Vers "$fwNewUpdateNotificationVers"
            Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
            "$mountWebGUI_OK" && sendNewUpdateStatusEmail=true
-           if ! "$FlashStarted"
+           if "$isGNUtonFW"
            then
-               if "$isGNUtonFW"
-               then
-                   _ManageChangelogGnuton_ "download"
-               else
-                   _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
-               fi
+               _ManageChangelogGnuton_ "download"
+           else
+               _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
            fi
        fi
    fi
@@ -7588,14 +7602,11 @@ _CheckNewUpdateFirmwareNotification_()
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
        "$mountWebGUI_OK" && sendNewUpdateStatusEmail=true
-       if ! "$FlashStarted"
+       if "$isGNUtonFW"
        then
-           if "$isGNUtonFW"
-           then
-               _ManageChangelogGnuton_ "download"
-           else
-               _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
-           fi
+           _ManageChangelogGnuton_ "download"
+       else
+           _ManageChangelogMerlin_ "download" "$fwNewUpdateNotificationVers"
        fi
    fi
 
