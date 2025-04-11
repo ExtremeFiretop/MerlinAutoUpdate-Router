@@ -3841,7 +3841,7 @@ _CheckForMinimumModelSupport_()
     # List of unsupported models as a space-separated string
     local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC68UF RT-AC68P RT-AC1900P RT-AC1900 RT-N66U RT-N16 DSL-AC68U"
 
-    local current_model="RT-AC66U"
+    local current_model="$(_GetRouterProductID_)"
 
     # Check if current model is in the list of unsupported models #
     if echo "$unsupported_models" | grep -wq "$current_model"
@@ -10832,9 +10832,9 @@ _MainMenu_()
    done
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jan-15] ##
+##------------------------------------------##
 _DoInitializationStartup_()
 {
 
