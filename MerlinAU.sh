@@ -3834,17 +3834,15 @@ _CheckForMinimumVersionSupport_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Apr-11] ##
 ##----------------------------------------##
 _CheckForMinimumModelSupport_()
 {
-    # List of unsupported models as a space-separated string
+    # List of UNSUPPORTED models as a space-separated string #
     local unsupported_models="RT-AC87U RT-AC56U RT-AC66U RT-AC3200 RT-AC88U RT-AC5300 RT-AC3100 RT-AC68U RT-AC66U_B1 RT-AC68UF RT-AC68P RT-AC1900P RT-AC1900 RT-N66U RT-N16 DSL-AC68U"
 
-    local current_model="$(_GetRouterProductID_)"
-
-    # Check if current model is in the list of unsupported models #
-    if echo "$unsupported_models" | grep -wq "$current_model"
+    # Check if current router is UNSUPPORTED #
+    if echo "$unsupported_models" | grep -wq "$PRODUCT_ID"
     then routerModelCheckFailed=true ; fi
 
     "$routerModelCheckFailed" && return 1 || return 0
@@ -7597,7 +7595,8 @@ _CheckNewUpdateFirmwareNotification_()
    fi
 
    fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
-   if [ -z "$fwNewUpdateNotificationDate" ] || [ "$fwNewUpdateNotificationDate" = "TBD" ]
+   if [ -z "$fwNewUpdateNotificationDate" ] || \
+      [ "$fwNewUpdateNotificationDate" = "TBD" ]
    then
        fwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
        Update_Custom_Settings FW_New_Update_Notification_Date "$fwNewUpdateNotificationDate"
@@ -9300,9 +9299,9 @@ _DelScriptAutoUpdateHook_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-05] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Apr-11] ##
+##----------------------------------------##
 _CheckForMinimumRequirements_()
 {
    local requirementsCheckOK=true
@@ -9343,7 +9342,10 @@ _CheckForMinimumRequirements_()
        Say "\nThe NVRAM Custom JFFS Scripts option was ${GRNct}ENABLED${NOct}.\n"
    fi
 
-   "$requirementsCheckOK" && return 0 || return 1
+   "$requirementsCheckOK" && return 0
+
+   rm -f "$CONFIG_FILE"
+   return 1
 }
 
 ##-------------------------------------##
@@ -9404,7 +9406,7 @@ _DoInstallation_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-22] ##
+## Modified by Martinski W. [2025-Apr-11] ##
 ##----------------------------------------##
 _DoUnInstallation_()
 {
@@ -9416,11 +9418,14 @@ _DoUnInstallation_()
 
    local savedCFGPath="${SCRIPTS_PATH}/${SCRIPT_NAME}_CFG.SAVED.TXT"
 
-   printf "\n${BOLDct}Do you want to keep/save the $SCRIPT_NAME configuration file${NOct}"
-   if _WaitForYESorNO_ "$("$keepConfigFile" && echo YES || echo NO)"
+   if [ -f "$CONFIG_FILE" ]
    then
-       keepConfigFile=true
-       mv -f "$CONFIG_FILE" "$savedCFGPath"
+       printf "\n${BOLDct}Do you want to keep/save the $SCRIPT_NAME configuration file${NOct}"
+       if _WaitForYESorNO_ "$("$keepConfigFile" && echo YES || echo NO)"
+       then
+           keepConfigFile=true
+           mv -f "$CONFIG_FILE" "$savedCFGPath"
+       fi
    fi
 
    _DelFWAutoUpdateHook_
@@ -9803,12 +9808,12 @@ _EnableFWAutoUpdateChecks_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-12] ##
+## Modified by Martinski W. [2025-Apr-11] ##
 ##----------------------------------------##
 _ConfirmCronJobForFWAutoUpdates_()
 {
     if [ $# -gt 0 ] && [ -n "$1" ] && \
-       echo "$1" | grep -qE "^(install|startup)$"
+       echo "$1" | grep -qE "^(install|startup|uninstall)$"
     then return 1 ; fi
 
     # Check if the PREVIOUS Cron Job ID already exists #
@@ -10832,14 +10837,22 @@ _MainMenu_()
    done
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jan-15] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Apr-11] ##
+##----------------------------------------##
 _DoInitializationStartup_()
 {
+   local theParam=""
+   if [ $# -gt 0 ] && [ -n "$1" ] ; then theParam="$1" ; fi
 
-   if [ $# -gt 0 ] && [ -n "$1" ] && \
-      echo "$1" | grep -qE "^(install|startup)$"
+   if ! _CheckForMinimumRequirements_ && [ "$theParam" != "uninstall" ]
+   then
+       printf "\n${CRITct}Minimum requirements for $SCRIPT_NAME were not met. See the reason(s) above.${NOct}\n"
+       _DoExit_ 1
+   fi
+
+   if [ -n "$theParam" ] && \
+      echo "$theParam" | grep -qE "^(install|startup|uninstall)$"
    then return 1 ; fi
 
    _CreateDirPaths_
@@ -10853,12 +10866,6 @@ _DoInitializationStartup_()
    then
        _AutoStartupHook_ create 2>/dev/null
        _AutoServiceEvent_ create 2>/dev/null
-   fi
-
-   if ! _CheckForMinimumRequirements_
-   then
-       printf "\n${CRITct}Minimum requirements for $SCRIPT_NAME were not met. See the reason(s) above.${NOct}\n"
-       return 1
    fi
 
    _CheckAndSetBackupOption_
