@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Apr-11
+# Last Modified: 2025-Apr-12
 ###################################################################
 set -u
 
@@ -2280,13 +2280,13 @@ _CheckFor_VersionFile_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-11] ##
+## Modified by Martinski W. [2025-Apr-12] ##
 ##----------------------------------------##
 _Unmount_WebUI_()
 {
    if [ ! -f "$SCRIPT_WEB_ASP_PATH" ]
    then
-       Say "${CRITct}**ERROR**${NOct}: The WebUI page file for $SCRIPT_NAME is NOT found."
+       Say "${InvBYLWct}*INFO*${NOct}: The WebUI page file for $SCRIPT_NAME is NOT found."
        return 1
    fi
    local webPageFile
@@ -9411,7 +9411,7 @@ _DoInstallation_()
 _DoUnInstallation_()
 {
    "$isInteractive" && \
-   printf "\n${BOLDct}Are you sure you want to uninstall $ScriptFileName script now${NOct}"
+   printf "\n${BOLDct}Are you sure you want to uninstall $ScriptFileName now${NOct}"
    ! _WaitForYESorNO_ && return 0
 
    if ! _AcquireLock_ cliFileLock ; then return 1 ; fi
@@ -10838,7 +10838,7 @@ _MainMenu_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-11] ##
+## Modified by Martinski W. [2025-Apr-12] ##
 ##----------------------------------------##
 _DoInitializationStartup_()
 {
@@ -10848,6 +10848,16 @@ _DoInitializationStartup_()
    if ! _CheckForMinimumRequirements_ && [ "$theParam" != "uninstall" ]
    then
        printf "\n${CRITct}Minimum requirements for $SCRIPT_NAME were not met. See the reason(s) above.${NOct}\n"
+
+       "$isInteractive" && \
+        printf "\n${BOLDct}Would you like to uninstall $ScriptFileName now${NOct}"
+        if _WaitForYESorNO_
+        then
+            _DoUnInstallation_
+            _DoExit_ 0
+        fi
+        printf "\n${BOLDct}To manually uninstall $ScriptFileName use the following command:${NOct}"
+        printf "\n\n    ${BOLDct}$ScriptFilePath uninstall${NOct}\n\n"
        _DoExit_ 1
    fi
 
