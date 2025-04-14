@@ -1,12 +1,12 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.4.1
-## 2025-Apr-08
+## v1.4.2
+## 2025-Apr-13
 
 ## WebUI:
-![image](https://github.com/user-attachments/assets/92701007-a902-4724-9bae-b255856a686a)
+![image](https://github.com/user-attachments/assets/a2197262-ca35-451a-8645-311896e1495e)
 
 ## CLI Shell Script:
-![image](https://github.com/user-attachments/assets/5c6460c1-d3c2-4374-a18a-14270dd578c6)
+![image](https://github.com/user-attachments/assets/b255e781-4a93-4e60-8517-edc7a5bf971d)
 ![image](https://github.com/user-attachments/assets/d05ec713-bacb-411b-903f-31bd1f04f49d)
 ![image](https://github.com/user-attachments/assets/8119aee0-e8ac-4bfb-a371-dfd74433ec5a)
 ![image](https://github.com/user-attachments/assets/33ef2735-acff-48c4-ab59-37622f2b8595)
@@ -24,6 +24,7 @@
  - GT-AX11000_PRO (Tested)
  - GT-AX11000 (Tested)
  - GT-AC2900 **(Untested)**
+ - RT-BE92U **(Untested)**
  - RT-BE96U **(Untested)**
  - RT-BE88U **(Untested)**
  - RT-BE86U **(Untested)**
