@@ -2839,7 +2839,7 @@ _SCRIPT_UPDATE_()
    if [ $# -gt 0 ] && [ "$1" = "force" ]
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
-       _CheckForNewScriptUpdates_ -quietcheck "$@"
+       _CheckForNewScriptUpdates_ -quietcheck
        if [ "$scriptUpdateNotify" != "0" ] && ! $isInteractive; then
            _SendEMailNotification_ SCRIPT_UPDATE_FOUND
        fi
