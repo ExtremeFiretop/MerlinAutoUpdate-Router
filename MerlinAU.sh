@@ -2931,10 +2931,6 @@ _SCRIPT_UPDATE_()
               fi
               printf "\n${CYANct}Download successful!${NOct}\n"
               printf "\n$(date) - Successfully updated $SCRIPT_NAME v${DLRepoVersion}\n"
-              if ! "$isInteractive"
-              then
-                  _SendEMailNotification_ SUCESS_SCRIPT_UPDATE_STATUS
-              fi
               printf "${CYANct}Restarting script...${NOct}\n"
               sleep 1
               _CheckForNewGUIVersionUpdate_ && extraParam="install"
@@ -2942,10 +2938,6 @@ _SCRIPT_UPDATE_()
               exec "$ScriptFilePath" $extraParam
               exit 0
           else
-              if ! "$isInteractive"
-              then
-                  _SendEMailNotification_ FAILED_SCRIPT_UPDATE_STATUS
-              fi
               _WaitForEnterKey_
               return 1
           fi
