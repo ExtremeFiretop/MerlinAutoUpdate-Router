@@ -2981,7 +2981,6 @@ _CheckForNewScriptUpdates_()
        scriptUpdateNotify=0
        return 1
    fi
-   sleep 30
 
    if verStr="$(_GetDLScriptVersion_ "$DLScriptVerPath")"
    then
