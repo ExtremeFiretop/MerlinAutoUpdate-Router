@@ -3034,9 +3034,9 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-14] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2024-Apr-14] ##
+##----------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -3046,10 +3046,15 @@ _CreateEMailContent_()
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
-   if [ -s "$tempNodeEMailList" ]
-   then subjectStr="F/W Update Status for $node_lan_hostname"
-   else subjectStr="F/W Update Status for $MODEL_ID"
+   local subjectStrTag="F/W Update Status"
+   if echo "$1" | grep -q '._SCRIPT_UPDATE_.'
+   then subjectStrTag="Script Update Status"
    fi
+   if [ -s "$tempNodeEMailList" ]
+   then subjectStr="$subjectStrTag for $node_lan_hostname"
+   else subjectStr="$subjectStrTag for $MODEL_ID"
+   fi
+
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    if ! "$offlineUpdateTrigger"
    then
