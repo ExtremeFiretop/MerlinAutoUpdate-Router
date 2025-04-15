@@ -2841,7 +2841,7 @@ _SCRIPT_UPDATE_()
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
        _CheckForNewScriptUpdates_ -quietcheck
        if [ "$scriptUpdateNotify" != "0" ] && ! $isInteractive; then
-           _SendEMailNotification_ SCRIPT_UPDATE_FOUND
+           _SendEMailNotification_ NEW_SCRIPT_UPDATE_FOUND
        fi
        if _CheckForNewGUIVersionUpdate_ "$SCRIPT_VERSION" "$DLRepoVersion"
        then extraParam="install"
@@ -2858,7 +2858,7 @@ _SCRIPT_UPDATE_()
            fi
            if ! "$isInteractive"
            then
-               _SendEMailNotification_ SUCESS_SCRIPT_UPDATE_STATUS
+               _SendEMailNotification_ SUCCESS_SCRIPT_UPDATE_STATUS
            fi
            sleep 1
            _ReleaseLock_
@@ -3109,7 +3109,7 @@ _CreateEMailContent_()
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
-       SUCESS_SCRIPT_UPDATE_STATUS)
+       SUCCESS_SCRIPT_UPDATE_STATUS)
            if [ -s "$SCRIPT_VERPATH" ]
            then
                if verStr="$(_GetDLScriptVersion_ "$SCRIPT_VERPATH")"
@@ -3130,7 +3130,7 @@ _CreateEMailContent_()
              printf "\nThe installed script version remains: <b>${SCRIPT_VERSION}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
-       SCRIPT_UPDATE_FOUND)
+       NEW_SCRIPT_UPDATE_FOUND)
            emailBodyTitle="New MerlinAU Script Update Available"
            {
              echo "A new MerlinAU Script Update version <b>${DLRepoVersion}</b> is now available for your <b>${MODEL_ID}</b> router."
