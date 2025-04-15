@@ -4,15 +4,15 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Apr-12
+# Last Modified: 2025-Apr-14
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.2
+readonly SCRIPT_VERSION=1.4.3
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -2830,7 +2830,7 @@ _DownloadScriptFiles_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-08] ##
+## Modified by ExtremeFiretop [2025-Apr-14] ##
 ##------------------------------------------##
 _SCRIPT_UPDATE_()
 {
@@ -2840,6 +2840,9 @@ _SCRIPT_UPDATE_()
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
        _CheckForNewScriptUpdates_ -quietcheck
+       if [ "$scriptUpdateNotify" != "0" ] && ! $isInteractive; then
+           _SendEMailNotification_ NEW_SCRIPT_UPDATE_FOUND
+       fi
        if _CheckForNewGUIVersionUpdate_ "$SCRIPT_VERSION" "$DLRepoVersion"
        then extraParam="install"
        fi
@@ -2853,10 +2856,20 @@ _SCRIPT_UPDATE_()
                _SetVersionSharedSettings_ local "$DLRepoVersion"
                _SetVersionSharedSettings_ server "$DLRepoVersion"
            fi
+           if ! "$isInteractive"
+           then
+               _SendEMailNotification_ SUCCESS_SCRIPT_UPDATE_STATUS
+           fi
            sleep 1
            _ReleaseLock_
            exec "$ScriptFilePath" $extraParam
            exit 0
+       else
+           if ! "$isInteractive"
+           then
+               _SendEMailNotification_ FAILED_SCRIPT_UPDATE_STATUS
+           fi
+           return 1
        fi
        return 0
    fi
@@ -2899,7 +2912,7 @@ _SCRIPT_UPDATE_()
       else
           printf "\n\n${GRNct}Exiting Script Update Utility...${NOct}\n"
           sleep 1
-          return
+          return 0
       fi
    elif [ "$scriptUpdateNotify" != "0" ]
    then
@@ -2926,19 +2939,19 @@ _SCRIPT_UPDATE_()
               exit 0
           else
               _WaitForEnterKey_
-              return
+              return 1
           fi
       else
           printf "\n\n${GRNct}Exiting Script Update Utility...${NOct}\n"
           sleep 1
-          return
+          return 0
       fi
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Apr-14] ##
+##------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
    local verStr  DLScriptVerPath="${SCRIPT_VERPATH}.DL.tmp"
@@ -2986,7 +2999,6 @@ _CheckForNewScriptUpdates_()
    then
        scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
-
        if [ $# -gt 0 ] && [ "$1" = "-quietcheck" ]
        then return 0
        fi
@@ -3023,7 +3035,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-28] ##
+## Modified by ExtremeFiretop [2024-Apr-14] ##
 ##------------------------------------------##
 _CreateEMailContent_()
 {
@@ -3095,6 +3107,34 @@ _CreateEMailContent_()
            {
              echo "Started flashing the new F/W Update version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       SUCCESS_SCRIPT_UPDATE_STATUS)
+           if [ -s "$SCRIPT_VERPATH" ]
+           then
+               if verStr="$(_GetDLScriptVersion_ "$SCRIPT_VERPATH")"
+               then
+                   NEW_SCRIPT_VERSION="$(echo "$verStr" | awk -F '|' '{print $1}')"
+               fi
+           fi
+           emailBodyTitle="MerlinAU Script Update Installed"
+           {
+             echo "The new MerlinAU Script Update version <b>${DLRepoVersion}</b> has been successfully installed on your <b>${MODEL_ID}</b> router."
+             printf "\nThe currently installed script version is: <b>${NEW_SCRIPT_VERSION}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       FAILED_SCRIPT_UPDATE_STATUS)
+           emailBodyTitle="MerlinAU Script Update Failed"
+           {
+             echo "Failed to install the new MerlinAU Script Update version <b>${DLRepoVersion}</b> on your <b>${MODEL_ID}</b> router."
+             printf "\nThe installed script version remains: <b>${SCRIPT_VERSION}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       NEW_SCRIPT_UPDATE_FOUND)
+           emailBodyTitle="New MerlinAU Script Update Available"
+           {
+             echo "A new MerlinAU Script Update version <b>${DLRepoVersion}</b> is now available for your <b>${MODEL_ID}</b> router."
+             printf "\nThe currently installed script version is: <b>${SCRIPT_VERSION}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        STOP_FW_UPDATE_APPROVAL)
