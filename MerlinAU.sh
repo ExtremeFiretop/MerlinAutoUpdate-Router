@@ -2840,9 +2840,6 @@ _SCRIPT_UPDATE_()
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
        _CheckForNewScriptUpdates_ -quietcheck
-       if [ "$scriptUpdateNotify" != "0" ] && ! $isInteractive; then
-           _SendEMailNotification_ NEW_SCRIPT_UPDATE_FOUND
-       fi
        if _CheckForNewGUIVersionUpdate_ "$SCRIPT_VERSION" "$DLRepoVersion"
        then extraParam="install"
        fi
@@ -3133,13 +3130,6 @@ _CreateEMailContent_()
            {
              echo "Failed to install the new MerlinAU Script Update version <b>${DLRepoVersion}</b> on your <b>${MODEL_ID}</b> router."
              printf "\nThe installed script version remains: <b>${SCRIPT_VERSION}</b>\n"
-           } > "$tempEMailBodyMsg"
-           ;;
-       NEW_SCRIPT_UPDATE_FOUND)
-           emailBodyTitle="New MerlinAU Script Update Available"
-           {
-             echo "A new MerlinAU Script Update version <b>${DLRepoVersion}</b> is now available for your <b>${MODEL_ID}</b> router."
-             printf "\nThe currently installed script version is: <b>${SCRIPT_VERSION}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
        STOP_FW_UPDATE_APPROVAL)
