@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Apr-14
+# Last Modified: 2025-May-05
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.3
+readonly SCRIPT_VERSION=1.4.4
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -4758,9 +4758,9 @@ _GetLatestFWUpdateVersionFromWebsite_()
     return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-27] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-05] ##
+##------------------------------------------##
 _GetLatestFWUpdateVersionFromGitHub_()
 {
     local routerVersion
@@ -4777,7 +4777,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
 
     if ! "$offlineUpdateTrigger"
     then
-        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
     else
         routerVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
     fi
@@ -4798,6 +4798,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
         grep -o "$grep_pattern" | \
         grep -o "https://[^ ]*\.\(w\|pkgtb\)")"
 
+
     if [ -z "$downloadURLs" ]
     then
         echo "**ERROR** **NO_GITHUB_URL**"
@@ -4809,7 +4810,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
             # Extract the version portion from the URL #
             urlVersion="$(echo "$theURL" \
                 | grep -oE "${PRODUCT_ID}_[^ ]*\.(w|pkgtb)" \
-                | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
+                | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g;s/-gnuton[0-9][0-9]*\$//" | head -n1)"
 
             if [ "$urlVersion" = "$routerVersion" ]
             then
@@ -4821,9 +4822,9 @@ _GetLatestFWUpdateVersionFromGitHub_()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-27] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-05] ##
+##------------------------------------------##
 GetLatestFirmwareMD5URL()
 {
     local routerVersion
@@ -4840,7 +4841,7 @@ GetLatestFirmwareMD5URL()
 
     if ! "$offlineUpdateTrigger"
     then
-        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
     else
         routerVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
     fi
@@ -4872,7 +4873,7 @@ GetLatestFirmwareMD5URL()
             # Extract the version portion from the URL #
             md5Version="$(echo "$theURL" \
                 | grep -oE "${PRODUCT_ID}_[^ ]*\.(md5)" \
-                | sed "s/${PRODUCT_ID}_//;s/.md5$//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
+                | sed "s/${PRODUCT_ID}_//;s/.md5$//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g;s/-gnuton[0-9][0-9]*\$//" | head -n1)"
 
             if [ "$md5Version" = "$routerVersion" ]
             then
@@ -7507,7 +7508,7 @@ _ManageChangelogMerlin_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-11] ##
+## Modified by ExtremeFiretop [2025-May-05] ##
 ##------------------------------------------##
 _ManageChangelogGnuton_()
 {
@@ -7515,7 +7516,7 @@ _ManageChangelogGnuton_()
     then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
     local mode="$1"  # Mode should be 'download' or 'view' #
-    local wgetLogFile  changeLogFile  changeLogTag
+    local wgetLogFile  FW_Changelog_GITHUB  changeLogTag
 
     # Create directory to download changelog if missing
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
@@ -7569,7 +7570,7 @@ _ManageChangelogGnuton_()
             less "$FW_Changelog_GITHUB"
         fi
     fi
-    cp -fp "$changeLogFile" "$CHANGELOG_PATH"
+    cp -fp "$FW_Changelog_GITHUB" "$CHANGELOG_PATH"
     rm -f "$FW_Changelog_GITHUB" "$wgetLogFile"
     ln -sf "$CHANGELOG_PATH" "${SCRIPT_WEB_DIR}/changelog.htm" 2>/dev/null
     return 0
@@ -8546,9 +8547,9 @@ _RunOfflineUpdateNow_()
     fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-07] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-05] ##
+##------------------------------------------##
 _RunFirmwareUpdateNow_()
 {
     # Double-check the directory exists before using it #
@@ -8709,7 +8710,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         if [ "$NewUpdate_VersionVerify" != "$release_version" ]
         then
             Say "WARNING: The release version found by MerlinAU [$release_version] does not match the F/W update version from the router [$NewUpdate_VersionVerify]."
-            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr" || return 1
+            "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+            return 1
         fi
     fi
 
