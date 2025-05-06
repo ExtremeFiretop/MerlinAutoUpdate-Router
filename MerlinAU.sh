@@ -309,14 +309,15 @@ _UserLogMsg_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
+## Modified by Martinski W. [2025-May-05] ##
 ##----------------------------------------##
 Say()
 {
    local logMsg
    "$isInteractive" && printf "${1}\n"
    # Remove all "color escape sequences" from the system log file entries #
-   logMsg="$(echo "$1" | sed 's/\\\e\[[0-1]m//g ; s/\\\e\[[0-1];[3-4][0-9]m//g')"
+   logMsg="$(echo "$1" | \
+   sed 's/\\e\[[0-1]m//g; s/\\e\[[3-4][0-9]m//g; s/\\e\[[0-1];[3-4][0-9]m//g; s/\\e\[30;10[1-9]m//g; s/\\n/ /g')"
    _UserLogMsg_ "$logMsg"
    printf "$logMsg" | logger -t "[${SCRIPT_NAME}] $$"
 }
@@ -2829,9 +2830,9 @@ _DownloadScriptFiles_()
    return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-14] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-May-05] ##
+##----------------------------------------##
 _SCRIPT_UPDATE_()
 {
    local extraParam=""
@@ -2868,7 +2869,6 @@ _SCRIPT_UPDATE_()
            fi
            return 1
        fi
-       return 0
    fi
 
    ! _CheckForNewScriptUpdates_ && return 1
@@ -4797,7 +4797,6 @@ _GetLatestFWUpdateVersionFromGitHub_()
     local downloadURLs="$(echo "$release_data" | \
         grep -o "$grep_pattern" | \
         grep -o "https://[^ ]*\.\(w\|pkgtb\)")"
-
 
     if [ -z "$downloadURLs" ]
     then
@@ -7311,7 +7310,7 @@ _ChangelogVerificationCheck_()
     local current_version  formatted_current_version
     local release_version  formatted_release_version
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
-    local changeLogFName  changeLogFPath
+    local changeLogFName  changeLogFPath  changeLogTag
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
@@ -7516,7 +7515,7 @@ _ManageChangelogGnuton_()
     then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
     local mode="$1"  # Mode should be 'download' or 'view' #
-    local wgetLogFile  FW_Changelog_GITHUB  changeLogTag
+    local wgetLogFile  FW_Changelog_GITHUB
 
     # Create directory to download changelog if missing
     if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
@@ -9050,7 +9049,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
         _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
         echo
-        Say "Flashing ${GRNct}${firmware_file}${NOct}... ${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
+        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
 
         # *WARNING*: NO MORE logging at this point & beyond #
