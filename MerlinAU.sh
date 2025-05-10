@@ -9,7 +9,7 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.5
+readonly SCRIPT_VERSION=1.4.3
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -2996,6 +2996,7 @@ _CheckForNewScriptUpdates_()
    then
        scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
+       _WriteVarDefToHelperJSFile_ "isScriptUpdateAvailable" "$DLRepoVersion"
        if [ $# -gt 0 ] && [ "$1" = "-quietcheck" ]
        then return 0
        fi
@@ -3005,6 +3006,7 @@ ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
            _SCRIPT_UPDATE_ force
        fi
    else
+       _WriteVarDefToHelperJSFile_ "isScriptUpdateAvailable" "$SCRIPT_VERSION"
        scriptUpdateNotify=0
    fi
    return 0
@@ -10987,7 +10989,7 @@ then
        checkupdates)
            if _AcquireLock_ cliFileLock
            then
-               _CheckForNewScriptUpdates_
+               _SCRIPT_UPDATE_
                _ReleaseLock_ cliFileLock
            fi
            ;;
@@ -11067,7 +11069,7 @@ then
                        then
                            if [ "$3" = "${SCRIPT_NAME}forceupdate" ]
                            then _SCRIPT_UPDATE_ force
-                           else _CheckForNewScriptUpdates_
+                           else _SCRIPT_UPDATE_
                            fi
                            _ReleaseLock_ cliFileLock
                        fi
