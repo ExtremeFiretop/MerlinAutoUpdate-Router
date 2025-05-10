@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-05
+# Last Modified: 2025-May-10
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.4
+readonly SCRIPT_VERSION=1.4.5
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -2947,7 +2947,7 @@ _SCRIPT_UPDATE_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-14] ##
+## Modified by ExtremeFiretop [2025-May-10] ##
 ##------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
@@ -2996,6 +2996,7 @@ _CheckForNewScriptUpdates_()
    then
        scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
+       _WriteVarDefToHelperJSFile_ "isScriptUpdateAvailable" "$DLRepoVersion"
        if [ $# -gt 0 ] && [ "$1" = "-quietcheck" ]
        then return 0
        fi
@@ -10950,9 +10951,9 @@ then
    _DoExit_ 0
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-10] ##
+##------------------------------------------##
 if [ $# -gt 0 ]
 then
    if ! _AcquireLock_ cliOptsLock
@@ -11058,6 +11059,17 @@ then
                            else bypassPostponedDays=false
                            fi
                            _RunFirmwareUpdateNow_
+                           _ReleaseLock_ cliFileLock
+                       fi
+                       ;;
+                   "${SCRIPT_NAME}update" | \
+                   "${SCRIPT_NAME}update_forceupdate")
+                       if _AcquireLock_ cliFileLock
+                       then
+                           if [ "$3" = "${SCRIPT_NAME}update_forceupdate" ]
+                           then _SCRIPT_UPDATE_ force
+                           else _CheckForNewScriptUpdates_
+                           fi
                            _ReleaseLock_ cliFileLock
                        fi
                        ;;
