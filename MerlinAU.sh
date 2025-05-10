@@ -9,7 +9,7 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.5
+readonly SCRIPT_VERSION=1.4.3
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -10988,7 +10988,7 @@ then
        checkupdates)
            if _AcquireLock_ cliFileLock
            then
-               _SCRIPT_UPDATE_
+               _CheckForNewScriptUpdates_
                _ReleaseLock_ cliFileLock
            fi
            ;;
