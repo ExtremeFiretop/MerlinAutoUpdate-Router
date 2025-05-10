@@ -2034,6 +2034,9 @@ function UpdateScriptVersion()
     $('#footerTitle').text ('MerlinAU v' + localVers + ' by ExtremeFiretop & Martinski W.');
 }
 
+/**---------------------------------------**/
+/** Added by ExtremeFiretop [2025-May-10] **/
+/**---------------------------------------**/
 function showScriptUpdateBanner () {
   const localVers = GetScriptVersion('local');
   if (typeof isScriptUpdateAvailable === 'undefined') return;
