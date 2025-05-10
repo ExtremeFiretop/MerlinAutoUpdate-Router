@@ -2260,6 +2260,29 @@ function Uninstall()
    document.form.submit();
 }
 
+function UpdateMerlinAUScript ()
+{
+    console.log("Initiating MerlinAU script update…");
+
+    let forceUpdateBox   = document.getElementById('ForceScriptUpdateCheck');
+    let actionScriptName = forceUpdateBox.checked
+                           ? 'start_MerlinAUforceupdate'
+                           : 'start_MerlinAUscript_update';
+
+    let ok = confirm(
+          forceUpdateBox.checked
+        ? "FORCED UPDATE: install immediately—even if current.\n\nContinue?"
+        : "Install only if a newer version exists.\n\nContinue?");
+    if (!ok) return false;                //  <-- blocks submission
+
+    document.form.action_script.value = actionScriptName;
+    document.form.action_wait.value  = 10;
+    showLoading();
+    document.form.submit();
+
+    return false;   // prevent the button’s own default submit (avoids double‑post)
+}
+
 /**----------------------------------------**/
 /** Modified by Martinski W. [2025-Jan-22] **/
 /**----------------------------------------**/
@@ -2618,9 +2641,10 @@ function initializeCollapsibleSections()
 <div style="text-align: center; margin-top: 3px;">
 <table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; border-collapse: collapse; background-color: transparent;">
 <colgroup>
-   <col style="width: 33%;" />
-   <col style="width: 33%;" />
-   <col style="width: 33%;" />
+   <col style="width: 25%;" />
+   <col style="width: 25%;" />
+   <col style="width: 25%;" />
+   <col style="width: 25%;" />
 </colgroup>
 <tr>
 <td style="text-align: right; border: none;">
@@ -2638,8 +2662,27 @@ function initializeCollapsibleSections()
    <br>
    <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
    <input type="checkbox" id="approveChangelogCheck" name="approveChangelogCheck" onclick="ToggleChangelogApproval(this);"
-   style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Approve Changelog</label>
+   style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Approve changelog</label>
    </br>
+</td>
+<td style="text-align: center; border: none;" id="scriptUpdateCell">
+    <input type="submit"
+           id="ScriptUpdateButton"
+           onclick="return UpdateMerlinAUScript();"
+           value="Update Script"
+           class="button_gen savebutton"
+           title="Check for latest MerlinAU script updates"
+           name="button">
+    <br>
+    <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8px">
+        <input type="checkbox"
+               id="ForceScriptUpdateCheck"
+               name="ForceScriptUpdateCheck"
+               style="padding:0; vertical-align:middle; position:relative;
+                      margin-left:-5px; margin-top:5px; margin-bottom:8px"/>
+        Force script update
+    </label>
+    </br>
 </td>
 <td style="text-align: left; border: none;">
    <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;"
