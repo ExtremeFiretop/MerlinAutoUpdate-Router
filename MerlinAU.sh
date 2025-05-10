@@ -9,7 +9,7 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.4
+readonly SCRIPT_VERSION=1.4.3
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -11058,6 +11058,17 @@ then
                            else bypassPostponedDays=false
                            fi
                            _RunFirmwareUpdateNow_
+                           _ReleaseLock_ cliFileLock
+                       fi
+                       ;;
+                   "${SCRIPT_NAME}script_update" | \
+                   "${SCRIPT_NAME}forceupdate")
+                       if _AcquireLock_ cliFileLock
+                       then
+                           if [ "$3" = "${SCRIPT_NAME}forceupdate" ]
+                           then _SCRIPT_UPDATE_ force
+                           else _CheckForNewScriptUpdates_
+                           fi
                            _ReleaseLock_ cliFileLock
                        fi
                        ;;
