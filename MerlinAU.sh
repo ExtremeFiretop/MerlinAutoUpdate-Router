@@ -2947,7 +2947,7 @@ _SCRIPT_UPDATE_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-14] ##
+## Modified by ExtremeFiretop [2025-May-10] ##
 ##------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
@@ -3006,7 +3006,6 @@ ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
            _SCRIPT_UPDATE_ force
        fi
    else
-       _WriteVarDefToHelperJSFile_ "isScriptUpdateAvailable" "$SCRIPT_VERSION"
        scriptUpdateNotify=0
    fi
    return 0
@@ -11063,13 +11062,13 @@ then
                            _ReleaseLock_ cliFileLock
                        fi
                        ;;
-                   "${SCRIPT_NAME}script_update" | \
-                   "${SCRIPT_NAME}forceupdate")
+                   "${SCRIPT_NAME}update" | \
+                   "${SCRIPT_NAME}update_forceupdate")
                        if _AcquireLock_ cliFileLock
                        then
-                           if [ "$3" = "${SCRIPT_NAME}forceupdate" ]
+                           if [ "$3" = "${SCRIPT_NAME}update_forceupdate" ]
                            then _SCRIPT_UPDATE_ force
-                           else _SCRIPT_UPDATE_
+                           else _CheckForNewScriptUpdates_
                            fi
                            _ReleaseLock_ cliFileLock
                        fi
