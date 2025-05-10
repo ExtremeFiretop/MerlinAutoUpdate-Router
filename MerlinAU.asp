@@ -2281,19 +2281,25 @@ function Uninstall()
    document.form.submit();
 }
 
+/**---------------------------------------**/
+/** Added by ExtremeFiretop [2025-May-10] **/
+/**---------------------------------------**/
 function UpdateMerlinAUScript ()
 {
     console.log("Initiating MerlinAU script update…");
 
-    if (!confirm("Are you sure you want to check for MerlinAU script updates?"))
-    { return; }
-
     let actionScriptValue;
     let ForceScriptUpdateCheck = document.getElementById('ForceScriptUpdateCheck');
+    let ok = confirm(
+          ForceScriptUpdateCheck.checked
+        ? "INSTALL UPDATE: Install MerlinAU script update immediately. Even if current.\n\nContinue?"
+        : "VERIFY AND PROMPT: Check for a newer version of MerlinAU and prompt if found. Does NOT install! \n\nContinue?");
+    if (!ok) return;
+
     if (!ForceScriptUpdateCheck.checked)
     { actionScriptValue = 'start_MerlinAUupdate'; }
     else
-    { actionScriptValue = 'start_MerlinAUupdate_forceupdate'; }
+    { actionScriptValue = 'start_MerlinAUupdate_forceupdate'; }        
 
     document.form.action_script.value = actionScriptValue;
     document.form.action_wait.value = 10;
