@@ -29,8 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Apr-09 **/
-/** Intended for 1.4.x Release **/
+/** Last Modified: 2025-May-10 **/
 /**----------------------------**/
 
 // Separate variables for shared and AJAX settings //
@@ -70,6 +69,7 @@ var defaultFWUpdateZIPdirPath = '/home/root';
 var isEMailConfigEnabledInAMTM = false;
 var scriptAutoUpdateCronSchedHR = 'TBD';
 var fwAutoUpdateCheckCronSchedHR = 'TBD';
+var isScriptUpdateAvailable = false;
 
 const validationErrorMsg = 'Validation failed. Please correct invalid value and try again.';
 
@@ -988,6 +988,7 @@ function GetExternalCheckResults()
             if (externalCheckOK)
             {
                fwUpdateDirPath.ResetExtCheckVars();
+               showScriptUpdateBanner();  
                return true;
             }
             let fwUpdateZIPdirectory = document.getElementById('fwUpdateZIPDirectory');
@@ -2032,6 +2033,25 @@ function UpdateScriptVersion()
     $('#footerTitle').text ('MerlinAU v' + localVers + ' by ExtremeFiretop & Martinski W.');
 }
 
+function showScriptUpdateBanner () {
+  const localVers = GetScriptVersion('local');
+  if (typeof isScriptUpdateAvailable === 'undefined') return;
+
+  if (isScriptUpdateAvailable && isScriptUpdateAvailable !== localVers) {
+    const host = document.getElementById('ScriptUpdateNotice');
+    if (!host) return;
+
+    host.innerHTML =
+      InvREDct +
+      'Script&nbsp;Update&nbsp;Available&nbsp;&rarr;&nbsp;v' +
+      isScriptUpdateAvailable +
+      InvCLEAR;
+
+    host.style.cssText =
+      'float:right;margin-left:auto;font-weight:bold;white-space:nowrap;';
+  }
+}
+
 /**----------------------------------------**/
 /** Modified by Martinski W. [2025-Jan-20] **/
 /**----------------------------------------**/
@@ -2271,8 +2291,8 @@ function UpdateMerlinAUScript ()
 
     let ok = confirm(
           forceUpdateBox.checked
-        ? "FORCED UPDATE: install immediately—even if current.\n\nContinue?"
-        : "Install only if a newer version exists.\n\nContinue?");
+        ? "INSTALL UPDATE: install immediately—even if current.\n\nContinue?"
+        : "Prompt if a newer version exists. (Does NOT install!) \n\nContinue?");
     if (!ok) return false;                //  <-- blocks submission
 
     document.form.action_script.value = actionScriptName;
@@ -2280,7 +2300,7 @@ function UpdateMerlinAUScript ()
     showLoading();
     document.form.submit();
 
-    return false;   // prevent the button’s own default submit (avoids double‑post)
+    return false;
 }
 
 /**----------------------------------------**/
@@ -2532,6 +2552,7 @@ function initializeCollapsibleSections()
       href="https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki"
       title="Go to MerlinAU Wiki page" target="_blank">Wiki</a> ]
 </span>
+<span id="ScriptUpdateNotice"></span>
 </div>
 <div style="line-height:10px;">&nbsp;</div>
 
@@ -2669,7 +2690,7 @@ function initializeCollapsibleSections()
     <input type="submit"
            id="ScriptUpdateButton"
            onclick="return UpdateMerlinAUScript();"
-           value="Update Script"
+           value="Script Update Check"
            class="button_gen savebutton"
            title="Check for latest MerlinAU script updates"
            name="button">
@@ -2680,7 +2701,7 @@ function initializeCollapsibleSections()
                name="ForceScriptUpdateCheck"
                style="padding:0; vertical-align:middle; position:relative;
                       margin-left:-5px; margin-top:5px; margin-bottom:8px"/>
-        Force script update
+        Install script update
     </label>
     </br>
 </td>
