@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-05
+# Last Modified: 2025-May-10
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.3
+readonly SCRIPT_VERSION=1.4.5
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -10950,9 +10950,9 @@ then
    _DoExit_ 0
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-10] ##
+##------------------------------------------##
 if [ $# -gt 0 ]
 then
    if ! _AcquireLock_ cliOptsLock
