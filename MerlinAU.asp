@@ -69,7 +69,7 @@ var defaultFWUpdateZIPdirPath = '/home/root';
 var isEMailConfigEnabledInAMTM = false;
 var scriptAutoUpdateCronSchedHR = 'TBD';
 var fwAutoUpdateCheckCronSchedHR = 'TBD';
-var isScriptUpdateAvailable = false;
+var isScriptUpdateAvailable = 'TBD';
 
 const validationErrorMsg = 'Validation failed. Please correct invalid value and try again.';
 
@@ -1570,6 +1570,7 @@ function InitializeFields()
     // fallback to 'DISABLED' if custom_settings.FW_Update_Check is missing //
 
     $('#KeepConfigFile').prop('checked',false);
+    $('#ForceScriptUpdateCheck').prop('checked',false);
     $('#BypassPostponedDays').prop('checked',false);
     $('#RunLoginTestOnSave').prop('checked',false);
 
@@ -2284,23 +2285,20 @@ function UpdateMerlinAUScript ()
 {
     console.log("Initiating MerlinAU script update…");
 
-    let forceUpdateBox   = document.getElementById('ForceScriptUpdateCheck');
-    let actionScriptName = forceUpdateBox.checked
-                           ? 'start_MerlinAUforceupdate'
-                           : 'start_MerlinAUscript_update';
+    if (!confirm("Are you sure you want to check for MerlinAU script updates?"))
+    { return; }
 
-    let ok = confirm(
-          forceUpdateBox.checked
-        ? "INSTALL UPDATE: install immediately—even if current.\n\nContinue?"
-        : "Prompt if a newer version exists. (Does NOT install!) \n\nContinue?");
-    if (!ok) return false;                //  <-- blocks submission
+    let actionScriptValue;
+    let ForceScriptUpdateCheck = document.getElementById('ForceScriptUpdateCheck');
+    if (!ForceScriptUpdateCheck.checked)
+    { actionScriptValue = 'start_MerlinAUupdate'; }
+    else
+    { actionScriptValue = 'start_MerlinAUupdate_forceupdate'; }
 
-    document.form.action_script.value = actionScriptName;
-    document.form.action_wait.value  = 10;
+    document.form.action_script.value = actionScriptValue;
+    document.form.action_wait.value = 10;
     showLoading();
     document.form.submit();
-
-    return false;
 }
 
 /**----------------------------------------**/
@@ -2689,7 +2687,7 @@ function initializeCollapsibleSections()
 <td style="text-align: center; border: none;" id="scriptUpdateCell">
     <input type="submit"
            id="ScriptUpdateButton"
-           onclick="return UpdateMerlinAUScript();"
+           onclick="UpdateMerlinAUScript(); return false;"
            value="Script Update Check"
            class="button_gen savebutton"
            title="Check for latest MerlinAU script updates"
