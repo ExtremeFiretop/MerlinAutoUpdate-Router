@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-May-10 **/
+/** Last Modified: 2025-May-11 **/
 /**----------------------------**/
 
 // Separate variables for shared and AJAX settings //
@@ -988,7 +988,7 @@ function GetExternalCheckResults()
             if (externalCheckOK)
             {
                fwUpdateDirPath.ResetExtCheckVars();
-               showScriptUpdateBanner();  
+               ShowScriptUpdateBanner();
                return true;
             }
             let fwUpdateZIPdirectory = document.getElementById('fwUpdateZIPDirectory');
@@ -2034,26 +2034,34 @@ function UpdateScriptVersion()
     $('#footerTitle').text ('MerlinAU v' + localVers + ' by ExtremeFiretop & Martinski W.');
 }
 
-/**---------------------------------------**/
-/** Added by ExtremeFiretop [2025-May-10] **/
-/**---------------------------------------**/
-function showScriptUpdateBanner () {
-  const localVers = GetScriptVersion('local');
-  if (typeof isScriptUpdateAvailable === 'undefined') return;
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-May-11] **/
+/**----------------------------------------**/
+function ShowScriptUpdateBanner()
+{
+   const localVers = GetScriptVersion('local');
+   const updateNotice = document.getElementById('ScriptUpdateNotice');
 
-  if (isScriptUpdateAvailable && isScriptUpdateAvailable !== localVers) {
-    const host = document.getElementById('ScriptUpdateNotice');
-    if (!host) return;
+   if (updateNotice === null ||
+       typeof updateNotice === 'undefined' ||
+       typeof isScriptUpdateAvailable === 'undefined')
+   { return; }
 
-    host.innerHTML =
-      InvREDct +
-      'Script&nbsp;Update&nbsp;Available&nbsp;&rarr;&nbsp;v' +
-      isScriptUpdateAvailable +
-      InvCLEAR;
+   if (isScriptUpdateAvailable !== 'TBD' &&
+       isScriptUpdateAvailable !== localVers)
+   {
+       updateNotice.innerHTML =
+          InvREDct +
+          'Script Update Available &rarr; v' + isScriptUpdateAvailable +
+          InvCLEAR;
 
-    host.style.cssText =
-      'float:right;margin-left:auto;font-weight:bold;white-space:nowrap;';
-  }
+       updateNotice.style.cssText =
+          'float:right;margin-left:auto;font-weight:bold;white-space:nowrap;';
+
+       showhide('ScriptUpdateNotice',true);
+   }
+   else
+   { showhide('ScriptUpdateNotice',false); }
 }
 
 /**----------------------------------------**/
@@ -2284,25 +2292,26 @@ function Uninstall()
    document.form.submit();
 }
 
-/**---------------------------------------**/
-/** Added by ExtremeFiretop [2025-May-10] **/
-/**---------------------------------------**/
-function UpdateMerlinAUScript ()
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-May-11] **/
+/**----------------------------------------**/
+function UpdateMerlinAUScript()
 {
     console.log("Initiating MerlinAU script update…");
 
     let actionScriptValue;
-    let ForceScriptUpdateCheck = document.getElementById('ForceScriptUpdateCheck');
-    let ok = confirm(
-          ForceScriptUpdateCheck.checked
-        ? "INSTALL UPDATE: Install MerlinAU script update immediately. Even if current.\n\nContinue?"
-        : "VERIFY AND PROMPT: Check for a newer version of MerlinAU and prompt if found. Does NOT install! \n\nContinue?");
-    if (!ok) return;
+    let forceScriptUpdateCheck = document.getElementById('ForceScriptUpdateCheck');
 
-    if (!ForceScriptUpdateCheck.checked)
-    { actionScriptValue = 'start_MerlinAUupdate'; }
+    let confirmOK = confirm(
+        forceScriptUpdateCheck.checked
+        ? "INSTALL UPDATE:\nInstall the latest available MerlinAU script update now, even if version is current.\n\nContinue?"
+        : "CHECK AND PROMPT:\nCheck for a newer version of MerlinAU and prompt if found. It does NOT install update automatically!\n\nContinue?");
+    if (!confirmOK) { return; }
+
+    if (!forceScriptUpdateCheck.checked)
+    { actionScriptValue = 'start_MerlinAUscrptupdate'; }
     else
-    { actionScriptValue = 'start_MerlinAUupdate_forceupdate'; }        
+    { actionScriptValue = 'start_MerlinAUscrptupdate_force'; }
 
     document.form.action_script.value = actionScriptValue;
     document.form.action_wait.value = 10;
@@ -2311,7 +2320,7 @@ function UpdateMerlinAUScript ()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-22] **/
+/** Modified by Martinski W. [2025-May-11] **/
 /**----------------------------------------**/
 function CheckFirmwareUpdate()
 {
@@ -2321,13 +2330,13 @@ function CheckFirmwareUpdate()
    let bypassPostponedDays = document.getElementById('BypassPostponedDays');
    if (!bypassPostponedDays.checked)
    {
-       actionScriptValue = 'start_MerlinAUcheckupdate';
+       actionScriptValue = 'start_MerlinAUcheckfwupdate';
        if (!confirm("NOTE:\nIf you have no postponement days set or remaining, the firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
        { return; }
    }
    else
    {
-       actionScriptValue = 'start_MerlinAUcheckupdate_bypassDays';
+       actionScriptValue = 'start_MerlinAUcheckfwupdate_bypassDays';
        if (!confirm("NOTE:\nThe firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
        { return; }
    }
@@ -2703,13 +2712,9 @@ function initializeCollapsibleSections()
            name="button">
     <br>
     <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8px">
-        <input type="checkbox"
-               id="ForceScriptUpdateCheck"
-               name="ForceScriptUpdateCheck"
+        <input type="checkbox" id="ForceScriptUpdateCheck" name="ForceScriptUpdateCheck"
                style="padding:0; vertical-align:middle; position:relative;
-                      margin-left:-5px; margin-top:5px; margin-bottom:8px"/>
-        Install script update
-    </label>
+                      margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Install script update</label>
     </br>
 </td>
 <td style="text-align: left; border: none;">
