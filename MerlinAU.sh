@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-10
+# Last Modified: 2025-May-11
 ###################################################################
 set -u
 
@@ -3007,6 +3007,7 @@ ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
        fi
    else
        scriptUpdateNotify=0
+       _WriteVarDefToHelperJSFile_ "isScriptUpdateAvailable" "TBD"
    fi
    return 0
 }
@@ -10951,9 +10952,9 @@ then
    _DoExit_ 0
 fi
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-May-10] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-May-11] ##
+##----------------------------------------##
 if [ $# -gt 0 ]
 then
    if ! _AcquireLock_ cliOptsLock
@@ -11050,11 +11051,11 @@ then
                            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
                        fi
                        ;;
-                   "${SCRIPT_NAME}checkupdate" | \
-                   "${SCRIPT_NAME}checkupdate_bypassDays")
+                   "${SCRIPT_NAME}checkfwupdate" | \
+                   "${SCRIPT_NAME}checkfwupdate_bypassDays")
                        if _AcquireLock_ cliFileLock
                        then
-                           if [ "$3" = "${SCRIPT_NAME}checkupdate_bypassDays" ]
+                           if [ "$3" = "${SCRIPT_NAME}checkfwupdate_bypassDays" ]
                            then bypassPostponedDays=true
                            else bypassPostponedDays=false
                            fi
@@ -11062,11 +11063,11 @@ then
                            _ReleaseLock_ cliFileLock
                        fi
                        ;;
-                   "${SCRIPT_NAME}update" | \
-                   "${SCRIPT_NAME}update_forceupdate")
+                   "${SCRIPT_NAME}scrptupdate" | \
+                   "${SCRIPT_NAME}scrptupdate_force")
                        if _AcquireLock_ cliFileLock
                        then
-                           if [ "$3" = "${SCRIPT_NAME}update_forceupdate" ]
+                           if [ "$3" = "${SCRIPT_NAME}scrptupdate_force" ]
                            then _SCRIPT_UPDATE_ force
                            else _CheckForNewScriptUpdates_
                            fi
