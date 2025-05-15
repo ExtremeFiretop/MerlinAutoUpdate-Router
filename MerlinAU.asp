@@ -29,8 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Apr-09 **/
-/** Intended for 1.4.x Release **/
+/** Last Modified: 2025-May-11 **/
 /**----------------------------**/
 
 // Separate variables for shared and AJAX settings //
@@ -70,6 +69,7 @@ var defaultFWUpdateZIPdirPath = '/home/root';
 var isEMailConfigEnabledInAMTM = false;
 var scriptAutoUpdateCronSchedHR = 'TBD';
 var fwAutoUpdateCheckCronSchedHR = 'TBD';
+var isScriptUpdateAvailable = 'TBD';
 
 const validationErrorMsg = 'Validation failed. Please correct invalid value and try again.';
 
@@ -988,6 +988,7 @@ function GetExternalCheckResults()
             if (externalCheckOK)
             {
                fwUpdateDirPath.ResetExtCheckVars();
+               ShowScriptUpdateBanner();
                return true;
             }
             let fwUpdateZIPdirectory = document.getElementById('fwUpdateZIPDirectory');
@@ -1569,6 +1570,7 @@ function InitializeFields()
     // fallback to 'DISABLED' if custom_settings.FW_Update_Check is missing //
 
     $('#KeepConfigFile').prop('checked',false);
+    $('#ForceScriptUpdateCheck').prop('checked',false);
     $('#BypassPostponedDays').prop('checked',false);
     $('#RunLoginTestOnSave').prop('checked',false);
 
@@ -2033,6 +2035,36 @@ function UpdateScriptVersion()
 }
 
 /**----------------------------------------**/
+/** Modified by Martinski W. [2025-May-11] **/
+/**----------------------------------------**/
+function ShowScriptUpdateBanner()
+{
+   const localVers = GetScriptVersion('local');
+   const updateNotice = document.getElementById('ScriptUpdateNotice');
+
+   if (updateNotice === null ||
+       typeof updateNotice === 'undefined' ||
+       typeof isScriptUpdateAvailable === 'undefined')
+   { return; }
+
+   if (isScriptUpdateAvailable !== 'TBD' &&
+       isScriptUpdateAvailable !== localVers)
+   {
+       updateNotice.innerHTML =
+          InvREDct +
+          'Script Update Available &rarr; v' + isScriptUpdateAvailable +
+          InvCLEAR;
+
+       updateNotice.style.cssText =
+          'float:right;margin-left:auto;font-weight:bold;white-space:nowrap;';
+
+       showhide('ScriptUpdateNotice',true);
+   }
+   else
+   { showhide('ScriptUpdateNotice',false); }
+}
+
+/**----------------------------------------**/
 /** Modified by Martinski W. [2025-Jan-20] **/
 /**----------------------------------------**/
 function initial()
@@ -2261,7 +2293,34 @@ function Uninstall()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-22] **/
+/** Modified by Martinski W. [2025-May-11] **/
+/**----------------------------------------**/
+function UpdateMerlinAUScript()
+{
+    console.log("Initiating MerlinAU script update…");
+
+    let actionScriptValue;
+    let forceScriptUpdateCheck = document.getElementById('ForceScriptUpdateCheck');
+
+    let confirmOK = confirm(
+        forceScriptUpdateCheck.checked
+        ? "INSTALL UPDATE:\nInstall the latest available MerlinAU script update now, even if version is current.\n\nContinue?"
+        : "CHECK AND PROMPT:\nCheck for a newer version of MerlinAU and prompt if found. It does NOT install update automatically!\n\nContinue?");
+    if (!confirmOK) { return; }
+
+    if (!forceScriptUpdateCheck.checked)
+    { actionScriptValue = 'start_MerlinAUscrptupdate'; }
+    else
+    { actionScriptValue = 'start_MerlinAUscrptupdate_force'; }
+
+    document.form.action_script.value = actionScriptValue;
+    document.form.action_wait.value = 10;
+    showLoading();
+    document.form.submit();
+}
+
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-May-11] **/
 /**----------------------------------------**/
 function CheckFirmwareUpdate()
 {
@@ -2271,13 +2330,13 @@ function CheckFirmwareUpdate()
    let bypassPostponedDays = document.getElementById('BypassPostponedDays');
    if (!bypassPostponedDays.checked)
    {
-       actionScriptValue = 'start_MerlinAUcheckupdate';
+       actionScriptValue = 'start_MerlinAUcheckfwupdate';
        if (!confirm("NOTE:\nIf you have no postponement days set or remaining, the firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
        { return; }
    }
    else
    {
-       actionScriptValue = 'start_MerlinAUcheckupdate_bypassDays';
+       actionScriptValue = 'start_MerlinAUcheckfwupdate_bypassDays';
        if (!confirm("NOTE:\nThe firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
        { return; }
    }
@@ -2509,6 +2568,7 @@ function initializeCollapsibleSections()
       href="https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki"
       title="Go to MerlinAU Wiki page" target="_blank">Wiki</a> ]
 </span>
+<span id="ScriptUpdateNotice"></span>
 </div>
 <div style="line-height:10px;">&nbsp;</div>
 
@@ -2618,9 +2678,10 @@ function initializeCollapsibleSections()
 <div style="text-align: center; margin-top: 3px;">
 <table width="100%" border="0" cellpadding="10" cellspacing="0" style="table-layout: fixed; border-collapse: collapse; background-color: transparent;">
 <colgroup>
-   <col style="width: 33%;" />
-   <col style="width: 33%;" />
-   <col style="width: 33%;" />
+   <col style="width: 25%;" />
+   <col style="width: 25%;" />
+   <col style="width: 25%;" />
+   <col style="width: 25%;" />
 </colgroup>
 <tr>
 <td style="text-align: right; border: none;">
@@ -2638,8 +2699,23 @@ function initializeCollapsibleSections()
    <br>
    <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
    <input type="checkbox" id="approveChangelogCheck" name="approveChangelogCheck" onclick="ToggleChangelogApproval(this);"
-   style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Approve Changelog</label>
+   style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Approve changelog</label>
    </br>
+</td>
+<td style="text-align: center; border: none;" id="scriptUpdateCell">
+    <input type="submit"
+           id="ScriptUpdateButton"
+           onclick="UpdateMerlinAUScript(); return false;"
+           value="Script Update Check"
+           class="button_gen savebutton"
+           title="Check for latest MerlinAU script updates"
+           name="button">
+    <br>
+    <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8px">
+        <input type="checkbox" id="ForceScriptUpdateCheck" name="ForceScriptUpdateCheck"
+               style="padding:0; vertical-align:middle; position:relative;
+                      margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Install script update</label>
+    </br>
 </td>
 <td style="text-align: left; border: none;">
    <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;"

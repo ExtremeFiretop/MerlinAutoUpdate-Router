@@ -4,15 +4,15 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-05
+# Last Modified: 2025-May-11
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.4
+readonly SCRIPT_VERSION=1.4.5
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -2947,7 +2947,7 @@ _SCRIPT_UPDATE_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-14] ##
+## Modified by ExtremeFiretop [2025-May-10] ##
 ##------------------------------------------##
 _CheckForNewScriptUpdates_()
 {
@@ -2996,6 +2996,7 @@ _CheckForNewScriptUpdates_()
    then
        scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
+       _WriteVarDefToHelperJSFile_ "isScriptUpdateAvailable" "$DLRepoVersion"
        if [ $# -gt 0 ] && [ "$1" = "-quietcheck" ]
        then return 0
        fi
@@ -3006,6 +3007,7 @@ ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
        fi
    else
        scriptUpdateNotify=0
+       _WriteVarDefToHelperJSFile_ "isScriptUpdateAvailable" "TBD"
    fi
    return 0
 }
@@ -10951,7 +10953,7 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
+## Modified by Martinski W. [2025-May-11] ##
 ##----------------------------------------##
 if [ $# -gt 0 ]
 then
@@ -11049,15 +11051,26 @@ then
                            Update_Custom_Settings "FW_New_Update_Changelog_Approval" "APPROVED"
                        fi
                        ;;
-                   "${SCRIPT_NAME}checkupdate" | \
-                   "${SCRIPT_NAME}checkupdate_bypassDays")
+                   "${SCRIPT_NAME}checkfwupdate" | \
+                   "${SCRIPT_NAME}checkfwupdate_bypassDays")
                        if _AcquireLock_ cliFileLock
                        then
-                           if [ "$3" = "${SCRIPT_NAME}checkupdate_bypassDays" ]
+                           if [ "$3" = "${SCRIPT_NAME}checkfwupdate_bypassDays" ]
                            then bypassPostponedDays=true
                            else bypassPostponedDays=false
                            fi
                            _RunFirmwareUpdateNow_
+                           _ReleaseLock_ cliFileLock
+                       fi
+                       ;;
+                   "${SCRIPT_NAME}scrptupdate" | \
+                   "${SCRIPT_NAME}scrptupdate_force")
+                       if _AcquireLock_ cliFileLock
+                       then
+                           if [ "$3" = "${SCRIPT_NAME}scrptupdate_force" ]
+                           then _SCRIPT_UPDATE_ force
+                           else _CheckForNewScriptUpdates_
+                           fi
                            _ReleaseLock_ cliFileLock
                        fi
                        ;;
