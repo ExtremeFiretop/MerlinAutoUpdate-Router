@@ -8701,7 +8701,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         if ! _CheckTimeToUpdateFirmware_ "$current_version" "$release_version"
         then
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-            return 0
+            return 1
         fi
     fi
 
