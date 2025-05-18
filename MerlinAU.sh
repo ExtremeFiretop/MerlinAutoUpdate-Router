@@ -7419,7 +7419,7 @@ _ChangelogVerificationCheck_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-11] ##
+## Modified by ExtremeFiretop [2025-May-18] ##
 ##------------------------------------------##
 _ManageChangelogMerlin_()
 {
@@ -7462,6 +7462,12 @@ _ManageChangelogMerlin_()
             changeLogTag="NG"
             MerlinChangeLogURL="${CL_URL_NG}"
         fi 
+    fi
+
+    # force 3006 changelog if tag is NG but $2 says 3006
+    if [ "$changeLogTag" = "NG" ] && [ $# -gt 1 ] && echo "$2" | grep -qE '^3006[.]' ; then
+        changeLogTag="3006"
+        MerlinChangeLogURL="${CL_URL_3006}"
     fi
 
     wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
