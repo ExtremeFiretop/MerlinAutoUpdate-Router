@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-17
+# Last Modified: 2025-May-18
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.6
+readonly SCRIPT_VERSION=1.4.7
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -7419,7 +7419,7 @@ _ChangelogVerificationCheck_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-11] ##
+## Modified by ExtremeFiretop [2025-May-18] ##
 ##------------------------------------------##
 _ManageChangelogMerlin_()
 {
@@ -7462,6 +7462,12 @@ _ManageChangelogMerlin_()
             changeLogTag="NG"
             MerlinChangeLogURL="${CL_URL_NG}"
         fi 
+    fi
+
+    # force 3006 changelog if tag is NG but $2 says 3006
+    if [ "$changeLogTag" = "NG" ] && [ $# -gt 1 ] && echo "$2" | grep -qE '^3006[.]' ; then
+        changeLogTag="3006"
+        MerlinChangeLogURL="${CL_URL_3006}"
     fi
 
     wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
