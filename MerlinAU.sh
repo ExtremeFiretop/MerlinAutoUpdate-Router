@@ -4423,6 +4423,7 @@ _GetLoginCredentials_()
     then
         _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         _UpdateLoginPswdCheckHelper_ NoACCESS
+        return 1
     fi
 
     # Get the Username from NVRAM #
