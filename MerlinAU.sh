@@ -4316,42 +4316,22 @@ _GetPasswordInput_()
    return
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Aug-18] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-19] ##
+##------------------------------------------##
 _CIDR_IPaddrBlockContainsIPaddr_()
 {
-   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
-   then return 1 ; fi
-
-   local lastNETIPaddr4thOctet  cidrIPRangeMax=0
-
-   local thisLANIPaddr="$2"
-   local cidrNETIPaddr="${1%/*}"
-   local cidrNETIPmask="${1#*/}"
-   local NETIPaddr4thOctet="${cidrNETIPaddr##*.}"
-   local LANIPaddr4thOctet="${thisLANIPaddr##*.}"
-
-   # Assumes the host segment has a maximum of 8 bits #
-   # and the network segment has a minimum of 24 bits #
-   case "$cidrNETIPmask" in
-       31) cidrIPRangeMax=1 ;;
-       30) cidrIPRangeMax=3 ;;
-       29) cidrIPRangeMax=7 ;;
-       28) cidrIPRangeMax=15 ;;
-       27) cidrIPRangeMax=31 ;;
-       26) cidrIPRangeMax=63 ;;
-       25) cidrIPRangeMax=127 ;;
-       24) cidrIPRangeMax=255 ;;
-   esac
-   lastNETIPaddr4thOctet="$((NETIPaddr4thOctet + cidrIPRangeMax))"
-   [ "$lastNETIPaddr4thOctet" -gt 255 ] && lastNETIPaddr4thOctet=255
-
-   if [ "$LANIPaddr4thOctet" -ge "$NETIPaddr4thOctet" ] && \
-      [ "$LANIPaddr4thOctet" -le "$lastNETIPaddr4thOctet" ]
-   then return 0
-   else return 1
+   if [ $# -ne 2 ] || [ -z "$1" ] || [ -z "$2" ]; then
+       return 1
    fi
+
+   awk -v cidr="$1" -v ip="$2" '
+      function ip2int(s, a){split(s,a,".");return a[1]*16777216+a[2]*65536+a[3]*256+a[4]}
+      BEGIN{
+         split(cidr,c,"/"); net=c[1]; bits=c[2]+0
+         mask = bits==0 ? 0 : and(0xffffffff, lshift(0xffffffff,32-bits))
+         exit and(ip2int(ip),mask)==and(ip2int(net),mask) ? 0 : 1
+      }'
 }
 
 ##------------------------------------------##
@@ -4380,11 +4360,13 @@ _CheckWebGUILoginAccessOK_()
    netwkIPv4AddrRegEx="$(echo "$netwkIPv4AddrX" | sed 's/\./\\./g')"
    mainLANIPaddrRegEx="$(echo "$mainLAN_IPaddr" | sed 's/\./\\./g')"
 
-   # Router IP address MUST have access to WebGUI #
+   local idxField='[<>][0-9]+[<>]'   # <1> or >12<
+   local tailFlag='[<>][13]'         # >1 or >3  (ALL / WebUI)
    cidrIPaddrRegEx="${netwkIPv4AddrRegEx}/([0-9]|[1-2][0-9]|3[0-2])"
-   lanIPaddrRegEx1=">${mainLANIPaddrRegEx}>[13]"
-   lanIPaddrRegEx2=">${mainLANIPaddrRegEx}/([0-9]|[1-2][0-9]|3[0-2])>[13]"
-   lanIPaddrRegEx3=">${cidrIPaddrRegEx}>[13]"
+
+   lanIPaddrRegEx1="${idxField}${mainLANIPaddrRegEx}${tailFlag}"
+   lanIPaddrRegEx2="${idxField}${mainLANIPaddrRegEx}/([0-9]|[1-2][0-9]|3[0-2])${tailFlag}"
+   lanIPaddrRegEx3="${idxField}${cidrIPaddrRegEx}${tailFlag}"
 
    if echo "$restrictRuleList" | grep -qE "$lanIPaddrRegEx1|$lanIPaddrRegEx2"
    then return 0 ; fi
