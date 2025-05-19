@@ -4381,9 +4381,9 @@ _CheckWebGUILoginAccessOK_()
    mainLANIPaddrRegEx="$(echo "$mainLAN_IPaddr" | sed 's/\./\\./g')"
 
    # Router IP address MUST have access to WebGUI #
-   cidrIPaddrRegEx="${netwkIPv4AddrRegEx}/(2[4-9]|3[0-1])"
+   cidrIPaddrRegEx="${netwkIPv4AddrRegEx}/([0-9]|[1-2][0-9]|3[0-2])"
    lanIPaddrRegEx1=">${mainLANIPaddrRegEx}>[13]"
-   lanIPaddrRegEx2=">${mainLANIPaddrRegEx}/(2[4-9]|3[0-2])>[13]"
+   lanIPaddrRegEx2=">${mainLANIPaddrRegEx}/([0-9]|[1-2][0-9]|3[0-2])>[13]"
    lanIPaddrRegEx3=">${cidrIPaddrRegEx}>[13]"
 
    if echo "$restrictRuleList" | grep -qE "$lanIPaddrRegEx1|$lanIPaddrRegEx2"
