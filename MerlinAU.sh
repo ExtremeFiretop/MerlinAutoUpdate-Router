@@ -7304,7 +7304,7 @@ _high_risk_phrases_nointeractive_()
 }
 
 ##-------------------------------------==---##
-## Modified by ExtremeFiretop [2024-Nov-24] ##
+## Modified by ExtremeFiretop [2024-May-18] ##
 ##-------------------------------------==---##
 _ChangelogVerificationCheck_()
 {
@@ -7336,6 +7336,11 @@ _ChangelogVerificationCheck_()
             fi
             changeLogFName="Changelog-${changeLogTag}.txt"
             changeLogFPath="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "$changeLogFName" -print)"
+
+            # force 3006 changelog if tag is NG but $release_version says 3006
+            if [ "$changeLogTag" = "NG" ] && echo "$release_version" | grep -qE '^3006[.]' ; then
+                changeLogTag="3006"
+            fi
         fi
 
         if [ ! -f "$changeLogFPath" ]
