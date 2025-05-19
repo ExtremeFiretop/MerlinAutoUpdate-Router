@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-18
+# Last Modified: 2025-May-19
 ###################################################################
 set -u
 
@@ -4354,9 +4354,9 @@ _CIDR_IPaddrBlockContainsIPaddr_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-19] ##
+##------------------------------------------##
 _CheckWebGUILoginAccessOK_()
 {
    local accessRestriction  restrictRuleList
