@@ -7453,7 +7453,7 @@ _ManageChangelogMerlin_()
     fi
 
     # force 3006 changelog if tag is NG but $2 says 3006
-    if [ "$changeLogTag" = "NG" ] && echo "$newUpdateVerStr" | grep -qE "^3006[.]"
+    if [ "$changeLogTag" = "NG" ] && echo "$2" | grep -qE "^3006[.]"
     then
         changeLogTag="3006"
         MerlinChangeLogURL="${CL_URL_3006}"
