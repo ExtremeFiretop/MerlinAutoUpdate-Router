@@ -4362,7 +4362,7 @@ _CheckWebGUILoginAccessOK_()
 
    local idxField='[<>][0-9]+[<>]'   # <1> or >12<
    local tailFlag='[<>][13]'         # >1 or >3  (ALL / WebUI)
-   cidrIPaddrRegEx="${netwkIPv4AddrRegEx}/([0-9]|[1-2][0-9]|3[0-2])"
+   cidrIPaddrRegEx="${IPv4addrs_RegEx}/([0-9]|[1-2][0-9]|3[0-2])"
 
    lanIPaddrRegEx1="${idxField}${mainLANIPaddrRegEx}${tailFlag}"
    lanIPaddrRegEx2="${idxField}${mainLANIPaddrRegEx}/([0-9]|[1-2][0-9]|3[0-2])${tailFlag}"
