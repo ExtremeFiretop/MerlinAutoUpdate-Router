@@ -7320,7 +7320,8 @@ _ChangelogVerificationCheck_()
             changeLogFPath="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "$changeLogFName" -print)"
 
             # force 3006 changelog if tag is NG but $release_version says 3006
-            if [ "$changeLogTag" = "NG" ] && echo "$release_version" | grep -qE '^3006[.]' ; then
+            if [ "$changeLogTag" = "NG" ] && echo "$release_version" | grep -qE "^3006[.]"
+            then
                 changeLogTag="3006"
             fi
         fi
@@ -7452,7 +7453,8 @@ _ManageChangelogMerlin_()
     fi
 
     # force 3006 changelog if tag is NG but $2 says 3006
-    if [ "$changeLogTag" = "NG" ] && [ $# -gt 1 ] && echo "$2" | grep -qE '^3006[.]' ; then
+    if [ "$changeLogTag" = "NG" ] && echo "$newUpdateVerStr" | grep -qE "^3006[.]"
+    then
         changeLogTag="3006"
         MerlinChangeLogURL="${CL_URL_3006}"
     fi
