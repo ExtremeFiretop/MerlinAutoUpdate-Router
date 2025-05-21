@@ -7452,8 +7452,9 @@ _ManageChangelogMerlin_()
         fi 
     fi
 
+    release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
     # force 3006 changelog if tag is NG but $2 says 3006
-    if [ "$changeLogTag" = "NG" ] && echo "$2" | grep -qE "^3006[.]"
+    if [ "$changeLogTag" = "NG" ] && echo "$release_version" | grep -qE "^3006[.]"
     then
         changeLogTag="3006"
         MerlinChangeLogURL="${CL_URL_3006}"
