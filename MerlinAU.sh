@@ -2558,9 +2558,9 @@ _WebUI_SetEmailConfigFileFromAMTM_()
    _WriteVarDefToHelperJSFile_ "isEMailConfigEnabledInAMTM" "$isEMailConfigEnabledInAMTM" true
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
-##-------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-May-20] ##
+##---------------------------------------##
 _ActionsAfterNewConfigSettings_()
 {
    if [ ! -s "${CONFIG_FILE}.bak" ] || \
@@ -7840,9 +7840,9 @@ _Toggle_FW_UpdateEmailNotifications_()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-21] ##
+##------------------------------------------##
 _Toggle_FW_UpdateCheckSetting_()
 {
    local fwUpdateCheckEnabled  fwUpdateCheckNewStateStr
@@ -7866,6 +7866,7 @@ _Toggle_FW_UpdateCheckSetting_()
        FW_UpdateCheckState=0
        fwUpdateCheckNewStateStr="${REDct}DISABLED${NOct}"
        Update_Custom_Settings "FW_Update_Check" "DISABLED"
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
        _DelFWAutoUpdateHook_
        _DelFWAutoUpdateCronJob_
    else
@@ -9791,14 +9792,15 @@ _SetDefaultBuildType_()
   fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-05] ##
-##-------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-May-21] ##
+##---------------------------------------##
 _DisableFWAutoUpdateChecks_()
 {
    _DelFWAutoUpdateHook_
    _DelFWAutoUpdateCronJob_
    Update_Custom_Settings "FW_Update_Check" "DISABLED"
+   Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
 
    runfwUpdateCheck=false
    if [ "$FW_UpdateCheckState" -ne 0 ]
