@@ -7214,13 +7214,20 @@ _Toggle_ScriptAutoUpdate_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-11] ##
+## Modified by ExtremeFiretop [2025-May-21] ##
 ##------------------------------------------##
 _high_risk_phrases_interactive_()
 {
     local changelog_contents="$1"
+    local changelog_flat
 
-    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    changelog_flat="$(
+      printf '%s' "$changelog_contents" \
+        | tr '\n' ' ' \
+        | tr -s ' '
+    )"
+
+    if echo "$changelog_flat" | grep -Eiq "$high_risk_terms"
     then
         ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
 
@@ -7260,13 +7267,20 @@ _high_risk_phrases_interactive_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-26] ##
+## Modified by ExtremeFiretop [2025-May-21] ##
 ##------------------------------------------##
 _high_risk_phrases_nointeractive_()
 {
     local changelog_contents="$1"
+    local changelog_flat
 
-    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    changelog_flat="$(
+      printf '%s' "$changelog_contents" \
+        | tr '\n' ' ' \
+        | tr -s ' '
+    )"
+
+    if echo "$changelog_flat" | grep -Eiq "$high_risk_terms"
     then
         _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
         Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
@@ -7332,60 +7346,31 @@ _ChangelogVerificationCheck_()
             _DoCleanUp_
             return 1
         else
-            # Use awk to format the version based on the number of initial digits #
-            formatted_current_version=$(echo "$current_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4) {
-                        # Remove any non-digit characters from the fourth field
-                        sub(/[^0-9].*/, "", $4)
-                        if ($4 == "0") {
-                            printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                        } else {
-                            printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                        }
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
-            formatted_release_version=$(echo "$release_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4 && $4 == "0") {
-                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                    } else if (NF == 4) {
-                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
             # Define regex patterns for both versions #
-            release_version_regex="${formatted_release_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
-            current_version_regex="${formatted_current_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
+            local date_pattern='[0-9]{1,2}-[A-Za-z]+-[0-9]{4}'
 
             if "$isGNUtonFW"
             then
                 # For Gnuton, the whole file is relevant as it only contains the current version #
                 changelog_contents="$(cat "$changeLogFPath")"
             else
-                if ! grep -Eq "$current_version_regex" "$changeLogFPath"
-                then
-                    Say "Current version NOT found in changelog file. Bypassing changelog verification for this run."
-                    return 0
-                fi
-                # Extract log contents between two firmware versions from RMerlin #
-                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFPath")"
-            fi
+                # find the first two matching line numbers
+                match1=$(grep -nE "$date_pattern" "$changeLogFPath" | head -1)
+                match2=$(grep -nE "$date_pattern" "$changeLogFPath" | head -2 | tail -1)
+
+                # split on the first colon
+                line1=${match1%%:*}
+                line2=${match2%%:*}
+
+                if [ -n "$line1" ] && [ -n "$line2" ] && [ "$line1" -le "$line2" ]; then
+                    changelog_contents="$(
+                        sed -n "${line1},${line2}p" "$changeLogFPath"
+                    )"
+                else
+                    Say "Could not find two date markers in changelog. Using entire file"
+                    changelog_contents="$(cat "$changeLogFPath")"
+                fi            
+           fi
 
             if [ "$mode" = "interactive" ]
             then
