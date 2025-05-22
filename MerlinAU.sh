@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-19
+# Last Modified: 2025-May-21
 ###################################################################
 set -u
 
@@ -2559,7 +2559,7 @@ _WebUI_SetEmailConfigFileFromAMTM_()
 }
 
 ##---------------------------------------##
-## Added by ExtremeFiretop [2025-May-20] ##
+## Added by ExtremeFiretop [2025-May-21] ##
 ##---------------------------------------##
 _ActionsAfterNewConfigSettings_()
 {
@@ -2584,7 +2584,7 @@ _ActionsAfterNewConfigSettings_()
    fi
    if _ConfigOptionChanged_ "FW_New_Update_Postponement_Days="
    then
-       _Calculate_NextRunTime_
+       _Calculate_NextRunTime_ recal
    fi
    if _ConfigOptionChanged_ "Allow_Script_Auto_Update"
    then
@@ -5945,12 +5945,17 @@ _Calculate_DST_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-10] ##
+## Modified by ExtremeFiretop [2025-May-21] ##
 ##------------------------------------------##
 _Calculate_NextRunTime_()
 {
+    local force_recalc=false
     local fwNewUpdateVersion  fwNewUpdateNotificationDate
     local upfwDateTimeSecs  nextCronTimeSecs
+
+    if [ "$1" = "recal" ]
+    then force_recalc=true
+    fi
 
     # Check for available firmware update
     if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"; then
@@ -5966,7 +5971,7 @@ _Calculate_NextRunTime_()
     elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]
     then
         ExpectedFWUpdateRuntime="${REDct}NONE FOUND${NOct}"
-    elif [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
+    elif [ "$force_recalc" = "true" ] || [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
     then
         # If conditions are met (cron job enabled and update available), calculate the next runtime
         fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
@@ -6196,7 +6201,7 @@ _Set_FW_UpdatePostponementDays_()
    then
        Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
        echo "The number of days to postpone F/W Update was updated successfully."
-       _Calculate_NextRunTime_
+       _Calculate_NextRunTime_ recal
        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
    fi
    return 0
@@ -6668,7 +6673,7 @@ _Set_FW_UpdateCronScheduleCustom_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-            _Calculate_NextRunTime_
+            _Calculate_NextRunTime_ recal
         else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -7073,7 +7078,7 @@ _Set_FW_UpdateCronScheduleGuided_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             cronSchedStrHR="$(_TranslateCronSchedHR_ "$nextCronSched")"
             printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
-            _Calculate_NextRunTime_
+            _Calculate_NextRunTime_ recal
        else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -9811,9 +9816,9 @@ _DisableFWAutoUpdateChecks_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-05] ##
-##-------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-May-21] ##
+##---------------------------------------##
 _EnableFWAutoUpdateChecks_()
 {
    _AddFWAutoUpdateHook_
@@ -9826,6 +9831,7 @@ _EnableFWAutoUpdateChecks_()
       nvram set firmware_check_enable="$FW_UpdateCheckState"
       nvram commit
    fi
+   _Calculate_NextRunTime_
 }
 
 ##----------------------------------------##
