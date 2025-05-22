@@ -5953,8 +5953,9 @@ _Calculate_NextRunTime_()
     local fwNewUpdateVersion  fwNewUpdateNotificationDate
     local upfwDateTimeSecs  nextCronTimeSecs
 
-    if [ "$1" = "recal" ]
-    then force_recalc=true
+    if [ $# -eq 1 ] && [ "$1" = "recal" ]
+    then
+        force_recalc=true
     fi
 
     # Check for available firmware update
