@@ -9709,12 +9709,12 @@ _ProcessMeshNodes_()
     if [ $# -eq 0 ] || [ -z "$1" ]
     then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-    uid=1
-    if ! node_list="$(_GetNodeIPv4List_)"
-    then node_list="" ; fi
-
     if "$aiMeshNodes_OK"
     then
+        uid=1
+        if ! node_list="$(_GetNodeIPv4List_)"
+        then node_list="" ; fi
+
         if [ -n "$node_list" ]
         then
             # Iterate over the list of nodes and print information for each node
