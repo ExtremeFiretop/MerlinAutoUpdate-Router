@@ -1062,9 +1062,9 @@ function GetExternalCheckResults()
     });
 }
 
-/**----------------------------------------**/
-/** Modified by Martinski W. [2025-Mar-07] **/
-/**----------------------------------------**/
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-May-22] **/
+/**------------------------------------------**/
 // To support 'routerPassword' element //
 const loginPassword =
 {
@@ -1128,9 +1128,9 @@ const loginPassword =
    }
 };
 
-/**----------------------------------------**/
-/** Modified by Martinski W. [2025-Mar-07] **/
-/**----------------------------------------**/
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-May-22] **/
+/**------------------------------------------**/
 function ValidatePasswordString (formField, eventID)
 {
    // clear old server invalid flag as soon as they type
@@ -1469,9 +1469,9 @@ function ShowHintMsg (formField)
    }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Mar-07] **/
-/**-------------------------------------**/
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-May-22] **/
+/**------------------------------------------**/
 function GetLoginPswdCheckStatus()
 {
     $.ajax({
