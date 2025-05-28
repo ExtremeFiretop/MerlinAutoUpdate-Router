@@ -3665,12 +3665,12 @@ _GetRequiredRAM_KB_()
     echo "$total_required_kb"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Mar-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-28] ##
+##------------------------------------------##
 _ShutDownNonCriticalServices_()
 {
-    for procName in nt_center nt_monitor nt_actMail
+    for procName in nt_center nt_monitor nt_actMail usbmuxd netool
     do
          procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
          if [ "$procNum" -gt 0 ]
@@ -3680,7 +3680,7 @@ _ShutDownNonCriticalServices_()
          fi
     done
 
-    for service_name in conn_diag samba nasapps
+    for service_name in samba nasapps
     do
         procNum="$(ps w | grep -w "$service_name" | grep -cv "grep -w")"
         if [ "$procNum" -gt 0 ]
