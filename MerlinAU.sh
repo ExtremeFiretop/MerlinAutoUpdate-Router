@@ -3680,7 +3680,7 @@ _ShutDownNonCriticalServices_()
          fi
     done
 
-    for service_name in samba nasapps
+    for service_name in conn_diag samba nasapps
     do
         procNum="$(ps w | grep -w "$service_name" | grep -cv "grep -w")"
         if [ "$procNum" -gt 0 ]
