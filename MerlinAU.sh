@@ -8817,6 +8817,51 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         return 1
     fi
 
+    ##---------------------------------------##
+    ## Added by ExtremeFiretop [2025-May-29] ##
+    ##---------------------------------------##
+    # Step 1: Find files
+    foundFiles=$( { /usr/bin/find -L "$FW_BIN_DIR" -name "*.w" -print; /usr/bin/find -L "$FW_BIN_DIR" -name "*.pkgtb" -print; } )
+
+    # Initialize the total size counter
+    total_size_bytes=0
+
+    IFS=$'\n' # Set IFS to newline to correctly iterate over files in case they contain spaces
+    for file in $foundFiles; do
+        if [ -f "$file" ]; then # Ensure the file exists and is a regular file
+            # Use wc -c to count the file size in bytes and add it to the total
+            size=$(wc -c <"$file")
+            total_size_bytes=$((total_size_bytes + size)) # Accumulate total size
+        fi
+    done
+    unset IFS # Reset IFS to default
+
+    # Display the total size in bytes
+    Say "Total size of files: $total_size_bytes bytes"
+
+    # Convert total size from bytes to KB and adjust the required space
+    total_size_kb="$((total_size_bytes / 1024))"
+
+    # Set the minimum required RAM cushion to 50MB (50 * 1024 = 51200)
+    minimum_cushion_kb=51200
+
+    # Subtract the calculated size from requiredRAM_kb
+    if [ "$total_size_kb" -gt 0 ]; then
+        requiredRAM_kb=$((requiredRAM_kb - total_size_kb))
+        Say "Adjusted required RAM by subtracting sizes of .w or .pkgtb files: $total_size_kb KB. New required RAM: ${requiredRAM_kb} KB"
+
+        # Check if the adjusted required space is less than the minimum cushion
+        if [ "$requiredRAM_kb" -lt "$minimum_cushion_kb" ]; then
+            # Add the difference to fulfill the minimum cushion
+            cushion_diff=$((minimum_cushion_kb - requiredRAM_kb))
+            requiredRAM_kb=$((requiredRAM_kb + cushion_diff))
+            Say "Added cushion of $cushion_diff KB to meet the minimum required RAM of 50MB."
+        fi
+    else
+        Say "No .w or .pkgtb file found for adjustment."
+        return 1
+    fi
+
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
