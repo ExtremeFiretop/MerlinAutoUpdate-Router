@@ -3651,7 +3651,7 @@ _GetRequiredRAM_KB_()
 {
     local theURL="$1"
     local zip_file_size_bytes  zip_file_size_kb  overhead_kb
-    local total_required_kb  overhead_percentage=25
+    local total_required_kb  overhead_percentage=50
 
     # Size of the ZIP file in bytes #
     zip_file_size_bytes="$(curl -LsI --retry 4 --retry-delay 5 "$theURL" | grep -i Content-Length | tail -1 | awk '{print $2}')"
@@ -3665,12 +3665,12 @@ _GetRequiredRAM_KB_()
     echo "$total_required_kb"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-May-28] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Mar-24] ##
+##----------------------------------------##
 _ShutDownNonCriticalServices_()
 {
-    for procName in nt_center nt_monitor nt_actMail usbmuxd netool
+    for procName in nt_center nt_monitor nt_actMail
     do
          procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
          if [ "$procNum" -gt 0 ]
