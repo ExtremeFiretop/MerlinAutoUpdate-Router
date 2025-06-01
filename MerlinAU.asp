@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-May-11 **/
+/** Last Modified: 2025-Jun-01 **/
 /**----------------------------**/
 
 // Separate variables for shared and AJAX settings //
@@ -869,7 +869,8 @@ function ShowLatestChangelog(e)
         'Click on "Cancel" button to stop and exit this dialog.</p>';
 
     /* ----- build the modal once ----- */
-    if (!$('#changelogModal').length) {
+    if (!$('#changelogModal').length)
+    {
         $('body').append(
             '<div id="changelogModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;' +
                 'background:rgba(0,0,0,0.8);z-index:10000;">' +
@@ -891,9 +892,10 @@ function ShowLatestChangelog(e)
 
         /* ---------- NEW: arrow‑key scroll handler (bind once) ---------- */
         $(document).on('keydown', function (ev) {
-            if (!$('#changelogModal').is(':visible')) return;      // ignore if dialog not open
-            const box = $('#changelogContent')[0];                 // the scrollable div
-            switch (ev.key) {
+            if (!$('#changelogModal').is(':visible')) { return; }
+            const box = $('#changelogContent')[0];  // the scrollable box //
+            switch (ev.key)
+            {
                 case 'ArrowDown':
                     box.scrollTop += 40;
                     ev.preventDefault();
@@ -915,7 +917,9 @@ function ShowLatestChangelog(e)
             }
         });
         /* -------------------------------------------------------------- */
-    } else {
+    }
+    else
+    {
         $('#changelogData').html(loadingMessage);
         $('#closeChangelogModal').text("Cancel");
     }
@@ -933,7 +937,7 @@ function ShowLatestChangelog(e)
 
     $.post('start_apply.htm', formData);
 
-    /* wait 8 s, then fetch the changelog */
+    /* wait 8s, then fetch the changelog */
     const startTime = Date.now();
     setTimeout(function () {
         FetchChangelog(startTime);
@@ -942,7 +946,6 @@ function ShowLatestChangelog(e)
 
     return false;
 }
-
 
 // **Control "Approve/Block Changelog" Checkbox State** //
 function ToggleChangelogApproval (checkboxElem)
@@ -1062,15 +1065,15 @@ function GetExternalCheckResults()
     });
 }
 
-/**------------------------------------------**/
-/** Modified by ExtremeFiretop [2025-May-22] **/
-/**------------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jun-01] **/
+/**----------------------------------------**/
 // To support 'routerPassword' element //
 const loginPassword =
 {
    minLen: 5, maxLen: 64, pswdLen: 0, pswdStr: '',
    pswdInvalid: false, pswdVerified: false, pswdUnverified: false,
-   allBlankCharsRegExp: '^[ ]+$',
+   pswdFocus: false, allBlankCharsRegExp: '^[ ]+$',
 
    ErrorMsg: function()
    {
@@ -1085,7 +1088,7 @@ const loginPassword =
          const excMaxLen = (this.maxLen + 1);
          return (`${errStr} The string length must be less than ${excMaxLen} characters.`);
       }
-      if (this.pswdStr.match (`${this.allBlankCharsRegExp}`) !== null)
+      if (this.pswdStr.match (this.allBlankCharsRegExp) !== null)
       { return (`${errStr} The string cannot be all blank spaces.`); }
       if (this.pswdInvalid) { return loginPswdInvalidMsge; }
    },
@@ -1102,7 +1105,7 @@ const loginPassword =
          const excMaxLen = (this.maxLen + 1);
          return (`${errStr}<br>The string length must be less than <b>${excMaxLen}</b> characters.</br>`);
       }
-      if (this.pswdStr.match (`${this.allBlankCharsRegExp}`) !== null)
+      if (this.pswdStr.match (this.allBlankCharsRegExp) !== null)
       { return (`${errStr}<br>The string cannot be all blank spaces.<br>`); }
       if (this.pswdInvalid) { return loginPswdInvalidHint; }
       if (this.pswdVerified) { return loginPswdVerifiedMsg; }
@@ -1113,55 +1116,59 @@ const loginPassword =
       const pswdStr = formField.value;
       if (this.pswdStr !== pswdStr && eventID === 'onKEYUP')
       {
+          this.pswdFocus = false;
           this.pswdInvalid = false;
           this.pswdVerified = false;
           this.pswdUnverified = false;
       }
       this.pswdStr = pswdStr;
       this.pswdLen = pswdStr.length;
-      if ( this.pswdInvalid ||
-           this.pswdLen < this.minLen || this.pswdLen > this.maxLen ||
-           this.pswdStr.match(this.allBlankCharsRegExp) !== null )
+
+      if (this.pswdLen < this.minLen || this.pswdLen > this.maxLen ||
+          this.pswdStr.match (this.allBlankCharsRegExp) !== null)
+      { this.pswdFocus = true; return false; }
+      else if (this.pswdInvalid || this.pswdVerified || this.pswdUnverified)
       { return false; }
       else
       { return true; }
    }
 };
 
-/**------------------------------------------**/
-/** Modified by ExtremeFiretop [2025-May-22] **/
-/**------------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jun-01] **/
+/**----------------------------------------**/
 function ValidatePasswordString (formField, eventID)
 {
-   // clear old server invalid flag as soon as they type
-   if (eventID === 'onKEYUP') { loginPassword.pswdInvalid = false; }
-
-   // if the server has already said “invalid,” keep it red
-   if (loginPassword.pswdInvalid)
-   {
-      formField.focus();
-      $(formField).addClass('Invalid');
-      $(formField).off('mouseover');
-      $(formField).on('mouseover',function(){return overlib(loginPassword.ErrorHint(),0,0);});
-      $(formField)[0].onmouseout = nd;
-      return false;
-   }
-
    if (loginPassword.ValidateString(formField, eventID))
    {
       $(formField).removeClass('Invalid');
       $(formField).off('mouseover');
       return true;
    }
+
+   let retStatus;
+
+   if (eventID === 'onSAVE')
+   { loginPassword.pswdFocus = true; }
+   else if (eventID === 'onKEYUP')
+   { loginPassword.pswdFocus = false; }
+
+   if (loginPassword.pswdVerified || loginPassword.pswdUnverified)
+   { retStatus = true; }
    else
-   {
+   {  /** Set focus and red box ONLY when INVALID **/
+      retStatus = false;
+      if (loginPassword.pswdFocus)
+      { formField.focus(); }
+      else
+      { formField.blur(); }
       $(formField).addClass('Invalid');
-      formField.focus();
-      $(formField).off('mouseover');
-      $(formField).on('mouseover',function(){return overlib(loginPassword.ErrorHint(),0,0);});
-      $(formField)[0].onmouseout = nd;
-      return false;
    }
+
+   /** Show tooltip message for ALL 3 statuses **/
+   $(formField).on('mouseover',function(){return overlib(loginPassword.ErrorHint(),0,0);});
+   $(formField)[0].onmouseout = nd;
+   return retStatus;
 }
 
 function togglePassword()
@@ -1469,9 +1476,9 @@ function ShowHintMsg (formField)
    }
 }
 
-/**------------------------------------------**/
-/** Modified by ExtremeFiretop [2025-May-22] **/
-/**------------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jun-01] **/
+/**----------------------------------------**/
 function GetLoginPswdCheckStatus()
 {
     $.ajax({
@@ -1514,12 +1521,12 @@ function GetLoginPswdCheckStatus()
                     loginPassword.pswdUnverified = true;
                     break;
                 case 5: //Failure//
-                    // mark invalid and only steal focus on real failure
-                    loginPassword.pswdInvalid = true;
                     passwordFailed = true;
                     pswdStatusText = 'Status:\n' + loginPswdCheckMsgStr;
                     pswdStatusHint0 = loginPswdInvalidHint;
                     pswdStatusHint1 = loginPswdInvalidHint;
+                    loginPassword.pswdInvalid = true;
+                    loginPassword.pswdFocus = true;
                     break;
                 case 6: //Unknown//
                     pswdStatusText = 'Status:\n' + loginPswdCheckMsgStr;
@@ -1535,14 +1542,16 @@ function GetLoginPswdCheckStatus()
             loginPswdHint = loginPswdHint.replace (/PswdSTATUS/, pswdStatusHint1);
 
             pswdField = document.getElementById('routerPassword');
-
-            // only refocus when passwordFailed is true
-            if (passwordFailed)
+            if (passwordFailed || pswdVerified || pswdUnverified)
             {
-                alert(`**ERROR**\n${loginPswdInvalidMsge}`);
-                $(pswdField).addClass('Invalid');
-                pswdField.focus();
-                $(pswdField).on('mouseover',function(){return overlib(loginPassword.ErrorHint(),0,0);});
+                if (passwordFailed)
+                {   /** Set focus and red box ONLY when INVALID **/
+                    alert(`**ERROR**\n${loginPswdInvalidMsge}`);
+                    pswdField.focus();
+                    $(pswdField).addClass('Invalid');
+                }
+                /** Show tooltip message for ALL 3 statuses **/
+                $(pswdField).on('mouseover',function(){return overlib(pswdStatusHint0,0,0);});
                 $(pswdField)[0].onmouseout = nd;
             }
             else
@@ -1679,9 +1688,10 @@ function InitializeFields()
         { tailscaleVPNEnabled.checked = (custom_settings.Allow_Updates_OverVPN === 'ENABLED'); }
 
         if (script_AutoUpdate_Check)
-        { script_AutoUpdate_Check.checked = (custom_settings.Allow_Script_Auto_Update === 'ENABLED');
+        {
+            script_AutoUpdate_Check.checked = (custom_settings.Allow_Script_Auto_Update === 'ENABLED');
             UpdateForceScriptCheckboxState(script_AutoUpdate_Check?.checked);
-         }
+        }
 
         if (betaToReleaseUpdatesEnabled)
         { betaToReleaseUpdatesEnabled.checked = (custom_settings.FW_Allow_Beta_Production_Up === 'ENABLED'); }
@@ -2334,12 +2344,14 @@ function Uninstall()
 /**---------------------------------------**/
 /** Added by ExtremeFiretop [2025-May-18] **/
 /**---------------------------------------**/
-function UpdateForceScriptCheckboxState(autoUpdatesEnabled) {
+function UpdateForceScriptCheckboxState (autoUpdatesEnabled)
+{
     const forceCB = document.getElementById('ForceScriptUpdateCheck');
-    if (!forceCB) return;                         // safety
-    forceCB.disabled = autoUpdatesEnabled;        // gray‑out logic
+    if (!forceCB) { return; }
+    forceCB.disabled = autoUpdatesEnabled;
     forceCB.style.opacity = autoUpdatesEnabled ? '0.5' : '1';
-    if (autoUpdatesEnabled) forceCB.checked = false;  // clear if now disabled
+    // Clear "Force Script Update" if needed //
+    if (autoUpdatesEnabled) { forceCB.checked = false; }
 }
 
 /**------------------------------------------**/
@@ -2353,31 +2365,29 @@ function UpdateMerlinAUScript()
     const forceScriptUpdateCheck = document.getElementById('ForceScriptUpdateCheck');
     const autoUpdatesEnabled     = document.getElementById('Script_AutoUpdate_Check')?.checked;
 
-    /* ----- build the appropriate confirmation text ----- */
     let confirmText;
-    if (forceScriptUpdateCheck.checked) {
-        /* user explicitly wants to install right now */
+    if (forceScriptUpdateCheck.checked)
+    {   /* user explicitly wants to install right now */
         confirmText = "INSTALL UPDATE:\n" +
                       "Install the latest available MerlinAU script update now, " +
                       "even if the version is already current.\n\nContinue?";
-    } else {
-        /* normal check – message depends on auto‑update setting */
+    }
+    else
+    {   /* normal check – message depends on auto‑update setting */
         confirmText = "CHECK AND PROMPT:\n" +
                       "Check for a newer version of MerlinAU and prompt if found. " +
                       (autoUpdatesEnabled
-                          ? "It DOES install automatically!"      // <‑‑ NEW text
+                          ? "It DOES install automatically!"
                           : "It does NOT install update automatically!") +
                       "\n\nContinue?";
     }
 
-    if (!confirm(confirmText)) return;   /* user cancelled */
+    if (!confirm(confirmText)) { return; }
 
-    /* choose action script */
     actionScriptValue = forceScriptUpdateCheck.checked
-        ? 'start_MerlinAUscrptupdate_force'
-        : 'start_MerlinAUscrptupdate';
+                        ? 'start_MerlinAUscrptupdate_force'
+                        : 'start_MerlinAUscrptupdate';
 
-    /* submit the form */
     document.form.action_script.value = actionScriptValue;
     document.form.action_wait.value   = 10;
     showLoading();
