@@ -163,3 +163,12 @@ The script can be run using the below options:
 - Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
 
 ## Use this Automatic F/W Update script at your own discretion. By using this script you assume all risks associated with updating a router to a new firmware version.
+
+## Star History
+<a href="https://www.star-history.com/#ExtremeFiretop/MerlinAutoUpdate-Router&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=Date" />
+ </picture>
+</a>
