@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-21
+# Last Modified: 2025-May-31
 ###################################################################
 set -u
 
@@ -2558,9 +2558,9 @@ _WebUI_SetEmailConfigFileFromAMTM_()
    _WriteVarDefToHelperJSFile_ "isEMailConfigEnabledInAMTM" "$isEMailConfigEnabledInAMTM" true
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-May-21] ##
-##---------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-21] ##
+##------------------------------------------##
 _ActionsAfterNewConfigSettings_()
 {
    if [ ! -s "${CONFIG_FILE}.bak" ] || \
@@ -4316,61 +4316,73 @@ _GetPasswordInput_()
    return
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-19] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-May-31] ##
+##----------------------------------------##
 _CIDR_IPaddrBlockContainsIPaddr_()
 {
-   if [ $# -ne 2 ] || [ -z "$1" ] || [ -z "$2" ]; then
-       return 1
-   fi
+   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+   then return 1 ; fi
 
-   awk -v cidr="$1" -v ip="$2" '
+   local cidrNetIPaddr="${1%/*}"
+   local mainLANIPaddr="$2"
+
+   ## If FIRST octet does NOT match, LAN IP address is NOT included ##
+   if [ "${mainLANIPaddr%%.*}" -ne "${cidrNetIPaddr%%.*}" ]
+   then return 1 ; fi
+
+   awk -v cidr="$1" -v lanip="$2" '
       function ip2int(s, a){split(s,a,".");return a[1]*16777216+a[2]*65536+a[3]*256+a[4]}
       BEGIN{
-         split(cidr,c,"/"); net=c[1]; bits=c[2]+0
+         split(cidr,c,"/"); netip=c[1]; bits=c[2]+0
          mask = bits==0 ? 0 : and(0xffffffff, lshift(0xffffffff,32-bits))
-         exit and(ip2int(ip),mask)==and(ip2int(net),mask) ? 0 : 1
+         exit and(ip2int(lanip),mask)==and(ip2int(netip),mask) ? 0 : 1
       }'
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-19] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-May-31] ##
+##----------------------------------------##
+# Router LAN IP address MUST have access to WebGUI,
+# and MUST be within a 24-bit IP address subnet block.
+#------------------------------------------------------#
 _CheckWebGUILoginAccessOK_()
 {
    local accessRestriction  restrictRuleList
    local lanIPaddrRegEx1 lanIPaddrRegEx2 lanIPaddrRegEx3
    local cidrIPaddrEntry  cidrIPaddrBlock  cidrIPaddrRegEx
-   local mainLANIPaddrRegEx  netwkIPv4AddrRegEx  netwkIPv4AddrX
+   local mainLANIPaddrRegEx  netwkIPv4addrRegEx
+   local netwkIPaddr1stOctet  netwkIPv4addrX
+   local mainLANIPaddrRegEx  netwkIPv4addrRegEx  ruleTailFlag
 
    accessRestriction="$(nvram get enable_acc_restriction)"
    if [ -z "$accessRestriction" ] || [ "$accessRestriction" -eq 0 ]
    then return 0 ; fi
 
+   ruleTailFlag='>[13]'  ##[only WebUI or ALL]##
    restrictRuleList="$(nvram get restrict_rulelist)"
+
    if [ -n "$mainNET_IPaddr" ]
-   then
-       netwkIPv4AddrX="${mainNET_IPaddr%/*}"
-       netwkIPv4AddrX="${netwkIPv4AddrX%.*}"
-   else
-       netwkIPv4AddrX="${mainLAN_IPaddr%.*}"
+   then netwkIPaddr1stOctet="${mainNET_IPaddr%%.*}"
+   else netwkIPaddr1stOctet="${mainLAN_IPaddr%%.*}"
    fi
-   netwkIPv4AddrX="${netwkIPv4AddrX}.${IPv4octet_RegEx}"
-   netwkIPv4AddrRegEx="$(echo "$netwkIPv4AddrX" | sed 's/\./\\./g')"
+
+   ## 24-bit IP address subnet block for network CIDR ##
+   netwkIPv4addrX="${netwkIPaddr1stOctet}.${IPv4octet_RegEx}.${IPv4octet_RegEx}.${IPv4octet_RegEx}"
+   netwkIPv4addrRegEx="$(echo "$netwkIPv4addrX" | sed 's/\./\\./g')"
+   cidrIPaddrRegEx="${netwkIPv4addrRegEx}/([89]|[12][0-9]|3[01])"
+   lanIPaddrRegEx3=">${cidrIPaddrRegEx}${ruleTailFlag}"
+
+   ## 8-bit IP address subnet block with private LAN IP ##
    mainLANIPaddrRegEx="$(echo "$mainLAN_IPaddr" | sed 's/\./\\./g')"
+   lanIPaddrRegEx1=">${mainLANIPaddrRegEx}${ruleTailFlag}"
+   lanIPaddrRegEx2=">${mainLANIPaddrRegEx}/(2[4-9]|3[0-2])${ruleTailFlag}"
 
-   local idxField='[<>][0-9]+[<>]'   # <1> or >12<
-   local tailFlag='[<>][13]'         # >1 or >3  (ALL / WebUI)
-   cidrIPaddrRegEx="${IPv4addrs_RegEx}/([0-9]|[1-2][0-9]|3[0-2])"
-
-   lanIPaddrRegEx1="${idxField}${mainLANIPaddrRegEx}${tailFlag}"
-   lanIPaddrRegEx2="${idxField}${mainLANIPaddrRegEx}/([0-9]|[1-2][0-9]|3[0-2])${tailFlag}"
-   lanIPaddrRegEx3="${idxField}${cidrIPaddrRegEx}${tailFlag}"
-
+   ## Look for a rule with the private LAN IP address ##
    if echo "$restrictRuleList" | grep -qE "$lanIPaddrRegEx1|$lanIPaddrRegEx2"
    then return 0 ; fi
 
+   ## Look for the private LAN IP address within a network CIDR block ##
    cidrIPaddrEntry="$(echo "$restrictRuleList" | grep -oE "$lanIPaddrRegEx3")"
    if [ -n "$cidrIPaddrEntry" ]
    then
@@ -4382,10 +4394,12 @@ _CheckWebGUILoginAccessOK_()
        done
    fi
 
-   printf "\n${REDct}*WARNING*: The \"Enable Access Restrictions\" option is currently active.${NOct}"
-   printf "\nTo allow webGUI login access you must add the router IP address ${GRNct}${mainLAN_IPaddr}${NOct}
-with the \"${GRNct}Web UI${NOct}\" access type on the \"Access restriction list\" panel."
-   printf "\n[See ${GRNct}'Administration -> System -> Access restriction list'${NOct}]"
+   printf "\n${REDct}*WARNING*: The WebUI \"Enable Access Restrictions\" option is currently active.${NOct}"
+   printf "\nTo allow WebUI login access you must add the router IP address \"${GRNct}${mainLAN_IPaddr}${NOct}\""
+   printf "\nwith the \"${GRNct}Web UI${NOct}\" access type on the \"Access restriction list\" panel, or add a"
+   printf "\nCIDR IP address subnet that includes the router IP address \"${GRNct}${mainLAN_IPaddr}${NOct}\" and"
+   printf "\nmake sure to assign at least the \"${GRNct}Web UI${NOct}\" access type to the CIDR entry."
+   printf "\n[See router WebUI: ${GRNct}'Administration -> System -> Access restriction list'${NOct}]"
    printf "\nAn alternative method would be to disable the \"Enable Access Restrictions\" option.\n"
 
    return 1
@@ -5958,8 +5972,9 @@ _Calculate_NextRunTime_()
         force_recalc=true
     fi
 
-    # Check for available firmware update
-    if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"; then
+    # Check for available firmware update #
+    if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+    then
         fwNewUpdateVersion="NONE FOUND"
     fi
 
@@ -5972,7 +5987,9 @@ _Calculate_NextRunTime_()
     elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]
     then
         ExpectedFWUpdateRuntime="${REDct}NONE FOUND${NOct}"
-    elif [ "$force_recalc" = "true" ] || [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
+    elif [ "$force_recalc" = "true" ] || \
+         [ -z "$ExpectedFWUpdateRuntime" ] || \
+         [ "$ExpectedFWUpdateRuntime" = "TBD" ]
     then
         # If conditions are met (cron job enabled and update available), calculate the next runtime
         fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
@@ -7227,11 +7244,8 @@ _high_risk_phrases_interactive_()
     local changelog_contents="$1"
     local changelog_flat
 
-    changelog_flat="$(
-      printf '%s' "$changelog_contents" \
-        | tr '\n' ' ' \
-        | tr -s ' '
-    )"
+    changelog_flat="$(printf '%s' "$changelog_contents" | \
+                      tr '\n' ' ' | tr -s ' ')"
 
     if echo "$changelog_flat" | grep -Eiq "$high_risk_terms"
     then
@@ -7280,11 +7294,8 @@ _high_risk_phrases_nointeractive_()
     local changelog_contents="$1"
     local changelog_flat
 
-    changelog_flat="$(
-      printf '%s' "$changelog_contents" \
-        | tr '\n' ' ' \
-        | tr -s ' '
-    )"
+    changelog_flat="$(printf '%s' "$changelog_contents" | \
+                      tr '\n' ' ' | tr -s ' ')"
 
     if echo "$changelog_flat" | grep -Eiq "$high_risk_terms"
     then
@@ -7305,9 +7316,9 @@ _high_risk_phrases_nointeractive_()
     fi
 }
 
-##-------------------------------------==---##
-## Modified by ExtremeFiretop [2024-May-18] ##
-##-------------------------------------==---##
+##----------------------------------------##
+## Modified by Martinski W. [2025-May-31] ##
+##----------------------------------------##
 _ChangelogVerificationCheck_()
 {
     local mode="$1"  # Mode should be 'auto' or 'interactive' #
@@ -7315,6 +7326,7 @@ _ChangelogVerificationCheck_()
     local release_version  formatted_release_version
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
     local changeLogFName  changeLogFPath  changeLogTag
+    local matchNum1  matchNum2  lineNum1  lineNum2
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
@@ -7336,14 +7348,16 @@ _ChangelogVerificationCheck_()
             else
                 changeLogTag="NG"
             fi
-            changeLogFName="Changelog-${changeLogTag}.txt"
-            changeLogFPath="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "$changeLogFName" -print)"
 
-            # force 3006 changelog if tag is NG but $release_version says 3006
-            if [ "$changeLogTag" = "NG" ] && echo "$release_version" | grep -qE "^3006[.]"
+            # force 3006 changelog if tag is NG but $release_version says 3006 #
+            if [ "$changeLogTag" = "NG" ] && \
+               echo "$release_version" | grep -qE "^3006[.]"
             then
                 changeLogTag="3006"
             fi
+
+            changeLogFName="Changelog-${changeLogTag}.txt"
+            changeLogFPath="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "$changeLogFName" -print)"
         fi
 
         if [ ! -f "$changeLogFPath" ]
@@ -7360,23 +7374,24 @@ _ChangelogVerificationCheck_()
                 # For Gnuton, the whole file is relevant as it only contains the current version #
                 changelog_contents="$(cat "$changeLogFPath")"
             else
-                # find the first two matching line numbers
-                match1=$(grep -nE "$date_pattern" "$changeLogFPath" | head -1)
-                match2=$(grep -nE "$date_pattern" "$changeLogFPath" | head -2 | tail -1)
+                # find the first two matching line numbers #
+                matchNum1="$(grep -nE "$date_pattern" "$changeLogFPath" | head -1)"
+                matchNum2="$(grep -nE "$date_pattern" "$changeLogFPath" | head -2 | tail -1)"
 
-                # split on the first colon
-                line1=${match1%%:*}
-                line2=${match2%%:*}
+                # split on the first colon #
+                lineNum1="${matchNum1%%:*}"
+                lineNum2="${matchNum2%%:*}"
 
-                if [ -n "$line1" ] && [ -n "$line2" ] && [ "$line1" -le "$line2" ]; then
-                    changelog_contents="$(
-                        sed -n "${line1},${line2}p" "$changeLogFPath"
-                    )"
+                if [ -n "$lineNum1" ] && \
+                   [ -n "$lineNum2" ] && \
+                   [ "$lineNum1" -le "$lineNum2" ]
+                then
+                    changelog_contents="$(sed -n "${lineNum1},${lineNum2}p" "$changeLogFPath")"
                 else
                     Say "Could not find two date markers in changelog. Using entire file"
                     changelog_contents="$(cat "$changeLogFPath")"
                 fi            
-           fi
+            fi
 
             if [ "$mode" = "interactive" ]
             then
@@ -7444,8 +7459,9 @@ _ManageChangelogMerlin_()
     fi
 
     release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
-    # force 3006 changelog if tag is NG but $release_version says 3006
-    if [ "$changeLogTag" = "NG" ] && echo "$release_version" | grep -qE "^3006[.]"
+    # force 3006 changelog if tag is NG but $release_version says 3006 #
+    if [ "$changeLogTag" = "NG" ] && \
+       echo "$release_version" | grep -qE "^3006[.]"
     then
         changeLogTag="3006"
         MerlinChangeLogURL="${CL_URL_3006}"
@@ -7951,7 +7967,7 @@ _RemoveCronJobsFromAddOns_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-02] ##
+## Modified by Martinski W. [2025-May-31] ##
 ##----------------------------------------##
 _EntwareServicesHandler_()
 {
@@ -7991,7 +8007,10 @@ _EntwareServicesHandler_()
    }
 
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
-   then return 0 ; fi  ## Entware is NOT found ##
+   then
+       Say "Entware is not found. Skipping check for services."
+       return 0
+   fi
 
    servicesList="$(/usr/bin/find -L "$entwOPT_init" -name "*" -print 2>/dev/null | /bin/grep -E "(${entwOPT_init}/S[0-9]+|${entwOPT_init}/.*[.]sh$)")"
    [ -z "$servicesList" ] && return 0
@@ -9798,9 +9817,9 @@ _SetDefaultBuildType_()
   fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-May-21] ##
-##---------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-21] ##
+##------------------------------------------##
 _DisableFWAutoUpdateChecks_()
 {
    _DelFWAutoUpdateHook_
@@ -9817,9 +9836,9 @@ _DisableFWAutoUpdateChecks_()
    fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-May-21] ##
-##---------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-21] ##
+##------------------------------------------##
 _EnableFWAutoUpdateChecks_()
 {
    _AddFWAutoUpdateHook_
