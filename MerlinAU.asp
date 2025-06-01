@@ -1062,9 +1062,9 @@ function GetExternalCheckResults()
     });
 }
 
-/**----------------------------------------**/
-/** Modified by Martinski W. [2025-Mar-07] **/
-/**----------------------------------------**/
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-May-22] **/
+/**------------------------------------------**/
 // To support 'routerPassword' element //
 const loginPassword =
 {
@@ -1119,20 +1119,34 @@ const loginPassword =
       }
       this.pswdStr = pswdStr;
       this.pswdLen = pswdStr.length;
-      if (this.pswdInvalid || this.pswdVerified || this.pswdUnverified ||
-          this.pswdLen < this.minLen || this.pswdLen > this.maxLen ||
-          this.pswdStr.match (`${this.allBlankCharsRegExp}`) !== null)
+      if ( this.pswdInvalid ||
+           this.pswdLen < this.minLen || this.pswdLen > this.maxLen ||
+           this.pswdStr.match(this.allBlankCharsRegExp) !== null )
       { return false; }
       else
       { return true; }
    }
 };
 
-/**----------------------------------------**/
-/** Modified by Martinski W. [2025-Mar-07] **/
-/**----------------------------------------**/
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-May-22] **/
+/**------------------------------------------**/
 function ValidatePasswordString (formField, eventID)
 {
+   // clear old server invalid flag as soon as they type
+   if (eventID === 'onKEYUP') { loginPassword.pswdInvalid = false; }
+
+   // if the server has already said “invalid,” keep it red
+   if (loginPassword.pswdInvalid)
+   {
+      formField.focus();
+      $(formField).addClass('Invalid');
+      $(formField).off('mouseover');
+      $(formField).on('mouseover',function(){return overlib(loginPassword.ErrorHint(),0,0);});
+      $(formField)[0].onmouseout = nd;
+      return false;
+   }
+
    if (loginPassword.ValidateString(formField, eventID))
    {
       $(formField).removeClass('Invalid');
@@ -1141,18 +1155,12 @@ function ValidatePasswordString (formField, eventID)
    }
    else
    {
-      let retStatus;
-      if (loginPassword.pswdVerified || loginPassword.pswdUnverified)
-      { retStatus = true; }
-      else
-      {
-         retStatus = false;
-         $(formField).addClass('Invalid');
-      }
+      $(formField).addClass('Invalid');
       formField.focus();
+      $(formField).off('mouseover');
       $(formField).on('mouseover',function(){return overlib(loginPassword.ErrorHint(),0,0);});
       $(formField)[0].onmouseout = nd;
-      return retStatus;
+      return false;
    }
 }
 
@@ -1461,9 +1469,9 @@ function ShowHintMsg (formField)
    }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Mar-07] **/
-/**-------------------------------------**/
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-May-22] **/
+/**------------------------------------------**/
 function GetLoginPswdCheckStatus()
 {
     $.ajax({
@@ -1506,11 +1514,12 @@ function GetLoginPswdCheckStatus()
                     loginPassword.pswdUnverified = true;
                     break;
                 case 5: //Failure//
+                    // mark invalid and only steal focus on real failure
+                    loginPassword.pswdInvalid = true;
                     passwordFailed = true;
                     pswdStatusText = 'Status:\n' + loginPswdCheckMsgStr;
                     pswdStatusHint0 = loginPswdInvalidHint;
                     pswdStatusHint1 = loginPswdInvalidHint;
-                    loginPassword.pswdInvalid = true;
                     break;
                 case 6: //Unknown//
                     pswdStatusText = 'Status:\n' + loginPswdCheckMsgStr;
@@ -1526,15 +1535,14 @@ function GetLoginPswdCheckStatus()
             loginPswdHint = loginPswdHint.replace (/PswdSTATUS/, pswdStatusHint1);
 
             pswdField = document.getElementById('routerPassword');
-            if (passwordFailed || pswdVerified || pswdUnverified)
+
+            // only refocus when passwordFailed is true
+            if (passwordFailed)
             {
-                if (passwordFailed)
-                {
-                    alert(`**ERROR**\n${loginPswdInvalidMsge}`);
-                    $(pswdField).addClass('Invalid'); 
-                }
+                alert(`**ERROR**\n${loginPswdInvalidMsge}`);
+                $(pswdField).addClass('Invalid');
                 pswdField.focus();
-                $(pswdField).on('mouseover',function(){return overlib(pswdStatusHint0,0,0);});
+                $(pswdField).on('mouseover',function(){return overlib(loginPassword.ErrorHint(),0,0);});
                 $(pswdField)[0].onmouseout = nd;
             }
             else

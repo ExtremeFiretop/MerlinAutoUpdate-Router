@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-18
+# Last Modified: 2025-May-21
 ###################################################################
 set -u
 
@@ -2558,9 +2558,9 @@ _WebUI_SetEmailConfigFileFromAMTM_()
    _WriteVarDefToHelperJSFile_ "isEMailConfigEnabledInAMTM" "$isEMailConfigEnabledInAMTM" true
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
-##-------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-May-21] ##
+##---------------------------------------##
 _ActionsAfterNewConfigSettings_()
 {
    if [ ! -s "${CONFIG_FILE}.bak" ] || \
@@ -2584,7 +2584,7 @@ _ActionsAfterNewConfigSettings_()
    fi
    if _ConfigOptionChanged_ "FW_New_Update_Postponement_Days="
    then
-       _Calculate_NextRunTime_
+       _Calculate_NextRunTime_ recal
    fi
    if _ConfigOptionChanged_ "Allow_Script_Auto_Update"
    then
@@ -4316,47 +4316,27 @@ _GetPasswordInput_()
    return
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Aug-18] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-19] ##
+##------------------------------------------##
 _CIDR_IPaddrBlockContainsIPaddr_()
 {
-   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
-   then return 1 ; fi
-
-   local lastNETIPaddr4thOctet  cidrIPRangeMax=0
-
-   local thisLANIPaddr="$2"
-   local cidrNETIPaddr="${1%/*}"
-   local cidrNETIPmask="${1#*/}"
-   local NETIPaddr4thOctet="${cidrNETIPaddr##*.}"
-   local LANIPaddr4thOctet="${thisLANIPaddr##*.}"
-
-   # Assumes the host segment has a maximum of 8 bits #
-   # and the network segment has a minimum of 24 bits #
-   case "$cidrNETIPmask" in
-       31) cidrIPRangeMax=1 ;;
-       30) cidrIPRangeMax=3 ;;
-       29) cidrIPRangeMax=7 ;;
-       28) cidrIPRangeMax=15 ;;
-       27) cidrIPRangeMax=31 ;;
-       26) cidrIPRangeMax=63 ;;
-       25) cidrIPRangeMax=127 ;;
-       24) cidrIPRangeMax=255 ;;
-   esac
-   lastNETIPaddr4thOctet="$((NETIPaddr4thOctet + cidrIPRangeMax))"
-   [ "$lastNETIPaddr4thOctet" -gt 255 ] && lastNETIPaddr4thOctet=255
-
-   if [ "$LANIPaddr4thOctet" -ge "$NETIPaddr4thOctet" ] && \
-      [ "$LANIPaddr4thOctet" -le "$lastNETIPaddr4thOctet" ]
-   then return 0
-   else return 1
+   if [ $# -ne 2 ] || [ -z "$1" ] || [ -z "$2" ]; then
+       return 1
    fi
+
+   awk -v cidr="$1" -v ip="$2" '
+      function ip2int(s, a){split(s,a,".");return a[1]*16777216+a[2]*65536+a[3]*256+a[4]}
+      BEGIN{
+         split(cidr,c,"/"); net=c[1]; bits=c[2]+0
+         mask = bits==0 ? 0 : and(0xffffffff, lshift(0xffffffff,32-bits))
+         exit and(ip2int(ip),mask)==and(ip2int(net),mask) ? 0 : 1
+      }'
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-18] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2024-May-19] ##
+##------------------------------------------##
 _CheckWebGUILoginAccessOK_()
 {
    local accessRestriction  restrictRuleList
@@ -4380,11 +4360,13 @@ _CheckWebGUILoginAccessOK_()
    netwkIPv4AddrRegEx="$(echo "$netwkIPv4AddrX" | sed 's/\./\\./g')"
    mainLANIPaddrRegEx="$(echo "$mainLAN_IPaddr" | sed 's/\./\\./g')"
 
-   # Router IP address MUST have access to WebGUI #
-   cidrIPaddrRegEx="${netwkIPv4AddrRegEx}/(2[4-9]|3[0-1])"
-   lanIPaddrRegEx1=">${mainLANIPaddrRegEx}>[13]"
-   lanIPaddrRegEx2=">${mainLANIPaddrRegEx}/(2[4-9]|3[0-2])>[13]"
-   lanIPaddrRegEx3=">${cidrIPaddrRegEx}>[13]"
+   local idxField='[<>][0-9]+[<>]'   # <1> or >12<
+   local tailFlag='[<>][13]'         # >1 or >3  (ALL / WebUI)
+   cidrIPaddrRegEx="${IPv4addrs_RegEx}/([0-9]|[1-2][0-9]|3[0-2])"
+
+   lanIPaddrRegEx1="${idxField}${mainLANIPaddrRegEx}${tailFlag}"
+   lanIPaddrRegEx2="${idxField}${mainLANIPaddrRegEx}/([0-9]|[1-2][0-9]|3[0-2])${tailFlag}"
+   lanIPaddrRegEx3="${idxField}${cidrIPaddrRegEx}${tailFlag}"
 
    if echo "$restrictRuleList" | grep -qE "$lanIPaddrRegEx1|$lanIPaddrRegEx2"
    then return 0 ; fi
@@ -5963,12 +5945,18 @@ _Calculate_DST_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-10] ##
+## Modified by ExtremeFiretop [2025-May-21] ##
 ##------------------------------------------##
 _Calculate_NextRunTime_()
 {
+    local force_recalc=false
     local fwNewUpdateVersion  fwNewUpdateNotificationDate
     local upfwDateTimeSecs  nextCronTimeSecs
+
+    if [ $# -eq 1 ] && [ "$1" = "recal" ]
+    then
+        force_recalc=true
+    fi
 
     # Check for available firmware update
     if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"; then
@@ -5984,7 +5972,7 @@ _Calculate_NextRunTime_()
     elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]
     then
         ExpectedFWUpdateRuntime="${REDct}NONE FOUND${NOct}"
-    elif [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
+    elif [ "$force_recalc" = "true" ] || [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
     then
         # If conditions are met (cron job enabled and update available), calculate the next runtime
         fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
@@ -6214,7 +6202,7 @@ _Set_FW_UpdatePostponementDays_()
    then
        Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
        echo "The number of days to postpone F/W Update was updated successfully."
-       _Calculate_NextRunTime_
+       _Calculate_NextRunTime_ recal
        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
    fi
    return 0
@@ -6686,7 +6674,7 @@ _Set_FW_UpdateCronScheduleCustom_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-            _Calculate_NextRunTime_
+            _Calculate_NextRunTime_ recal
         else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -7091,7 +7079,7 @@ _Set_FW_UpdateCronScheduleGuided_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             cronSchedStrHR="$(_TranslateCronSchedHR_ "$nextCronSched")"
             printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
-            _Calculate_NextRunTime_
+            _Calculate_NextRunTime_ recal
        else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -7232,13 +7220,20 @@ _Toggle_ScriptAutoUpdate_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-11] ##
+## Modified by ExtremeFiretop [2025-May-21] ##
 ##------------------------------------------##
 _high_risk_phrases_interactive_()
 {
     local changelog_contents="$1"
+    local changelog_flat
 
-    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    changelog_flat="$(
+      printf '%s' "$changelog_contents" \
+        | tr '\n' ' ' \
+        | tr -s ' '
+    )"
+
+    if echo "$changelog_flat" | grep -Eiq "$high_risk_terms"
     then
         ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
 
@@ -7278,13 +7273,20 @@ _high_risk_phrases_interactive_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-26] ##
+## Modified by ExtremeFiretop [2025-May-21] ##
 ##------------------------------------------##
 _high_risk_phrases_nointeractive_()
 {
     local changelog_contents="$1"
+    local changelog_flat
 
-    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    changelog_flat="$(
+      printf '%s' "$changelog_contents" \
+        | tr '\n' ' ' \
+        | tr -s ' '
+    )"
+
+    if echo "$changelog_flat" | grep -Eiq "$high_risk_terms"
     then
         _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
         Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
@@ -7304,7 +7306,7 @@ _high_risk_phrases_nointeractive_()
 }
 
 ##-------------------------------------==---##
-## Modified by ExtremeFiretop [2024-Nov-24] ##
+## Modified by ExtremeFiretop [2024-May-18] ##
 ##-------------------------------------==---##
 _ChangelogVerificationCheck_()
 {
@@ -7336,6 +7338,12 @@ _ChangelogVerificationCheck_()
             fi
             changeLogFName="Changelog-${changeLogTag}.txt"
             changeLogFPath="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "$changeLogFName" -print)"
+
+            # force 3006 changelog if tag is NG but $release_version says 3006
+            if [ "$changeLogTag" = "NG" ] && echo "$release_version" | grep -qE "^3006[.]"
+            then
+                changeLogTag="3006"
+            fi
         fi
 
         if [ ! -f "$changeLogFPath" ]
@@ -7344,60 +7352,31 @@ _ChangelogVerificationCheck_()
             _DoCleanUp_
             return 1
         else
-            # Use awk to format the version based on the number of initial digits #
-            formatted_current_version=$(echo "$current_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4) {
-                        # Remove any non-digit characters from the fourth field
-                        sub(/[^0-9].*/, "", $4)
-                        if ($4 == "0") {
-                            printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                        } else {
-                            printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                        }
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
-            formatted_release_version=$(echo "$release_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4 && $4 == "0") {
-                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                    } else if (NF == 4) {
-                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
             # Define regex patterns for both versions #
-            release_version_regex="${formatted_release_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
-            current_version_regex="${formatted_current_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
+            local date_pattern='[0-9]{1,2}-[A-Za-z]+-[0-9]{4}'
 
             if "$isGNUtonFW"
             then
                 # For Gnuton, the whole file is relevant as it only contains the current version #
                 changelog_contents="$(cat "$changeLogFPath")"
             else
-                if ! grep -Eq "$current_version_regex" "$changeLogFPath"
-                then
-                    Say "Current version NOT found in changelog file. Bypassing changelog verification for this run."
-                    return 0
-                fi
-                # Extract log contents between two firmware versions from RMerlin #
-                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFPath")"
-            fi
+                # find the first two matching line numbers
+                match1=$(grep -nE "$date_pattern" "$changeLogFPath" | head -1)
+                match2=$(grep -nE "$date_pattern" "$changeLogFPath" | head -2 | tail -1)
+
+                # split on the first colon
+                line1=${match1%%:*}
+                line2=${match2%%:*}
+
+                if [ -n "$line1" ] && [ -n "$line2" ] && [ "$line1" -le "$line2" ]; then
+                    changelog_contents="$(
+                        sed -n "${line1},${line2}p" "$changeLogFPath"
+                    )"
+                else
+                    Say "Could not find two date markers in changelog. Using entire file"
+                    changelog_contents="$(cat "$changeLogFPath")"
+                fi            
+           fi
 
             if [ "$mode" = "interactive" ]
             then
@@ -7464,8 +7443,10 @@ _ManageChangelogMerlin_()
         fi 
     fi
 
-    # force 3006 changelog if tag is NG but $2 says 3006
-    if [ "$changeLogTag" = "NG" ] && [ $# -gt 1 ] && echo "$2" | grep -qE '^3006[.]' ; then
+    release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+    # force 3006 changelog if tag is NG but $release_version says 3006
+    if [ "$changeLogTag" = "NG" ] && echo "$release_version" | grep -qE "^3006[.]"
+    then
         changeLogTag="3006"
         MerlinChangeLogURL="${CL_URL_3006}"
     fi
@@ -7865,9 +7846,9 @@ _Toggle_FW_UpdateEmailNotifications_()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-21] ##
+##------------------------------------------##
 _Toggle_FW_UpdateCheckSetting_()
 {
    local fwUpdateCheckEnabled  fwUpdateCheckNewStateStr
@@ -7891,6 +7872,7 @@ _Toggle_FW_UpdateCheckSetting_()
        FW_UpdateCheckState=0
        fwUpdateCheckNewStateStr="${REDct}DISABLED${NOct}"
        Update_Custom_Settings "FW_Update_Check" "DISABLED"
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
        _DelFWAutoUpdateHook_
        _DelFWAutoUpdateCronJob_
    else
@@ -9727,12 +9709,12 @@ _ProcessMeshNodes_()
     if [ $# -eq 0 ] || [ -z "$1" ]
     then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-    uid=1
-    if ! node_list="$(_GetNodeIPv4List_)"
-    then node_list="" ; fi
-
     if "$aiMeshNodes_OK"
     then
+        uid=1
+        if ! node_list="$(_GetNodeIPv4List_)"
+        then node_list="" ; fi
+
         if [ -n "$node_list" ]
         then
             # Iterate over the list of nodes and print information for each node
@@ -9816,14 +9798,15 @@ _SetDefaultBuildType_()
   fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-05] ##
-##-------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-May-21] ##
+##---------------------------------------##
 _DisableFWAutoUpdateChecks_()
 {
    _DelFWAutoUpdateHook_
    _DelFWAutoUpdateCronJob_
    Update_Custom_Settings "FW_Update_Check" "DISABLED"
+   Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
 
    runfwUpdateCheck=false
    if [ "$FW_UpdateCheckState" -ne 0 ]
@@ -9834,9 +9817,9 @@ _DisableFWAutoUpdateChecks_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-05] ##
-##-------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-May-21] ##
+##---------------------------------------##
 _EnableFWAutoUpdateChecks_()
 {
    _AddFWAutoUpdateHook_
@@ -9849,6 +9832,7 @@ _EnableFWAutoUpdateChecks_()
       nvram set firmware_check_enable="$FW_UpdateCheckState"
       nvram commit
    fi
+   _Calculate_NextRunTime_
 }
 
 ##----------------------------------------##
