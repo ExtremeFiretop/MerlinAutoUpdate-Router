@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-31
+# Last Modified: 2025-Jun-02
 ###################################################################
 set -u
 
@@ -3587,8 +3587,65 @@ _HasRouterMoreThan256MBtotalRAM_()
 {
    local totalRAM_KB
    totalRAM_KB="$(awk -F ' ' '/^MemTotal:/{print $2}' /proc/meminfo)"
-   [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 262144 ] && return 0
-   return 1
+   if [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 262144 ]
+   then return 0
+   else return 1
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jun-01] ##
+##-------------------------------------##
+_HasRouterMoreThan512MBtotalRAM_()
+{
+   local totalRAM_KB
+   totalRAM_KB="$(awk -F ' ' '/^MemTotal:/{print $2}' /proc/meminfo)"
+   if [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 524288 ]
+   then return 0
+   else return 1
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jun-01] ##
+##-------------------------------------##
+#---------------------------------------------------------------------#
+# We define TWO main phases for RAM requirement:
+# In phase ONE, we ask for more RAM Available BEFORE downloading
+# and extracting the F/W image file.
+# In phase greater than ONE, we ask for less RAM Available AFTER
+# the F/W image file has been downloaded and extracted.
+#---------------------------------------------------------------------#
+_GetAvailableRAM_PercentOverheadNum_()
+{
+   local phaseNum=1  availableRAM_PercentOverheadNum
+
+   if [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^phase#[1-9]$"
+   then phaseNum=1
+   else phaseNum="$(echo "$1" | awk -F '#' '{print $2}')"
+   fi
+
+   if _HasRouterMoreThan512MBtotalRAM_
+   then  ##Physical RAM is 1.0GB or more##
+       if [ "$phaseNum" -lt 3 ]
+       then availableRAM_PercentOverheadNum=50
+       else availableRAM_PercentOverheadNum=40
+       fi
+   elif _HasRouterMoreThan256MBtotalRAM_
+   then  ##Physical RAM is 512.0MB##
+       if [ "$phaseNum" -lt 3 ]
+       then availableRAM_PercentOverheadNum=35
+       else availableRAM_PercentOverheadNum=25
+       fi
+   else  ##Physical RAM is 256.0MB##
+       if [ "$phaseNum" -lt 3 ]
+       then availableRAM_PercentOverheadNum=35
+       else availableRAM_PercentOverheadNum=30
+       fi
+   fi
+   echo "$availableRAM_PercentOverheadNum"
+   return 0
 }
 
 ##----------------------------------------##
@@ -3645,24 +3702,42 @@ _GetFreeRAM_KB_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-05] ##
+## Modified by Martinski W. [2025-Jun-01] ##
 ##----------------------------------------##
+theZIP_FileSizeKB=0
+theZIP_FileSizeBytes=0
+
 _GetRequiredRAM_KB_()
 {
-    local theURL="$1"
-    local zip_file_size_bytes  zip_file_size_kb  overhead_kb
-    local total_required_kb  overhead_percentage=50
+    local theURL="$1"  thePhase  overhead_percentage
+    local overhead_KB  total_required_KB
 
-    # Size of the ZIP file in bytes #
-    zip_file_size_bytes="$(curl -LsI --retry 4 --retry-delay 5 "$theURL" | grep -i Content-Length | tail -1 | awk '{print $2}')"
-    # Bytes to KBytes #
-    zip_file_size_kb="$((zip_file_size_bytes / 1024))"
+    if [ $# -lt 2 ] || [ -z "$2" ] || \
+       ! echo "$2" | grep -qE "^phase#[1-9]$"
+    then thePhase='phase#1'
+    else thePhase="$2"
+    fi
+    overhead_percentage="$(_GetAvailableRAM_PercentOverheadNum_ "$thePhase")"
+
+    if [ -z "$theZIP_FileSizeBytes" ]    || \
+       [ "$theZIP_FileSizeBytes" = "0" ] || \
+       ! echo "$theZIP_FileSizeBytes" | grep -qE "^[0-9]+$"
+    then
+        theZIP_FileSizeBytes="$(curl -LsI --retry 4 --retry-delay 5 "$theURL" | grep -i Content-Length | tail -1 | awk '{print $2}')"
+    fi
+
+    if [ -n "$theZIP_FileSizeBytes" ]    && \
+       [ "$theZIP_FileSizeBytes" -gt 0 ] && \
+       [ "$theZIP_FileSizeKB" -eq 0 ]
+    then
+        theZIP_FileSizeKB="$((theZIP_FileSizeBytes / 1024))"
+    fi
 
     # Calculate overhead based on the percentage #
-    overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
+    overhead_KB="$((theZIP_FileSizeKB * overhead_percentage / 100))"
 
-    total_required_kb="$((zip_file_size_kb + overhead_kb))"
-    echo "$total_required_kb"
+    total_required_KB="$((theZIP_FileSizeKB + overhead_KB))"
+    echo "$total_required_KB"
 }
 
 ##----------------------------------------##
@@ -3672,12 +3747,12 @@ _ShutDownNonCriticalServices_()
 {
     for procName in nt_center nt_monitor nt_actMail
     do
-         procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
-         if [ "$procNum" -gt 0 ]
-         then
-             printf "$procName: [$procNum]\n"
-             killall -9 "$procName" && sleep 1
-         fi
+        procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
+        if [ "$procNum" -gt 0 ]
+        then
+            printf "$procName: [$procNum]\n"
+            killall -9 "$procName" && sleep 1
+        fi
     done
 
     for service_name in conn_diag samba nasapps
@@ -3689,6 +3764,89 @@ _ShutDownNonCriticalServices_()
             service "stop_$service_name" && sleep 1
         fi
     done
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jun-01] ##
+##-------------------------------------##
+#---------------------------------------------------------------------#
+# As a last resort, to free more available RAM, we now attempt to
+# disable and shutdown existing ASUS/TrendMicro services such as:
+# AsusNat Tunnel, AiProtection, Traffic Analyzer/Monitor, and 
+# Bandwidth Monitor. These appear to use quite a lot of RAM.
+#---------------------------------------------------------------------#
+
+apps_analysis_SAVED=""
+bwdpi_db_enable_SAVED=""
+aae_disable_force_SAVED=""
+wrs_protect_enable_SAVED=""
+networkmap_fullscan_SAVED=""
+AsusTrendMicroProcsDisabled=false
+
+_DisableAsusTrendMicroProcesses_()
+{
+    apps_analysis_SAVED="$(nvram get apps_analysis)"
+    bwdpi_db_enable_SAVED="$(nvram get bwdpi_db_enable)"
+    aae_disable_force_SAVED="$(nvram get aae_disable_force)"
+    wrs_protect_enable_SAVED="$(nvram get wrs_protect_enable)"
+    networkmap_fullscan_SAVED="$(nvram get networkmap_fullscan)"
+
+    if [ "$apps_analysis_SAVED" = "1" ]     || \
+       [ "$bwdpi_db_enable_SAVED" = "1" ]   || \
+       [ "$aae_disable_force_SAVED" = "0" ] || \
+       [ "$wrs_protect_enable_SAVED" = "1" ]
+    then
+        Say "Temporarily disabling some Asus/TrendMicro services..."
+        "$isInteractive" && printf "Please wait.\n"
+        nvram set apps_analysis=0 ; sleep 1
+        nvram set bwdpi_db_enable=0 ; sleep 1
+        nvram set aae_disable_force=1 ; sleep 1
+        nvram set wrs_protect_enable=0 ; sleep 1
+        nvram set networkmap_fullscan=2
+        AsusTrendMicroProcsDisabled=true
+        sleep 2
+    fi
+
+    for procName in aaews mastiff dcd wred bwdpi_wred_alive bwdpi_check hour_monitor netool
+    do
+        procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
+        if [ "$procNum" -gt 0 ]
+        then
+            printf "$procName: [$procNum]\n"
+            killall -9 "$procName" && sleep 1
+        fi
+    done
+
+    if "$isInteractive" && "$AsusTrendMicroProcsDisabled"
+    then printf "\nDone.\n" ; fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jun-01] ##
+##-------------------------------------##
+_ReEnableAsusTrendMicroProcesses_()
+{
+    if ! "$AsusTrendMicroProcsDisabled"
+    then return 0 ; fi
+
+    Say "Re-enabling existing Asus/TrendMicro services..."
+    "$isInteractive" && printf "Please wait.\n"
+
+    nvram set apps_analysis="$apps_analysis_SAVED"
+    sleep 1
+    nvram set bwdpi_db_enable="$bwdpi_db_enable_SAVED"
+    sleep 1
+    nvram set aae_disable_force="$aae_disable_force_SAVED"
+    sleep 1
+    nvram set wrs_protect_enable="$wrs_protect_enable_SAVED"
+    sleep 1
+    nvram set networkmap_fullscan="$networkmap_fullscan_SAVED"
+    sleep 1
+    AsusTrendMicroProcsDisabled=false
+
+    "$isInteractive" && printf "\nDone.\n"
+    Say "A reboot may be necessary to fully restart Asus/TrendMicro services..."
+    return 0
 }
 
 ##------------------------------------------##
@@ -3764,7 +3922,7 @@ _LogMemoryDebugInfo_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-26] ##
+## Modified by Martinski W. [2025-Jun-01] ##
 ##----------------------------------------##
 check_memory_and_prompt_reboot()
 {
@@ -3790,6 +3948,7 @@ check_memory_and_prompt_reboot()
 
             # Attempt to clear dentries and inodes. #
             Say "Attempting to free up memory again more aggressively..."
+            _DisableAsusTrendMicroProcesses_
             sync; echo 2 > /proc/sys/vm/drop_caches
             sleep 2
 
@@ -3806,7 +3965,6 @@ check_memory_and_prompt_reboot()
 
                 # Stop Entware services to free some memory #
                 _EntwareServicesHandler_ stop
-
                 _ShutDownNonCriticalServices_
 
                 sync; echo 3 > /proc/sys/vm/drop_caches
@@ -3835,18 +3993,19 @@ check_memory_and_prompt_reboot()
                         Say "Insufficient memory to continue. Exiting script."
                         # Restart Entware services #
                         _EntwareServicesHandler_ start
+                        _ReEnableAsusTrendMicroProcesses_
 
                         _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
                         _DoExit_ 1
                     fi
                 else
-                    Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+                    Say "Successfully freed up memory. RAM Available: ${availableRAM_kb} KB."
                 fi
             else
-                Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+                Say "Successfully freed up memory. RAM Available: ${availableRAM_kb} KB."
             fi
         else
-            Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+            Say "Successfully freed up memory. RAM Available: ${availableRAM_kb} KB."
         fi
     fi
 }
@@ -8738,11 +8897,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         return 1
     fi
 
-    ##---------------------------------------##
-    ## Added by ExtremeFiretop [2023-Dec-09] ##
-    ##---------------------------------------##
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2025-Jun-01] ##
+    ##----------------------------------------##
     # Get the required memory for the firmware download and extraction
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link")"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#1')"
     if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$requiredRAM_kb" -gt 51200 ]
     then
         if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
@@ -8810,11 +8969,12 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
-    ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Feb-18] ##
-    ##------------------------------------------##
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2025-Jun-01] ##
+    ##----------------------------------------##
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#2')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -8838,6 +8998,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#3')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -8859,6 +9020,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#4')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -8945,10 +9107,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     fi
 
     ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Mar-16] ##
+    ## Modified by Martinski W. [2025-Jun-01] ##
     ##----------------------------------------##
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#5')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
