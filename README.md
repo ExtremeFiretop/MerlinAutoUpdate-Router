@@ -3,7 +3,7 @@
 ## 2025-Jun-04
 
 ## WebUI:
-![image](https://github.com/user-attachments/assets/a2197262-ca35-451a-8645-311896e1495e)
+![image](https://github.com/user-attachments/assets/9c1dff99-9c13-491b-a7fa-aff924d5f02e)
 
 ## CLI Shell Script:
 ![image](https://github.com/user-attachments/assets/b255e781-4a93-4e60-8517-edc7a5bf971d)
