@@ -1,15 +1,15 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.4.6
-## 2025-May-17
+## v1.4.7
+## 2025-Jun-04
 
 ## WebUI:
-![image](https://github.com/user-attachments/assets/a2197262-ca35-451a-8645-311896e1495e)
+![image](https://github.com/user-attachments/assets/9c1dff99-9c13-491b-a7fa-aff924d5f02e)
 
 ## CLI Shell Script:
-![image](https://github.com/user-attachments/assets/b255e781-4a93-4e60-8517-edc7a5bf971d)
-![image](https://github.com/user-attachments/assets/d05ec713-bacb-411b-903f-31bd1f04f49d)
-![image](https://github.com/user-attachments/assets/8119aee0-e8ac-4bfb-a371-dfd74433ec5a)
-![image](https://github.com/user-attachments/assets/33ef2735-acff-48c4-ab59-37622f2b8595)
+![image](https://github.com/user-attachments/assets/3af75fda-ecda-419c-86b9-628e255abba0)
+![image](https://github.com/user-attachments/assets/caff3af3-5404-4b4c-92dd-f225df1431b8)
+![image](https://github.com/user-attachments/assets/62767ed5-f9a3-4343-890f-b151b9c2f318)
+![image](https://github.com/user-attachments/assets/35607f78-bd02-49ca-af10-b1ea77412d2d)
 
 ## Update Process (Triggered Manually):
 ![image](https://github.com/user-attachments/assets/62d60c39-9bb0-40db-bb80-dda3de08c508)
@@ -136,7 +136,7 @@ Use your preferred SSH client to connect to the router.
 *Manual Installation*
 1. To Download the script to your router, Copy and paste:
 ```bash
-curl --retry 3 "https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "/jffs/scripts/MerlinAU.sh" && chmod +x "/jffs/scripts/MerlinAU.sh"
+curl --retry 3 "https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "/jffs/scripts/MerlinAU.sh" && chmod +x "/jffs/scripts/MerlinAU.sh && sh /jffs/scripts/MerlinAU.sh install"
 ```
 - The script is now ready for use!
   
@@ -163,3 +163,12 @@ The script can be run using the below options:
 - Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
 
 ## Use this Automatic F/W Update script at your own discretion. By using this script you assume all risks associated with updating a router to a new firmware version.
+
+## Star History
+<a href="https://www.star-history.com/#ExtremeFiretop/MerlinAutoUpdate-Router&Date">
+ <picture>
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=Date&theme=dark" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=Date" />
+   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=Date" />
+ </picture>
+</a>

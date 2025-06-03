@@ -29,7 +29,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-May-11 **/
+/** Last Modified: 2025-Jun-01 **/
 /**----------------------------**/
 
 // Separate variables for shared and AJAX settings //
@@ -857,59 +857,91 @@ function FetchChangelog(startTime)
     });
 }
 
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-May-18] **/
+/**------------------------------------------**/
 function ShowLatestChangelog(e)
 {
     if (e) e.preventDefault();
 
-    let loadingMessage = '<p>Please wait and allow up to 10 seconds for the changelog to load.<br>' +
-                         'Click on "Cancel" button to stop and exit this dialog.</p>';
+    const loadingMessage =
+        '<p>Please wait and allow up to 10 seconds for the changelog to load.<br>' +
+        'Click on "Cancel" button to stop and exit this dialog.</p>';
 
-    if ($('#changelogModal').length)
+    /* ----- build the modal once ----- */
+    if (!$('#changelogModal').length)
     {
-       $('#changelogData').html(loadingMessage);
-       $('#closeChangelogModal').text("Cancel");
-    }
-    else
-    {   // Create modal overlay if it doesn't exist //
         $('body').append(
-            '<div id="changelogModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; ' +
-                'background:rgba(0,0,0,0.8); z-index:10000;">' +
-                '<div id="changelogContent" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); ' +
-                    'background:#fff; color:#000; padding:20px; max-height:90%; overflow:auto; width:80%; max-width:800px;">' +
-                    '<h2 style="margin-top:0; color:#000;">Latest Changelog</h2>' +
-                    '<button id="closeChangelogModal" style="float:right; font-size:14px; cursor:pointer;">Cancel</button>' +
-                    '<div id="changelogData" style="font-family:monospace; white-space:pre-wrap; margin-top:10px; color:#000;">' +
+            '<div id="changelogModal" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;' +
+                'background:rgba(0,0,0,0.8);z-index:10000;">' +
+                '<div id="changelogContent" style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);' +
+                    'background:#fff;color:#000;padding:20px;max-height:90%;overflow:auto;width:80%;max-width:800px;">' +
+                    '<h2 style="margin-top:0;color:#000;">Latest Changelog</h2>' +
+                    '<button id="closeChangelogModal" style="float:right;font-size:14px;cursor:pointer;">Cancel</button>' +
+                    '<div id="changelogData" style="font-family:monospace;white-space:pre-wrap;margin-top:10px;color:#000;">' +
                         loadingMessage +
                     '</div>' +
                 '</div>' +
             '</div>'
         );
-        $('#closeChangelogModal').on('click', function(){
+
+        /* close button */
+        $('#closeChangelogModal').on('click', function () {
             $('#changelogModal').hide();
         });
+
+        /* ---------- NEW: arrow‑key scroll handler (bind once) ---------- */
+        $(document).on('keydown', function (ev) {
+            if (!$('#changelogModal').is(':visible')) { return; }
+            const box = $('#changelogContent')[0];  // the scrollable box //
+            switch (ev.key)
+            {
+                case 'ArrowDown':
+                    box.scrollTop += 40;
+                    ev.preventDefault();
+                    break;
+                case 'ArrowUp':
+                    box.scrollTop -= 40;
+                    ev.preventDefault();
+                    break;
+                case 'ArrowRight':
+                    box.scrollTop += 40;
+                    ev.preventDefault();
+                    break;
+                case 'ArrowLeft':
+                    box.scrollTop -= 40;
+                    ev.preventDefault();
+                    break;
+                default:
+                    break;
+            }
+        });
+        /* -------------------------------------------------------------- */
+    }
+    else
+    {
+        $('#changelogData').html(loadingMessage);
+        $('#closeChangelogModal').text("Cancel");
     }
 
     $('#changelogModal').show();
 
-    // Trigger the backend shell script via form submission //
-    var formData = $('form[name="form"]').serializeArray();
-    formData.push({ name: "action_script", value: "start_MerlinAUdownloadchangelog" });
-    formData.push({ name: "action_wait", value: "10" });
-    
-    $.post('start_apply.htm', formData)
-      .done(function(response) {
-         console.log("Changelog trigger submitted successfully.");
-      })
-      .fail(function() {
-         console.error("Failed to submit changelog trigger.");
-      });
+    /* ---------- NEW: focusable + give it focus ---------- */
+    $('#changelogContent').attr('tabindex', 0).focus();
+    /* ---------------------------------------------------- */
 
-    // Record the start time and wait 8 seconds before attempting to fetch the changelog //
-    var startTime = new Date().getTime();
-    setTimeout(function() {
-         FetchChangelog(startTime);
-         // Once the changelog has loaded, update the button text to "Close"
-         $('#closeChangelogModal').text("Close");
+    /* kick the backend */
+    const formData = $('form[name="form"]').serializeArray();
+    formData.push({ name: "action_script", value: "start_MerlinAUdownloadchangelog" });
+    formData.push({ name: "action_wait",   value: "10" });
+
+    $.post('start_apply.htm', formData);
+
+    /* wait 8s, then fetch the changelog */
+    const startTime = Date.now();
+    setTimeout(function () {
+        FetchChangelog(startTime);
+        $('#closeChangelogModal').text("Close");
     }, 8000);
 
     return false;
@@ -1034,14 +1066,14 @@ function GetExternalCheckResults()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Mar-07] **/
+/** Modified by Martinski W. [2025-Jun-01] **/
 /**----------------------------------------**/
 // To support 'routerPassword' element //
 const loginPassword =
 {
    minLen: 5, maxLen: 64, pswdLen: 0, pswdStr: '',
    pswdInvalid: false, pswdVerified: false, pswdUnverified: false,
-   allBlankCharsRegExp: '^[ ]+$',
+   pswdFocus: false, allBlankCharsRegExp: '^[ ]+$',
 
    ErrorMsg: function()
    {
@@ -1056,7 +1088,7 @@ const loginPassword =
          const excMaxLen = (this.maxLen + 1);
          return (`${errStr} The string length must be less than ${excMaxLen} characters.`);
       }
-      if (this.pswdStr.match (`${this.allBlankCharsRegExp}`) !== null)
+      if (this.pswdStr.match (this.allBlankCharsRegExp) !== null)
       { return (`${errStr} The string cannot be all blank spaces.`); }
       if (this.pswdInvalid) { return loginPswdInvalidMsge; }
    },
@@ -1073,7 +1105,7 @@ const loginPassword =
          const excMaxLen = (this.maxLen + 1);
          return (`${errStr}<br>The string length must be less than <b>${excMaxLen}</b> characters.</br>`);
       }
-      if (this.pswdStr.match (`${this.allBlankCharsRegExp}`) !== null)
+      if (this.pswdStr.match (this.allBlankCharsRegExp) !== null)
       { return (`${errStr}<br>The string cannot be all blank spaces.<br>`); }
       if (this.pswdInvalid) { return loginPswdInvalidHint; }
       if (this.pswdVerified) { return loginPswdVerifiedMsg; }
@@ -1084,15 +1116,18 @@ const loginPassword =
       const pswdStr = formField.value;
       if (this.pswdStr !== pswdStr && eventID === 'onKEYUP')
       {
+          this.pswdFocus = false;
           this.pswdInvalid = false;
           this.pswdVerified = false;
           this.pswdUnverified = false;
       }
       this.pswdStr = pswdStr;
       this.pswdLen = pswdStr.length;
-      if (this.pswdInvalid || this.pswdVerified || this.pswdUnverified ||
-          this.pswdLen < this.minLen || this.pswdLen > this.maxLen ||
-          this.pswdStr.match (`${this.allBlankCharsRegExp}`) !== null)
+
+      if (this.pswdLen < this.minLen || this.pswdLen > this.maxLen ||
+          this.pswdStr.match (this.allBlankCharsRegExp) !== null)
+      { this.pswdFocus = true; return false; }
+      else if (this.pswdInvalid || this.pswdVerified || this.pswdUnverified)
       { return false; }
       else
       { return true; }
@@ -1100,7 +1135,7 @@ const loginPassword =
 };
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Mar-07] **/
+/** Modified by Martinski W. [2025-Jun-01] **/
 /**----------------------------------------**/
 function ValidatePasswordString (formField, eventID)
 {
@@ -1110,21 +1145,30 @@ function ValidatePasswordString (formField, eventID)
       $(formField).off('mouseover');
       return true;
    }
+
+   let retStatus;
+
+   if (eventID === 'onSAVE')
+   { loginPassword.pswdFocus = true; }
+   else if (eventID === 'onKEYUP')
+   { loginPassword.pswdFocus = false; }
+
+   if (loginPassword.pswdVerified || loginPassword.pswdUnverified)
+   { retStatus = true; }
    else
-   {
-      let retStatus;
-      if (loginPassword.pswdVerified || loginPassword.pswdUnverified)
-      { retStatus = true; }
+   {  /** Set focus and red box ONLY when INVALID **/
+      retStatus = false;
+      if (loginPassword.pswdFocus)
+      { formField.focus(); }
       else
-      {
-         retStatus = false;
-         $(formField).addClass('Invalid');
-      }
-      formField.focus();
-      $(formField).on('mouseover',function(){return overlib(loginPassword.ErrorHint(),0,0);});
-      $(formField)[0].onmouseout = nd;
-      return retStatus;
+      { formField.blur(); }
+      $(formField).addClass('Invalid');
    }
+
+   /** Show tooltip message for ALL 3 statuses **/
+   $(formField).on('mouseover',function(){return overlib(loginPassword.ErrorHint(),0,0);});
+   $(formField)[0].onmouseout = nd;
+   return retStatus;
 }
 
 function togglePassword()
@@ -1432,9 +1476,9 @@ function ShowHintMsg (formField)
    }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Mar-07] **/
-/**-------------------------------------**/
+/**----------------------------------------**/
+/** Modified by Martinski W. [2025-Jun-01] **/
+/**----------------------------------------**/
 function GetLoginPswdCheckStatus()
 {
     $.ajax({
@@ -1482,6 +1526,7 @@ function GetLoginPswdCheckStatus()
                     pswdStatusHint0 = loginPswdInvalidHint;
                     pswdStatusHint1 = loginPswdInvalidHint;
                     loginPassword.pswdInvalid = true;
+                    loginPassword.pswdFocus = true;
                     break;
                 case 6: //Unknown//
                     pswdStatusText = 'Status:\n' + loginPswdCheckMsgStr;
@@ -1500,11 +1545,12 @@ function GetLoginPswdCheckStatus()
             if (passwordFailed || pswdVerified || pswdUnverified)
             {
                 if (passwordFailed)
-                {
+                {   /** Set focus and red box ONLY when INVALID **/
                     alert(`**ERROR**\n${loginPswdInvalidMsge}`);
-                    $(pswdField).addClass('Invalid'); 
+                    pswdField.focus();
+                    $(pswdField).addClass('Invalid');
                 }
-                pswdField.focus();
+                /** Show tooltip message for ALL 3 statuses **/
                 $(pswdField).on('mouseover',function(){return overlib(pswdStatusHint0,0,0);});
                 $(pswdField)[0].onmouseout = nd;
             }
@@ -1544,9 +1590,9 @@ function BlockChangelog()
     document.form.submit();
 }
 
-/**----------------------------------------**/
-/** Modified by Martinski W. [2025-Mar-07] **/
-/**----------------------------------------**/
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-May-18] **/
+/**------------------------------------------**/
 function InitializeFields()
 {
     console.log("Initializing fields...");
@@ -1642,7 +1688,10 @@ function InitializeFields()
         { tailscaleVPNEnabled.checked = (custom_settings.Allow_Updates_OverVPN === 'ENABLED'); }
 
         if (script_AutoUpdate_Check)
-        { script_AutoUpdate_Check.checked = (custom_settings.Allow_Script_Auto_Update === 'ENABLED'); }
+        {
+            script_AutoUpdate_Check.checked = (custom_settings.Allow_Script_Auto_Update === 'ENABLED');
+            UpdateForceScriptCheckboxState(script_AutoUpdate_Check?.checked);
+        }
 
         if (betaToReleaseUpdatesEnabled)
         { betaToReleaseUpdatesEnabled.checked = (custom_settings.FW_Allow_Beta_Production_Up === 'ENABLED'); }
@@ -2292,29 +2341,55 @@ function Uninstall()
    document.form.submit();
 }
 
-/**----------------------------------------**/
-/** Modified by Martinski W. [2025-May-11] **/
-/**----------------------------------------**/
+/**---------------------------------------**/
+/** Added by ExtremeFiretop [2025-May-18] **/
+/**---------------------------------------**/
+function UpdateForceScriptCheckboxState (autoUpdatesEnabled)
+{
+    const forceCB = document.getElementById('ForceScriptUpdateCheck');
+    if (!forceCB) { return; }
+    forceCB.disabled = autoUpdatesEnabled;
+    forceCB.style.opacity = autoUpdatesEnabled ? '0.5' : '1';
+    // Clear "Force Script Update" if needed //
+    if (autoUpdatesEnabled) { forceCB.checked = false; }
+}
+
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-May-18] **/
+/**------------------------------------------**/
 function UpdateMerlinAUScript()
 {
     console.log("Initiating MerlinAU script update…");
 
     let actionScriptValue;
-    let forceScriptUpdateCheck = document.getElementById('ForceScriptUpdateCheck');
+    const forceScriptUpdateCheck = document.getElementById('ForceScriptUpdateCheck');
+    const autoUpdatesEnabled     = document.getElementById('Script_AutoUpdate_Check')?.checked;
 
-    let confirmOK = confirm(
-        forceScriptUpdateCheck.checked
-        ? "INSTALL UPDATE:\nInstall the latest available MerlinAU script update now, even if version is current.\n\nContinue?"
-        : "CHECK AND PROMPT:\nCheck for a newer version of MerlinAU and prompt if found. It does NOT install update automatically!\n\nContinue?");
-    if (!confirmOK) { return; }
-
-    if (!forceScriptUpdateCheck.checked)
-    { actionScriptValue = 'start_MerlinAUscrptupdate'; }
+    let confirmText;
+    if (forceScriptUpdateCheck.checked)
+    {   /* user explicitly wants to install right now */
+        confirmText = "INSTALL UPDATE:\n" +
+                      "Install the latest available MerlinAU script update now, " +
+                      "even if the version is already current.\n\nContinue?";
+    }
     else
-    { actionScriptValue = 'start_MerlinAUscrptupdate_force'; }
+    {   /* normal check – message depends on auto‑update setting */
+        confirmText = "CHECK AND PROMPT:\n" +
+                      "Check for a newer version of MerlinAU and prompt if found. " +
+                      (autoUpdatesEnabled
+                          ? "It DOES install automatically!"
+                          : "It does NOT install update automatically!") +
+                      "\n\nContinue?";
+    }
+
+    if (!confirm(confirmText)) { return; }
+
+    actionScriptValue = forceScriptUpdateCheck.checked
+                        ? 'start_MerlinAUscrptupdate_force'
+                        : 'start_MerlinAUscrptupdate';
 
     document.form.action_script.value = actionScriptValue;
-    document.form.action_wait.value = 10;
+    document.form.action_wait.value   = 10;
     showLoading();
     document.form.submit();
 }
@@ -2944,7 +3019,7 @@ function initializeCollapsibleSections()
       </label>
    </td>
    <td>
-      <input type="checkbox" id="Script_AutoUpdate_Check" name="Script_AutoUpdate_Check"/>
+      <input type="checkbox" id="Script_AutoUpdate_Check" name="Script_AutoUpdate_Check" onchange="UpdateForceScriptCheckboxState(this.checked)"/>
       <span id="Script_AutoUpdate_SchedText" name="Script_AutoUpdate_SchedText"
        style="vertical-align:bottom; margin-left:15px; display:none; font-size: 12px; font-weight: bolder;"></span>
    </td>

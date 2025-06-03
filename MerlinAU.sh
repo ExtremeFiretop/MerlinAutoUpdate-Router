@@ -4,15 +4,15 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-May-17
+# Last Modified: 2025-Jun-02
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.6
+readonly SCRIPT_VERSION=1.4.7
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -2558,9 +2558,9 @@ _WebUI_SetEmailConfigFileFromAMTM_()
    _WriteVarDefToHelperJSFile_ "isEMailConfigEnabledInAMTM" "$isEMailConfigEnabledInAMTM" true
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-21] ##
+##------------------------------------------##
 _ActionsAfterNewConfigSettings_()
 {
    if [ ! -s "${CONFIG_FILE}.bak" ] || \
@@ -2584,7 +2584,7 @@ _ActionsAfterNewConfigSettings_()
    fi
    if _ConfigOptionChanged_ "FW_New_Update_Postponement_Days="
    then
-       _Calculate_NextRunTime_
+       _Calculate_NextRunTime_ recal
    fi
    if _ConfigOptionChanged_ "Allow_Script_Auto_Update"
    then
@@ -3587,8 +3587,65 @@ _HasRouterMoreThan256MBtotalRAM_()
 {
    local totalRAM_KB
    totalRAM_KB="$(awk -F ' ' '/^MemTotal:/{print $2}' /proc/meminfo)"
-   [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 262144 ] && return 0
-   return 1
+   if [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 262144 ]
+   then return 0
+   else return 1
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jun-01] ##
+##-------------------------------------##
+_HasRouterMoreThan512MBtotalRAM_()
+{
+   local totalRAM_KB
+   totalRAM_KB="$(awk -F ' ' '/^MemTotal:/{print $2}' /proc/meminfo)"
+   if [ -n "$totalRAM_KB" ] && [ "$totalRAM_KB" -gt 524288 ]
+   then return 0
+   else return 1
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jun-01] ##
+##-------------------------------------##
+#---------------------------------------------------------------------#
+# We define TWO main phases for RAM requirement:
+# In phase ONE, we ask for more RAM Available BEFORE downloading
+# and extracting the F/W image file.
+# In phase greater than ONE, we ask for less RAM Available AFTER
+# the F/W image file has been downloaded and extracted.
+#---------------------------------------------------------------------#
+_GetAvailableRAM_PercentOverheadNum_()
+{
+   local phaseNum=1  availableRAM_PercentOverheadNum
+
+   if [ $# -eq 0 ] || [ -z "$1" ] || \
+      ! echo "$1" | grep -qE "^phase#[1-9]$"
+   then phaseNum=1
+   else phaseNum="$(echo "$1" | awk -F '#' '{print $2}')"
+   fi
+
+   if _HasRouterMoreThan512MBtotalRAM_
+   then  ##Physical RAM is 1.0GB or more##
+       if [ "$phaseNum" -lt 3 ]
+       then availableRAM_PercentOverheadNum=50
+       else availableRAM_PercentOverheadNum=40
+       fi
+   elif _HasRouterMoreThan256MBtotalRAM_
+   then  ##Physical RAM is 512.0MB##
+       if [ "$phaseNum" -lt 3 ]
+       then availableRAM_PercentOverheadNum=35
+       else availableRAM_PercentOverheadNum=25
+       fi
+   else  ##Physical RAM is 256.0MB##
+       if [ "$phaseNum" -lt 3 ]
+       then availableRAM_PercentOverheadNum=35
+       else availableRAM_PercentOverheadNum=30
+       fi
+   fi
+   echo "$availableRAM_PercentOverheadNum"
+   return 0
 }
 
 ##----------------------------------------##
@@ -3645,24 +3702,42 @@ _GetFreeRAM_KB_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-05] ##
+## Modified by Martinski W. [2025-Jun-01] ##
 ##----------------------------------------##
+theZIP_FileSizeKB=0
+theZIP_FileSizeBytes=0
+
 _GetRequiredRAM_KB_()
 {
-    local theURL="$1"
-    local zip_file_size_bytes  zip_file_size_kb  overhead_kb
-    local total_required_kb  overhead_percentage=50
+    local theURL="$1"  thePhase  overhead_percentage
+    local overhead_KB  total_required_KB
 
-    # Size of the ZIP file in bytes #
-    zip_file_size_bytes="$(curl -LsI --retry 4 --retry-delay 5 "$theURL" | grep -i Content-Length | tail -1 | awk '{print $2}')"
-    # Bytes to KBytes #
-    zip_file_size_kb="$((zip_file_size_bytes / 1024))"
+    if [ $# -lt 2 ] || [ -z "$2" ] || \
+       ! echo "$2" | grep -qE "^phase#[1-9]$"
+    then thePhase='phase#1'
+    else thePhase="$2"
+    fi
+    overhead_percentage="$(_GetAvailableRAM_PercentOverheadNum_ "$thePhase")"
+
+    if [ -z "$theZIP_FileSizeBytes" ]    || \
+       [ "$theZIP_FileSizeBytes" = "0" ] || \
+       ! echo "$theZIP_FileSizeBytes" | grep -qE "^[0-9]+$"
+    then
+        theZIP_FileSizeBytes="$(curl -LsI --retry 4 --retry-delay 5 "$theURL" | grep -i Content-Length | tail -1 | awk '{print $2}')"
+    fi
+
+    if [ -n "$theZIP_FileSizeBytes" ]    && \
+       [ "$theZIP_FileSizeBytes" -gt 0 ] && \
+       [ "$theZIP_FileSizeKB" -eq 0 ]
+    then
+        theZIP_FileSizeKB="$((theZIP_FileSizeBytes / 1024))"
+    fi
 
     # Calculate overhead based on the percentage #
-    overhead_kb="$((zip_file_size_kb * overhead_percentage / 100))"
+    overhead_KB="$((theZIP_FileSizeKB * overhead_percentage / 100))"
 
-    total_required_kb="$((zip_file_size_kb + overhead_kb))"
-    echo "$total_required_kb"
+    total_required_KB="$((theZIP_FileSizeKB + overhead_KB))"
+    echo "$total_required_KB"
 }
 
 ##----------------------------------------##
@@ -3672,12 +3747,12 @@ _ShutDownNonCriticalServices_()
 {
     for procName in nt_center nt_monitor nt_actMail
     do
-         procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
-         if [ "$procNum" -gt 0 ]
-         then
-             printf "$procName: [$procNum]\n"
-             killall -9 "$procName" && sleep 1
-         fi
+        procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
+        if [ "$procNum" -gt 0 ]
+        then
+            printf "$procName: [$procNum]\n"
+            killall -9 "$procName" && sleep 1
+        fi
     done
 
     for service_name in conn_diag samba nasapps
@@ -3689,6 +3764,89 @@ _ShutDownNonCriticalServices_()
             service "stop_$service_name" && sleep 1
         fi
     done
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jun-01] ##
+##-------------------------------------##
+#---------------------------------------------------------------------#
+# As a last resort, to free more available RAM, we now attempt to
+# disable and shutdown existing ASUS/TrendMicro services such as:
+# AsusNat Tunnel, AiProtection, Traffic Analyzer/Monitor, and 
+# Bandwidth Monitor. These appear to use quite a lot of RAM.
+#---------------------------------------------------------------------#
+
+apps_analysis_SAVED=""
+bwdpi_db_enable_SAVED=""
+aae_disable_force_SAVED=""
+wrs_protect_enable_SAVED=""
+networkmap_fullscan_SAVED=""
+AsusTrendMicroProcsDisabled=false
+
+_DisableAsusTrendMicroProcesses_()
+{
+    apps_analysis_SAVED="$(nvram get apps_analysis)"
+    bwdpi_db_enable_SAVED="$(nvram get bwdpi_db_enable)"
+    aae_disable_force_SAVED="$(nvram get aae_disable_force)"
+    wrs_protect_enable_SAVED="$(nvram get wrs_protect_enable)"
+    networkmap_fullscan_SAVED="$(nvram get networkmap_fullscan)"
+
+    if [ "$apps_analysis_SAVED" = "1" ]     || \
+       [ "$bwdpi_db_enable_SAVED" = "1" ]   || \
+       [ "$aae_disable_force_SAVED" = "0" ] || \
+       [ "$wrs_protect_enable_SAVED" = "1" ]
+    then
+        Say "Temporarily disabling some Asus/TrendMicro services..."
+        "$isInteractive" && printf "Please wait.\n"
+        nvram set apps_analysis=0 ; sleep 1
+        nvram set bwdpi_db_enable=0 ; sleep 1
+        nvram set aae_disable_force=1 ; sleep 1
+        nvram set wrs_protect_enable=0 ; sleep 1
+        nvram set networkmap_fullscan=2
+        AsusTrendMicroProcsDisabled=true
+        sleep 2
+    fi
+
+    for procName in aaews mastiff dcd wred bwdpi_wred_alive bwdpi_check hour_monitor netool
+    do
+        procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
+        if [ "$procNum" -gt 0 ]
+        then
+            printf "$procName: [$procNum]\n"
+            killall -9 "$procName" && sleep 1
+        fi
+    done
+
+    if "$isInteractive" && "$AsusTrendMicroProcsDisabled"
+    then printf "\nDone.\n" ; fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jun-01] ##
+##-------------------------------------##
+_ReEnableAsusTrendMicroProcesses_()
+{
+    if ! "$AsusTrendMicroProcsDisabled"
+    then return 0 ; fi
+
+    Say "Re-enabling existing Asus/TrendMicro services..."
+    "$isInteractive" && printf "Please wait.\n"
+
+    nvram set apps_analysis="$apps_analysis_SAVED"
+    sleep 1
+    nvram set bwdpi_db_enable="$bwdpi_db_enable_SAVED"
+    sleep 1
+    nvram set aae_disable_force="$aae_disable_force_SAVED"
+    sleep 1
+    nvram set wrs_protect_enable="$wrs_protect_enable_SAVED"
+    sleep 1
+    nvram set networkmap_fullscan="$networkmap_fullscan_SAVED"
+    sleep 1
+    AsusTrendMicroProcsDisabled=false
+
+    "$isInteractive" && printf "\nDone.\n"
+    Say "A reboot may be necessary to fully restart Asus/TrendMicro services..."
+    return 0
 }
 
 ##------------------------------------------##
@@ -3764,7 +3922,7 @@ _LogMemoryDebugInfo_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Mar-26] ##
+## Modified by Martinski W. [2025-Jun-01] ##
 ##----------------------------------------##
 check_memory_and_prompt_reboot()
 {
@@ -3790,6 +3948,7 @@ check_memory_and_prompt_reboot()
 
             # Attempt to clear dentries and inodes. #
             Say "Attempting to free up memory again more aggressively..."
+            _DisableAsusTrendMicroProcesses_
             sync; echo 2 > /proc/sys/vm/drop_caches
             sleep 2
 
@@ -3806,7 +3965,6 @@ check_memory_and_prompt_reboot()
 
                 # Stop Entware services to free some memory #
                 _EntwareServicesHandler_ stop
-
                 _ShutDownNonCriticalServices_
 
                 sync; echo 3 > /proc/sys/vm/drop_caches
@@ -3835,18 +3993,19 @@ check_memory_and_prompt_reboot()
                         Say "Insufficient memory to continue. Exiting script."
                         # Restart Entware services #
                         _EntwareServicesHandler_ start
+                        _ReEnableAsusTrendMicroProcesses_
 
                         _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
                         _DoExit_ 1
                     fi
                 else
-                    Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+                    Say "Successfully freed up memory. RAM Available: ${availableRAM_kb} KB."
                 fi
             else
-                Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+                Say "Successfully freed up memory. RAM Available: ${availableRAM_kb} KB."
             fi
         else
-            Say "Successfully freed up memory. Available: ${availableRAM_kb}KB."
+            Say "Successfully freed up memory. RAM Available: ${availableRAM_kb} KB."
         fi
     fi
 }
@@ -4316,79 +4475,73 @@ _GetPasswordInput_()
    return
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2024-Aug-18] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-May-31] ##
+##----------------------------------------##
 _CIDR_IPaddrBlockContainsIPaddr_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then return 1 ; fi
 
-   local lastNETIPaddr4thOctet  cidrIPRangeMax=0
+   local cidrNetIPaddr="${1%/*}"
+   local mainLANIPaddr="$2"
 
-   local thisLANIPaddr="$2"
-   local cidrNETIPaddr="${1%/*}"
-   local cidrNETIPmask="${1#*/}"
-   local NETIPaddr4thOctet="${cidrNETIPaddr##*.}"
-   local LANIPaddr4thOctet="${thisLANIPaddr##*.}"
+   ## If FIRST octet does NOT match, LAN IP address is NOT included ##
+   if [ "${mainLANIPaddr%%.*}" -ne "${cidrNetIPaddr%%.*}" ]
+   then return 1 ; fi
 
-   # Assumes the host segment has a maximum of 8 bits #
-   # and the network segment has a minimum of 24 bits #
-   case "$cidrNETIPmask" in
-       31) cidrIPRangeMax=1 ;;
-       30) cidrIPRangeMax=3 ;;
-       29) cidrIPRangeMax=7 ;;
-       28) cidrIPRangeMax=15 ;;
-       27) cidrIPRangeMax=31 ;;
-       26) cidrIPRangeMax=63 ;;
-       25) cidrIPRangeMax=127 ;;
-       24) cidrIPRangeMax=255 ;;
-   esac
-   lastNETIPaddr4thOctet="$((NETIPaddr4thOctet + cidrIPRangeMax))"
-   [ "$lastNETIPaddr4thOctet" -gt 255 ] && lastNETIPaddr4thOctet=255
-
-   if [ "$LANIPaddr4thOctet" -ge "$NETIPaddr4thOctet" ] && \
-      [ "$LANIPaddr4thOctet" -le "$lastNETIPaddr4thOctet" ]
-   then return 0
-   else return 1
-   fi
+   awk -v cidr="$1" -v lanip="$2" '
+      function ip2int(s, a){split(s,a,".");return a[1]*16777216+a[2]*65536+a[3]*256+a[4]}
+      BEGIN{
+         split(cidr,c,"/"); netip=c[1]; bits=c[2]+0
+         mask = bits==0 ? 0 : and(0xffffffff, lshift(0xffffffff,32-bits))
+         exit and(ip2int(lanip),mask)==and(ip2int(netip),mask) ? 0 : 1
+      }'
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-18] ##
+## Modified by Martinski W. [2025-May-31] ##
 ##----------------------------------------##
+# Router LAN IP address MUST have access to WebGUI,
+# and MUST be within a 24-bit IP address subnet block.
+#------------------------------------------------------#
 _CheckWebGUILoginAccessOK_()
 {
    local accessRestriction  restrictRuleList
    local lanIPaddrRegEx1 lanIPaddrRegEx2 lanIPaddrRegEx3
    local cidrIPaddrEntry  cidrIPaddrBlock  cidrIPaddrRegEx
-   local mainLANIPaddrRegEx  netwkIPv4AddrRegEx  netwkIPv4AddrX
+   local mainLANIPaddrRegEx  netwkIPv4addrRegEx
+   local netwkIPaddr1stOctet  netwkIPv4addrX
+   local mainLANIPaddrRegEx  netwkIPv4addrRegEx  ruleTailFlag
 
    accessRestriction="$(nvram get enable_acc_restriction)"
    if [ -z "$accessRestriction" ] || [ "$accessRestriction" -eq 0 ]
    then return 0 ; fi
 
+   ruleTailFlag='>[13]'  ##[only WebUI or ALL]##
    restrictRuleList="$(nvram get restrict_rulelist)"
+
    if [ -n "$mainNET_IPaddr" ]
-   then
-       netwkIPv4AddrX="${mainNET_IPaddr%/*}"
-       netwkIPv4AddrX="${netwkIPv4AddrX%.*}"
-   else
-       netwkIPv4AddrX="${mainLAN_IPaddr%.*}"
+   then netwkIPaddr1stOctet="${mainNET_IPaddr%%.*}"
+   else netwkIPaddr1stOctet="${mainLAN_IPaddr%%.*}"
    fi
-   netwkIPv4AddrX="${netwkIPv4AddrX}.${IPv4octet_RegEx}"
-   netwkIPv4AddrRegEx="$(echo "$netwkIPv4AddrX" | sed 's/\./\\./g')"
+
+   ## 24-bit IP address subnet block for network CIDR ##
+   netwkIPv4addrX="${netwkIPaddr1stOctet}.${IPv4octet_RegEx}.${IPv4octet_RegEx}.${IPv4octet_RegEx}"
+   netwkIPv4addrRegEx="$(echo "$netwkIPv4addrX" | sed 's/\./\\./g')"
+   cidrIPaddrRegEx="${netwkIPv4addrRegEx}/([89]|[12][0-9]|3[01])"
+   lanIPaddrRegEx3=">${cidrIPaddrRegEx}${ruleTailFlag}"
+
+   ## 8-bit IP address subnet block with private LAN IP ##
    mainLANIPaddrRegEx="$(echo "$mainLAN_IPaddr" | sed 's/\./\\./g')"
+   lanIPaddrRegEx1=">${mainLANIPaddrRegEx}${ruleTailFlag}"
+   lanIPaddrRegEx2=">${mainLANIPaddrRegEx}/(2[4-9]|3[0-2])${ruleTailFlag}"
 
-   # Router IP address MUST have access to WebGUI #
-   cidrIPaddrRegEx="${netwkIPv4AddrRegEx}/(2[4-9]|3[0-1])"
-   lanIPaddrRegEx1=">${mainLANIPaddrRegEx}>[13]"
-   lanIPaddrRegEx2=">${mainLANIPaddrRegEx}/(2[4-9]|3[0-2])>[13]"
-   lanIPaddrRegEx3=">${cidrIPaddrRegEx}>[13]"
-
+   ## Look for a rule with the private LAN IP address ##
    if echo "$restrictRuleList" | grep -qE "$lanIPaddrRegEx1|$lanIPaddrRegEx2"
    then return 0 ; fi
 
+   ## Look for the private LAN IP address within a network CIDR block ##
    cidrIPaddrEntry="$(echo "$restrictRuleList" | grep -oE "$lanIPaddrRegEx3")"
    if [ -n "$cidrIPaddrEntry" ]
    then
@@ -4400,10 +4553,12 @@ _CheckWebGUILoginAccessOK_()
        done
    fi
 
-   printf "\n${REDct}*WARNING*: The \"Enable Access Restrictions\" option is currently active.${NOct}"
-   printf "\nTo allow webGUI login access you must add the router IP address ${GRNct}${mainLAN_IPaddr}${NOct}
-with the \"${GRNct}Web UI${NOct}\" access type on the \"Access restriction list\" panel."
-   printf "\n[See ${GRNct}'Administration -> System -> Access restriction list'${NOct}]"
+   printf "\n${REDct}*WARNING*: The WebUI \"Enable Access Restrictions\" option is currently active.${NOct}"
+   printf "\nTo allow WebUI login access you must add the router IP address \"${GRNct}${mainLAN_IPaddr}${NOct}\""
+   printf "\nwith the \"${GRNct}Web UI${NOct}\" access type on the \"Access restriction list\" panel, or add a"
+   printf "\nCIDR IP address subnet that includes the router IP address \"${GRNct}${mainLAN_IPaddr}${NOct}\" and"
+   printf "\nmake sure to assign at least the \"${GRNct}Web UI${NOct}\" access type to the CIDR entry."
+   printf "\n[See router WebUI: ${GRNct}'Administration -> System -> Access restriction list'${NOct}]"
    printf "\nAn alternative method would be to disable the \"Enable Access Restrictions\" option.\n"
 
    return 1
@@ -5963,15 +6118,22 @@ _Calculate_DST_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jun-10] ##
+## Modified by ExtremeFiretop [2025-May-21] ##
 ##------------------------------------------##
 _Calculate_NextRunTime_()
 {
+    local force_recalc=false
     local fwNewUpdateVersion  fwNewUpdateNotificationDate
     local upfwDateTimeSecs  nextCronTimeSecs
 
-    # Check for available firmware update
-    if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"; then
+    if [ $# -eq 1 ] && [ "$1" = "recal" ]
+    then
+        force_recalc=true
+    fi
+
+    # Check for available firmware update #
+    if ! fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+    then
         fwNewUpdateVersion="NONE FOUND"
     fi
 
@@ -5984,7 +6146,9 @@ _Calculate_NextRunTime_()
     elif [ "$fwNewUpdateVersion" = "NONE FOUND" ]
     then
         ExpectedFWUpdateRuntime="${REDct}NONE FOUND${NOct}"
-    elif [ "$ExpectedFWUpdateRuntime" = "TBD" ] || [ -z "$ExpectedFWUpdateRuntime" ]
+    elif [ "$force_recalc" = "true" ] || \
+         [ -z "$ExpectedFWUpdateRuntime" ] || \
+         [ "$ExpectedFWUpdateRuntime" = "TBD" ]
     then
         # If conditions are met (cron job enabled and update available), calculate the next runtime
         fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
@@ -6214,7 +6378,7 @@ _Set_FW_UpdatePostponementDays_()
    then
        Update_Custom_Settings FW_New_Update_Postponement_Days "$newPostponementDays"
        echo "The number of days to postpone F/W Update was updated successfully."
-       _Calculate_NextRunTime_
+       _Calculate_NextRunTime_ recal
        _WaitForEnterKey_ "$mainMenuReturnPromptStr"
    fi
    return 0
@@ -6686,7 +6850,7 @@ _Set_FW_UpdateCronScheduleCustom_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-            _Calculate_NextRunTime_
+            _Calculate_NextRunTime_ recal
         else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -7091,7 +7255,7 @@ _Set_FW_UpdateCronScheduleGuided_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             cronSchedStrHR="$(_TranslateCronSchedHR_ "$nextCronSched")"
             printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
-            _Calculate_NextRunTime_
+            _Calculate_NextRunTime_ recal
        else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -7232,13 +7396,17 @@ _Toggle_ScriptAutoUpdate_Config_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-11] ##
+## Modified by ExtremeFiretop [2025-May-21] ##
 ##------------------------------------------##
 _high_risk_phrases_interactive_()
 {
     local changelog_contents="$1"
+    local changelog_flat
 
-    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    changelog_flat="$(printf '%s' "$changelog_contents" | \
+                      tr '\n' ' ' | tr -s ' ')"
+
+    if echo "$changelog_flat" | grep -Eiq "$high_risk_terms"
     then
         ChangelogApproval="$(Get_Custom_Setting "FW_New_Update_Changelog_Approval")"
 
@@ -7278,13 +7446,17 @@ _high_risk_phrases_interactive_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-26] ##
+## Modified by ExtremeFiretop [2025-May-21] ##
 ##------------------------------------------##
 _high_risk_phrases_nointeractive_()
 {
     local changelog_contents="$1"
+    local changelog_flat
 
-    if echo "$changelog_contents" | grep -Eiq "$high_risk_terms"
+    changelog_flat="$(printf '%s' "$changelog_contents" | \
+                      tr '\n' ' ' | tr -s ' ')"
+
+    if echo "$changelog_flat" | grep -Eiq "$high_risk_terms"
     then
         _SendEMailNotification_ STOP_FW_UPDATE_APPROVAL
         Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
@@ -7303,9 +7475,9 @@ _high_risk_phrases_nointeractive_()
     fi
 }
 
-##-------------------------------------==---##
-## Modified by ExtremeFiretop [2024-Nov-24] ##
-##-------------------------------------==---##
+##----------------------------------------##
+## Modified by Martinski W. [2025-May-31] ##
+##----------------------------------------##
 _ChangelogVerificationCheck_()
 {
     local mode="$1"  # Mode should be 'auto' or 'interactive' #
@@ -7313,6 +7485,7 @@ _ChangelogVerificationCheck_()
     local release_version  formatted_release_version
     local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
     local changeLogFName  changeLogFPath  changeLogTag
+    local matchNum1  matchNum2  lineNum1  lineNum2
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
@@ -7334,6 +7507,14 @@ _ChangelogVerificationCheck_()
             else
                 changeLogTag="NG"
             fi
+
+            # force 3006 changelog if tag is NG but $release_version says 3006 #
+            if [ "$changeLogTag" = "NG" ] && \
+               echo "$release_version" | grep -qE "^3006[.]"
+            then
+                changeLogTag="3006"
+            fi
+
             changeLogFName="Changelog-${changeLogTag}.txt"
             changeLogFPath="$(/usr/bin/find -L "${FW_BIN_DIR}" -name "$changeLogFName" -print)"
         fi
@@ -7344,59 +7525,31 @@ _ChangelogVerificationCheck_()
             _DoCleanUp_
             return 1
         else
-            # Use awk to format the version based on the number of initial digits #
-            formatted_current_version=$(echo "$current_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4) {
-                        # Remove any non-digit characters from the fourth field
-                        sub(/[^0-9].*/, "", $4)
-                        if ($4 == "0") {
-                            printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                        } else {
-                            printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                        }
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
-            formatted_release_version=$(echo "$release_version" | awk -F. '{
-                if ($1 ~ /^[0-9]{4}$/) {  # Check for a four-digit prefix
-                    if (NF == 4 && $4 == "0") {
-                        printf "%s.%s", $2, $3  # For version like 3004.388.5.0, remove the last .0
-                    } else if (NF == 4) {
-                        printf "%s.%s.%s", $2, $3, $4  # For version like 3004.388.5.2, keep the last digit
-                    }
-                } else if (NF == 3) {  # For version without a four-digit prefix
-                    if ($3 == "0") {
-                        printf "%s.%s", $1, $2  # For version like 388.5.0, remove the last .0
-                    } else {
-                        printf "%s.%s.%s", $1, $2, $3  # For version like 388.5.2, keep the last digit
-                    }
-                }
-            }')
-
             # Define regex patterns for both versions #
-            release_version_regex="${formatted_release_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
-            current_version_regex="${formatted_current_version//./[._]}\s*\([0-9]{1,2}-[A-Za-z]+-[0-9]{4}\)"
+            local date_pattern='[0-9]{1,2}-[A-Za-z]+-[0-9]{4}'
 
             if "$isGNUtonFW"
             then
                 # For Gnuton, the whole file is relevant as it only contains the current version #
                 changelog_contents="$(cat "$changeLogFPath")"
             else
-                if ! grep -Eq "$current_version_regex" "$changeLogFPath"
+                # find the first two matching line numbers #
+                matchNum1="$(grep -nE "$date_pattern" "$changeLogFPath" | head -1)"
+                matchNum2="$(grep -nE "$date_pattern" "$changeLogFPath" | head -2 | tail -1)"
+
+                # split on the first colon #
+                lineNum1="${matchNum1%%:*}"
+                lineNum2="${matchNum2%%:*}"
+
+                if [ -n "$lineNum1" ] && \
+                   [ -n "$lineNum2" ] && \
+                   [ "$lineNum1" -le "$lineNum2" ]
                 then
-                    Say "Current version NOT found in changelog file. Bypassing changelog verification for this run."
-                    return 0
-                fi
-                # Extract log contents between two firmware versions from RMerlin #
-                changelog_contents="$(awk "/$release_version_regex/,/$current_version_regex/" "$changeLogFPath")"
+                    changelog_contents="$(sed -n "${lineNum1},${lineNum2}p" "$changeLogFPath")"
+                else
+                    Say "Could not find two date markers in changelog. Using entire file"
+                    changelog_contents="$(cat "$changeLogFPath")"
+                fi            
             fi
 
             if [ "$mode" = "interactive" ]
@@ -7419,7 +7572,7 @@ _ChangelogVerificationCheck_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-11] ##
+## Modified by ExtremeFiretop [2025-May-18] ##
 ##------------------------------------------##
 _ManageChangelogMerlin_()
 {
@@ -7462,6 +7615,15 @@ _ManageChangelogMerlin_()
             changeLogTag="NG"
             MerlinChangeLogURL="${CL_URL_NG}"
         fi 
+    fi
+
+    release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+    # force 3006 changelog if tag is NG but $release_version says 3006 #
+    if [ "$changeLogTag" = "NG" ] && \
+       echo "$release_version" | grep -qE "^3006[.]"
+    then
+        changeLogTag="3006"
+        MerlinChangeLogURL="${CL_URL_3006}"
     fi
 
     wgetLogFile="${FW_BIN_DIR}/${ScriptFNameTag}.WGET.LOG"
@@ -7859,9 +8021,9 @@ _Toggle_FW_UpdateEmailNotifications_()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-21] ##
+##------------------------------------------##
 _Toggle_FW_UpdateCheckSetting_()
 {
    local fwUpdateCheckEnabled  fwUpdateCheckNewStateStr
@@ -7885,6 +8047,7 @@ _Toggle_FW_UpdateCheckSetting_()
        FW_UpdateCheckState=0
        fwUpdateCheckNewStateStr="${REDct}DISABLED${NOct}"
        Update_Custom_Settings "FW_Update_Check" "DISABLED"
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
        _DelFWAutoUpdateHook_
        _DelFWAutoUpdateCronJob_
    else
@@ -7963,7 +8126,7 @@ _RemoveCronJobsFromAddOns_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Aug-02] ##
+## Modified by Martinski W. [2025-May-31] ##
 ##----------------------------------------##
 _EntwareServicesHandler_()
 {
@@ -8003,7 +8166,10 @@ _EntwareServicesHandler_()
    }
 
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
-   then return 0 ; fi  ## Entware is NOT found ##
+   then
+       Say "Entware is not found. Skipping check for services."
+       return 0
+   fi
 
    servicesList="$(/usr/bin/find -L "$entwOPT_init" -name "*" -print 2>/dev/null | /bin/grep -E "(${entwOPT_init}/S[0-9]+|${entwOPT_init}/.*[.]sh$)")"
    [ -z "$servicesList" ] && return 0
@@ -8731,11 +8897,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         return 1
     fi
 
-    ##---------------------------------------##
-    ## Added by ExtremeFiretop [2023-Dec-09] ##
-    ##---------------------------------------##
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2025-Jun-01] ##
+    ##----------------------------------------##
     # Get the required memory for the firmware download and extraction
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link")"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#1')"
     if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$requiredRAM_kb" -gt 51200 ]
     then
         if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
@@ -8803,11 +8969,12 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
-    ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Feb-18] ##
-    ##------------------------------------------##
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2025-Jun-01] ##
+    ##----------------------------------------##
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#2')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -8831,6 +8998,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#3')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -8852,6 +9020,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#4')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -8938,10 +9107,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     fi
 
     ##----------------------------------------##
-    ## Modified by Martinski W. [2024-Mar-16] ##
+    ## Modified by Martinski W. [2025-Jun-01] ##
     ##----------------------------------------##
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#5')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -9721,12 +9891,12 @@ _ProcessMeshNodes_()
     if [ $# -eq 0 ] || [ -z "$1" ]
     then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
 
-    uid=1
-    if ! node_list="$(_GetNodeIPv4List_)"
-    then node_list="" ; fi
-
     if "$aiMeshNodes_OK"
     then
+        uid=1
+        if ! node_list="$(_GetNodeIPv4List_)"
+        then node_list="" ; fi
+
         if [ -n "$node_list" ]
         then
             # Iterate over the list of nodes and print information for each node
@@ -9810,14 +9980,15 @@ _SetDefaultBuildType_()
   fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-05] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-21] ##
+##------------------------------------------##
 _DisableFWAutoUpdateChecks_()
 {
    _DelFWAutoUpdateHook_
    _DelFWAutoUpdateCronJob_
    Update_Custom_Settings "FW_Update_Check" "DISABLED"
+   Update_Custom_Settings FW_New_Update_Expected_Run_Date "TBD"
 
    runfwUpdateCheck=false
    if [ "$FW_UpdateCheckState" -ne 0 ]
@@ -9828,9 +9999,9 @@ _DisableFWAutoUpdateChecks_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-05] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-May-21] ##
+##------------------------------------------##
 _EnableFWAutoUpdateChecks_()
 {
    _AddFWAutoUpdateHook_
@@ -9843,6 +10014,7 @@ _EnableFWAutoUpdateChecks_()
       nvram set firmware_check_enable="$FW_UpdateCheckState"
       nvram commit
    fi
+   _Calculate_NextRunTime_
 }
 
 ##----------------------------------------##
