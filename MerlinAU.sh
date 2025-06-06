@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jun-05
+# Last Modified: 2025-Jun-06
 ###################################################################
 set -u
 
@@ -147,7 +147,6 @@ readonly amtmMailDirPath="/jffs/addons/amtm/mail"
 readonly amtmMailConfFile="${amtmMailDirPath}/email.conf"
 readonly amtmMailPswdFile="${amtmMailDirPath}/emailpw.enc"
 readonly tempEMailContent="/tmp/var/tmp/tempEMailContent.$$.TXT"
-readonly tempNodeEMailList="/tmp/var/tmp/tempNodeEMailList.$$.TXT"
 readonly tempEMailBodyMsg="/tmp/var/tmp/tempEMailBodyMsg.$$.TXT"
 readonly saveEMailInfoMsg="${SETTINGS_DIR}/savedEMailInfoMsg.SAVE.TXT"
 readonly theEMailDateTimeFormat="%Y-%b-%d %a %I:%M:%S %p %Z"
@@ -211,7 +210,6 @@ esac
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Mar-19] ##
 ##----------------------------------------##
-aiMeshNodes_OK=false
 mountWebGUI_OK=false
 inMainRouterMode=false
 inAccessPointMode=false
@@ -220,14 +218,12 @@ readonly nvramSWmode="$(nvram get sw_mode)"
 if [ "$nvramSWmode" = "1" ]
 then
     mountWebGUI_OK=true
-    aiMeshNodes_OK=true
     inMainRouterMode=true
 else
     if [ "$nvramSWmode" = "3" ] && \
        [ "$(nvram get wlc_psta)" = "0" ]
     then
         mountWebGUI_OK=true
-        aiMeshNodes_OK=false
         inAccessPointMode=true
     fi
 fi
@@ -579,7 +575,6 @@ Available commands:
   ${SCRIPT_NAME}.sh checkupdates    check for available MerlinAU updates
   ${SCRIPT_NAME}.sh forceupdate     update to latest MerlinAU version
   ${SCRIPT_NAME}.sh run_now         run F/W update process
-  ${SCRIPT_NAME}.sh processNodes    run update check on nodes
   ${SCRIPT_NAME}.sh develop         switch to development branch
   ${SCRIPT_NAME}.sh stable          switch to stable master branch
   ${SCRIPT_NAME}.sh startup         run startup initialization actions
@@ -1571,33 +1566,6 @@ Delete_Custom_Settings()
     local setting_type="$1"
     sed -i "/^${setting_type}[ =]/d" "$CONFIG_FILE"
     return $?
-}
-
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
-##------------------------------------------##
-_GetAllNodeSettings_()
-{
-    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
-    then echo "**ERROR**" ; return 1; fi
-
-    ## Node Setting KEY="Node_{MACaddress}_{keySuffix}" ##
-    local fullKeyName="Node_${1}_${2}"
-    local setting_value="TBD"  matched_lines
-
-    # Ensure the settings directory exists #
-    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
-
-    if [ -f "$CONFIG_FILE" ]
-    then
-        matched_lines="$(grep -E "^${fullKeyName}=.*" "$CONFIG_FILE")"
-        if [ -n "$matched_lines" ]
-        then
-            # Extract the value from the first matched line #
-            setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
-        fi
-    fi
-    echo "$setting_value"
 }
 
 ##-------------------------------------##
@@ -3049,10 +3017,7 @@ _CreateEMailContent_()
    if echo "$1" | grep -q '._SCRIPT_UPDATE_.'
    then subjectStrTag="Script Update Status"
    fi
-   if [ -s "$tempNodeEMailList" ]
-   then subjectStr="$subjectStrTag for $node_lan_hostname"
-   else subjectStr="$subjectStrTag for $MODEL_ID"
-   fi
+   subjectStr="$subjectStrTag for $MODEL_ID"
 
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    if ! "$offlineUpdateTrigger"
@@ -3088,22 +3053,6 @@ _CreateEMailContent_()
              fi
              [ "$FW_UpdateExpectedRunDate" != "TBD" ] && \
              printf "\nThe firmware update is expected to occur on: <b>${FW_UpdateExpectedRunDate}</b>\n"
-           } > "$tempEMailBodyMsg"
-           ;;
-       AGGREGATED_UPDATE_NOTIFICATION)
-           if "$aiMeshNodes_OK" && [ -n "$node_list" ]; then
-              nodefwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
-           fi
-           if [ -z "$nodefwNewUpdateVersion" ]
-           then
-               Say "${REDct}**ERROR**${NOct}: Unable to send node email notification [No saved info]."
-               return 1
-           fi
-           emailBodyTitle="New Firmware Update(s) for AiMesh Node(s)"
-           NODE_UPDATE_CONTENT="$(cat "$tempNodeEMailList")"
-           {
-             echo "The following AiMesh Node(s) have a new F/W Update version available:"
-             echo "$NODE_UPDATE_CONTENT"
            } > "$tempEMailBodyMsg"
            ;;
        START_FW_UPDATE_STATUS)
@@ -3316,7 +3265,6 @@ EOF
    fi
 
    rm -f "$tempEMailBodyMsg"
-   rm -f "$tempNodeEMailList"
    return 0
 }
 
@@ -4636,244 +4584,6 @@ _GetLoginCredentials_()
 
     _WaitForEnterKey_ "$mainMenuReturnPromptStr"
     return 0
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
-_GetNodeIPv4List_()
-{
-    # Get the value of asus_device_list #
-    local ip_addresses
-    local device_list="$(nvram get asus_device_list)"
-
-    # Check if asus_device_list is not empty #
-    if [ -n "$device_list" ]
-    then
-        # Split the device list into records and extract the IP addresses, excluding Main Router LAN IP address #
-        ip_addresses="$(echo "$device_list" | tr '<' '\n' | awk -v exclude="$mainLAN_IPaddr" -F'>' '{if (NF>=4 && $3 != exclude) print $3}')"
-
-        # Check if IP addresses are not empty #
-        if [ -n "$ip_addresses" ]; then
-            # Print each IP address on a separate line
-            printf "%s\n" "$ip_addresses"
-        else
-            return 1
-        fi
-    else
-        Say "NVRAM asus_device_list is NOT populated. No Mesh Nodes were found."
-        return 1
-    fi
-    return 0
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
-_NodeActiveStatus_()
-{
-    # Get the value of cfg_device_list #
-    local ip_addresses
-    local node_online_status="$(nvram get cfg_device_list)"
-
-    # Check if cfg_device_list is not empty #
-    if [ -n "$node_online_status" ]
-    then
-        # Split the device list into records and extract the IP addresses, excluding Main Router LAN IP address #
-        ip_addresses="$(echo "$node_online_status" | tr '<' '\n' | awk -v exclude="$mainLAN_IPaddr" -F'>' '{if (NF>=3 && $2 != exclude) print $2}')"
-
-        # Check if IP addresses are not empty #
-        if [ -n "$ip_addresses" ]; then
-            # Print each IP address on a separate line
-            printf "%s\n" "$ip_addresses"
-        else
-            return 1
-        fi
-    else
-        Say "NVRAM cfg_device_list is NOT populated. No Mesh Nodes were found."
-        return 1
-    fi
-    return 0
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-30] ##
-##----------------------------------------##
-_Populate_Node_Settings_()
-{
-    local MAC_address="$1"
-    local model_id="$2"
-    local update_date="$3"
-    local update_vers="$4"
-    local nodeKeyPrefix="Node_${MAC_address}_"
-
-    # Update or add each piece of information
-    Update_Custom_Settings "${nodeKeyPrefix}Model_NameID" "$model_id"
-    Update_Custom_Settings "${nodeKeyPrefix}New_Notification_Date" "$update_date"
-    Update_Custom_Settings "${nodeKeyPrefix}New_Notification_Vers" "$update_vers"
-}
-
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Mar-26] ##
-##---------------------------------------##
-_GetNodeURL_()
-{
-    local NodeIP_Address="$1"
-    local urlProto urlDomain urlPort
-
-    if [ "$(nvram get http_enable)" = "1" ]; then
-        urlProto="https"
-    else
-        urlProto="http"
-    fi
-
-    urlPort="$(nvram get "${urlProto}_lanport")"
-    if [ "$urlPort" -eq 80 ] || [ "$urlPort" -eq 443 ]; then
-        urlPort=""
-    else
-        urlPort=":$urlPort"
-    fi
-
-    echo "${urlProto}://${NodeIP_Address}${urlPort}"
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-07] ##
-##----------------------------------------##
-_GetNodeInfo_()
-{
-    local NodeIP_Address="$1"
-    local NodeURLstr="$(_GetNodeURL_ "$NodeIP_Address")"
-
-    ## Default values for specific variables
-    node_productid="Unreachable"
-    Node_combinedVer="Unreachable"
-    node_asus_device_list=""
-    node_cfg_device_list=""
-    node_firmver="Unreachable"
-    node_buildno="Unreachable"
-    node_extendno="Unreachable"
-    node_webs_state_flag=""
-    node_webs_state_info=""
-    node_odmpid="Unreachable"
-    node_wps_modelnum="Unreachable"
-    node_model="Unreachable"
-    node_build_name="Unreachable"
-    node_lan_hostname="Unreachable"
-    node_label_mac="Unreachable"
-    NodeGNUtonFW=false
-
-    ## Check for Login Credentials ##
-    credsBase64="$(Get_Custom_Setting credentials_base64)"
-    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
-    then
-        _UpdateLoginPswdCheckHelper_ InitPWD
-        Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
-        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        return 1
-    fi
-
-    # Perform login request #
-    curl -s -k "${NodeURLstr}/login.cgi" \
-    --referer "${NodeURLstr}/Main_Login.asp" \
-    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Content-Type: application/x-www-form-urlencoded' \
-    -H "Origin: ${NodeURLstr}" \
-    -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
-    --cookie-jar '/tmp/nodecookies.txt' \
-    --max-time 2 > /tmp/login_response.txt 2>&1
-
-    if [ $? -ne 0 ]
-    then
-        return 1
-    fi
-
-    # Retrieve the HTML content #
-    htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
-    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Accept-Encoding: gzip, deflate' \
-    -H 'Connection: keep-alive' \
-    -H "Referer: ${NodeURLstr}/index.asp" \
-    -H 'Upgrade-Insecure-Requests: 0' \
-    --cookie '/tmp/nodecookies.txt' \
-    --max-time 2 2>&1)"
-
-    if [ $? -ne 0 ] || [ -z "$htmlContent" ]
-    then
-        printf "\n${REDct}Failed to get information for AiMesh Node [$NodeIP_Address].${NOct}\n"
-        return 1
-    fi
-
-    # Extract values using regular expressions #
-    node_productid="$(echo "$htmlContent" | grep -o '"productid":"[^"]*' | sed 's/"productid":"//')"
-    node_asus_device_list="$(echo "$htmlContent" | grep -o '"asus_device_list":"[^"]*' | sed 's/"asus_device_list":"//')"
-    node_cfg_device_list="$(echo "$htmlContent" | grep -o '"cfg_device_list":"[^"]*' | sed 's/"cfg_device_list":"//')"
-    node_firmver="$(echo "$htmlContent" | grep -o '"firmver":"[^"]*' | sed 's/"firmver":"//' | tr -d '.')"
-    node_buildno="$(echo "$htmlContent" | grep -o '"buildno":"[^"]*' | sed 's/"buildno":"//')"
-    node_extendno="$(echo "$htmlContent" | grep -o '"extendno":"[^"]*' | sed 's/"extendno":"//')"
-    node_webs_state_flag="$(echo "$htmlContent" | grep -o '"webs_state_flag":"[^"]*' | sed 's/"webs_state_flag":"//')"
-    node_webs_state_info="$(echo "$htmlContent" | grep -o '"webs_state_info":"[^"]*' | sed 's/"webs_state_info":"//')"
-    node_odmpid="$(echo "$htmlContent" | grep -o '"odmpid":"[^"]*' | sed 's/"odmpid":"//')"
-    node_wps_modelnum="$(echo "$htmlContent" | grep -o '"wps_modelnum":"[^"]*' | sed 's/"wps_modelnum":"//')"
-    node_model="$(echo "$htmlContent" | grep -o '"model":"[^"]*' | sed 's/"model":"//')"
-    node_build_name="$(echo "$htmlContent" | grep -o '"build_name":"[^"]*' | sed 's/"build_name":"//')"
-    node_lan_hostname="$(echo "$htmlContent" | grep -o '"lan_hostname":"[^"]*' | sed 's/"lan_hostname":"//')"
-    node_label_mac="$(echo "$htmlContent" | grep -o '"label_mac":"[^"]*' | sed 's/"label_mac":"//')"
-
-    # Check if installed F/W NVRAM vars contain "gnuton" #
-    if echo "$node_extendno" | grep -iq "gnuton"
-    then NodeGNUtonFW=true ; fi
-    # Combine extracted information into one string #
-    Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
-
-    # Perform logout request #
-    curl -s -k "${NodeURLstr}/Logout.asp" \
-    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Accept-Encoding: gzip, deflate' \
-    -H 'Connection: keep-alive' \
-    -H "Referer: ${NodeURLstr}/Main_Login.asp" \
-    -H 'Upgrade-Insecure-Requests: 0' \
-    --cookie '/tmp/nodecookies.txt' \
-    --max-time 2 > /tmp/logout_response.txt 2>&1
-
-    if [ $? -ne 0 ]; then
-        return 1
-    fi
-}
-
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
-_GetLatestFWUpdateVersionFromNode_()
-{
-   local retCode=0  webState  newVersionStr
-
-   if [ -z "${node_webs_state_flag:+xSETx}" ]
-   then webState=""
-   else webState="$node_webs_state_flag"
-   fi
-   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
-   then retCode=1 ; fi
-
-   if [ -z "${node_webs_state_info:+xSETx}" ]
-   then
-       newVersionStr=""
-   else
-       newVersionStr="$(echo "$node_webs_state_info" | sed 's/_/./g')"
-       if [ $# -eq 0 ] || [ -z "$1" ]
-       then
-           newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
-       fi
-   fi
-
-   [ -z "$newVersionStr" ] && retCode=1
-   echo "$newVersionStr" ; return "$retCode"
 }
 
 ##----------------------------------------##
@@ -7819,100 +7529,6 @@ _CheckNewUpdateFirmwareNotification_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-27] ##
-##----------------------------------------##
-_CheckNodeFWUpdateNotification_()
-{
-   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
-   then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
-
-   local nodeNumOfFields  nodefwNewUpdateVersNum
-   local currentVersionStr="$1"  releaseVersionStr="$2"
-
-   nodeNumOfFields="$(echo "$currentVersionStr" | awk -F '.' '{print NF}')"
-   nodecurrentVersionNum="$(_FWVersionStrToNum_ "$currentVersionStr" "$nodeNumOfFields")"
-   nodereleaseVersionNum="$(_FWVersionStrToNum_ "$releaseVersionStr" "$nodeNumOfFields")"
-
-   if [ "$nodecurrentVersionNum" -ge "$nodereleaseVersionNum" ]
-   then
-       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "TBD" "$uid"
-       return 1
-   fi
-
-   nodefwNewUpdateNotificationVers="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Vers")"
-   if [ -z "$nodefwNewUpdateNotificationVers" ] || [ "$nodefwNewUpdateNotificationVers" = "TBD" ]
-   then
-       nodefwNewUpdateNotificationVers="$releaseVersionStr"
-       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "TBD" "$nodefwNewUpdateNotificationVers" "$uid"
-   else
-       nodeNumOfFields="$(echo "$nodefwNewUpdateNotificationVers" | awk -F '.' '{print NF}')"
-       nodefwNewUpdateVersNum="$(_FWVersionStrToNum_ "$nodefwNewUpdateNotificationVers" "$nodeNumOfFields")"
-       if [ "$nodereleaseVersionNum" -gt "$nodefwNewUpdateVersNum" ]
-       then
-           nodefwNewUpdateNotificationVers="$releaseVersionStr"
-           nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
-           _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
-           nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
-           {
-             echo ""
-             echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
-             echo "(<b>${1}</b> --> <b>${2}</b>)"
-             echo "Please click here to review the latest changelog:"
-             if "$NodeGNUtonFW"
-             then
-                 GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
-                 echo "$GnutonChangeLogURL"
-             else
-                 if [ "$node_firmver" -eq 3006 ]
-                 then
-                     MerlinChangeLogURL="${CL_URL_3006}"
-                 elif echo "$node_buildno" | grep -qE "^386[.]"
-                 then
-                     MerlinChangeLogURL="${CL_URL_386}"
-                 else
-                     MerlinChangeLogURL="${CL_URL_NG}"
-                 fi
-                 echo "$MerlinChangeLogURL"
-             fi
-             echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
-           } > "$tempNodeEMailList"
-       fi
-   fi
-
-   nodefwNewUpdateNotificationDate="$(_GetAllNodeSettings_ "$node_label_mac" "New_Notification_Date")"
-   if [ -z "$nodefwNewUpdateNotificationDate" ] || [ "$nodefwNewUpdateNotificationDate" = "TBD" ]
-   then
-       nodefwNewUpdateNotificationDate="$(date +"$FW_UpdateNotificationDateFormat")"
-       _Populate_Node_Settings_ "$node_label_mac" "$node_lan_hostname" "$nodefwNewUpdateNotificationDate" "$nodefwNewUpdateNotificationVers" "$uid"
-       nodefriendlyname="$(_GetAllNodeSettings_ "$node_label_mac" "Model_NameID")"
-       {
-         echo ""
-         echo "AiMesh Node <b>${nodefriendlyname}</b> with MAC address <b>${node_label_mac}</b> requires update from <b>${1}</b> to <b>${2}</b> version."
-         echo "(<b>${1}</b> --> <b>${2}</b>)"
-         echo "Please click here to review the latest changelog:"
-         if "$NodeGNUtonFW"
-         then
-             GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
-             echo "$GnutonChangeLogURL"
-         else
-             if [ "$node_firmver" -eq 3006 ]
-             then
-                 MerlinChangeLogURL="${CL_URL_3006}"
-             elif echo "$node_buildno" | grep -qE "^386[.]"
-             then
-                 MerlinChangeLogURL="${CL_URL_386}"
-             else
-                 MerlinChangeLogURL="${CL_URL_NG}"
-             fi
-             echo "$MerlinChangeLogURL"
-         fi
-         echo "Automated update will be scheduled <b>only if</b> MerlinAU is installed on the node."
-       } > "$tempNodeEMailList"
-   fi
-   return 0
-}
-
-##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-22] ##
 ##----------------------------------------##
 _CheckTimeToUpdateFirmware_()
@@ -8783,11 +8399,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         "$inMenuMode" && { _WaitForYESorNO_ "Continue?" || return 1 ; }
         # Continue #
         _SetUp_FW_UpdateZIP_DirectoryPaths_ "/home/root"
-    fi
-
-    if ! node_online_status="$(_NodeActiveStatus_)"
-    then node_online_status="" 
-    else _ProcessMeshNodes_ 0
     fi
 
     local retCode  credsBase64=""
@@ -9866,65 +9477,6 @@ _SetSecondaryEMailAddress_()
    _WaitForEnterKey_ "$advnMenuReturnPromptStr"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
-_ValidatePrivateIPv4Address_()
-{
-   if [ $# -eq 0 ] || [ -z "$1" ] || \
-      ! echo "$1" | grep -qE "^${IPv4addrs_RegEx}$" || \
-      ! echo "$1" | grep -qE "^${IPv4privt_RegEx}"
-   then return 1
-   else return 0
-   fi
-}
-
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-30] ##
-##------------------------------------------##
-_ProcessMeshNodes_()
-{
-    includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
-    if [ $# -eq 0 ] || [ -z "$1" ]
-    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
-
-    if "$aiMeshNodes_OK"
-    then
-        uid=1
-        if ! node_list="$(_GetNodeIPv4List_)"
-        then node_list="" ; fi
-
-        if [ -n "$node_list" ]
-        then
-            # Iterate over the list of nodes and print information for each node
-            for nodeIPv4addr in $node_list
-            do
-                ! _ValidatePrivateIPv4Address_ "$nodeIPv4addr" && continue
-                _GetNodeInfo_ "$nodeIPv4addr"
-                if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
-                then
-                    Node_FW_NewUpdateVersion="NONE FOUND"
-                else
-                    _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
-                fi
-
-                # Apply extra logic if flag is '1'
-                if [ "$includeExtraLogic" -eq 1 ]; then
-                    _PrintNodeInfo "$nodeIPv4addr" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
-                    uid="$((uid + 1))"
-                fi
-            done
-            if [ -s "$tempNodeEMailList" ]; then
-                _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
-            fi
-        else
-            if [ "$includeExtraLogic" -eq 1 ]; then
-                printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
-            fi
-        fi
-    fi
-}
-
 keepZIPfile=0
 keepWfile=0
 trap '_DoCleanUp_ 0 "$keepZIPfile" "$keepWfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
@@ -10332,88 +9884,6 @@ _SimpleNotificationDate_()
    echo "$(date -d @$notifyTimeSecs +"%Y-%b-%d %I:%M %p")"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Mar-27] ##
-##---------------------------------------##
-# Define a function to print information about each AiMesh node
-_PrintNodeInfo()
-{
-    local node_info="$1"
-    local node_online_status="$2"
-    local Node_FW_NewUpdateVersion="$3"
-    local uid="$4"
-
-    # Trim to first word if needed
-    local node_productid="$(echo "$node_productid" | cut -d' ' -f1)"
-    local node_version="$(echo "$Node_combinedVer" | cut -d' ' -f2)"
-    node_info="$(echo "$node_info" | cut -d' ' -f1)"
-
-    # Calculate box width based on the longest line
-    local max_length=0
-    local line length
-    for line in "${node_productid}/${node_lan_hostname}: ${node_info}" "F/W Version Installed: ${node_version}" "F/W Update Available: ${Node_FW_NewUpdateVersion}"
-    do
-        length="$(printf "%s" "$line" | awk '{print length}')"
-        [ "$length" -gt "$max_length" ] && max_length="$length"
-    done
-
-    local box_width="$((max_length + 0))"  # Adjust box padding here
-
-    # Build the horizontal line without using seq
-    local h_line=""
-    for i in $(awk "BEGIN{for(i=1;i<=$box_width;i++) print i}")
-    do
-        h_line="${h_line}─"
-    done
-
-    # Assume ANSI color codes are used but do not manually adjust padding for them.
-    if echo "$node_online_status" | grep -q "$node_info"
-    then
-        printf "\n   ┌─%s─┐" "$h_line"
-
-        # Calculate visual length and determine required padding.
-        visible_text_length="$(printf "Node ID: %s" "${uid}" | wc -m)"
-        padding="$((box_width - visible_text_length))"
-        # Ensure even padding for left and right by dividing total_padding by 2
-        left_padding="$((padding / 2))" # Add 1 to make the division round up in case of an odd number
-        printf "\n   │%*s Node ID: ${REDct}${uid}${NOct}%*s │" "$left_padding" "" "$((padding - left_padding))" ""
-
-        # Calculate visual length and determine required padding.
-        visible_text_length="$(printf "%s/%s: %s" "$node_productid" "$node_lan_hostname" "$node_info" | wc -m)"
-        padding="$((box_width - visible_text_length))"
-        printf "\n   │ %s/%s: ${GRNct}%s${NOct}%*s │" "$node_productid" "$node_lan_hostname" "$node_info" "$padding" ""
-
-        visible_text_length="$(printf "F/W Version Installed: %s" "$node_version" | wc -m)"
-        padding="$((box_width - visible_text_length))"
-        printf "\n   │ F/W Version Installed: ${GRNct}%s${NOct}%*s │" "$node_version" "$padding" ""
-
-        #
-        if [ -n "$Node_FW_NewUpdateVersion" ]
-        then
-            visible_text_length="$(printf "F/W Update Available: %s" "$Node_FW_NewUpdateVersion" | wc -m)"
-            padding="$((box_width - visible_text_length))"
-            if echo "$Node_FW_NewUpdateVersion" | grep -q "NONE FOUND"
-            then
-                printf "\n   │ F/W Update Available: ${REDct}%s${NOct}%*s │" "$Node_FW_NewUpdateVersion" "$padding" ""
-            else
-                printf "\n   │ F/W Update Available: ${GRNct}%s${NOct}%*s │" "$Node_FW_NewUpdateVersion" "$padding" ""
-            fi
-        fi
-
-        printf "\n   └─%s─┘" "$h_line"
-    else
-        visible_text_length="$(printf "Node Offline" | wc -m)"
-        total_padding="$((box_width - visible_text_length))"
-        # Ensure even padding for left and right by dividing total_padding by 2
-        left_padding="$((total_padding / 2))" # Add 1 to make the division round up in case of an odd number
-
-        printf "\n   ┌─%s─┐" "$h_line"
-        # Apply the left padding. The '%*s' uses left_padding as its width specifier to insert spaces before "Node Offline"
-        printf "\n   │%*s ${REDct}Node Offline${NOct}%*s │" "$left_padding" "" "$((total_padding - left_padding))" ""
-        printf "\n   └─%s─┘" "$h_line"
-    fi
-}
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Feb-18] ##
 ##----------------------------------------##
@@ -10568,11 +10038,6 @@ _ShowMainMenuOptions_()
 
    # Add selection for "Advanced Options" sub-menu #
    printf "\n ${GRNct}ad${NOct}.  Advanced Options\n"
-
-   # Check for AiMesh Nodes #
-   if "$aiMeshNodes_OK" && [ -n "$node_list" ]; then
-      printf "\n ${GRNct}mn${NOct}.  AiMesh Node(s) Info\n"
-   fi
 
    # Add selection for "Log Options" sub-menu #
    printf "\n ${GRNct}lo${NOct}.  Log Options Menu\n"
@@ -10757,50 +10222,6 @@ _ShowAdvancedOptionsMenu_()
    printf "${SEPstr}\n"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-02] ##
-##---------------------------------------##
-_ShowNodesMenu_()
-{
-   clear
-   _ShowLogo_
-   printf "================ AiMesh Node(s) Info Menu ================\n"
-   printf "${SEPstr}\n"
-
-   if ! node_online_status="$(_NodeActiveStatus_)"
-   then node_online_status="" ; fi
-
-   # Count the number of IP addresses
-   local numIPs="$(echo "$node_list" | wc -w)"
-
-   # Print the result
-   printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): ${numIPs}${NOct}"
-
-   _ProcessMeshNodes_ 1
-
-   echo ""
-
-   printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
-   printf "${SEPstr}"
-}
-
-_ShowNodesMenuOptions_()
-{
-    while true
-    do
-        _ShowNodesMenu_
-        printf "\nEnter selection:  "
-        read -r nodesChoice
-        echo
-        case $nodesChoice in
-            e|exit) break
-               ;;
-            *) _InvalidMenuSelection_
-               ;;
-        esac
-    done
-}
-
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-04] ##
 ##----------------------------------------##
@@ -10955,8 +10376,6 @@ _MainMenu_()
 
    inMenuMode=true
    HIDE_ROUTER_SECTION=false
-   if ! node_list="$(_GetNodeIPv4List_)"
-   then node_list="" ; fi
 
    if [ $# -gt 1 ] && \
       [ "$1" = "reload" ] && \
@@ -11019,11 +10438,6 @@ _MainMenu_()
              fi
              ;;
          ad) _AdvancedOptionsMenu_
-             ;;
-         mn) if "$aiMeshNodes_OK" && [ -n "$node_list" ]
-             then _ShowNodesMenuOptions_
-             else _InvalidMenuSelection_
-             fi
              ;;
          lo) _AdvancedLogsOptions_
              ;;
@@ -11140,8 +10554,6 @@ then
                _RunFirmwareUpdateNow_
                _ReleaseLock_ cliFileLock
            fi
-           ;;
-       processNodes) _ProcessMeshNodes_ 0
            ;;
        addCronJob) _AddFWAutoUpdateCronJob_
            ;;
