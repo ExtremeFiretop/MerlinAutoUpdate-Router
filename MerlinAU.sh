@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jun-06
+# Last Modified: 2025-Jun-08
 ###################################################################
 set -u
 
@@ -4742,9 +4742,9 @@ _GetNodeURL_()
     echo "${urlProto}://${NodeIP_Address}${urlPort}"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-07] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-June-08] ##
+##------------------------------------------##
 _GetNodeInfo_()
 {
     local NodeIP_Address="$1"
@@ -4792,11 +4792,9 @@ _GetNodeInfo_()
 
     if [ $? -ne 0 ]
     then
-        _UpdateLoginPswdCheckHelper_ FAILURE
         printf "\n${REDct}Login failed for AiMesh Node [$NodeIP_Address].${NOct}\n"
         return 1
     fi
-    _UpdateLoginPswdCheckHelper_ SUCCESS
 
     # Retrieve the HTML content #
     htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
