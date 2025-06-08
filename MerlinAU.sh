@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jun-02
+# Last Modified: 2025-Jun-08
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.7
+readonly SCRIPT_VERSION=1.4.8
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -4638,33 +4638,38 @@ _GetLoginCredentials_()
     return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##-------------------------------------------##
+## Modified by ExtremeFiretop [2025-June-06] ##
+##-------------------------------------------##
 _GetNodeIPv4List_()
 {
-    # Get the value of asus_device_list #
-    local ip_addresses
-    local device_list="$(nvram get asus_device_list)"
+    local NODE_ROLE="2"                   # keep only nodes whose last field == 2
+    local device_list ip_addresses
 
-    # Check if asus_device_list is not empty #
-    if [ -n "$device_list" ]
-    then
-        # Split the device list into records and extract the IP addresses, excluding Main Router LAN IP address #
-        ip_addresses="$(echo "$device_list" | tr '<' '\n' | awk -v exclude="$mainLAN_IPaddr" -F'>' '{if (NF>=4 && $3 != exclude) print $3}')"
+    device_list="$(nvram get asus_device_list)"
 
-        # Check if IP addresses are not empty #
-        if [ -n "$ip_addresses" ]; then
-            # Print each IP address on a separate line
-            printf "%s\n" "$ip_addresses"
-        else
-            return 1
-        fi
-    else
+    if [ -z "$device_list" ]; then
         Say "NVRAM asus_device_list is NOT populated. No Mesh Nodes were found."
         return 1
     fi
-    return 0
+
+    ip_addresses="$(
+        printf '%s\n' "$device_list" |         
+        tr '<' '\n'            |               
+        awk -F'>' \
+            -v role="$NODE_ROLE" \
+            -v exclude="$mainLAN_IPaddr" '
+            NF >= 4 && $3 != exclude && $NF == role { print $3 }
+        '
+    )"
+
+    if [ -n "$ip_addresses" ]; then
+        printf '%s\n' "$ip_addresses"
+        return 0
+    fi
+
+    # nothing matched
+    return 1
 }
 
 ##----------------------------------------##
@@ -4737,9 +4742,9 @@ _GetNodeURL_()
     echo "${urlProto}://${NodeIP_Address}${urlPort}"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-07] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-June-08] ##
+##------------------------------------------##
 _GetNodeInfo_()
 {
     local NodeIP_Address="$1"
@@ -4787,11 +4792,9 @@ _GetNodeInfo_()
 
     if [ $? -ne 0 ]
     then
-        _UpdateLoginPswdCheckHelper_ FAILURE
         printf "\n${REDct}Login failed for AiMesh Node [$NodeIP_Address].${NOct}\n"
         return 1
     fi
-    _UpdateLoginPswdCheckHelper_ SUCCESS
 
     # Retrieve the HTML content #
     htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
