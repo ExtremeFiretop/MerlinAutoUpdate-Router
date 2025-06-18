@@ -4,15 +4,15 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jun-08
+# Last Modified: 2025-Jun-17
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.4.8
+readonly SCRIPT_VERSION=1.4.9
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -3033,9 +3033,9 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-14] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jun-17] ##
+##------------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -3136,35 +3136,34 @@ _CreateEMailContent_()
            ;;
        STOP_FW_UPDATE_APPROVAL)
            emailBodyTitle="WARNING"
+           high_risk_regex=$(printf '%s\n' "$high_risk_terms" | sed 's/ /[[:space:]]+/g')
            if "$isEMailFormatHTML"
            then
                # Highlight high-risk terms using HTML with a yellow background #
-               highlighted_changelog_contents="$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/<span style='background-color:yellow;'>\1<\/span>/gi")"
+               highlighted_changelog_contents="$(
+                   printf '%s\n' "$changelog_contents" |
+                   sed -E ":a;N;\$!ba; \
+                           s/(${high_risk_regex})/<span style='background-color:yellow;'>\\1<\\/span>/Ig"
+               )"
            else
                # Step 1: Enclose matched terms with unique markers that don't conflict with '>' and '<'
-               highlighted_changelog_contents="$(echo "$changelog_contents" | sed -E "s/($high_risk_terms)/\[\[UPPER\]\]\1\[\[ENDUPPER\]\]/gi")"
-
-               # Step 2: Modify the awk script with correct marker lengths
-               highlighted_changelog_contents="$(echo "$highlighted_changelog_contents" | awk '
-               BEGIN {
-                   upper_marker = "[[UPPER]]"
-                   endupper_marker = "[[ENDUPPER]]"
-                   upper_marker_length = length(upper_marker)
-                   endupper_marker_length = length(endupper_marker)
-               }
-               {
-                 while (match($0, /\[\[UPPER\]\][^\[]*\[\[ENDUPPER\]\]/)) {
-                   prefix = substr($0, 1, RSTART - 1)
-                   match_text_start = RSTART + upper_marker_length
-                   match_text_length = RLENGTH - upper_marker_length - endupper_marker_length
-                   match_text = substr($0, match_text_start, match_text_length)
-                   suffix = substr($0, RSTART + RLENGTH)
-                   match_text_upper = toupper(match_text)
-                   $0 = prefix ">" match_text_upper "<" suffix
-                 }
-                 print
-               }
-               ')"
+               highlighted_changelog_contents="$(
+                   printf '%s\n' "$changelog_contents" |
+                   awk -v regex="$high_risk_regex" '
+                   BEGIN { IGNORECASE = 1 }
+                   { buf = buf $0 ORS }                 # slurp into buf
+                   END {
+                       out = ""
+                       while (match(buf, regex)) {
+                           pre  = substr(buf, 1, RSTART - 1)
+                           hit  = substr(buf, RSTART, RLENGTH)
+                           buf  = substr(buf, RSTART + RLENGTH)   # delete hit + prefix
+                           out  = out pre ">" toupper(hit) "<"    # grow output
+                       }
+                       out = out buf            # tail with no more matches
+                       printf "%s", out
+                   }'
+               )"
            fi
            {
                echo "Found high-risk phrases in the changelog file while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
