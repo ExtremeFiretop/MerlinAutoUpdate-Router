@@ -1,6 +1,6 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
-## v1.4.8
-## 2025-Jun-08
+## v1.4.9
+## 2025-Jun-19
 
 ## WebUI:
 ![image](https://github.com/user-attachments/assets/9c1dff99-9c13-491b-a7fa-aff924d5f02e)
@@ -17,43 +17,43 @@
 
 ## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
- - GT-BE98_PRO (Tested)
- - GT-AX6000 (Tested)
- - GT-AXE16000 (Tested)
- - GT-AXE11000 (Tested)
- - GT-AX11000_PRO (Tested)
- - GT-AX11000 (Tested)
- - GT-AC2900 **(Untested)**
- - RT-BE92U **(Untested)**
- - RT-BE96U **(Untested)**
- - RT-BE88U **(Untested)**
- - RT-BE86U **(Untested)**
- - RT-AX88U_PRO (Tested)
- - RT-AX88U (Tested)
- - RT-AC86U (Tested)
- - RT-AC2900 (Tested)
- - RT-AX86U (Tested)
- - RT-AX86U_PRO (Tested)
- - RT-AX86S (Tested)
- - RT-AX68U (Tested)
- - RT-AX58U V1 (Tested)
- - RT-AX56U (Tested)
- - RT-AX3000 V1 (Tested)
- - XT12 (Tested)
+ - GT-BE98_PRO
+ - GT-AX6000
+ - GT-AXE16000
+ - GT-AXE11000
+ - GT-AX11000_PRO
+ - GT-AX11000
+ - GT-AC2900
+ - RT-BE92U
+ - RT-BE96U
+ - RT-BE88U
+ - RT-BE86U
+ - RT-AX88U_PRO 
+ - RT-AX88U 
+ - RT-AC86U
+ - RT-AC2900
+ - RT-AX86U
+ - RT-AX86U_PRO
+ - RT-AX86S
+ - RT-AX68U
+ - RT-AX58U V1
+ - RT-AX56U
+ - RT-AX3000 V1
+ - XT12
 
 ## SUPPORTED GNUTON MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
- - GT-BE98 **Known issues due to missing from manifest2.txt file in Gnuton**
- - DSL-AX82U **(Untested)**
- - TUF-AX3000 V1 **(Untested)**
- - TUF-AX3000 V2 (Tested)
- - TUF-AX5400 (Tested)
- - RT-AX5400 **(Untested)**
- - RT-AX82U V1 (Tested)
- - RT-AX82U V2 **(Untested)**
- - RT-AX58U V2 **(Untested)**
- - RT-AX92U (Tested)
- - RT-AX95Q **(Untested)**
- - RT-AXE95Q **(Untested)**
+ - GT-BE98
+ - DSL-AX82U
+ - TUF-AX3000 V1
+ - TUF-AX3000 V2
+ - TUF-AX5400
+ - RT-AX5400
+ - RT-AX82U V1
+ - RT-AX82U V2
+ - RT-AX58U V2
+ - RT-AX92U
+ - RT-AX95Q
+ - RT-AXE95Q
 
 ## UNSUPPORTED MERLIN MODELS: (Single image models) - i.e. Any model that uses a .trx file
 Blocked due to being single image models.
