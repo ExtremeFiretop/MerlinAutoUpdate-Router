@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jun-28
+# Last Modified: 2025-Jun-30
 ###################################################################
 set -u
 
@@ -3136,34 +3136,32 @@ _CreateEMailContent_()
            ;;
        STOP_FW_UPDATE_APPROVAL)
            emailBodyTitle="WARNING"
-           high_risk_regex=$(printf '%s\n' "$high_risk_terms" | sed 's/ /[[:space:]]+/g')
+           high_risk_regex="$(printf '%s\n' "$high_risk_terms" | sed 's/ /[[:space:]]+/g')"
            if "$isEMailFormatHTML"
            then
                # Highlight high-risk terms using HTML with a yellow background #
                highlighted_changelog_contents="$(
-                   printf '%s\n' "$changelog_contents" |
+                   printf '%s\n' "$changelog_contents" | \
                    sed -E ":a;N;\$!ba; \
-                           s/(${high_risk_regex})/<span style='background-color:yellow;'>\\1<\\/span>/Ig"
-               )"
+                           s/(${high_risk_regex})/<span style='background-color:yellow;'>\\1<\\/span>/Ig")"
            else
-               # Step 1: Enclose matched terms with unique markers that don't conflict with '>' and '<'
+               # Step 1: Enclose matched terms with unique markers that don't conflict with '>' and '<' #
                highlighted_changelog_contents="$(
-                   printf '%s\n' "$changelog_contents" |
+                   printf '%s\n' "$changelog_contents" | \
                    awk -v regex="$high_risk_regex" '
                    BEGIN { IGNORECASE = 1 }
-                   { buf = buf $0 ORS }                 # slurp into buf
+                   { buf = buf $0 ORS }   # slurp into buf #
                    END {
                        out = ""
                        while (match(buf, regex)) {
                            pre  = substr(buf, 1, RSTART - 1)
                            hit  = substr(buf, RSTART, RLENGTH)
-                           buf  = substr(buf, RSTART + RLENGTH)   # delete hit + prefix
-                           out  = out pre ">" toupper(hit) "<"    # grow output
+                           buf  = substr(buf, RSTART + RLENGTH)   # delete hit + prefix #
+                           out  = out pre ">" toupper(hit) "<"    # grow output #
                        }
-                       out = out buf            # tail with no more matches
+                       out = out buf   # tail with no more matches #
                        printf "%s", out
-                   }'
-               )"
+                   }')"
            fi
            {
                echo "Found high-risk phrases in the changelog file while Auto-Updating to version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
@@ -3700,16 +3698,41 @@ _GetFreeRAM_KB_()
    ##FOR DEBUG ONLY## echo 1000
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jun-01] ##
-##----------------------------------------##
-theZIP_FileSizeKB=0
-theZIP_FileSizeBytes=0
+##-------------------------------------##
+## Added by Martinski W. [2024-Jun-29] ##
+##-------------------------------------##
+_GetFileSizeBytes_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ] || [ ! -s "$1" ]
+    then echo 0 ; return 1 ; fi
+    echo "$(ls -1l "$1" | awk -F ' ' '{print $3}')"
+}
 
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jun-29] ##
+##----------------------------------------##
+theTargetFileSizeKB=0
+theTargetFileSizeBytes=0
+#--------------------------------------------
+# ARG1: "URL=https://link/to/file/..."   OR  
+#       "FPATH=/the/local/file/path/..."
+#--------------------------------------------
 _GetRequiredRAM_KB_()
 {
-    local theURL="$1"  thePhase  overhead_percentage
-    local overhead_KB  total_required_KB
+    if [ $# -eq 0 ] || [ -z "$1" ] || \
+       ! echo "$1" | grep -qE "^(URL=|FPATH=).+"
+    then echo 0 ; return 1 ; fi
+
+    local theURLstr=""  theBINpath=""  thePhase
+    local overhead_KB  total_required_KB  overhead_percentage
+
+    if echo "$1" | grep -qE "^URL=.+"
+    then
+        theURLstr="${1#*=}"
+    elif echo "$1" | grep -qE "^FPATH=.+"
+    then
+        theBINpath="${1#*=}"
+    fi
 
     if [ $# -lt 2 ] || [ -z "$2" ] || \
        ! echo "$2" | grep -qE "^phase#[1-9]$"
@@ -3718,24 +3741,30 @@ _GetRequiredRAM_KB_()
     fi
     overhead_percentage="$(_GetAvailableRAM_PercentOverheadNum_ "$thePhase")"
 
-    if [ -z "$theZIP_FileSizeBytes" ]    || \
-       [ "$theZIP_FileSizeBytes" = "0" ] || \
-       ! echo "$theZIP_FileSizeBytes" | grep -qE "^[0-9]+$"
+    if [ -z "$theTargetFileSizeBytes" ]    || \
+       [ "$theTargetFileSizeBytes" -eq 0 ] || \
+       ! echo "$theTargetFileSizeBytes" | grep -qE "^[0-9]+$"
     then
-        theZIP_FileSizeBytes="$(curl -LsI --retry 4 --retry-delay 5 "$theURL" | grep -i Content-Length | tail -1 | awk '{print $2}')"
+        if [ -n "$theBINpath" ]
+        then
+            theTargetFileSizeBytes="$(_GetFileSizeBytes_ "$theBINpath")"
+        elif [ -n "$theURLstr" ]
+        then
+            theTargetFileSizeBytes="$(curl -LsI --retry 4 --retry-delay 5 "$theURLstr" | grep -i Content-Length | tail -1 | awk '{print $2}')"
+        fi
     fi
 
-    if [ -n "$theZIP_FileSizeBytes" ]    && \
-       [ "$theZIP_FileSizeBytes" -gt 0 ] && \
-       [ "$theZIP_FileSizeKB" -eq 0 ]
+    if [ -n "$theTargetFileSizeBytes" ]    && \
+       [ "$theTargetFileSizeBytes" -gt 0 ] && \
+       [ "$theTargetFileSizeKB" -eq 0 ]
     then
-        theZIP_FileSizeKB="$((theZIP_FileSizeBytes / 1024))"
+        theTargetFileSizeKB="$((theTargetFileSizeBytes / 1024))"
     fi
 
     # Calculate overhead based on the percentage #
-    overhead_KB="$((theZIP_FileSizeKB * overhead_percentage / 100))"
+    overhead_KB="$((theTargetFileSizeKB * overhead_percentage / 100))"
 
-    total_required_KB="$((theZIP_FileSizeKB + overhead_KB))"
+    total_required_KB="$((theTargetFileSizeKB + overhead_KB))"
     echo "$total_required_KB"
 }
 
@@ -4642,32 +4671,31 @@ _GetLoginCredentials_()
 ##-------------------------------------------##
 _GetNodeIPv4List_()
 {
-    local NODE_ROLE="2"                   # keep only nodes whose last field == 2
-    local device_list ip_addresses
+    local NODE_ROLE="2"  # keep only nodes whose last field == 2 #
+    local device_list  ip_addresses
 
     device_list="$(nvram get asus_device_list)"
 
-    if [ -z "$device_list" ]; then
+    if [ -z "$device_list" ]
+    then
         Say "NVRAM asus_device_list is NOT populated. No Mesh Nodes were found."
         return 1
     fi
 
     ip_addresses="$(
-        printf '%s\n' "$device_list" |         
-        tr '<' '\n'            |               
+        printf '%s\n' "$device_list" | tr '<' '\n' | \
         awk -F'>' \
             -v role="$NODE_ROLE" \
             -v exclude="$mainLAN_IPaddr" '
-            NF >= 4 && $3 != exclude && $NF == role { print $3 }
-        '
-    )"
+            NF >= 4 && $3 != exclude && $NF == role { print $3 }')"
 
-    if [ -n "$ip_addresses" ]; then
+    if [ -n "$ip_addresses" ]
+    then
         printf '%s\n' "$ip_addresses"
         return 0
     fi
 
-    # nothing matched
+    # nothing matched #
     return 1
 }
 
@@ -4742,7 +4770,7 @@ _GetNodeURL_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-June-08] ##
+## Modified by ExtremeFiretop [2025-Jun-08] ##
 ##------------------------------------------##
 _GetNodeInfo_()
 {
@@ -4922,14 +4950,14 @@ _GetLatestFWUpdateVersionFromWebsite_()
 ##------------------------------------------##
 _GetLatestFWUpdateVersionFromGitHub_()
 {
-    local routerVersion search_type
+    local routerVersion  search_type
     local gitURL="$1"  # GitHub URL for the latest release #
     local firmware_type="$2"  # "tuf", "rog" or "pure" #
     local grep_pattern downloadURLs theURL urlVersion
 
-    local search_type="$firmware_type"  # Default to the input firmware_type #
+    search_type="$firmware_type"  # Default to the input firmware_type #
 
-    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    # If firmware_type is "pure", set search type to include "squashfs" as well #
     if [ "$firmware_type" = "pure" ]
     then
         search_type="pure\|squashfs\|ubi"
@@ -4953,7 +4981,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
         return 1
     fi
 
-    # Construct the grep pattern based on search_type #
+    # Construct the grep pattern based on search type #
     grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\\(${search_type}\\).*\\.\(w\\|pkgtb\)\""
 
     # Extract all matched download URLs #
@@ -4982,7 +5010,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
                     echo "$urlVersion"
                     echo "$theURL"
                     return 0
-                    ;;
+                ;;
             esac
         done
     fi
@@ -8250,35 +8278,37 @@ _GetOfflineFirmwareVersion_()
     then
         if echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)$'
         then
-            # Numeric patch (Merlin)
+            # Numeric patch (Merlin) #
             formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)/\1.\2.\3.\4/')"
 
         elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)-gnuton[0-9]+$'
         then
-            # Stable Gnuton build – drop the “-gnutonN” tail
+            # Stable Gnuton build – drop the "-gnutonN" tail #
             formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)-gnuton[0-9]+$/\1.\2.\3.\4/')"
 
         elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+-gnuton[0-9]+_(alpha|beta)[0-9a-zA-Z]*)$'
         then
-            # Gnuton beta/alpha – keep the “-gnuton…_beta/alpha” suffix
+            # Gnuton beta/alpha – keep the "-gnuton…_beta/alpha" suffix #
             formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+-gnuton[0-9]+_[a-zA-Z]+[0-9a-zA-Z]*)/\1.\2.\3.\4/')"
 
         elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)$'
         then
-            # Alphanumeric suffix (Merlin “_beta3”, “_alpha1”, etc.)
+            # Alphanumeric suffix (Merlin "_beta3", "_alpha1", etc.) #
             formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9a-zA-Z]+)/\1.\2.\3.0_\4/')"
         else
             printf "\nFailed to parse firmware version from the ZIP file name.\n"
             firmware_version=""
+            formatted_version="UNKNOWN"
         fi
         printf "\nIdentified firmware version: ${GRNct}$formatted_version${NOct}\n"
         printf "\n---------------------------------------------------\n"
 
-        # Ask the user to confirm the detected firmware version
-        if _WaitForYESorNO_ "\nIs this firmware version correct?"; then
+        # Ask the user to confirm the detected firmware version #
+        if _WaitForYESorNO_ "\nIs this firmware version correct?"
+        then
             printf "\n---------------------------------------------------\n"
         else
-            # Set firmware_version to empty to trigger manual entry
+            # Set firmware_version to empty to trigger manual entry #
             firmware_version=""
         fi
     fi
@@ -8306,7 +8336,8 @@ _GetOfflineFirmwareVersion_()
         # Validate user input #
         while ! echo "$formatted_version" | grep -qE "^${validate_version_regex}$"
         do
-            if echo "$formatted_version" | grep -qE "^(e|E|exit|Exit)$"; then
+            if echo "$formatted_version" | grep -qE "^(e|E|exit|Exit)$"
+            then
                 return 1
             fi
             printf "\n${REDct}**WARNING**${NOct} Invalid format detected!\n"
@@ -8934,7 +8965,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     ## Modified by Martinski W. [2025-Jun-01] ##
     ##----------------------------------------##
     # Get the required memory for the firmware download and extraction
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#1')"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#1')"
     if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$requiredRAM_kb" -gt 51200 ]
     then
         if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
@@ -9007,7 +9038,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     ##----------------------------------------##
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#2')"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#2')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -9031,7 +9062,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#3')"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#3')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -9053,7 +9084,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#4')"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#4')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -9144,7 +9175,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     ##----------------------------------------##
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "$release_link" 'phase#5')"
+    requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#5')"
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
