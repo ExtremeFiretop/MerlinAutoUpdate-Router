@@ -4946,29 +4946,22 @@ _GetLatestFWUpdateVersionFromWebsite_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jun-28] ##
+## Modified by ExtremeFiretop [2024-May-05] ##
 ##------------------------------------------##
 _GetLatestFWUpdateVersionFromGitHub_()
 {
-    local routerVersion  search_type
+    local routerVersion
     local gitURL="$1"  # GitHub URL for the latest release #
     local firmware_type="$2"  # "tuf", "rog" or "pure" #
-    local grep_pattern downloadURLs theURL urlVersion
 
-    search_type="$firmware_type"  # Default to the input firmware_type #
+    local search_type="$firmware_type"  # Default to the input firmware_type #
 
-    # If firmware_type is "pure", set search type to include "squashfs" as well #
+    # If firmware_type is "pure", set search_type to include "squashfs" as well
     if [ "$firmware_type" = "pure" ]
     then
         search_type="pure\|squashfs\|ubi"
     fi
 
-    case "$gitURL" in
-        */releases/latest) gitURL="${gitURL%/latest}?per_page=5" ;;
-        */releases)        gitURL="${gitURL}?per_page=5"         ;;
-    esac
-
-    # Get current router version & product ID #
     if ! "$offlineUpdateTrigger"
     then
         routerVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
@@ -4981,40 +4974,38 @@ _GetLatestFWUpdateVersionFromGitHub_()
         return 1
     fi
 
-    # Construct the grep pattern based on search type #
-    grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\\(${search_type}\\).*\\.\(w\\|pkgtb\)\""
+    # Fetch the latest release data from GitHub #
+    local release_data="$(curl -s "$gitURL")"
+
+    # Construct the grep pattern based on search_type #
+    local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
 
     # Extract all matched download URLs #
-    downloadURLs="$(curl -s "$gitURL" \
-        | grep -o "$grep_pattern" \
-        | grep -o 'https://[^"]*.\(w\|pkgtb\)')"
+    local downloadURLs="$(echo "$release_data" | \
+        grep -o "$grep_pattern" | \
+        grep -o "https://[^ ]*\.\(w\|pkgtb\)")"
 
     if [ -z "$downloadURLs" ]
     then
         echo "**ERROR** **NO_GITHUB_URL**"
         return 1
     else
+        local theURL  urlVersion
         for theURL in $downloadURLs
         do
             # Extract the version portion from the URL #
             urlVersion="$(echo "$theURL" \
-                | grep -oE "${PRODUCT_ID}_[^/]*\.(w|pkgtb)" \
-                | sed -e "s/${PRODUCT_ID}_//" \
-                      -e "s/\.w$//" -e "s/\.pkgtb$//" \
-                      -e "s/_ubi$//" -e "s/_puresqubi$//" -e "s/_nand_squashfs$//" \
-                      -e 's/_/./' -e 's/_/./' \
-                      -e "s/-gnuton[0-9][0-9]*\$//" | head -n1)"
+                | grep -oE "${PRODUCT_ID}_[^ ]*\.(w|pkgtb)" \
+                | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g;s/-gnuton[0-9][0-9]*\$//" | head -n1)"
 
-            case "$urlVersion" in
-                *"$routerVersion"*)
-                    echo "$urlVersion"
-                    echo "$theURL"
-                    return 0
-                ;;
-            esac
+            if [ "$urlVersion" = "$routerVersion" ]
+            then
+                echo "$urlVersion"
+                echo "$theURL"
+                return 0
+            fi
         done
     fi
-    return 1
 }
 
 ##------------------------------------------##
@@ -8638,9 +8629,9 @@ _RunBackupmon_()
     return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jun-30] ##
+##------------------------------------------##
 _RunOfflineUpdateNow_()
 {
     local retCode
@@ -8747,27 +8738,13 @@ _RunOfflineUpdateNow_()
                 extension="${sanitized_filename##*.}"
                 FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
                 _GnutonBuildSelection_
-                set -- $(_GetLatestFWUpdateVersionFromGitHub_ "$FW_GITURL_RELEASE" "$firmware_choice")
-                retCode="$?"
-            else
-                set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
-                retCode="$?"
             fi
-            if [ "$retCode" -eq 0 ] && [ $# -eq 2 ] && \
-               [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
+            if _AcquireLock_ cliFileLock
             then
-                release_link="$2"
-                if _AcquireLock_ cliFileLock
-                then
-                    _RunFirmwareUpdateNow_
-                    _ReleaseLock_ cliFileLock
-                fi
-                _ClearOfflineUpdateState_
-            else
-                Say "${REDct}**ERROR**${NOct}: No firmware release URL was found for [$MODEL_ID] router model."
-                _ClearOfflineUpdateState_ 1
-                return 1
+                _RunFirmwareUpdateNow_
+                _ReleaseLock_ cliFileLock
             fi
+            _ClearOfflineUpdateState_
         else
             _ClearOfflineUpdateState_ 1
             return 1
@@ -8961,11 +8938,18 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         return 1
     fi
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2025-Jun-01] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2025-Jun-30] ##
+    ##------------------------------------------##
     # Get the required memory for the firmware download and extraction
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#1')"
+    if ! "$offlineUpdateTrigger"
+    then requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#1')"
+    else
+        if "$isGNUtonFW"
+        then requiredRAM_kb="$(_GetRequiredRAM_KB_ "FPATH=$FW_DL_FPATH" 'phase#1')"
+        else requiredRAM_kb="$(_GetRequiredRAM_KB_ "FPATH=$FW_ZIP_FPATH" 'phase#1')"
+        fi
+    fi
     if ! _HasRouterMoreThan256MBtotalRAM_ && [ "$requiredRAM_kb" -gt 51200 ]
     then
         if ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR" 1
@@ -9033,12 +9017,19 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2025-Jun-01] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2025-Jun-30] ##
+    ##------------------------------------------##
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#2')"
+    if ! "$offlineUpdateTrigger"
+    then requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#2')"
+    else
+        if "$isGNUtonFW"
+        then requiredRAM_kb="$(_GetRequiredRAM_KB_ "FPATH=$FW_DL_FPATH" 'phase#2')"
+        else requiredRAM_kb="$(_GetRequiredRAM_KB_ "FPATH=$FW_ZIP_FPATH" 'phase#2')"
+        fi
+    fi
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -9062,7 +9053,14 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#3')"
+    if ! "$offlineUpdateTrigger"
+    then requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#3')"
+    else
+        if "$isGNUtonFW"
+        then requiredRAM_kb="$(_GetRequiredRAM_KB_ "FPATH=$FW_DL_FPATH" 'phase#3')"
+        else requiredRAM_kb="$(_GetRequiredRAM_KB_ "FPATH=$FW_ZIP_FPATH" 'phase#3')"
+        fi
+    fi
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -9084,7 +9082,14 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#4')"
+    if ! "$offlineUpdateTrigger"
+    then requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#4')"
+    else
+        if "$isGNUtonFW"
+        then requiredRAM_kb="$(_GetRequiredRAM_KB_ "FPATH=$FW_DL_FPATH" 'phase#4')"
+        else requiredRAM_kb="$(_GetRequiredRAM_KB_ "FPATH=$FW_ZIP_FPATH" 'phase#4')"
+        fi
+    fi
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
@@ -9170,12 +9175,19 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         return 1
     fi
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2025-Jun-01] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2025-Jun-30] ##
+    ##------------------------------------------##
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
-    requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#5')"
+    if ! "$offlineUpdateTrigger"
+    then requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#5')"
+    else
+        if "$isGNUtonFW"
+        then requiredRAM_kb="$(_GetRequiredRAM_KB_ "FPATH=$FW_DL_FPATH" 'phase#5')"
+        else requiredRAM_kb="$(_GetRequiredRAM_KB_ "FPATH=$FW_ZIP_FPATH" 'phase#5')"
+        fi
+    fi
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
