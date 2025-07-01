@@ -8629,9 +8629,9 @@ _RunBackupmon_()
     return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Jun-30] ##
+##------------------------------------------##
 _RunOfflineUpdateNow_()
 {
     local retCode
@@ -8938,9 +8938,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         return 1
     fi
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2025-Jun-01] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2025-Jun-30] ##
+    ##------------------------------------------##
     # Get the required memory for the firmware download and extraction
     if ! "$offlineUpdateTrigger"
     then requiredRAM_kb="$(_GetRequiredRAM_KB_ "URL=$release_link" 'phase#1')"
@@ -9017,9 +9017,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2025-Jun-01] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2025-Jun-30] ##
+    ##------------------------------------------##
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
     if ! "$offlineUpdateTrigger"
@@ -9175,9 +9175,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         return 1
     fi
 
-    ##----------------------------------------##
-    ## Modified by Martinski W. [2025-Jun-01] ##
-    ##----------------------------------------##
+    ##------------------------------------------##
+    ## Modified by ExtremeFiretop [2025-Jun-30] ##
+    ##------------------------------------------##
     freeRAM_kb="$(_GetFreeRAM_KB_)"
     availableRAM_kb="$(_GetAvailableRAM_KB_)"
     if ! "$offlineUpdateTrigger"
