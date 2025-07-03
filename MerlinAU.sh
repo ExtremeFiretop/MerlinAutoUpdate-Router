@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jun-30
+# Last Modified: 2025-Jul-02
 ###################################################################
 set -u
 
@@ -4950,13 +4950,14 @@ _GetLatestFWUpdateVersionFromWebsite_()
 ##------------------------------------------##
 _GetLatestFWUpdateVersionFromGitHub_()
 {
-    local routerVersion
+    local routerVersion  search_type  release_data
     local gitURL="$1"  # GitHub URL for the latest release #
     local firmware_type="$2"  # "tuf", "rog" or "pure" #
+    local grep_pattern  downloadURLs  theURL  urlVersion
 
-    local search_type="$firmware_type"  # Default to the input firmware_type #
+    search_type="$firmware_type"  # Default to the input firmware_type #
 
-    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    # If firmware_type is "pure", set search_type to include "squashfs" as well #
     if [ "$firmware_type" = "pure" ]
     then
         search_type="pure\|squashfs\|ubi"
@@ -4975,13 +4976,13 @@ _GetLatestFWUpdateVersionFromGitHub_()
     fi
 
     # Fetch the latest release data from GitHub #
-    local release_data="$(curl -s "$gitURL")"
+    release_data="$(curl -s "$gitURL")"
 
     # Construct the grep pattern based on search_type #
-    local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
+    grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
 
     # Extract all matched download URLs #
-    local downloadURLs="$(echo "$release_data" | \
+    downloadURLs="$(echo "$release_data" | \
         grep -o "$grep_pattern" | \
         grep -o "https://[^ ]*\.\(w\|pkgtb\)")"
 
@@ -4990,7 +4991,6 @@ _GetLatestFWUpdateVersionFromGitHub_()
         echo "**ERROR** **NO_GITHUB_URL**"
         return 1
     else
-        local theURL  urlVersion
         for theURL in $downloadURLs
         do
             # Extract the version portion from the URL #
