@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jun-30
+# Last Modified: 2025-Jul-03
 ###################################################################
 set -u
 
@@ -775,7 +775,7 @@ _GetFirmwareVariantFromRouter_()
 
    ##FOR TESTING/DEBUG ONLY##
    if false  # Change to true for forcing GNUton flag #
-   then hasGNUtonFW=true ; return 0 ; fi
+   then echo "true" ; return 0 ; fi
    ##FOR TESTING/DEBUG ONLY##
 
    # Check if installed F/W NVRAM vars contain "gnuton" #
@@ -4950,13 +4950,14 @@ _GetLatestFWUpdateVersionFromWebsite_()
 ##------------------------------------------##
 _GetLatestFWUpdateVersionFromGitHub_()
 {
-    local routerVersion
+    local routerVersion  search_type  release_data
     local gitURL="$1"  # GitHub URL for the latest release #
     local firmware_type="$2"  # "tuf", "rog" or "pure" #
+    local grep_pattern  downloadURLs  theURL  urlVersion
 
-    local search_type="$firmware_type"  # Default to the input firmware_type #
+    search_type="$firmware_type"  # Default to the input firmware_type #
 
-    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    # If firmware_type is "pure", set search_type to include "squashfs" as well #
     if [ "$firmware_type" = "pure" ]
     then
         search_type="pure\|squashfs\|ubi"
@@ -4975,13 +4976,13 @@ _GetLatestFWUpdateVersionFromGitHub_()
     fi
 
     # Fetch the latest release data from GitHub #
-    local release_data="$(curl -s "$gitURL")"
+    release_data="$(curl -s "$gitURL")"
 
     # Construct the grep pattern based on search_type #
-    local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
+    grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
 
     # Extract all matched download URLs #
-    local downloadURLs="$(echo "$release_data" | \
+    downloadURLs="$(echo "$release_data" | \
         grep -o "$grep_pattern" | \
         grep -o "https://[^ ]*\.\(w\|pkgtb\)")"
 
@@ -4990,7 +4991,6 @@ _GetLatestFWUpdateVersionFromGitHub_()
         echo "**ERROR** **NO_GITHUB_URL**"
         return 1
     else
-        local theURL  urlVersion
         for theURL in $downloadURLs
         do
             # Extract the version portion from the URL #
@@ -11167,6 +11167,50 @@ _DoInitializationStartup_()
    _CheckAndSetBackupOption_
    _SetDefaultBuildType_
 }
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Jul-03] ##
+##-------------------------------------##
+#######################################################################
+# TEMPORARY hack to check if the Gnuton F/W built-in 'webs_update.sh' 
+# script is the most recent version that includes required fixes.
+# If not, we temporarily set up a local version so that MerlinAU 
+# can continue to work by detecting available F/W version updates.
+# NOTE:
+# The 'webs_update.sh' MUST have "SCRIPT_VERSTAG" variable defined.
+#######################################################################
+_Gnuton_Check_Webs_Update_Script_()
+{
+   if ! "$isGNUtonFW" || \
+      ! "$checkWebsUpdateScriptForGnuton" || \
+      grep -qE 'SCRIPT_VERSTAG="[0-9]+"' "$FW_UpdateCheckScript"
+   then
+       checkWebsUpdateScriptForGnuton=false
+       return 0
+   fi
+
+   local theWebsUpdateFile="webs_update.sh"
+   local fixedWebsUpdateFilePath="${SETTINGS_DIR}/$theWebsUpdateFile"
+
+   ## Get the fixed version of the script targeted for Gnuton F/W ##
+   if _CurlFileDownload_ "gnuton_webs_update.sh" "$fixedWebsUpdateFilePath"
+   then
+       chmod 755 "$fixedWebsUpdateFilePath"
+   else
+       return 1  #NOT available so do nothing#
+   fi
+
+   if ! diff "$FW_UpdateCheckScript" "$fixedWebsUpdateFilePath" >/dev/null 2>&1
+   then
+       umount "$FW_UpdateCheckScript" 2>/dev/null
+       mount -o bind "$fixedWebsUpdateFilePath" "$FW_UpdateCheckScript"
+       Say "${YLWct}Set up a fixed version of the \"${theWebsUpdateFile}\" script file.${NOct}"
+   fi
+}
+
+## Set variable to 'false' to stop the check ##
+checkWebsUpdateScriptForGnuton="$isGNUtonFW"
+_Gnuton_Check_Webs_Update_Script_
 
 FW_InstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
 FW_InstalledVerStr="${GRNct}${FW_InstalledVersion}${NOct}"
