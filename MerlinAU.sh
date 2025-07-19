@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jul-03
+# Last Modified: 2025-Jul-18
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.0
+readonly SCRIPT_VERSION=1.5.1
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -195,7 +195,7 @@ readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildV
 # For minimum supported firmware version check #
 MinFirmwareVerCheckFailed=false
 readonly MinSupportedFW_3004_386_Ver="3004.386.13.2"
-readonly MinSupportedFW_3004_388_Ver="3004.388.8.0"
+readonly MinSupportedFW_3004_388_Ver="3004.388.8.4"
 readonly MinSupportedFW_3006_102_Ver="3004.388.8.2"
 
 ##----------------------------------------##
@@ -1188,9 +1188,6 @@ _InitCustomDefaultsConfig_()
    fi
    local retCode=0  preferredPath
 
-   # TEMPORARY Migration Function #
-   _Migrate_Settings_
-
    if ! grep -q "^FW_New_Update_Notification_Date " "$CONFIG_FILE"
    then
        if [ "$(wc -l < "$CONFIG_FILE")" -lt 1 ]
@@ -1969,94 +1966,6 @@ _Set_FW_UpdateZIP_DirectoryPath_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-15] ##
-##----------------------------------------##
-## Function to migrate specific settings from old values to new standardized values.
-## This function is meant to be only TEMPORARY.
-## We should be safe to remove it after 3 months, or 5 version releases,
-## whichever comes first. Similar to the migration function removed in v1.0.9
-##-----------------------------------------------------------------------------------##
-_Migrate_Settings_()
-{
-    [ ! -s "$CONFIG_FILE" ] && return 1
-
-    ## Migrate Setting from [y|Y|n|N] to [ENABLED|DISABLED] ##
-    ROGBuild_Value="$(Get_Custom_Setting ROGBuild)"
-    if [ "$ROGBuild_Value" != "TBD" ]
-    then
-        case "$ROGBuild_Value" in
-            y|Y) New_ROGBuild_Value="ENABLED" ;;
-            n|N) New_ROGBuild_Value="DISABLED" ;;
-            *)
-               New_ROGBuild_Value=""
-               ! echo "$ROGBuild_Value" | grep -qE "^(ENABLED|DISABLED)$" && \
-               Say "ROGBuild has a unknown value: '$ROGBuild_Value'. Skipping migration for this setting."
-               ;;
-        esac
-        if [ -n "$New_ROGBuild_Value" ]
-        then
-            if Update_Custom_Settings ROGBuild "$New_ROGBuild_Value"
-            then
-                Say "ROGBuild setting was successfully migrated to '$New_ROGBuild_Value'."
-            else
-                Say "Error occurred while migrating ROGBuild setting to '$New_ROGBuild_Value'."
-            fi
-        fi
-    fi
-
-    ## Migrate Setting from [y|Y|n|N] to [ENABLED|DISABLED] ##
-    TUFBuild_Value="$(Get_Custom_Setting TUFBuild)"
-    if [ "$TUFBuild_Value" != "TBD" ]
-    then
-        case "$TUFBuild_Value" in
-            y|Y) New_TUFBuild_Value="ENABLED" ;;
-            n|N) New_TUFBuild_Value="DISABLED" ;;
-            *)
-               New_TUFBuild_Value=""
-               ! echo "$TUFBuild_Value" | grep -qE "^(ENABLED|DISABLED)$" && \
-               Say "TUFBuild has a unknown value: '$TUFBuild_Value'. Skipping migration for this setting."
-               ;;
-        esac
-        if [ -n "$New_TUFBuild_Value" ]
-        then
-            if Update_Custom_Settings TUFBuild "$New_TUFBuild_Value"
-            then
-                Say "TUFBuild setting was successfully migrated to '$New_TUFBuild_Value'."
-            else
-                Say "Error occurred while migrating TUFBuild setting to '$New_TUFBuild_Value'."
-            fi
-        fi
-    fi
-
-    ## Migrate Setting from [true|false] to [ENABLED|DISABLED] ##
-    EMailNotif_Value="$(grep '^FW_New_Update_EMail_Notification=' "$CONFIG_FILE" | cut -d'=' -f2 | tr -d '"')"
-    if [ -n "$EMailNotif_Value" ] && [ "$EMailNotif_Value" != "TBD" ]
-    then
-        case "$EMailNotif_Value" in
-               true|TRUE|True) New_EMailNotif_Value="ENABLED" ;;
-            false|FALSE|False) New_EMailNotif_Value="DISABLED" ;;
-            *)
-               New_EMailNotif_Value=""
-               ! echo "$EMailNotif_Value" | grep -qE "^(ENABLED|DISABLED)$" && \
-               Say "FW_New_Update_EMail_Notification has a unknown value: '$EMailNotif_Value'. Skipping migration for this setting."
-               ;;
-        esac
-        if [ -n "$New_EMailNotif_Value" ]
-        then
-            sed -i '/^FW_New_Update_EMail_Notification .*/d' "$CONFIG_FILE"
-            sed -i "s/^FW_New_Update_EMail_Notification=.*/FW_New_Update_EMail_Notification $New_EMailNotif_Value/" "$CONFIG_FILE"
-            if [ $? -eq 0 ]
-            then
-                sendEMailNotificationsFlag="$New_EMailNotif_Value"
-                Say "EMail_Notification setting was successfully migrated to $New_EMailNotif_Value."
-            else
-                Say "Error occurred while migrating EMail_Notification setting to $New_EMailNotif_Value."
-            fi
-        fi
-    fi
-}
-
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2024-Jan-27] ##
 ##------------------------------------------##
@@ -2706,30 +2615,6 @@ _UpdateConfigFromWebUISettings_()
 }
 
 ##-------------------------------------##
-## Added by Martinski W. [2024-Dec-31] ##
-##-------------------------------------##
-newGUIversionNum="$(_ScriptVersionStrToNum_ '1.4.0')"
-# Temporary code used to migrate to future new script version #
-_CheckForNewGUIVersionUpdate_()
-{
-   local retCode  theScriptVerNum   urlScriptVerNum
-   if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
-   then
-       theScriptVerNum="$ScriptVersionNum"
-       urlScriptVerNum="$DLRepoVersionNum"
-   else
-       theScriptVerNum="$(_ScriptVersionStrToNum_ "$1")"
-       urlScriptVerNum="$(_ScriptVersionStrToNum_ "$2")"
-   fi
-   if [ "$theScriptVerNum" -lt "$newGUIversionNum" ] && \
-      [ "$urlScriptVerNum" -ge "$newGUIversionNum" ]
-   then retCode=0
-   else retCode=1
-   fi
-   return "$retCode"
-}
-
-##-------------------------------------##
 ## Added by Martinski W. [2025-Mar-24] ##
 ##-------------------------------------##
 _GetDLScriptVersion_()
@@ -2830,20 +2715,15 @@ _DownloadScriptFiles_()
    return "$retCode"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-May-05] ##
-##----------------------------------------##
+##-------------------------------------------##
+## Modified by ExtremeFiretop [2025-July-18] ##
+##-------------------------------------------##
 _SCRIPT_UPDATE_()
 {
-   local extraParam=""
-
    if [ $# -gt 0 ] && [ "$1" = "force" ]
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
        _CheckForNewScriptUpdates_ -quietcheck
-       if _CheckForNewGUIVersionUpdate_ "$SCRIPT_VERSION" "$DLRepoVersion"
-       then extraParam="install"
-       fi
        printf "${CYANct}Downloading latest version [$DLRepoVersion] of ${SCRIPT_NAME}${NOct}\n"
 
        if _DownloadScriptFiles_ update
@@ -2860,7 +2740,7 @@ _SCRIPT_UPDATE_()
            fi
            sleep 1
            _ReleaseLock_
-           exec "$ScriptFilePath" $extraParam
+           exec "$ScriptFilePath"
            exit 0
        else
            if ! "$isInteractive"
@@ -2901,9 +2781,8 @@ _SCRIPT_UPDATE_()
               printf "$(date) - Successfully updated $SCRIPT_NAME v${DLRepoVersion}\n"
               printf "${CYANct}Restarting script...${NOct}\n"
               sleep 1
-              _CheckForNewGUIVersionUpdate_ && extraParam="install"
               _ReleaseLock_
-              exec "$ScriptFilePath" $extraParam
+              exec "$ScriptFilePath"
               exit 0
           fi
       else
@@ -2930,9 +2809,8 @@ _SCRIPT_UPDATE_()
               printf "\n$(date) - Successfully updated $SCRIPT_NAME v${DLRepoVersion}\n"
               printf "${CYANct}Restarting script...${NOct}\n"
               sleep 1
-              _CheckForNewGUIVersionUpdate_ && extraParam="install"
               _ReleaseLock_
-              exec "$ScriptFilePath" $extraParam
+              exec "$ScriptFilePath"
               exit 0
           else
               _WaitForEnterKey_
