@@ -2688,7 +2688,13 @@ _CurlFileDownload_()
        then updatedWebUIPage=true
        else updatedWebUIPage=false
        fi
-       mv -f "$tempFilePathDL" "$2"
+       if grep -q " $2 " /proc/mounts 2>/dev/null
+       then
+           cat "$tempFilePathDL" > "$2"
+           rm -f "$tempFilePathDL"
+       else
+           mv -f "$tempFilePathDL" "$2"
+       fi            
        retCode=0
    fi
 
@@ -11099,18 +11105,18 @@ _Gnuton_Check_Webs_Update_Script_()
 
    local theWebsUpdateFile="webs_update.sh"
    local fixedWebsUpdateFilePath="${SETTINGS_DIR}/$theWebsUpdateFile"
-   local tmpFixedWebsUpdateFilePath="${fixedWebsUpdateFilePath}.DL.TMP"
    local localVerstag=0  remoteVerstag=0
 
    #Get local VERSTAG (if any) #
    localVerstag="$(_GetScriptVerstag_ "$FW_UpdateCheckScript")"
    [ -z "$localVerstag" ] && localVerstag=0
 
+   umount "$FW_UpdateCheckScript" 2>/dev/null
    # Get the fixed version of the script targeted for Gnuton F/W #
-   if _CurlFileDownload_ "gnuton_webs_update.sh" "$tmpFixedWebsUpdateFilePath"
+   if _CurlFileDownload_ "gnuton_webs_update.sh" "$fixedWebsUpdateFilePath"
    then
-       chmod 755 "$tmpFixedWebsUpdateFilePath"
-       remoteVerstag="$(_GetScriptVerstag_ "$tmpFixedWebsUpdateFilePath")"
+       chmod 755 "$fixedWebsUpdateFilePath"
+       remoteVerstag="$(_GetScriptVerstag_ "$fixedWebsUpdateFilePath")"
        [ -z "$remoteVerstag" ] && remoteVerstag=0
    else
        return 1  #NOT available so do nothing#
@@ -11118,14 +11124,13 @@ _Gnuton_Check_Webs_Update_Script_()
 
    # Only (re)bind if remote is newer OR files differ #
    if [ "$remoteVerstag" -gt "$localVerstag" ] || \
-      ! diff "$FW_UpdateCheckScript" "$tmpFixedWebsUpdateFilePath" >/dev/null 2>&1
+      ! diff "$FW_UpdateCheckScript" "$fixedWebsUpdateFilePath" >/dev/null 2>&1
    then
        umount "$FW_UpdateCheckScript" 2>/dev/null
-       mv -f "$tmpFixedWebsUpdateFilePath" "$fixedWebsUpdateFilePath"
        mount -o bind "$fixedWebsUpdateFilePath" "$FW_UpdateCheckScript"
        Say "${YLWct}Set up a fixed version of the \"${theWebsUpdateFile}\" script file.${NOct}"
    else
-       rm -f "$tmpFixedWebsUpdateFilePath"
+       rm -f "$fixedWebsUpdateFilePath"
    fi
 }
 
