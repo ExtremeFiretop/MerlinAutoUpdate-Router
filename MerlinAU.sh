@@ -786,9 +786,9 @@ _GetFirmwareVariantFromRouter_()
    echo "$hasGNUtonFW" ; return 0
 }
 
-##------------------------------------------##
+##-------------------------------------------##
 ## Modified by ExtremeFiretop [2025-July-23] ##
-##------------------------------------------##
+##-------------------------------------------##
 _FWVersionStrToNum_()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -796,8 +796,8 @@ _FWVersionStrToNum_()
 
     USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
-    local verNum  verStr="$1"  nonProductionVersionWeight=0
-    local fwBasecodeVers=""  numOfFields  buildDigits
+    local verNum  verStr="$1"
+    local fwBasecodeVers=""  numOfFields  buildDigits  isBeta=0  prodFlag
 
     #--------------------------------------------------------------
     # Handle any 'alpha/beta' in the version string to be sure
@@ -805,8 +805,9 @@ _FWVersionStrToNum_()
     #--------------------------------------------------------------
     if echo "$verStr" | grep -qiE '(alpha|beta)'
     then
+        isBeta=1
         # Adjust weight value if "Beta-to-Production" update is enabled #
-        [ "$USE_BETA_WEIGHT" = "ENABLED" ] && nonProductionVersionWeight=-100
+        [ "$USE_BETA_WEIGHT" = "ENABLED" ]
 
         # Replace '.alpha|.beta' and anything following it with ".0" #
         verStr="$(echo "$verStr" | sed 's/[.][Aa]lpha.*/.0/ ; s/[.][Bb]eta.*/.0/')"
@@ -830,19 +831,19 @@ _FWVersionStrToNum_()
         verStr="$(echo "$verStr" | cut -d'.' -f2-)"
     fi
     #-----------------------------------------------------------
-    # NEW: capture any trailing build‑suffix digits (e.g. "gnuton2" → 2)
+    # NEW: capture any trailing build-suffix digits (e.g. "gnuton2" → 2)
     #-----------------------------------------------------------
     buildDigits="$(echo "$verStr" | sed -n 's/.*[^0-9]\([0-9]\+\)$/\1/p')"
     buildDigits=$(printf "%02d" "${buildDigits:-0}")
 
-    # Strip the non‑numeric tail so we feed only dotted numbers to awk
+    # Production flag: 1 = prod, 0 = beta/alpha
+    prodFlag="$((1 - isBeta))"
+
+    # Strip the non-numeric tail so we feed only dotted numbers to awk
     verStr="$(echo "$verStr" | sed 's/[^0-9.]*$//')"
 
-    # Core numeric conversion (Major Minor Patch) + two‑digit build suffix
-    verNum="$(echo "$verStr" | awk -F'.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')${buildDigits}"
-
-    # Subtract non-production weight from the version number #
-    verNum="$((verNum + nonProductionVersionWeight))"
+    # Core numeric conversion (Major Minor Patch) + build suffix + prod flag
+    verNum="$(echo "$verStr" | awk -F'.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')${buildDigits}${prodFlag}"
 
     # Now prepend the F/W Basecode version #
     [ -n "$fwBasecodeVers" ] && verNum="${fwBasecodeVers}$verNum"
