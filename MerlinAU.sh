@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jul-18
+# Last Modified: 2025-Jul-23
 ###################################################################
 set -u
 
@@ -786,9 +786,9 @@ _GetFirmwareVariantFromRouter_()
    echo "$hasGNUtonFW" ; return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-July-23] ##
+##------------------------------------------##
 _FWVersionStrToNum_()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -797,7 +797,7 @@ _FWVersionStrToNum_()
     USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
     local verNum  verStr="$1"  nonProductionVersionWeight=0
-    local fwBasecodeVers=""  numOfFields
+    local fwBasecodeVers=""  numOfFields  buildDigits
 
     #--------------------------------------------------------------
     # Handle any 'alpha/beta' in the version string to be sure
@@ -829,7 +829,17 @@ _FWVersionStrToNum_()
         fwBasecodeVers="$(echo "$verStr" | cut -d'.' -f1)"
         verStr="$(echo "$verStr" | cut -d'.' -f2-)"
     fi
-    verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')"
+    #-----------------------------------------------------------
+    # NEW: capture any trailing build‑suffix digits (e.g. "gnuton2" → 2)
+    #-----------------------------------------------------------
+    buildDigits="$(echo "$verStr" | sed -n 's/.*[^0-9]\([0-9]\+\)$/\1/p')"
+    buildDigits=$(printf "%02d" "${buildDigits:-0}")
+
+    # Strip the non‑numeric tail so we feed only dotted numbers to awk
+    verStr="$(echo "$verStr" | sed 's/[^0-9.]*$//')"
+
+    # Core numeric conversion (Major Minor Patch) + two‑digit build suffix
+    verNum="$(echo "$verStr" | awk -F'.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')${buildDigits}"
 
     # Subtract non-production weight from the version number #
     verNum="$((verNum + nonProductionVersionWeight))"
@@ -2935,13 +2945,13 @@ _CreateEMailContent_()
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    if ! "$offlineUpdateTrigger"
    then
-        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
+        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
    else
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
 
-   # Remove "_rog" or "_tuf" or -gHASHVALUES or -Gnuton* suffix to avoid version comparison failure, can't remove all for proper beta and alpha comparison #
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10}|-gnuton[0-9]+)$//')"
+   # Remove "_rog" or "_tuf" or -gHASHVALUES suffix to avoid version comparison failure, can't remove all for proper beta and alpha comparison #
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10})$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -4843,7 +4853,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
 
     if ! "$offlineUpdateTrigger"
     then
-        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
+        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
     else
         routerVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
     fi
@@ -4874,7 +4884,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
             # Extract the version portion from the URL #
             urlVersion="$(echo "$theURL" \
                 | grep -oE "${PRODUCT_ID}_[^ ]*\.(w|pkgtb)" \
-                | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g;s/-gnuton[0-9][0-9]*\$//" | head -n1)"
+                | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
 
             if [ "$urlVersion" = "$routerVersion" ]
             then
@@ -4905,7 +4915,7 @@ GetLatestFirmwareMD5URL()
 
     if ! "$offlineUpdateTrigger"
     then
-        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
+        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
     else
         routerVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
     fi
@@ -4937,7 +4947,7 @@ GetLatestFirmwareMD5URL()
             # Extract the version portion from the URL #
             md5Version="$(echo "$theURL" \
                 | grep -oE "${PRODUCT_ID}_[^ ]*\.(md5)" \
-                | sed "s/${PRODUCT_ID}_//;s/.md5$//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g;s/-gnuton[0-9][0-9]*\$//" | head -n1)"
+                | sed "s/${PRODUCT_ID}_//;s/.md5$//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
 
             if [ "$md5Version" = "$routerVersion" ]
             then
@@ -8750,7 +8760,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # "New F/W Release Version" from the router itself.
         # If no new F/W version update is available return.
         #------------------------------------------------------
-        if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+        if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_ 1)" || \
            ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
         then
             Say "No new firmware version update is found for [$MODEL_ID] router model."
@@ -8792,7 +8802,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     if ! "$offlineUpdateTrigger"
     then
-        NewUpdate_VersionVerify="$(_GetLatestFWUpdateVersionFromRouter_)"
+        NewUpdate_VersionVerify="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
         if [ "$NewUpdate_VersionVerify" != "$release_version" ]
         then
             Say "WARNING: The release version found by MerlinAU [$release_version] does not match the F/W update version from the router [$NewUpdate_VersionVerify]."
