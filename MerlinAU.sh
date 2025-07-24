@@ -2651,6 +2651,18 @@ _GetDLScriptVersion_()
     return 0
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Jul-24] ##
+##---------------------------------------##
+_GetScriptVerstag_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ] || [ ! -s "$1" ]
+    then echo 0 ; return 1 ; fi
+    sed -n 's/.*SCRIPT_VERSTAG="\([0-9]\+\)".*/\1/p' "$1" | tail -n1
+    [ $? -ne 0 ] && echo 0
+}               
+
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
@@ -11065,9 +11077,9 @@ _DoInitializationStartup_()
    _SetDefaultBuildType_
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jul-03] ##
-##-------------------------------------##
+##-------------------------------------------##
+## Modified by ExtremeFiretop [2025-July-24] ##
+##-------------------------------------------##
 #######################################################################
 # TEMPORARY hack to check if the Gnuton F/W built-in 'webs_update.sh' 
 # script is the most recent version that includes required fixes.
@@ -11079,8 +11091,7 @@ _DoInitializationStartup_()
 _Gnuton_Check_Webs_Update_Script_()
 {
    if ! "$isGNUtonFW" || \
-      ! "$checkWebsUpdateScriptForGnuton" || \
-      grep -qE 'SCRIPT_VERSTAG="[0-9]+"' "$FW_UpdateCheckScript"
+      ! "$checkWebsUpdateScriptForGnuton"
    then
        checkWebsUpdateScriptForGnuton=false
        return 0
@@ -11088,16 +11099,25 @@ _Gnuton_Check_Webs_Update_Script_()
 
    local theWebsUpdateFile="webs_update.sh"
    local fixedWebsUpdateFilePath="${SETTINGS_DIR}/$theWebsUpdateFile"
+   local localVerstag=0  remoteVerstag=0
 
-   ## Get the fixed version of the script targeted for Gnuton F/W ##
+   #Get local VERSTAG (if any) # 
+   localVerstag="$(_GetScriptVerstag_ "$FW_UpdateCheckScript")"
+   [ -z "$localVerstag" ] && localVerstag=0
+
+   # Get the fixed version of the script targeted for Gnuton F/W #
    if _CurlFileDownload_ "gnuton_webs_update.sh" "$fixedWebsUpdateFilePath"
    then
        chmod 755 "$fixedWebsUpdateFilePath"
+       remoteVerstag="$(_GetScriptVerstag_ "$fixedWebsUpdateFilePath")"
+       [ -z "$remoteVerstag" ] && remoteVerstag=0
    else
        return 1  #NOT available so do nothing#
    fi
 
-   if ! diff "$FW_UpdateCheckScript" "$fixedWebsUpdateFilePath" >/dev/null 2>&1
+   # Only (re)bind if remote is newer OR files differ #
+   if [ "$remoteVerstag" -gt "$localVerstag" ] || \
+      ! diff "$FW_UpdateCheckScript" "$fixedWebsUpdateFilePath" >/dev/null 2>&1
    then
        umount "$FW_UpdateCheckScript" 2>/dev/null
        mount -o bind "$fixedWebsUpdateFilePath" "$FW_UpdateCheckScript"
