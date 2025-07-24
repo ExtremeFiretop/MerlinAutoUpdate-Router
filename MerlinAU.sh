@@ -11122,9 +11122,8 @@ _Gnuton_Check_Webs_Update_Script_()
        return 1  #NOT available so do nothing#
    fi
 
-   # Only (re)bind if remote is newer OR files differ #
-   if [ "$remoteVerstag" -gt "$localVerstag" ] || \
-      ! diff "$FW_UpdateCheckScript" "$fixedWebsUpdateFilePath" >/dev/null 2>&1
+   # Only (re)bind if remote is newer OR the currently bound file is missing the version tag #
+   if [ "$remoteVerstag" -gt "$localVerstag" ] || [ "$localVerstag" -eq 0 ]
    then
        umount "$FW_UpdateCheckScript" 2>/dev/null
        mount -o bind "$fixedWebsUpdateFilePath" "$FW_UpdateCheckScript"
