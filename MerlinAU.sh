@@ -10402,7 +10402,7 @@ _ShowMainMenuOptions_()
    # Check if router reports a new F/W update is available.
    # If yes, modify the notification settings accordingly.
    #-----------------------------------------------------------#
-   if FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)" && \
+   if FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)" && \
       [ -n "$FW_NewUpdateVersion" ] && [ -n "$FW_InstalledVersion" ] && \
       [ "$FW_NewUpdateVersion" != "$FW_NewUpdateVerInit" ]
    then
