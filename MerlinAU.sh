@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jul-23
+# Last Modified: 2025-Jul-24
 ###################################################################
 set -u
 
@@ -787,7 +787,7 @@ _GetFirmwareVariantFromRouter_()
 }
 
 ##-------------------------------------------##
-## Modified by ExtremeFiretop [2025-July-23] ##
+## Modified by ExtremeFiretop [2025-July-24] ##
 ##-------------------------------------------##
 _FWVersionStrToNum_()
 {
@@ -797,7 +797,15 @@ _FWVersionStrToNum_()
     USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
     local verNum  verStr="$1"
-    local fwBasecodeVers=""  numOfFields  buildDigits  isBeta=0  prodFlag
+    local fwBasecodeVers=""  numOfFields  buildDigits  isBeta=0  prodFlag  tagRank=2
+    local stableRank=2  betaRank=1  alphaRank=0
+
+    # If beta weight is NOT enabled, all tags get the same rank (0)
+    if [ "$USE_BETA_WEIGHT" != "ENABLED" ]
+    then
+        stableRank=0 ; betaRank=0 ; alphaRank=0
+    fi
+    tagRank="$stableRank"
 
     #--------------------------------------------------------------
     # Handle any 'alpha/beta' in the version string to be sure
@@ -805,9 +813,9 @@ _FWVersionStrToNum_()
     #--------------------------------------------------------------
     if echo "$verStr" | grep -qiE '(alpha|beta)'
     then
-        isBeta=1
-        # Adjust weight value if "Beta-to-Production" update is enabled #
-        [ "$USE_BETA_WEIGHT" = "ENABLED" ]
+        if   echo "$verStr" | grep -qi 'alpha'; then tagRank="$alphaRank" ; isBeta=1
+        elif echo "$verStr" | grep -qi 'beta' ; then tagRank="$betaRank"  ; isBeta=1
+        fi
 
         # Replace '.alpha|.beta' and anything following it with ".0" #
         verStr="$(echo "$verStr" | sed 's/[.][Aa]lpha.*/.0/ ; s/[.][Bb]eta.*/.0/')"
@@ -836,13 +844,13 @@ _FWVersionStrToNum_()
     buildDigits="$(echo "$verStr" | sed -n 's/.*[^0-9]\([0-9]\+\)$/\1/p')"
     buildDigits=$(printf "%02d" "${buildDigits:-0}")
 
-    # Production flag: 1 = prod, 0 = beta/alpha
-    prodFlag="$((1 - isBeta))"
+    # Production/Beta/Alpha weight digit
+    prodFlag="$tagRank"
 
     # Strip the non-numeric tail so we feed only dotted numbers to awk
     verStr="$(echo "$verStr" | sed 's/[^0-9.]*$//')"
 
-    # Core numeric conversion (Major Minor Patch) + build suffix + prod flag
+    # Core numeric conversion (Major Minor Patch) + build suffix + tag weight
     verNum="$(echo "$verStr" | awk -F'.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')${buildDigits}${prodFlag}"
 
     # Now prepend the F/W Basecode version #
