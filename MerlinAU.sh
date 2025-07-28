@@ -11111,7 +11111,6 @@ _Gnuton_Check_Webs_Update_Script_()
    localVerstag="$(_GetScriptVerstag_ "$FW_UpdateCheckScript")"
    [ -z "$localVerstag" ] && localVerstag=0
 
-   umount "$FW_UpdateCheckScript" 2>/dev/null
    # Get the fixed version of the script targeted for Gnuton F/W #
    if _CurlFileDownload_ "gnuton_webs_update.sh" "$fixedWebsUpdateFilePath"
    then
