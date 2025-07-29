@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jul-18
+# Last Modified: 2025-Jul-24
 ###################################################################
 set -u
 
@@ -786,9 +786,9 @@ _GetFirmwareVariantFromRouter_()
    echo "$hasGNUtonFW" ; return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-31] ##
-##----------------------------------------##
+##-------------------------------------------##
+## Modified by ExtremeFiretop [2025-July-24] ##
+##-------------------------------------------##
 _FWVersionStrToNum_()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -796,8 +796,16 @@ _FWVersionStrToNum_()
 
     USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
-    local verNum  verStr="$1"  nonProductionVersionWeight=0
-    local fwBasecodeVers=""  numOfFields
+    local verNum  verStr="$1"
+    local fwBasecodeVers=""  numOfFields  buildDigits  isBeta=0  prodFlag  tagRank=2
+    local stableRank=2  betaRank=1  alphaRank=0
+
+    # If beta weight is NOT enabled, all tags get the same rank (0)
+    if [ "$USE_BETA_WEIGHT" != "ENABLED" ]
+    then
+        stableRank=0 ; betaRank=0 ; alphaRank=0
+    fi
+    tagRank="$stableRank"
 
     #--------------------------------------------------------------
     # Handle any 'alpha/beta' in the version string to be sure
@@ -805,8 +813,9 @@ _FWVersionStrToNum_()
     #--------------------------------------------------------------
     if echo "$verStr" | grep -qiE '(alpha|beta)'
     then
-        # Adjust weight value if "Beta-to-Production" update is enabled #
-        [ "$USE_BETA_WEIGHT" = "ENABLED" ] && nonProductionVersionWeight=-100
+        if   echo "$verStr" | grep -qi 'alpha'; then tagRank="$alphaRank" ; isBeta=1
+        elif echo "$verStr" | grep -qi 'beta' ; then tagRank="$betaRank"  ; isBeta=1
+        fi
 
         # Replace '.alpha|.beta' and anything following it with ".0" #
         verStr="$(echo "$verStr" | sed 's/[.][Aa]lpha.*/.0/ ; s/[.][Bb]eta.*/.0/')"
@@ -829,10 +838,20 @@ _FWVersionStrToNum_()
         fwBasecodeVers="$(echo "$verStr" | cut -d'.' -f1)"
         verStr="$(echo "$verStr" | cut -d'.' -f2-)"
     fi
-    verNum="$(echo "$verStr" | awk -F '.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')"
+    #-----------------------------------------------------------
+    # NEW: capture any trailing build-suffix digits (e.g. "gnuton2" → 2)
+    #-----------------------------------------------------------
+    buildDigits="$(echo "$verStr" | sed -n 's/.*[^0-9]\([0-9]\+\)$/\1/p')"
+    buildDigits=$(printf "%02d" "${buildDigits:-0}")
 
-    # Subtract non-production weight from the version number #
-    verNum="$((verNum + nonProductionVersionWeight))"
+    # Production/Beta/Alpha weight digit
+    prodFlag="$tagRank"
+
+    # Strip the non-numeric tail so we feed only dotted numbers to awk
+    verStr="$(echo "$verStr" | sed 's/[^0-9.]*$//')"
+
+    # Core numeric conversion (Major Minor Patch) + build suffix + tag weight
+    verNum="$(echo "$verStr" | awk -F'.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')${buildDigits}${prodFlag}"
 
     # Now prepend the F/W Basecode version #
     [ -n "$fwBasecodeVers" ] && verNum="${fwBasecodeVers}$verNum"
@@ -2632,6 +2651,18 @@ _GetDLScriptVersion_()
     return 0
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Jul-24] ##
+##---------------------------------------##
+_GetScriptVerstag_()
+{
+    if [ $# -eq 0 ] || [ -z "$1" ] || [ ! -s "$1" ]
+    then echo 0 ; return 1 ; fi
+    sed -n 's/.*SCRIPT_VERSTAG="\([0-9]\+\)".*/\1/p' "$1" | tail -n1
+    [ $? -ne 0 ] && echo 0
+}               
+
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Feb-15] ##
 ##----------------------------------------##
@@ -2657,7 +2688,13 @@ _CurlFileDownload_()
        then updatedWebUIPage=true
        else updatedWebUIPage=false
        fi
-       mv -f "$tempFilePathDL" "$2"
+       if grep -q " $2 " /proc/mounts 2>/dev/null
+       then
+           cat "$tempFilePathDL" > "$2"
+           rm -f "$tempFilePathDL"
+       else
+           mv -f "$tempFilePathDL" "$2"
+       fi            
        retCode=0
    fi
 
@@ -2935,13 +2972,13 @@ _CreateEMailContent_()
    fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    if ! "$offlineUpdateTrigger"
    then
-        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
+        fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
    else
         fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
    fi
 
-   # Remove "_rog" or "_tuf" or -gHASHVALUES or -Gnuton* suffix to avoid version comparison failure, can't remove all for proper beta and alpha comparison #
-   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10}|-gnuton[0-9]+)$//')"
+   # Remove "_rog" or "_tuf" or -gHASHVALUES suffix to avoid version comparison failure, can't remove all for proper beta and alpha comparison #
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10})$//')"
 
    case "$1" in
        FW_UPDATE_TEST_EMAIL)
@@ -4843,7 +4880,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
 
     if ! "$offlineUpdateTrigger"
     then
-        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
+        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
     else
         routerVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
     fi
@@ -4874,7 +4911,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
             # Extract the version portion from the URL #
             urlVersion="$(echo "$theURL" \
                 | grep -oE "${PRODUCT_ID}_[^ ]*\.(w|pkgtb)" \
-                | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g;s/-gnuton[0-9][0-9]*\$//" | head -n1)"
+                | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
 
             if [ "$urlVersion" = "$routerVersion" ]
             then
@@ -4905,7 +4942,7 @@ GetLatestFirmwareMD5URL()
 
     if ! "$offlineUpdateTrigger"
     then
-        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_)"
+        routerVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
     else
         routerVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
     fi
@@ -4937,7 +4974,7 @@ GetLatestFirmwareMD5URL()
             # Extract the version portion from the URL #
             md5Version="$(echo "$theURL" \
                 | grep -oE "${PRODUCT_ID}_[^ ]*\.(md5)" \
-                | sed "s/${PRODUCT_ID}_//;s/.md5$//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g;s/-gnuton[0-9][0-9]*\$//" | head -n1)"
+                | sed "s/${PRODUCT_ID}_//;s/.md5$//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
 
             if [ "$md5Version" = "$routerVersion" ]
             then
@@ -8750,7 +8787,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # "New F/W Release Version" from the router itself.
         # If no new F/W version update is available return.
         #------------------------------------------------------
-        if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_)" || \
+        if ! release_version="$(_GetLatestFWUpdateVersionFromRouter_ 1)" || \
            ! _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
         then
             Say "No new firmware version update is found for [$MODEL_ID] router model."
@@ -8792,7 +8829,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     if ! "$offlineUpdateTrigger"
     then
-        NewUpdate_VersionVerify="$(_GetLatestFWUpdateVersionFromRouter_)"
+        NewUpdate_VersionVerify="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
         if [ "$NewUpdate_VersionVerify" != "$release_version" ]
         then
             Say "WARNING: The release version found by MerlinAU [$release_version] does not match the F/W update version from the router [$NewUpdate_VersionVerify]."
@@ -10392,7 +10429,7 @@ _ShowMainMenuOptions_()
    # Check if router reports a new F/W update is available.
    # If yes, modify the notification settings accordingly.
    #-----------------------------------------------------------#
-   if FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_)" && \
+   if FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)" && \
       [ -n "$FW_NewUpdateVersion" ] && [ -n "$FW_InstalledVersion" ] && \
       [ "$FW_NewUpdateVersion" != "$FW_NewUpdateVerInit" ]
    then
@@ -11046,9 +11083,9 @@ _DoInitializationStartup_()
    _SetDefaultBuildType_
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jul-03] ##
-##-------------------------------------##
+##-------------------------------------------##
+## Modified by ExtremeFiretop [2025-July-24] ##
+##-------------------------------------------##
 #######################################################################
 # TEMPORARY hack to check if the Gnuton F/W built-in 'webs_update.sh' 
 # script is the most recent version that includes required fixes.
@@ -11060,8 +11097,7 @@ _DoInitializationStartup_()
 _Gnuton_Check_Webs_Update_Script_()
 {
    if ! "$isGNUtonFW" || \
-      ! "$checkWebsUpdateScriptForGnuton" || \
-      grep -qE 'SCRIPT_VERSTAG="[0-9]+"' "$FW_UpdateCheckScript"
+      ! "$checkWebsUpdateScriptForGnuton"
    then
        checkWebsUpdateScriptForGnuton=false
        return 0
@@ -11069,20 +11105,31 @@ _Gnuton_Check_Webs_Update_Script_()
 
    local theWebsUpdateFile="webs_update.sh"
    local fixedWebsUpdateFilePath="${SETTINGS_DIR}/$theWebsUpdateFile"
+   local localVerstag=0  remoteVerstag=0
 
-   ## Get the fixed version of the script targeted for Gnuton F/W ##
+   #Get local VERSTAG (if any) #
+   localVerstag="$(_GetScriptVerstag_ "$FW_UpdateCheckScript")"
+   [ -z "$localVerstag" ] && localVerstag=0
+
+   # Get the fixed version of the script targeted for Gnuton F/W #
    if _CurlFileDownload_ "gnuton_webs_update.sh" "$fixedWebsUpdateFilePath"
    then
        chmod 755 "$fixedWebsUpdateFilePath"
+       remoteVerstag="$(_GetScriptVerstag_ "$fixedWebsUpdateFilePath")"
+       [ -z "$remoteVerstag" ] && remoteVerstag=0
    else
        return 1  #NOT available so do nothing#
    fi
 
-   if ! diff "$FW_UpdateCheckScript" "$fixedWebsUpdateFilePath" >/dev/null 2>&1
+   # Only (re)bind if remote is newer OR files differ #
+   if [ "$remoteVerstag" -gt "$localVerstag" ] || \
+      ! diff "$FW_UpdateCheckScript" "$fixedWebsUpdateFilePath" >/dev/null 2>&1
    then
        umount "$FW_UpdateCheckScript" 2>/dev/null
        mount -o bind "$fixedWebsUpdateFilePath" "$FW_UpdateCheckScript"
        Say "${YLWct}Set up a fixed version of the \"${theWebsUpdateFile}\" script file.${NOct}"
+   else
+       rm -f "$fixedWebsUpdateFilePath"
    fi
 }
 
