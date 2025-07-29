@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jul-24
+# Last Modified: 2025-Jul-29
 ###################################################################
 set -u
 
@@ -2654,14 +2654,13 @@ _GetDLScriptVersion_()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2025-Jul-24] ##
 ##---------------------------------------##
-_GetScriptVerstag_()
+_Get_GnutonWebUpdate_ScriptVersTag_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ] || [ ! -s "$1" ]
     then echo 0 ; return 1 ; fi
     sed -n 's/.*SCRIPT_VERSTAG="\([0-9]\+\)".*/\1/p' "$1" | tail -n1
     [ $? -ne 0 ] && echo 0
-}               
-
+}
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Feb-15] ##
@@ -2669,7 +2668,8 @@ _GetScriptVerstag_()
 _CurlFileDownload_()
 {
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
-   then return 1 ; fi
+   then return 1
+   fi
    local retCode=1
    local tempFilePathDL="${2}.DL.TMP"
    local srceFilePathDL="${SCRIPT_URL_REPO}/$1"
@@ -2688,13 +2688,7 @@ _CurlFileDownload_()
        then updatedWebUIPage=true
        else updatedWebUIPage=false
        fi
-       if grep -q " $2 " /proc/mounts 2>/dev/null
-       then
-           cat "$tempFilePathDL" > "$2"
-           rm -f "$tempFilePathDL"
-       else
-           mv -f "$tempFilePathDL" "$2"
-       fi            
+       mv -f "$tempFilePathDL" "$2"
        retCode=0
    fi
 
@@ -11083,9 +11077,9 @@ _DoInitializationStartup_()
    _SetDefaultBuildType_
 }
 
-##-------------------------------------------##
-## Modified by ExtremeFiretop [2025-July-24] ##
-##-------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Jul-29] ##
+##----------------------------------------##
 #######################################################################
 # TEMPORARY hack to check if the Gnuton F/W built-in 'webs_update.sh' 
 # script is the most recent version that includes required fixes.
@@ -11104,32 +11098,34 @@ _Gnuton_Check_Webs_Update_Script_()
    fi
 
    local theWebsUpdateFile="webs_update.sh"
-   local fixedWebsUpdateFilePath="${SETTINGS_DIR}/$theWebsUpdateFile"
-   local localVerstag=0  remoteVerstag=0
+   local fixedGnutonWebsUpdateFilePath="${SETTINGS_DIR}/$theWebsUpdateFile"
+   local dwnldGnutonWebsUpdateFilePath="${SETTINGS_DIR}/${theWebsUpdateFile}.GNUTON"
+   local localVersTag  remoteVersTag
 
-   #Get local VERSTAG (if any) #
-   localVerstag="$(_GetScriptVerstag_ "$FW_UpdateCheckScript")"
-   [ -z "$localVerstag" ] && localVerstag=0
+   # Get local VERSTAG (if any) #
+   localVersTag="$(_Get_GnutonWebUpdate_ScriptVersTag_ "$FW_UpdateCheckScript")"
+   [ -z "$localVersTag" ] && localVersTag=0
 
    # Get the fixed version of the script targeted for Gnuton F/W #
-   if _CurlFileDownload_ "gnuton_webs_update.sh" "$fixedWebsUpdateFilePath"
+   if _CurlFileDownload_ "gnuton_webs_update.sh" "$dwnldGnutonWebsUpdateFilePath"
    then
-       chmod 755 "$fixedWebsUpdateFilePath"
-       remoteVerstag="$(_GetScriptVerstag_ "$fixedWebsUpdateFilePath")"
-       [ -z "$remoteVerstag" ] && remoteVerstag=0
+       chmod 755 "$dwnldGnutonWebsUpdateFilePath"
+       remoteVersTag="$(_Get_GnutonWebUpdate_ScriptVersTag_ "$dwnldGnutonWebsUpdateFilePath")"
+       [ -z "$remoteVersTag" ] && remoteVersTag=0
    else
        return 1  #NOT available so do nothing#
    fi
 
-   # Only (re)bind if remote is newer OR files differ #
-   if [ "$remoteVerstag" -gt "$localVerstag" ] || \
-      ! diff "$FW_UpdateCheckScript" "$fixedWebsUpdateFilePath" >/dev/null 2>&1
+   # (Re)bind/mount only if remote is newer version OR files differ #
+   if [ "$remoteVersTag" -gt "$localVersTag" ] || \
+      ! diff "$FW_UpdateCheckScript" "$dwnldGnutonWebsUpdateFilePath" >/dev/null 2>&1
    then
        umount "$FW_UpdateCheckScript" 2>/dev/null
-       mount -o bind "$fixedWebsUpdateFilePath" "$FW_UpdateCheckScript"
+       mv -f "$dwnldGnutonWebsUpdateFilePath" "$fixedGnutonWebsUpdateFilePath"
+       mount -o bind "$fixedGnutonWebsUpdateFilePath" "$FW_UpdateCheckScript"
        Say "${YLWct}Set up a fixed version of the \"${theWebsUpdateFile}\" script file.${NOct}"
    else
-       rm -f "$fixedWebsUpdateFilePath"
+       rm -f "$dwnldGnutonWebsUpdateFilePath"
    fi
 }
 
