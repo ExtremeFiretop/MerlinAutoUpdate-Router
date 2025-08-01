@@ -4905,7 +4905,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
             # Extract the version portion from the URL #
             urlVersion="$(echo "$theURL" \
                 | grep -oE "${PRODUCT_ID}_[^ ]*\.(w|pkgtb)" \
-                | sed "s/${PRODUCT_ID}_//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
+                | sed "s/${PRODUCT_ID}_//;s/\\.w$//;s/\\.pkgtb$//;s/_\\(ubi\\|puresqubi\\|nand_squashfs\\)$//;s/_/./g" | head -n1)"
 
             if [ "$urlVersion" = "$routerVersion" ]
             then
@@ -4968,7 +4968,7 @@ GetLatestFirmwareMD5URL()
             # Extract the version portion from the URL #
             md5Version="$(echo "$theURL" \
                 | grep -oE "${PRODUCT_ID}_[^ ]*\.(md5)" \
-                | sed "s/${PRODUCT_ID}_//;s/.md5$//;s/.w$//;s/.pkgtb$//;s/.ubi$//;s/_/./g" | head -n1)"
+                | sed "s/${PRODUCT_ID}_//;s/\\.md5$//;s/\\.w$//;s/\\.pkgtb$//;s/_\\(ubi\\|puresqubi\\|nand_squashfs\\)$//;s/_/./g" | head -n1)"
 
             if [ "$md5Version" = "$routerVersion" ]
             then
