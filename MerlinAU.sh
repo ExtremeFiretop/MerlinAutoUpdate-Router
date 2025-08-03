@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Jul-29
+# Last Modified: 2025-Aug-02
 ###################################################################
 set -u
 
@@ -4854,22 +4854,26 @@ _GetLatestFWUpdateVersionFromWebsite_()
     return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-05] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Aug-02] ##
+##----------------------------------------##
 _GetLatestFWUpdateVersionFromGitHub_()
 {
-    local routerVersion  search_type  release_data
-    local gitURL="$1"  # GitHub URL for the latest release #
+    local routerVersion  searchType  releaseData
+    local theGitURL="$1"  # GitHub URL for the latest F/W release #
     local firmware_type="$2"  # "tuf", "rog" or "pure" #
-    local grep_pattern  downloadURLs  theURL  urlVersion
+    local grepPattern  theFW_URLs  fw_URL  urlVersion
+    local FW_FileExtRegExp  FW_BinTypeRegExp
 
-    search_type="$firmware_type"  # Default to the input firmware_type #
+    FW_FileExtRegExp="(w|pkgtb)"
+    FW_BinTypeRegExp="(nand_squashfs|puresqubi|pureubi|ubi|squashfs|pure)"
 
-    # If firmware_type is "pure", set search_type to include "squashfs" as well #
+    searchType="$firmware_type"  # Default to the input firmware_type #
+
+    # If firmware_type is "pure", include all F/W image types #
     if [ "$firmware_type" = "pure" ]
     then
-        search_type="pure\|squashfs\|ubi"
+        searchType="$FW_BinTypeRegExp"
     fi
 
     if ! "$offlineUpdateTrigger"
@@ -4885,53 +4889,56 @@ _GetLatestFWUpdateVersionFromGitHub_()
     fi
 
     # Fetch the latest release data from GitHub #
-    release_data="$(curl -s "$gitURL")"
+    releaseData="$(curl -s "$theGitURL")"
 
-    # Construct the grep pattern based on search_type #
-    grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.\(w\|pkgtb\)\""
+    # grep search pattern #
+    grepPattern="\"browser_download_url\": \".*${PRODUCT_ID}.*${searchType}.*\.${FW_FileExtRegExp}\""
 
     # Extract all matched download URLs #
-    downloadURLs="$(echo "$release_data" | \
-        grep -o "$grep_pattern" | \
-        grep -o "https://[^ ]*\.\(w\|pkgtb\)")"
+    theFW_URLs="$(echo "$releaseData" | grep -oE "$grepPattern" | \
+                  grep -oE "https://[^ ]*\.${FW_FileExtRegExp}")"
 
-    if [ -z "$downloadURLs" ]
+    if [ -z "$theFW_URLs" ]
     then
         echo "**ERROR** **NO_GITHUB_URL**"
         return 1
     else
-        for theURL in $downloadURLs
+        for fw_URL in $theFW_URLs
         do
             # Extract the version portion from the URL #
-            urlVersion="$(echo "$theURL" \
-                | grep -oE "${PRODUCT_ID}_[^ ]*\.(w|pkgtb)" \
-                | sed "s/${PRODUCT_ID}_//;s/\\.w$//;s/\\.pkgtb$//;s/_\\(ubi\\|puresqubi\\|nand_squashfs\\)$//;s/_/./g" | head -n1)"
+            urlVersion="$(echo "$fw_URL" | grep -oE "${PRODUCT_ID}_[^ ]*\.${FW_FileExtRegExp}" | \
+                          sed -E "s/${PRODUCT_ID}_//;s/\.${FW_FileExtRegExp}$//;s/_${FW_BinTypeRegExp}$//;s/_/./g" | head -n1)"
 
             if [ "$urlVersion" = "$routerVersion" ]
             then
                 echo "$urlVersion"
-                echo "$theURL"
+                echo "$fw_URL"
                 return 0
             fi
         done
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-05] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Aug-02] ##
+##----------------------------------------##
 GetLatestFirmwareMD5URL()
 {
-    local routerVersion
-    local gitURL="$1"  # GitHub URL for the latest release #
+    local routerVersion  searchType  releaseData
+    local theGitURL="$1"  # GitHub URL for the latest F/W release #
     local firmware_type="$2"  # "tuf", "rog" or "pure" #
+    local grepPattern  theMD5_URLs  md5_URL  md5Version
+    local FW_FileExtRegExp  FW_BinTypeRegExp
 
-    local search_type="$firmware_type"  # Default to the input firmware_type #
+    FW_FileExtRegExp="(w|pkgtb)"
+    FW_BinTypeRegExp="(nand_squashfs|puresqubi|pureubi|ubi|squashfs|pure)"
 
-    # If firmware_type is "pure", set search_type to include "squashfs" as well
+    searchType="$firmware_type"  # Default to the input firmware_type #
+
+    # If firmware_type is "pure", include all F/W image types #
     if [ "$firmware_type" = "pure" ]
     then
-        search_type="pure\|squashfs\|ubi"
+        searchType="$FW_BinTypeRegExp"
     fi
 
     if ! "$offlineUpdateTrigger"
@@ -4947,32 +4954,29 @@ GetLatestFirmwareMD5URL()
     fi
 
     # Fetch the latest release data from GitHub #
-    local release_data="$(curl -s "$gitURL")"
+    releaseData="$(curl -s "$theGitURL")"
 
-    # Construct the grep pattern based on search_type #
-    local grep_pattern="\"browser_download_url\": \".*${PRODUCT_ID}.*\(${search_type}\).*\.md5\""
+    # grep search pattern #
+    grepPattern="\"browser_download_url\": \".*${PRODUCT_ID}.*${searchType}.*\.${FW_FileExtRegExp}\.md5\""
 
     # Extract all matched download URLs #
-    local md5_URLs="$(echo "$release_data" |
-        grep -o "$grep_pattern" | 
-        sed -E 's/.*"browser_download_url": "([^"]+)".*/\1/')"
+    theMD5_URLs="$(echo "$releaseData" | grep -oE "$grepPattern" | \
+                   grep -oE "https://[^ ]*\.${FW_FileExtRegExp}\.md5")"
 
-    if [ -z "$md5_URLs" ]
+    if [ -z "$theMD5_URLs" ]
     then
         echo "**ERROR** **NO_MD5_FILE_URL_FOUND**"
         return 1
     else
-        local theURL  md5Version
-        for theURL in $md5_URLs
+        for md5_URL in $theMD5_URLs
         do
             # Extract the version portion from the URL #
-            md5Version="$(echo "$theURL" \
-                | grep -oE "${PRODUCT_ID}_[^ ]*\.(md5)" \
-                | sed "s/${PRODUCT_ID}_//;s/\\.md5$//;s/\\.w$//;s/\\.pkgtb$//;s/_\\(ubi\\|puresqubi\\|nand_squashfs\\)$//;s/_/./g" | head -n1)"
+            md5Version="$(echo "$md5_URL" | grep -oE "${PRODUCT_ID}_[^ ]*\.${FW_FileExtRegExp}\.md5" | \
+                          sed -E "s/${PRODUCT_ID}_//;s/\.${FW_FileExtRegExp}\.md5$//;s/_${FW_BinTypeRegExp}$//;s/_/./g" | head -n1)"
 
             if [ "$md5Version" = "$routerVersion" ]
             then
-                echo "$theURL"
+                echo "$md5_URL"
                 return 0
             fi
         done
@@ -4984,15 +4988,15 @@ GetLatestFirmwareMD5URL()
 ##----------------------------------------##
 GetLatestChangelogURL()
 {
-    local gitURL="$1"  # GitHub URL for the latest release #
+    local theGitURL="$1"  # GitHub URL for the latest F/W release #
     local changelogURL
 
     # Fetch the latest release data from GitHub #
-    local release_data="$(curl -s "$gitURL")"
+    local releaseData="$(curl -s "$theGitURL")"
 
     # Parse the release data to find the download URL of the CHANGELOG file
     # Directly find the URL without matching a specific model number
-    changelogURL="$(echo "$release_data" | grep -o "\"browser_download_url\": \".*CHANGELOG.*\"" | grep -o "https://[^ ]*\"" | tr -d '"' | head -n1)"
+    changelogURL="$(echo "$releaseData" | grep -o "\"browser_download_url\": \".*CHANGELOG.*\"" | grep -o "https://[^ ]*\"" | tr -d '"' | head -n1)"
 
     if [ -z "$changelogURL" ]
     then
