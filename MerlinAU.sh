@@ -797,10 +797,10 @@ _FWVersionStrToNum_()
     USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
     local verNum  verStr="$1"
-    local fwBasecodeVers=""  numOfFields  buildDigits  isBeta=0  prodFlag  tagRank=2
-    local stableRank=2  betaRank=1  alphaRank=0
+    local fwBasecodeVers=""  numOfFields  prodFlag  tagRank
+    local stableRank=2  betaRank=1  alphaRank=0  buildDigits=0
 
-    # If beta weight is NOT enabled, all tags get the same rank (0)
+    # If beta weight is NOT enabled, all tags get the same rank (0) #
     if [ "$USE_BETA_WEIGHT" != "ENABLED" ]
     then
         stableRank=0 ; betaRank=0 ; alphaRank=0
@@ -813,8 +813,8 @@ _FWVersionStrToNum_()
     #--------------------------------------------------------------
     if echo "$verStr" | grep -qiE '(alpha|beta)'
     then
-        if   echo "$verStr" | grep -qi 'alpha'; then tagRank="$alphaRank" ; isBeta=1
-        elif echo "$verStr" | grep -qi 'beta' ; then tagRank="$betaRank"  ; isBeta=1
+        if   echo "$verStr" | grep -qi 'alpha'; then tagRank="$alphaRank"
+        elif echo "$verStr" | grep -qi 'beta' ; then tagRank="$betaRank"
         fi
 
         # Replace '.alpha|.beta' and anything following it with ".0" #
@@ -843,18 +843,19 @@ _FWVersionStrToNum_()
     # a non-digit-and-non-dot char before them (e.g. "-gnuton2").
     # Plain "388.9.2" should NOT set buildDigits.
     #-----------------------------------------------------------
-    if printf '%s' "$verStr" | grep -q '[^0-9.]'; then
+    if printf '%s' "$verStr" | grep -q '[^0-9.]'
+    then
         buildDigits="$(printf '%s' "$verStr" | sed -n 's/^[0-9.]*[^0-9.]\+\([0-9]\+\)$/\1/p')"
     fi
-    buildDigits=$(printf "%02d" "${buildDigits:-0}")
+    buildDigits="$(printf "%02d" "${buildDigits:-0}")"
 
-    # Production/Beta/Alpha weight digit
+    # Production/Beta/Alpha weight digit #
     prodFlag="$tagRank"
 
-    # Strip the non-numeric tail so we feed only dotted numbers to awk
+    # Strip the non-numeric tail so we feed only dotted numbers #
     verStr="$(echo "$verStr" | sed 's/[^0-9.]*$//')"
 
-    # Core numeric conversion (Major Minor Patch) + build suffix + tag weight
+    # Core numeric conversion (Major Minor Patch) + build suffix + tag weight #
     verNum="$(echo "$verStr" | awk -F'.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')${buildDigits}${prodFlag}"
 
     # Now prepend the F/W Basecode version #
