@@ -4,12 +4,12 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Aug-02
+# Last Modified: 2025-Aug-05
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.1
+readonly SCRIPT_VERSION=1.5.2
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -839,9 +839,13 @@ _FWVersionStrToNum_()
         verStr="$(echo "$verStr" | cut -d'.' -f2-)"
     fi
     #-----------------------------------------------------------
-    # NEW: capture any trailing build-suffix digits (e.g. "gnuton2" → 2)
+    # FIX: capture trailing build-suffix digits ONLY if there is
+    # a non-digit-and-non-dot char before them (e.g. "-gnuton2").
+    # Plain "388.9.2" should NOT set buildDigits.
     #-----------------------------------------------------------
-    buildDigits="$(echo "$verStr" | sed -n 's/.*[^0-9]\([0-9]\+\)$/\1/p')"
+    if printf '%s' "$verStr" | grep -q '[^0-9.]'; then
+        buildDigits="$(printf '%s' "$verStr" | sed -n 's/^[0-9.]*[^0-9.]\+\([0-9]\+\)$/\1/p')"
+    fi
     buildDigits=$(printf "%02d" "${buildDigits:-0}")
 
     # Production/Beta/Alpha weight digit
