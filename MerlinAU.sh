@@ -8190,10 +8190,10 @@ _GetOfflineFirmwareVersion_()
             # Numeric patch (Merlin) #
             formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)/\1.\2.\3.\4/')"
 
-        elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)-gnuton[0-9]+$'
+        elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+-gnuton[0-9]+)$'
         then
-            # Stable Gnuton build – drop the "-gnutonN" tail #
-            formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)-gnuton[0-9]+$/\1.\2.\3.\4/')"
+            # Stable Gnuton build – keep the "-gnutonN" suffix #
+            formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+-gnuton[0-9]+)/\1.\2.\3.\4/')"
 
         elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+-gnuton[0-9]+_(alpha|beta)[0-9a-zA-Z]*)$'
         then
