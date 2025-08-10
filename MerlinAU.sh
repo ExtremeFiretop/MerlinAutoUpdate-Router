@@ -4,15 +4,15 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Aug-02
+# Last Modified: 2025-Aug-05
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.1
+readonly SCRIPT_VERSION=1.5.2
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -797,10 +797,10 @@ _FWVersionStrToNum_()
     USE_BETA_WEIGHT="$(Get_Custom_Setting FW_Allow_Beta_Production_Up)"
 
     local verNum  verStr="$1"
-    local fwBasecodeVers=""  numOfFields  buildDigits  isBeta=0  prodFlag  tagRank=2
-    local stableRank=2  betaRank=1  alphaRank=0
+    local fwBasecodeVers=""  numOfFields  prodFlag  tagRank
+    local stableRank=2  betaRank=1  alphaRank=0  buildDigits=0
 
-    # If beta weight is NOT enabled, all tags get the same rank (0)
+    # If beta weight is NOT enabled, all tags get the same rank (0) #
     if [ "$USE_BETA_WEIGHT" != "ENABLED" ]
     then
         stableRank=0 ; betaRank=0 ; alphaRank=0
@@ -813,8 +813,8 @@ _FWVersionStrToNum_()
     #--------------------------------------------------------------
     if echo "$verStr" | grep -qiE '(alpha|beta)'
     then
-        if   echo "$verStr" | grep -qi 'alpha'; then tagRank="$alphaRank" ; isBeta=1
-        elif echo "$verStr" | grep -qi 'beta' ; then tagRank="$betaRank"  ; isBeta=1
+        if   echo "$verStr" | grep -qi 'alpha'; then tagRank="$alphaRank"
+        elif echo "$verStr" | grep -qi 'beta' ; then tagRank="$betaRank"
         fi
 
         # Replace '.alpha|.beta' and anything following it with ".0" #
@@ -839,18 +839,23 @@ _FWVersionStrToNum_()
         verStr="$(echo "$verStr" | cut -d'.' -f2-)"
     fi
     #-----------------------------------------------------------
-    # NEW: capture any trailing build-suffix digits (e.g. "gnuton2" → 2)
+    # FIX: capture trailing build-suffix digits ONLY if there is
+    # a non-digit-and-non-dot char before them (e.g. "-gnuton2").
+    # Plain "388.9.2" should NOT set buildDigits.
     #-----------------------------------------------------------
-    buildDigits="$(echo "$verStr" | sed -n 's/.*[^0-9]\([0-9]\+\)$/\1/p')"
-    buildDigits=$(printf "%02d" "${buildDigits:-0}")
+    if printf '%s' "$verStr" | grep -q '[^0-9.]'
+    then
+        buildDigits="$(printf '%s' "$verStr" | sed -n 's/^[0-9.]*[^0-9.]\+\([0-9]\+\)$/\1/p')"
+    fi
+    buildDigits="$(printf "%02d" "${buildDigits:-0}")"
 
-    # Production/Beta/Alpha weight digit
+    # Production/Beta/Alpha weight digit #
     prodFlag="$tagRank"
 
-    # Strip the non-numeric tail so we feed only dotted numbers to awk
+    # Strip the non-numeric tail so we feed only dotted numbers #
     verStr="$(echo "$verStr" | sed 's/[^0-9.]*$//')"
 
-    # Core numeric conversion (Major Minor Patch) + build suffix + tag weight
+    # Core numeric conversion (Major Minor Patch) + build suffix + tag weight #
     verNum="$(echo "$verStr" | awk -F'.' '{printf ("%d%02d%02d\n", $1,$2,$3);}')${buildDigits}${prodFlag}"
 
     # Now prepend the F/W Basecode version #
@@ -8185,10 +8190,10 @@ _GetOfflineFirmwareVersion_()
             # Numeric patch (Merlin) #
             formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)/\1.\2.\3.\4/')"
 
-        elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)-gnuton[0-9]+$'
+        elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+-gnuton[0-9]+)$'
         then
-            # Stable Gnuton build – drop the "-gnutonN" tail #
-            formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+)-gnuton[0-9]+$/\1.\2.\3.\4/')"
+            # Stable Gnuton build – keep the "-gnutonN" suffix #
+            formatted_version="$(echo "$firmware_version" | sed -E 's/^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+-gnuton[0-9]+)/\1.\2.\3.\4/')"
 
         elif echo "$firmware_version" | grep -qE '^([0-9]+)_([0-9]+)\.([0-9]+)_([0-9]+-gnuton[0-9]+_(alpha|beta)[0-9a-zA-Z]*)$'
         then
