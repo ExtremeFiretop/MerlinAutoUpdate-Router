@@ -9568,7 +9568,6 @@ _CheckForMinimumRequirements_()
 
    "$requirementsCheckOK" && return 0
 
-   rm -f "$CONFIG_FILE"
    return 1
 }
 
