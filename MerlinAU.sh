@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Aug-10
+# Last Modified: 2025-Aug-13
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.5.3
-readonly SCRIPT_VERSTAG="25081021"
+readonly SCRIPT_VERSTAG="25081319"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -9630,7 +9630,7 @@ _DoInstallation_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-11] ##
+## Modified by Martinski W. [2025-Aug-13] ##
 ##----------------------------------------##
 _DoUnInstallation_()
 {
@@ -9666,6 +9666,8 @@ _DoUnInstallation_()
        _AutoStartupHook_ delete 2>/dev/null
        _AutoServiceEvent_ delete 2>/dev/null 
    fi
+
+   "$isGNUtonFW" && umount "$FW_UpdateCheckScript" 2>/dev/null
 
    if rm -fr "${SETTINGS_DIR:?}" && \
       rm -fr "${SCRIPT_WEB_DIR:?}" && \
