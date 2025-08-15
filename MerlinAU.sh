@@ -4,12 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Aug-05
+# Last Modified: 2025-Aug-13
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.2
+readonly SCRIPT_VERSION=1.5.3
+readonly SCRIPT_VERSTAG="25081319"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -76,6 +77,12 @@ readonly InvBMGNct="\e[30;105m"
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 readonly ScriptDirNameD="${ScriptFNameTag}.d"
+
+if [ "$SCRIPT_BRANCH" = "dev" ]
+then readonly branchx_TAG="Branch: development"
+else readonly branchx_TAG="Branch: $SCRIPT_BRANCH"
+fi
+readonly version_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-15] ##
@@ -536,8 +543,9 @@ _ShowAbout_()
 
     clear
     _ShowLogo_
+
+    printf "About ${MGNTct}${SCRIPT_VERS_INFO}${NOct}\n"
     cat <<EOF
-About
   $SCRIPT_NAME is a tool for automating firmware updates on AsusWRT-Merlin,
   ensuring your router stays up-to-date with the latest features and
   security patches. It greatly simplifies the firmware update process
@@ -553,7 +561,7 @@ License
   version 3 (GPL-3.0) https://opensource.org/licenses/GPL-3.0
 
 Help & Support
-  https://www.snbforums.com/threads/merlinau-the-ultimate-firmware-auto-updater-addon.88577/
+  https://www.snbforums.com/forums/asuswrt-merlin-addons.60/?prefix_id=41
 
 Wiki page:
   https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki
@@ -572,6 +580,8 @@ _ShowHelp_()
 {
     clear
     _ShowLogo_
+
+    printf "HELP ${MGNTct}${SCRIPT_VERS_INFO}${NOct}\n"
     cat <<EOF
 Available commands:
   ${SCRIPT_NAME}.sh about           describe add-on functionality
@@ -6100,10 +6110,12 @@ _Calculate_NextRunTime_()
     then
         # If conditions are met (cron job enabled and update available), calculate the next runtime
         fwNewUpdateNotificationDate="$(Get_Custom_Setting FW_New_Update_Notification_Date)"
-        if [ "$fwNewUpdateNotificationDate" = "TBD" ] || [ -z "$fwNewUpdateNotificationDate" ]
+        if [ -z "$fwNewUpdateNotificationDate" ] || \
+           [ "$fwNewUpdateNotificationDate" = "TBD" ]
         then
             fwNewUpdateNotificationDate="$(date +%Y-%m-%d_%H:%M:%S)"
         fi
+
         upfwDateTimeSecs="$(_Calculate_DST_ "$(echo "$fwNewUpdateNotificationDate" | sed 's/_/ /g')")"
         ExpectedFWUpdateRuntime="$(_EstimateNextCronTimeAfterDate_ "$upfwDateTimeSecs" "$FW_UpdateCronJobSchedule")"
         if [ "$ExpectedFWUpdateRuntime" = "$CRON_UNKNOWN_DATE" ]
@@ -8673,9 +8685,9 @@ _RunOfflineUpdateNow_()
     fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-May-17] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Aug-10] ##
+##----------------------------------------##
 _RunFirmwareUpdateNow_()
 {
     # Double-check the directory exists before using it #
@@ -8717,7 +8729,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     echo
     Say "${GRNct}MerlinAU${NOct} v$SCRIPT_VERSION"
-    Say "Running the update task now... Checking for F/W updates..."
+    Say "Running the update task now. Checking for F/W updates..."
     FlashStarted=true
 
     #---------------------------------------------------------------#
@@ -8781,8 +8793,18 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
         if [ "$FW_UpdateCheckState" -eq 0 ]
         then
-            Say "Firmware update check is currently disabled."
-            "$inMenuMode" && _WaitForEnterKey_ || return 1
+            Say "Automatic F/W update checks are currently ${REDct}DISABLED${NOct}."
+            ! "$inMenuMode" && return 1
+
+            if [ -x "$FW_UpdateCheckScript" ]
+            then
+                # Prompt the user to confirm and proceed IFF in "Menu Mode" #
+                printf "\n${BOLDct}Would you like to proceed with a manual F/W update check now${NOct}"
+                ! _WaitForYESorNO_ && return 1
+
+                sh "$FW_UpdateCheckScript" 2>&1
+                sleep 2
+            fi
         fi
 
         #------------------------------------------------------
@@ -9546,7 +9568,6 @@ _CheckForMinimumRequirements_()
 
    "$requirementsCheckOK" && return 0
 
-   rm -f "$CONFIG_FILE"
    return 1
 }
 
@@ -9608,7 +9629,7 @@ _DoInstallation_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-11] ##
+## Modified by Martinski W. [2025-Aug-13] ##
 ##----------------------------------------##
 _DoUnInstallation_()
 {
@@ -9644,6 +9665,8 @@ _DoUnInstallation_()
        _AutoStartupHook_ delete 2>/dev/null
        _AutoServiceEvent_ delete 2>/dev/null 
    fi
+
+   "$isGNUtonFW" && umount "$FW_UpdateCheckScript" 2>/dev/null
 
    if rm -fr "${SETTINGS_DIR:?}" && \
       rm -fr "${SCRIPT_WEB_DIR:?}" && \
@@ -10116,8 +10139,8 @@ _ConfirmCronJobForFWAutoUpdates_()
     fi
 
     ##------------------------------------------------------------##
-    # If 'runfwUpdateCheck' is true and built-in script is found
-    # run the built-in F/W Update check in the background.
+    # If 'runfwUpdateCheck' is true and the built-in script is
+    # present then execute the built-in F/W Update check now.
     ##------------------------------------------------------------##
     if "$runfwUpdateCheck" && [ -x "$FW_UpdateCheckScript" ]
     then
@@ -11137,6 +11160,11 @@ _Gnuton_Check_Webs_Update_Script_()
        rm -f "$dwnldGnutonWebsUpdateFilePath"
    fi
 }
+
+if [ "$SCRIPT_BRANCH" = "master" ]
+then SCRIPT_VERS_INFO="[$branchx_TAG]"
+else SCRIPT_VERS_INFO="[$version_TAG, $branchx_TAG]"
+fi
 
 ## Set variable to 'false' to stop the check ##
 checkWebsUpdateScriptForGnuton="$isGNUtonFW"
