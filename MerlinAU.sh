@@ -2529,6 +2529,15 @@ _ActionsAfterNewConfigSettings_()
    then
        _Calculate_NextRunTime_ recal
    fi
+   if _ConfigOptionChanged_ "FW_New_Update_Cron_Job_Schedule="
+   then
+       newSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+       if _AddFWAutoUpdateCronJob_ "$newSchedule"
+       then
+           Say "Cron Job [$newSchedule] was updated successfully."
+           _Calculate_NextRunTime_ recal
+       fi
+   fi
    if _ConfigOptionChanged_ "Allow_Script_Auto_Update"
    then
        ScriptAutoUpdateSetting="$(Get_Custom_Setting Allow_Script_Auto_Update)"
