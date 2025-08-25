@@ -9,8 +9,8 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.3
-readonly SCRIPT_VERSTAG="25081319"
+readonly SCRIPT_VERSION=1.5.4
+readonly SCRIPT_VERSTAG="25082423"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -2528,6 +2528,14 @@ _ActionsAfterNewConfigSettings_()
    if _ConfigOptionChanged_ "FW_New_Update_Postponement_Days="
    then
        _Calculate_NextRunTime_ recal
+   fi
+   if _ConfigOptionChanged_ "FW_New_Update_Cron_Job_Schedule="
+   then
+       newSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+       if _AddFWAutoUpdateCronJob_ "$newSchedule"
+       then
+           _Calculate_NextRunTime_ recal
+       fi
    fi
    if _ConfigOptionChanged_ "Allow_Script_Auto_Update"
    then

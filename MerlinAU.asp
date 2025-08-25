@@ -39,6 +39,8 @@ var shared_custom_settings = {};
 var ajax_custom_settings = {};
 let isFormSubmitting = false;
 let FW_NewUpdateVersAvailable = '';
+var fwTimeInvalidFromConfig = false;
+var fwTimeInvalidMsg = '';
 
 // Order of NVRAM keys to search for 'Model ID' and 'Product ID' //
 const modelKeys = ["nvram_odmpid", "nvram_wps_modelnum", "nvram_model", "nvram_build_name"];
@@ -337,38 +339,78 @@ function ToggleDaysOfWeek (isEveryXDayChecked, numberOfDays)
    }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-24] **/
-/**-------------------------------------**/
-function ValidateScheduleHOUR (theHOURstr)
-{
-   if (theHOURstr === null ||
-       theHOURstr.length == 0 ||
-       theHOURstr.length >= 3 ||
-       theHOURstr.match (`${numberRegExp}`) === null)
-   { return false; }
-   let theHOURnum = parseInt(theHOURstr, 10);
-   if (theHOURnum < 0 || theHOURnum > 23)
-   { return false; }
-   else
-   { return true; }
+/**---------------------------------------**/
+/** Added by ExtremeFiretop [2025-Aug-24] **/
+/**---------------------------------------**/
+function ParseTimeHHMM(v){
+  v = (v || '').trim();
+  if (!/^[0-2]\d:[0-5]\d$/.test(v)) return { ok:false };
+  var h = parseInt(v.slice(0,2),10), m = parseInt(v.slice(3,5),10);
+  if (h < 0 || h > 23 || m < 0 || m > 59) return { ok:false };
+  return { ok:true, h:h, m:m };
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-24] **/
-/**-------------------------------------**/
-function ValidateScheduleMINS (theMINSstr)
-{
-   if (theMINSstr === null ||
-       theMINSstr.length == 0 ||
-       theMINSstr.length >= 3 ||
-       theMINSstr.match (`${numberRegExp}`) === null)
-   { return false; }
-   let theMINSNum = parseInt(theMINSstr, 10);
-   if (theMINSNum < 0 || theMINSNum > 59)
-   { return false; }
-   else
-   { return true; }
+function ValidateHHMMUsingFwScheduleTime(hhmm){
+  var v = (hhmm || '').trim();
+  var parts = v.split(':');
+  // One unified message for ANY invalid time input
+  var commonMsg = fwScheduleTime.ErrorMsgHOUR() + '\n' + fwScheduleTime.ErrorMsgMINS();
+
+  if (parts.length !== 2){
+    return { ok: false, msg: commonMsg };
+  }
+  var H = parts[0], M = parts[1];
+  var hOk = fwScheduleTime.ValidateHOUR(H);
+  var mOk = fwScheduleTime.ValidateMINS(M);
+  // Always return the same message when invalid; no hour/minute-specific messaging
+  return { ok: (hOk && mOk), msg: (hOk && mOk) ? '' : commonMsg };
+}
+
+function MarkTimePickerInvalid(T, msg){
+  if (!T) return;
+  fwTimeInvalidFromConfig = true;
+  fwTimeInvalidMsg = msg;
+
+  var $t = $(T);
+  $t.addClass('Invalid');
+  // Remove ONLY namespaced handlers, then rebind
+  $t.off('.fwtime');
+  // Show tooltip ONLY on mouseover (no focus)
+  $t.on('mouseover.fwtime', function(){ return overlib(msg,0,0); });
+  // Hide tooltip as soon as user stops hovering or edits/leaves the field
+  $t.on('mouseleave.fwtime input.fwtime keydown.fwtime keyup.fwtime blur.fwtime', function(){
+    try { nd(); } catch(e){}
+  });
+  // if something already opened a tooltip, close it now
+  try { nd(); } catch(e){}
+  T.setAttribute('aria-invalid','true');
+  T.value = '';
+  setTimeout(function(){ T.focus(); }, 0); // focus no longer triggers tooltip
+}
+
+function ClearTimePickerInvalid(T){
+  if (!T) return;
+  fwTimeInvalidFromConfig = false;
+  fwTimeInvalidMsg = '';
+  var $t = $(T);
+  $t.removeClass('Invalid');
+  $t.off('.fwtime');        // remove our handlers
+  try { nd(); } catch(e){}  // force-close any lingering overlib
+  T.removeAttribute('aria-invalid');
+}
+
+function ValidateTimePicker(el){
+  if (!el) return false;
+  var r = ValidateHHMMUsingFwScheduleTime(el.value);
+  if (r.ok){
+    try { nd(); } catch(e){}
+    ClearTimePickerInvalid(el);
+    return true;
+  }else{
+    // keep newline-><br> for overlib formatting
+    MarkTimePickerInvalid(el, (r.msg || '').replace(/\n/g,'<br>'));
+    return false;
+  }
 }
 
 /**-------------------------------------**/
@@ -517,216 +559,155 @@ function SetScheduleDAYofWEEK (cronDAYofWEEK)
    }
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-24] **/
-/**-------------------------------------**/
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-Aug-24] **/
+/**------------------------------------------**/
 // FW_New_Update_Cron_Job_Schedule //
-function FWConvertCronScheduleToWebUISettings (rawCronSchedule)
-{
-   let fwRawCronSched = rawCronSchedule.split(' ');
-   let fwScheduleHOUR = document.getElementById('fwScheduleHOUR');
-   let fwScheduleMINS = document.getElementById('fwScheduleMINS');
-   let fwScheduleDAYS1, fwSchedBoxDAYSX, fwScheduleXDAYS;
+function FWConvertCronScheduleToWebUISettings(rawCronSchedule){
+  let fwRaw = rawCronSchedule.split(' ');
+  let T = document.getElementById('fwScheduleTIME');
+  let fwSchedD1, fwSchedX, fwXD;
 
-   if (rawCronSchedule === 'TBD' || fwRawCronSched.length < 5)
-   {
-       ToggleDaysOfWeek (true, '1');
-       fwScheduleDAYS1 = document.getElementById('fwSchedBoxDAYS1');
-       fwScheduleDAYS1.checked = true;
-       fwScheduleDAYS1.disabled = false;
-       fwScheduleHOUR.value = '0';
-       fwScheduleMINS.value = '0';
-       return;
-   }
-   let rawSchedMINS = fwRawCronSched[0];
-   let rawSchedHOUR = fwRawCronSched[1];
-   let rawSchedDAYM = fwRawCronSched[2];
-   let rawSchedMNTH = fwRawCronSched[3];
-   let rawSchedDAYW = fwRawCronSched[4];
+  if (!T) return;
 
-   if (ValidateScheduleMINS (rawSchedMINS))
-   {
-       fwScheduleMINS.value = rawSchedMINS;
-       fwScheduleMINS.disabled = false;
-   }
-   else
-   {   // Show value but DISABLED for now //
-       fwScheduleMINS.value = rawSchedMINS;
-       fwScheduleMINS.disabled = true;
-   }
-   if (ValidateScheduleHOUR (rawSchedHOUR))
-   {
-       fwScheduleHOUR.value = rawSchedHOUR;
-       fwScheduleHOUR.disabled = false;
-   }
-   else
-   {   // Show value but DISABLED for now //
-       fwScheduleHOUR.value = rawSchedHOUR;
-       fwScheduleHOUR.disabled = true;
-   }
-   if (rawSchedDAYM.match ('[*]/([2-9]|1[0-5])') !== null)
-   {
-       ToggleDaysOfWeek (true, 'X');
-       fwSchedBoxDAYSX = document.getElementById('fwSchedBoxDAYSX');
-       fwSchedBoxDAYSX.checked = true;
-       fwSchedBoxDAYSX.disabled = false;
-       fwScheduleXDAYS = document.getElementById('fwScheduleXDAYS');
-       let tempArray = rawSchedDAYM.split('/');
-       if (tempArray.length > 1)
-       { fwScheduleXDAYS.value = tempArray[1]; }
-       return;
-   }
-   else if (rawSchedDAYW.match ('[*]/[2-3]') !== null)
-   {
-       ToggleDaysOfWeek (true, 'X');
-       fwSchedBoxDAYSX = document.getElementById('fwSchedBoxDAYSX');
-       fwSchedBoxDAYSX.checked = true;
-       fwSchedBoxDAYSX.disabled = false;
-       fwScheduleXDAYS = document.getElementById('fwScheduleXDAYS');
-       let tempArray = rawSchedDAYW.split('/');
-       if (tempArray.length > 1)
-       { fwScheduleXDAYS.value = tempArray[1]; }
-       return;
-   }
-   else if (rawSchedDAYM === '*' && rawSchedDAYW === '*')
-   {
-       ToggleDaysOfWeek (true, '1');
-       fwScheduleDAYS1 = document.getElementById('fwSchedBoxDAYS1');
-       fwScheduleDAYS1.checked = true;
-       fwScheduleDAYS1.disabled = false;
-       return;
-   }
-   else if (rawSchedDAYM != '*' || rawSchedMNTH != '*')
-   {   /**------------------------------------------------------**/
-       /** We do NOT yet handle schedules with different Months **/
-       /** or intervals, lists or ranges of "Days of the Month" **/
-       /**------------------------------------------------------**/
-       // Toggle OFF checkboxes for now //
-       ToggleDaysOfWeek (true, '0');
-       return;
-   }
-   if (ValidateScheduleDAYofWEEK (rawSchedDAYW))
-   { SetScheduleDAYofWEEK (rawSchedDAYW); }
+  // default UI state
+  ClearTimePickerInvalid(T);
+
+  if (rawCronSchedule === 'TBD' || fwRaw.length < 5){
+    ToggleDaysOfWeek(true, '1');
+    fwSchedD1 = document.getElementById('fwSchedBoxDAYS1');
+    if (fwSchedD1){ fwSchedD1.checked = true; fwSchedD1.disabled = false; }
+    T.value = '00:00';
+    T.disabled = false;
+    return;
+  }
+
+  let rawM = fwRaw[0], rawH = fwRaw[1], rawDM = fwRaw[2], rawMN = fwRaw[3], rawDW = fwRaw[4];
+
+  // ---- Time handling: use fwScheduleTime messages only ----
+  let timeCheck = ValidateHHMMUsingFwScheduleTime(String(rawH) + ':' + String(rawM));
+  if (!timeCheck.ok){
+    MarkTimePickerInvalid(T, (timeCheck.msg || '').replace(/\n/g,'<br>'));
+  } else {
+    let h = parseInt(rawH,10), m = parseInt(rawM,10);
+    var hh = (h < 10 ? '0' : '') + h;
+    var mm = (m < 10 ? '0' : '') + m;
+    T.value = hh + ':' + mm;
+    ClearTimePickerInvalid(T);
+  }
+
+  // Days logic 
+  if (rawDM.match ('[*]/([2-9]|1[0-5])') !== null){
+    ToggleDaysOfWeek(true, 'X');
+    fwSchedX = document.getElementById('fwSchedBoxDAYSX');
+    if (fwSchedX){ fwSchedX.checked = true; fwSchedX.disabled = false; }
+    fwXD = document.getElementById('fwScheduleXDAYS');
+    let temp = rawDM.split('/');
+    if (fwXD && temp.length > 1){ fwXD.value = temp[1]; }
+    T.disabled = false;
+    return;
+  }
+  else if (rawDW.match ('[*]/[2-3]') !== null){
+    ToggleDaysOfWeek(true, 'X');
+    fwSchedX = document.getElementById('fwSchedBoxDAYSX');
+    if (fwSchedX){ fwSchedX.checked = true; fwSchedX.disabled = false; }
+    fwXD = document.getElementById('fwScheduleXDAYS');
+    let temp = rawDW.split('/');
+    if (fwXD && temp.length > 1){ fwXD.value = temp[1]; }
+    T.disabled = false;
+    return;
+  }
+  else if (rawDM === '*' && rawDW === '*'){
+    ToggleDaysOfWeek(true, '1');
+    fwSchedD1 = document.getElementById('fwSchedBoxDAYS1');
+    if (fwSchedD1){ fwSchedD1.checked = true; fwSchedD1.disabled = false; }
+    T.disabled = false;
+    return;
+  }
+  else if (rawDM != '*' || rawMN != '*'){
+    // Not handled in UI (DoM/Month intervals)
+    ToggleDaysOfWeek(true, '0'); // disable day checkboxes
+    T.disabled = false;
+    return;
+  }
+
+  if (ValidateScheduleDAYofWEEK(rawDW)){ SetScheduleDAYofWEEK(rawDW); }
+  T.disabled = false;
 }
 
-/**-------------------------------------**/
-/** Added by Martinski W. [2025-Jan-25] **/
-/**-------------------------------------**/
-function FWConvertWebUISettingsToCronSchedule (oldRawCronSchedule)
-{
-   let newRawCronSchedule = '';
-   let theFWRawCronSched = oldRawCronSchedule.split(' ');
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-Aug-24] **/
+/**------------------------------------------**/
+function FWConvertWebUISettingsToCronSchedule(oldRawCronSchedule){
+  const delimChar = '|';
+  const defaultSchedule = '0|0|*|*|*';
 
-   //Temporary delimiter is replaced later by shell script//
-   const delimChar = '|';
-   const defaultSchedule = '0|0|*|*|*';
+  if (oldRawCronSchedule === 'TBD' || oldRawCronSchedule.split(' ').length < 5){
+    return defaultSchedule;
+  }
 
-   if (oldRawCronSchedule === 'TBD' || theFWRawCronSched.length < 5)
-   {   //Default CRON Schedule//
-       newRawCronSchedule = defaultSchedule;
-       return (newRawCronSchedule);
-   }
+  let fwRawSchedMINS = '0';
+  let fwRawSchedHOUR = '0';
+  let fwRawSchedDAYM = '*';
+  let fwRawSchedMNTH = '*';
+  let fwRawSchedDAYW = '*';
 
-   let fwRawSchedMINS = theFWRawCronSched[0];
-   let fwRawSchedHOUR = theFWRawCronSched[1];
-   let fwRawSchedDAYM = theFWRawCronSched[2];
-   let fwRawSchedMNTH = theFWRawCronSched[3];
-   let fwRawSchedDAYW = theFWRawCronSched[4];
-   let fwScheduleHOUR = document.getElementById('fwScheduleHOUR');
-   let fwScheduleMINS = document.getElementById('fwScheduleMINS');
-   let fwScheduleDAYS1 = document.getElementById('fwSchedBoxDAYS1');
-   let fwSchedBoxDAYSX = document.getElementById('fwSchedBoxDAYSX');
-   let fwScheduleXDAYS = document.getElementById('fwScheduleXDAYS');
-   let fwScheduleMON = document.getElementById('fwSched_MON');
-   let fwScheduleTUE = document.getElementById('fwSched_TUE');
-   let fwScheduleWED = document.getElementById('fwSched_WED');
-   let fwScheduleTHU = document.getElementById('fwSched_THU');
-   let fwScheduleFRI = document.getElementById('fwSched_FRI');
-   let fwScheduleSAT = document.getElementById('fwSched_SAT');
-   let fwScheduleSUN = document.getElementById('fwSched_SUN');
+  let T = document.getElementById('fwScheduleTIME');
 
-   if (fwScheduleMINS.disabled === false)
-   { fwRawSchedMINS = fwScheduleMINS.value; }
+  // time from the single control
+  let parsed = ParseTimeHHMM(T ? T.value : '');
+  if (parsed.ok){
+    fwRawSchedHOUR = String(parsed.h);
+    fwRawSchedMINS = String(parsed.m);
+  }
 
-   if (fwScheduleHOUR.disabled === false)
-   { fwRawSchedHOUR = fwScheduleHOUR.value; }
+  // days logic (unchanged)
+  let fwScheduleDAYS1 = document.getElementById('fwSchedBoxDAYS1');
+  let fwSchedBoxDAYSX = document.getElementById('fwSchedBoxDAYSX');
+  let fwScheduleXDAYS = document.getElementById('fwScheduleXDAYS');
+  let fwScheduleMON = document.getElementById('fwSched_MON');
+  let fwScheduleTUE = document.getElementById('fwSched_TUE');
+  let fwScheduleWED = document.getElementById('fwSched_WED');
+  let fwScheduleTHU = document.getElementById('fwSched_THU');
+  let fwScheduleFRI = document.getElementById('fwSched_FRI');
+  let fwScheduleSAT = document.getElementById('fwSched_SAT');
+  let fwScheduleSUN = document.getElementById('fwSched_SUN');
 
-   if (fwScheduleDAYS1.checked &&
-       fwScheduleDAYS1.disabled === false)
-   {
-       fwRawSchedDAYM = '*';
-       fwRawSchedDAYW = '*';
-   }
-   else if (fwSchedBoxDAYSX.checked &&
-            fwSchedBoxDAYSX.disabled === false)
-   {
-       if (fwRawSchedDAYW.match ('[*]/[2-3]') !== null &&
-           (fwScheduleXDAYS.value == 2 || fwScheduleXDAYS.value == 3))
-       {
-           fwRawSchedDAYM = '*';
-           fwRawSchedDAYW = '*/' + fwScheduleXDAYS.value;
-       }
-       else
-       {
-           fwRawSchedDAYW = '*';
-           fwRawSchedDAYM = '*/' + fwScheduleXDAYS.value;
-       }
-   }
-   else
-   {
-       let daysOfWeekArray = [], daysOfWeekIndex = [];
-       if (fwScheduleSUN.checked && fwScheduleSUN.disabled === false)
-       {
-           daysOfWeekIndex.push(0);
-           daysOfWeekArray.push('Sun');
-       }
-       if (fwScheduleMON.checked && fwScheduleMON.disabled === false)
-       {
-           daysOfWeekIndex.push(1);
-           daysOfWeekArray.push('Mon');
-       }
-       if (fwScheduleTUE.checked && fwScheduleTUE.disabled === false)
-       {
-           daysOfWeekIndex.push(2);
-           daysOfWeekArray.push('Tue');
-       }
-       if (fwScheduleWED.checked && fwScheduleWED.disabled === false)
-       {
-           daysOfWeekIndex.push(3);
-           daysOfWeekArray.push('Wed');
-       }
-       if (fwScheduleTHU.checked && fwScheduleTHU.disabled === false)
-       {
-           daysOfWeekIndex.push(4);
-           daysOfWeekArray.push('Thu');
-       }
-       if (fwScheduleFRI.checked && fwScheduleFRI.disabled === false)
-       {
-           daysOfWeekIndex.push(5);
-           daysOfWeekArray.push('Fri');
-       }
-       if (fwScheduleSAT.checked && fwScheduleSAT.disabled === false)
-       {
-           daysOfWeekIndex.push(6);
-           daysOfWeekArray.push('Sat');
-       }
-       if (daysOfWeekArray.length > 0)
-       {
-           fwRawSchedDAYM = '*';
-           fwRawSchedMNTH = '*';
-           if (daysOfWeekArray.length == 7)
-           { fwRawSchedDAYW = '*'; }
-           else
-           { fwRawSchedDAYW = GetCronDAYofWEEK (daysOfWeekIndex, daysOfWeekArray); }
-       }
-   }
-   newRawCronSchedule = fwRawSchedMINS + delimChar +
-                        fwRawSchedHOUR + delimChar +
-                        fwRawSchedDAYM + delimChar +
-                        fwRawSchedMNTH + delimChar +
-                        fwRawSchedDAYW;
+  if (fwScheduleDAYS1 && fwScheduleDAYS1.checked && fwScheduleDAYS1.disabled === false){
+    fwRawSchedDAYM = '*';
+    fwRawSchedDAYW = '*';
+  }
+  else if (fwSchedBoxDAYSX && fwSchedBoxDAYSX.checked && fwSchedBoxDAYSX.disabled === false){
+    if ((fwScheduleXDAYS.value == 2 || fwScheduleXDAYS.value == 3)){
+      fwRawSchedDAYM = '*';
+      fwRawSchedDAYW = '*/' + fwScheduleXDAYS.value;
+    } else {
+      fwRawSchedDAYW = '*';
+      fwRawSchedDAYM = '*/' + fwScheduleXDAYS.value;
+    }
+  }
+  else {
+    let daysOfWeekArray = [], daysOfWeekIndex = [];
+    if (fwScheduleSUN && fwScheduleSUN.checked && fwScheduleSUN.disabled === false){ daysOfWeekIndex.push(0); daysOfWeekArray.push('Sun'); }
+    if (fwScheduleMON && fwScheduleMON.checked && fwScheduleMON.disabled === false){ daysOfWeekIndex.push(1); daysOfWeekArray.push('Mon'); }
+    if (fwScheduleTUE && fwScheduleTUE.checked && fwScheduleTUE.disabled === false){ daysOfWeekIndex.push(2); daysOfWeekArray.push('Tue'); }
+    if (fwScheduleWED && fwScheduleWED.checked && fwScheduleWED.disabled === false){ daysOfWeekIndex.push(3); daysOfWeekArray.push('Wed'); }
+    if (fwScheduleTHU && fwScheduleTHU.checked && fwScheduleTHU.disabled === false){ daysOfWeekIndex.push(4); daysOfWeekArray.push('Thu'); }
+    if (fwScheduleFRI && fwScheduleFRI.checked && fwScheduleFRI.disabled === false){ daysOfWeekIndex.push(5); daysOfWeekArray.push('Fri'); }
+    if (fwScheduleSAT && fwScheduleSAT.checked && fwScheduleSAT.disabled === false){ daysOfWeekIndex.push(6); daysOfWeekArray.push('Sat'); }
 
-   return (newRawCronSchedule);
+    if (daysOfWeekArray.length > 0){
+      fwRawSchedDAYM = '*';
+      fwRawSchedMNTH = '*';
+      fwRawSchedDAYW = (daysOfWeekArray.length == 7) ? '*' : GetCronDAYofWEEK(daysOfWeekIndex, daysOfWeekArray);
+    }
+  }
+
+  return fwRawSchedMINS + delimChar +
+         fwRawSchedHOUR + delimChar +
+         fwRawSchedDAYM + delimChar +
+         fwRawSchedMNTH + delimChar +
+         fwRawSchedDAYW;
 }
 
 /**----------------------------------------**/
@@ -2139,9 +2120,9 @@ function initial()
     }
 }
 
-/**----------------------------------------**/
-/** Modified by Martinski W. [2025-Mar-07] **/
-/**----------------------------------------**/
+/**------------------------------------------**/
+/** Modified by ExtremeFiretop [2025-Aug-24] **/
+/**------------------------------------------**/
 function SaveCombinedConfig()
 {
     // Clear the hidden field before saving //
@@ -2170,17 +2151,24 @@ function SaveCombinedConfig()
         alert(`${validationErrorMsg}\n\n` + fwPostponedDays.ErrorMsg());
         return false;
     }
-    if (document.form.fwScheduleHOUR.disabled === false &&
-        !ValidateFWUpdateTime(document.form.fwScheduleHOUR, 'HOUR'))
-    {
-        alert(`${validationErrorMsg}\n\n` + fwScheduleTime.ErrorMsg('HOUR'));
-        return false;
+    // ---- Time validation: also catch invalid time loaded from settings ----
+    var timeEl = document.getElementById('fwScheduleTIME');
+
+    // If loader marked it invalid
+    if (fwTimeInvalidFromConfig){
+      alert(validationErrorMsg + '\n\n' + fwTimeInvalidMsg.replace(/<br>/g, '\n'));
+      if (timeEl) timeEl.focus();
+      return false;
     }
-    if (document.form.fwScheduleMINS.disabled === false &&
-        !ValidateFWUpdateTime(document.form.fwScheduleMINS, 'MINS'))
-    {
-        alert(`${validationErrorMsg}\n\n` + fwScheduleTime.ErrorMsg('MINS'));
+
+    // Normal validation of the control’s current value
+    if (timeEl && timeEl.disabled === false){
+      var chk = ValidateHHMMUsingFwScheduleTime(timeEl.value);
+      if (!chk.ok){
+        alert(validationErrorMsg + '\n\n' + chk.msg);
+        timeEl.focus();
         return false;
+      }
     }
     if (document.getElementById('fwSchedBoxDAYSX').checked &&
         !ValidateFWUpdateXDays(document.form.fwScheduleXDAYS, 'DAYS'))
@@ -2638,7 +2626,7 @@ function initializeCollapsibleSections()
 <div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
 <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 <div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI
-<span style="margin-left:8px;" id="WikiURL"">[
+<span style="margin-left:8px;" id="WikiURL">[
    <a style="font-weight:bolder; text-decoration:underline; cursor:pointer;"
       href="https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki"
       title="Go to MerlinAU Wiki page" target="_blank">Wiki</a> ]
@@ -2893,7 +2881,7 @@ function initializeCollapsibleSections()
     </label>
   </td>
   <td>
-   <div id="fwCronScheduleDAYofWEEK">
+    <div id="fwCronScheduleDAYofWEEK">
       <span style="margin-left:1px; margin-top:5px; font-size: 12px; font-weight: bolder;">Days:</span>
       <label style="margin-left:-3px;">
         <input type="checkbox" name="fwSchedDAYWEEK" id="fwSchedBoxDAYS1" value="Every day" class="input"
@@ -2932,23 +2920,19 @@ function initializeCollapsibleSections()
                style="margin-left:14px; margin-bottom:7px"/>Sat</label>
       </br>
     </div>
-    <div id="fwCronScheduleHOUR">
-      <span style="margin-left:1px; margin-top:10px; font-size: 12px; font-weight: bolder;">Hour:</span>
-      <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
-             style="width: 7%; margin-left: 19px; margin-top:10px; margin-bottom:7px" maxlength="2"
-             id="fwScheduleHOUR" name="fwScheduleHOUR" value="0"
-             onKeyPress="return validator.isNumber(this,event)"
-             onkeyup="ValidateFWUpdateTime(this,'HOUR')"
-             onblur="ValidateFWUpdateTime(this,'HOUR');FormatNumericSetting(this)"/>
-    </div>
-    <div id="fwCronScheduleMINS">
-      <span style="margin-left:1px; margin-top:10px; font-size: 12px; font-weight: bolder;">Minutes:</span>
-      <input type="text" autocomplete="off" autocapitalize="off" data-lpignore="true"
-             style="width: 7%; margin-left: 1px; margin-top:7px; margin-bottom:10px" maxlength="2"
-             id="fwScheduleMINS" name="fwScheduleMINS" value="0"
-             onKeyPress="return validator.isNumber(this,event)"
-             onkeyup="ValidateFWUpdateTime(this,'MINS')"
-             onblur="ValidateFWUpdateTime(this,'MINS');FormatNumericSetting(this)"/>
+    <!-- single time picker -->
+    <div id="fwCronScheduleTIME" style="margin-top:8px;">
+      <span style="margin-left:1px; font-size: 12px; font-weight: bolder;">Time:</span>
+      <input
+        type="time"
+        id="fwScheduleTIME"
+        name="fwScheduleTIME"
+        value="00:00"
+        step="60"
+        style="width: 140px; margin-left: 18px; margin-top: 6px; margin-bottom: 10px;"
+        oninput="ValidateTimePicker(this)"
+        onblur="ValidateTimePicker(this)"
+      />
     </div>
   </td>
 </tr>
