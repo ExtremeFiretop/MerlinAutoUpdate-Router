@@ -39,6 +39,8 @@ var shared_custom_settings = {};
 var ajax_custom_settings = {};
 let isFormSubmitting = false;
 let FW_NewUpdateVersAvailable = '';
+var fwTimeInvalidFromConfig = false;
+var fwTimeInvalidMsg = '';
 
 // Order of NVRAM keys to search for 'Model ID' and 'Product ID' //
 const modelKeys = ["nvram_odmpid", "nvram_wps_modelnum", "nvram_model", "nvram_build_name"];
@@ -348,19 +350,67 @@ function ParseTimeHHMM(v){
   return { ok:true, h:h, m:m };
 }
 
+function ValidateHHMMUsingFwScheduleTime(hhmm){
+  var v = (hhmm || '').trim();
+  var parts = v.split(':');
+  if (parts.length !== 2){
+    return {
+      ok: false,
+      msg: fwScheduleTime.ErrorMsgHOUR() + '\n' + fwScheduleTime.ErrorMsgMINS()
+    };
+  }
+  var H = parts[0], M = parts[1];
+  var hOk = fwScheduleTime.ValidateHOUR(H);
+  var mOk = fwScheduleTime.ValidateMINS(M);
+  var msg = '';
+  if (!hOk) msg += fwScheduleTime.ErrorMsgHOUR();
+  if (!mOk) msg += (msg ? '\n' : '') + fwScheduleTime.ErrorMsgMINS();
+  return { ok: (hOk && mOk), msg: msg };
+}
+
+function MarkTimePickerInvalid(T, msg){
+  if (!T) return;
+  fwTimeInvalidFromConfig = true;
+  fwTimeInvalidMsg = msg;
+
+  var $t = $(T);
+  $t.addClass('Invalid');
+  // Remove ONLY namespaced handlers, then rebind
+  $t.off('.fwtime');
+  // Show tooltip ONLY on mouseover (no focus)
+  $t.on('mouseover.fwtime', function(){ return overlib(msg,0,0); });
+  // Hide tooltip as soon as user stops hovering or edits/leaves the field
+  $t.on('mouseleave.fwtime input.fwtime keydown.fwtime keyup.fwtime blur.fwtime', function(){
+    try { nd(); } catch(e){}
+  });
+  // if something already opened a tooltip, close it now
+  try { nd(); } catch(e){}
+  T.setAttribute('aria-invalid','true');
+  T.value = '';
+  setTimeout(function(){ T.focus(); }, 0); // focus no longer triggers tooltip
+}
+
+function ClearTimePickerInvalid(T){
+  if (!T) return;
+  fwTimeInvalidFromConfig = false;
+  fwTimeInvalidMsg = '';
+  var $t = $(T);
+  $t.removeClass('Invalid');
+  $t.off('.fwtime');        // remove our handlers
+  try { nd(); } catch(e){}  // force-close any lingering overlib
+  T.removeAttribute('aria-invalid');
+}
+
 function ValidateTimePicker(el){
   if (!el) return false;
-  var res = ParseTimeHHMM(el.value);
-  if (res.ok){
-    $(el).removeClass('Invalid');
-    $(el).off('mouseover');
+  var r = ValidateHHMMUsingFwScheduleTime(el.value);
+  if (r.ok){
+    try { nd(); } catch(e){}
+    ClearTimePickerInvalid(el);
     return true;
   }else{
-    el.focus();
-    $(el).addClass('Invalid');
-    var msg = 'The schedule time is INVALID.<br>The Hour must be 0–23 and Minutes 0–59.';
-    $(el).on('mouseover', function(){ return overlib(msg,0,0); });
-    $(el)[0].onmouseout = nd;
+    // keep newline-><br> for overlib formatting
+    MarkTimePickerInvalid(el, (r.msg || '').replace(/\n/g,'<br>'));
     return false;
   }
 }
@@ -522,6 +572,9 @@ function FWConvertCronScheduleToWebUISettings(rawCronSchedule){
 
   if (!T) return;
 
+  // default UI state
+  ClearTimePickerInvalid(T);
+
   if (rawCronSchedule === 'TBD' || fwRaw.length < 5){
     ToggleDaysOfWeek(true, '1');
     fwSchedD1 = document.getElementById('fwSchedBoxDAYS1');
@@ -533,15 +586,19 @@ function FWConvertCronScheduleToWebUISettings(rawCronSchedule){
 
   let rawM = fwRaw[0], rawH = fwRaw[1], rawDM = fwRaw[2], rawMN = fwRaw[3], rawDW = fwRaw[4];
 
-  // Set the time picker value (even if later disabled)
-  let h = parseInt(rawH,10), m = parseInt(rawM,10);
-  if (isNaN(h) || h < 0 || h > 23) h = 0;
-  if (isNaN(m) || m < 0 || m > 59) m = 0;
-  var hh = (h < 10 ? '0' : '') + h;
-  var mm = (m < 10 ? '0' : '') + m;
-  T.value = hh + ':' + mm;
+  // ---- Time handling: use fwScheduleTime messages only ----
+  let timeCheck = ValidateHHMMUsingFwScheduleTime(String(rawH) + ':' + String(rawM));
+  if (!timeCheck.ok){
+    MarkTimePickerInvalid(T, (timeCheck.msg || '').replace(/\n/g,'<br>'));
+  } else {
+    let h = parseInt(rawH,10), m = parseInt(rawM,10);
+    var hh = (h < 10 ? '0' : '') + h;
+    var mm = (m < 10 ? '0' : '') + m;
+    T.value = hh + ':' + mm;
+    ClearTimePickerInvalid(T);
+  }
 
-  // Days logic — toggle the time input disabledness
+  // Days logic 
   if (rawDM.match ('[*]/([2-9]|1[0-5])') !== null){
     ToggleDaysOfWeek(true, 'X');
     fwSchedX = document.getElementById('fwSchedBoxDAYSX');
@@ -549,7 +606,7 @@ function FWConvertCronScheduleToWebUISettings(rawCronSchedule){
     fwXD = document.getElementById('fwScheduleXDAYS');
     let temp = rawDM.split('/');
     if (fwXD && temp.length > 1){ fwXD.value = temp[1]; }
-    T.disabled = false; // allow time selection
+    T.disabled = false;
     return;
   }
   else if (rawDW.match ('[*]/[2-3]') !== null){
@@ -570,9 +627,9 @@ function FWConvertCronScheduleToWebUISettings(rawCronSchedule){
     return;
   }
   else if (rawDM != '*' || rawMN != '*'){
-    // Not handled in UI (DoM/Month intervals) — mirror prior behavior
+    // Not handled in UI (DoM/Month intervals)
     ToggleDaysOfWeek(true, '0'); // disable day checkboxes
-    T.disabled = false; // still allow time
+    T.disabled = false;
     return;
   }
 
@@ -2096,10 +2153,24 @@ function SaveCombinedConfig()
         alert(`${validationErrorMsg}\n\n` + fwPostponedDays.ErrorMsg());
         return false;
     }
+    // ---- Time validation: also catch invalid time loaded from settings ----
     var timeEl = document.getElementById('fwScheduleTIME');
-    if (timeEl && timeEl.disabled === false && !ValidateTimePicker(timeEl)){
-      alert(validationErrorMsg + '\n\nThe schedule time is INVALID.\nThe Hour must be between 0 and 23, and Minutes between 0 and 59.');
+
+    // If loader marked it invalid
+    if (fwTimeInvalidFromConfig){
+      alert(validationErrorMsg + '\n\n' + fwTimeInvalidMsg.replace(/<br>/g, '\n'));
+      if (timeEl) timeEl.focus();
       return false;
+    }
+
+    // Normal validation of the control’s current value
+    if (timeEl && timeEl.disabled === false){
+      var chk = ValidateHHMMUsingFwScheduleTime(timeEl.value);
+      if (!chk.ok){
+        alert(validationErrorMsg + '\n\n' + chk.msg);
+        timeEl.focus();
+        return false;
+      }
     }
     if (document.getElementById('fwSchedBoxDAYSX').checked &&
         !ValidateFWUpdateXDays(document.form.fwScheduleXDAYS, 'DAYS'))
