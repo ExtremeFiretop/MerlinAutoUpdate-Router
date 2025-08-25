@@ -353,19 +353,17 @@ function ParseTimeHHMM(v){
 function ValidateHHMMUsingFwScheduleTime(hhmm){
   var v = (hhmm || '').trim();
   var parts = v.split(':');
+  // One unified message for ANY invalid time input
+  var commonMsg = fwScheduleTime.ErrorMsgHOUR() + '\n' + fwScheduleTime.ErrorMsgMINS();
+
   if (parts.length !== 2){
-    return {
-      ok: false,
-      msg: fwScheduleTime.ErrorMsgHOUR() + '\n' + fwScheduleTime.ErrorMsgMINS()
-    };
+    return { ok: false, msg: commonMsg };
   }
   var H = parts[0], M = parts[1];
   var hOk = fwScheduleTime.ValidateHOUR(H);
   var mOk = fwScheduleTime.ValidateMINS(M);
-  var msg = '';
-  if (!hOk) msg += fwScheduleTime.ErrorMsgHOUR();
-  if (!mOk) msg += (msg ? '\n' : '') + fwScheduleTime.ErrorMsgMINS();
-  return { ok: (hOk && mOk), msg: msg };
+  // Always return the same message when invalid; no hour/minute-specific messaging
+  return { ok: (hOk && mOk), msg: (hOk && mOk) ? '' : commonMsg };
 }
 
 function MarkTimePickerInvalid(T, msg){
