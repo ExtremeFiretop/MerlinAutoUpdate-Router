@@ -2534,7 +2534,6 @@ _ActionsAfterNewConfigSettings_()
        newSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
        if _AddFWAutoUpdateCronJob_ "$newSchedule"
        then
-           Say "Cron Job [$newSchedule] was updated successfully."
            _Calculate_NextRunTime_ recal
        fi
    fi
