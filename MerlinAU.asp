@@ -340,170 +340,266 @@ function ToggleDaysOfWeek (isEveryXDayChecked, numberOfDays)
    }
 }
 
-function MerlinAU_TimeSelectFallbackAttach(id) {
-  var input = document.getElementById(id);
-  if (!input) return;
+function MerlinAU_TimeSelectFallbackAttach(elementId) {
+  const inputElement = document.getElementById(elementId);
+  if (!inputElement) return;
 
-  // guard: don’t double-attach
-  if (input.dataset.mauTimeApplied === '1') return;
+  // Guard: don’t double-attach
+  if (inputElement.dataset.mauTimeApplied === '1') return;
 
   // Native is fine almost everywhere except Firefox.
-  var isFirefox = /firefox/i.test(navigator.userAgent);
-  var probe = document.createElement('input');
-  probe.type = 'time';
-  var hasNative = (probe.type === 'time'); // real time input, not text
+  const isFirefox = /firefox/i.test(navigator.userAgent);
+  const probeInput = document.createElement('input');
+  probeInput.type = 'time';
 
-  if (hasNative && !isFirefox) return; // keep native on Chrome/Edge/Safari/iOS/Android
+  // Real time input, not text
+  const hasNativeTime = (probeInput.type === 'time');
 
-  function pad(n){ return (n<10?'0':'')+n; }
-  function parseHHMM(v){
-    v = (v||'').trim();
-    var m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(v);
-    if (m) return {h:+m[1], m:+m[2]};
-    var d = new Date(); return {h:d.getHours(), m:d.getMinutes()};
+  if (hasNativeTime && !isFirefox) {
+    // Keep native on Chrome/Edge/Safari/iOS/Android
+    return;
   }
 
-  var wrap = document.createElement('span');
-  wrap.className = 'mau-time-fallback';
-  var selH = document.createElement('select');
-  var selM = document.createElement('select');
+  const formatTwoDigits = (num) => String(num).padStart(2, '0');
 
-  for (var h=0; h<24; h++) selH.add(new Option(pad(h), h));
-  var stepSec = parseInt(input.getAttribute('step') || '60', 10);
-  if (isNaN(stepSec) || stepSec < 60) stepSec = 60;
-  var minInc = Math.max(1, Math.floor(stepSec/60));
-  for (var m=0; m<60; m+=minInc) selM.add(new Option(pad(m), m));
-
-  input.readOnly = true;
-  input.dataset.mauTimeApplied = '1';
-
-  function emit(el, type){
-    el.dispatchEvent(new Event(type, { bubbles:true }));
+  function parseHHMM(value) {
+    const text = String(value || '').trim();
+    const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(text);
+    if (match) {
+      return { hour: +match[1], minute: +match[2] };
+    }
+    const now = new Date();
+    return { hour: now.getHours(), minute: now.getMinutes() };
   }
 
-  function apply(){
-    var hh = pad(+selH.value), mm = pad(+selM.value);
-    input.value = hh + ':' + mm;
-    if (window.ClearTimePickerInvalid) window.ClearTimePickerInvalid(input);
-    if (window.ValidateTimePicker) window.ValidateTimePicker(input);
-    emit(input,'input'); emit(input,'change');
+  const wrapper = document.createElement('span');
+  wrapper.className = 'mau-time-fallback';
+
+  const hourSelect = document.createElement('select');
+  const minuteSelect = document.createElement('select');
+
+  // Hours: 00..23
+  for (let hour = 0; hour < 24; hour += 1) {
+    hourSelect.add(new Option(formatTwoDigits(hour), hour));
   }
 
-  if (input.nextSibling) input.parentNode.insertBefore(wrap, input.nextSibling);
-  else input.parentNode.appendChild(wrap);
-  wrap.appendChild(selH);
-  wrap.appendChild(document.createTextNode(' : '));
-  wrap.appendChild(selM);
+  // Step (seconds) -> minute increment; default to 60s (1 min), clamp >= 60
+  let stepSeconds = parseInt(
+    inputElement.getAttribute('step') || '60',
+    10
+  );
+  if (Number.isNaN(stepSeconds) || stepSeconds < 60) stepSeconds = 60;
 
-  input.setAttribute('aria-hidden','true');
-  input.tabIndex = -1;
-  selH.setAttribute('aria-label','Hour');
-  selM.setAttribute('aria-label','Minute');
+  const minuteIncrement = Math.max(1, Math.floor(stepSeconds / 60));
 
-  var start = parseHHMM(input.value);
-  selH.value = start.h; selM.value = start.m;
-  selH.onchange = apply; selM.onchange = apply;
-  var flaggedInvalid = (input.getAttribute('aria-invalid') === 'true') ||
-                       (typeof fwTimeInvalidFromConfig !== 'undefined' && fwTimeInvalidFromConfig) ||
-                       (input.classList && input.classList.contains('Invalid'));
+  // Minutes: 00..59 in computed increments
+  for (let minute = 0; minute < 60; minute += minuteIncrement) {
+    minuteSelect.add(new Option(formatTwoDigits(minute), minute));
+  }
+
+  inputElement.readOnly = true;
+  inputElement.dataset.mauTimeApplied = '1';
+
+  function dispatch(target, type) {
+    target.dispatchEvent(new Event(type, { bubbles: true }));
+  }
+
+  function applySelection() {
+    const hh = formatTwoDigits(+hourSelect.value);
+    const mm = formatTwoDigits(+minuteSelect.value);
+    inputElement.value = hh + ':' + mm;
+
+    if (window.ClearTimePickerInvalid) {
+      window.ClearTimePickerInvalid(inputElement);
+    }
+    if (window.ValidateTimePicker) {
+      window.ValidateTimePicker(inputElement);
+    }
+
+    dispatch(inputElement, 'input');
+    dispatch(inputElement, 'change');
+  }
+
+  if (inputElement.nextSibling) {
+    inputElement.parentNode.insertBefore(wrapper, inputElement.nextSibling);
+  } else {
+    inputElement.parentNode.appendChild(wrapper);
+  }
+  wrapper.appendChild(hourSelect);
+  wrapper.appendChild(document.createTextNode(' : '));
+  wrapper.appendChild(minuteSelect);
+
+  inputElement.setAttribute('aria-hidden', 'true');
+  inputElement.tabIndex = -1;
+  hourSelect.setAttribute('aria-label', 'Hour');
+  minuteSelect.setAttribute('aria-label', 'Minute');
+
+  const initialTime = parseHHMM(inputElement.value);
+  hourSelect.value = initialTime.hour;
+  minuteSelect.value = initialTime.minute;
+
+  hourSelect.onchange = applySelection;
+  minuteSelect.onchange = applySelection;
+
+  const flaggedInvalid =
+    (inputElement.getAttribute('aria-invalid') === 'true') ||
+    (typeof fwTimeInvalidFromConfig !== 'undefined' &&
+     fwTimeInvalidFromConfig) ||
+    (inputElement.classList &&
+     inputElement.classList.contains('Invalid'));
 
   if (!flaggedInvalid) {
-    apply(); // normalize displayed HH:MM
+    // Normalize displayed HH:MM
+    applySelection();
   }
-  
-  function syncDisabled(){
-    var dis = !!input.disabled;
-    selH.disabled = dis; selM.disabled = dis;
-    wrap.style.opacity = dis ? '0.5' : '1';
+
+  function syncDisabled() {
+    const isDisabled = !!inputElement.disabled;
+    hourSelect.disabled = isDisabled;
+    minuteSelect.disabled = isDisabled;
+    wrapper.style.opacity = isDisabled ? '0.5' : '1';
   }
   syncDisabled();
 
-  var mo = new MutationObserver(syncDisabled);
-  mo.observe(input, { attributes:true, attributeFilter:['disabled'] });
+  const mutationObserver = new MutationObserver(syncDisabled);
+  mutationObserver.observe(inputElement, {
+    attributes: true,
+    attributeFilter: ['disabled']
+  });
 
-  function syncFromInput(){
-    var v = (input.value || '').trim();
-    if (!v) return; // keep current selects if input was cleared for invalid state
-    var t = parseHHMM(v);
-    selH.value = t.h; selM.value = t.m;
+  function syncFromInput() {
+    const valueText = String(inputElement.value || '').trim();
+    if (!valueText) return; // keep selects if input was cleared as invalid
+    const parsedTime = parseHHMM(valueText);
+    hourSelect.value = parsedTime.hour;
+    minuteSelect.value = parsedTime.minute;
   }
-  input.addEventListener('input', syncFromInput);
-  input.addEventListener('change', syncFromInput);
+
+  inputElement.addEventListener('input', syncFromInput);
+  inputElement.addEventListener('change', syncFromInput);
 }
 
 /**---------------------------------------**/
 /** Added by ExtremeFiretop [2025-Aug-24] **/
 /**---------------------------------------**/
-function ParseTimeHHMM(v){
-  v = (v || '').trim();
-  if (!/^[0-2]\d:[0-5]\d$/.test(v)) return { ok:false };
-  var h = parseInt(v.slice(0,2),10), m = parseInt(v.slice(3,5),10);
-  if (h < 0 || h > 23 || m < 0 || m > 59) return { ok:false };
-  return { ok:true, h:h, m:m };
+function parseTimeHHMM(inputValue) {
+  const timeText = String(inputValue || '').trim();
+
+  // Shape check: "HH:MM"
+  if (!/^[0-2]\d:[0-5]\d$/.test(timeText)) {
+    return { ok: false };
+  }
+
+  const hours = parseInt(timeText.slice(0, 2), 10);
+  const minutes = parseInt(timeText.slice(3, 5), 10);
+
+  if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) {
+    return { ok: false };
+  }
+
+  return { ok: true, h: hours, m: minutes };
 }
 
-function ValidateHHMMUsingFwScheduleTime(hhmm){
-  var v = (hhmm || '').trim();
-  var parts = v.split(':');
+function ValidateHHMMUsingFwScheduleTime(timeText) {
+  const trimmed = String(timeText || '').trim();
+  const parts = trimmed.split(':');
+
   // One unified message for ANY invalid time input
-  var commonMsg = fwScheduleTime.ErrorMsgHOUR() + '\n' + fwScheduleTime.ErrorMsgMINS();
+  const commonMessage =
+    fwScheduleTime.ErrorMsgHOUR() + '\n' + fwScheduleTime.ErrorMsgMINS();
 
-  if (parts.length !== 2){
-    return { ok: false, msg: commonMsg };
+  if (parts.length !== 2) {
+    return { ok: false, msg: commonMessage };
   }
-  var H = parts[0], M = parts[1];
-  var hOk = fwScheduleTime.ValidateHOUR(H);
-  var mOk = fwScheduleTime.ValidateMINS(M);
-  // Always return the same message when invalid; no hour/minute-specific messaging
-  return { ok: (hOk && mOk), msg: (hOk && mOk) ? '' : commonMsg };
+
+  const hourText = parts[0];
+  const minuteText = parts[1];
+
+  const isHourValid = fwScheduleTime.ValidateHOUR(hourText);
+  const isMinuteValid = fwScheduleTime.ValidateMINS(minuteText);
+  const isValid = isHourValid && isMinuteValid;
+
+  // Always return the same message when invalid; no field-specific messaging
+  return { ok: isValid, msg: isValid ? '' : commonMessage };
 }
 
-function MarkTimePickerInvalid(T, msg){
-  if (!T) return;
+function MarkTimePickerInvalid(targetElement, message) {
+  if (!targetElement) return;
+
+  // Record invalid state in globals
   fwTimeInvalidFromConfig = true;
-  fwTimeInvalidMsg = msg;
+  fwTimeInvalidMsg = message;
 
-  var $t = $(T);
-  $t.addClass('Invalid').off('.fwtime')
-    .on('mouseover.fwtime', function(){ return overlib(msg,0,0); })
-    .on('mouseleave.fwtime input.fwtime keydown.fwtime keyup.fwtime blur.fwtime', function(){ try { nd(); } catch(e){} });
+  const $target = $(targetElement);
 
-  try { nd(); } catch(e){}
-  T.setAttribute('aria-invalid','true');
-  T.value = '';
+  $target
+    .addClass('Invalid')
+    .off('.fwtime')
+    .on('mouseover.fwtime', function () {
+      return overlib(message, 0, 0);
+    })
+    .on(
+      'mouseleave.fwtime input.fwtime keydown.fwtime keyup.fwtime blur.fwtime',
+      function () {
+        try { nd(); } catch (e) {}
+      }
+    );
 
-  // If our fallback is attached, focus the hour select instead of the hidden input
-  if (T.dataset && T.dataset.mauTimeApplied === '1') {
-    var wrap = T.nextElementSibling; // our <span> wrapper
-    var sel = wrap && wrap.querySelector('select');
-    if (sel) { sel.focus(); return; }
+  // Ensure any existing tooltip is closed immediately
+  try { nd(); } catch (e) {}
+
+  targetElement.setAttribute('aria-invalid', 'true');
+  targetElement.value = '';
+
+  // If fallback is attached, focus the hour <select> instead of the hidden input
+  if (
+    targetElement.dataset &&
+    targetElement.dataset.mauTimeApplied === '1'
+  ) {
+    const wrapper = targetElement.nextElementSibling; // our <span> wrapper
+    const firstSelect = wrapper && wrapper.querySelector('select');
+    if (firstSelect) {
+      firstSelect.focus();
+      return;
+    }
   }
-  setTimeout(function(){ T.focus(); }, 0);
+
+  setTimeout(function () {
+    targetElement.focus();
+  }, 0);
 }
 
-function ClearTimePickerInvalid(T){
-  if (!T) return;
+function ClearTimePickerInvalid(targetElement) {
+  if (!targetElement) return;
+
   fwTimeInvalidFromConfig = false;
   fwTimeInvalidMsg = '';
-  var $t = $(T);
-  $t.removeClass('Invalid');
-  $t.off('.fwtime');        // remove our handlers
-  try { nd(); } catch(e){}  // force-close any lingering overlib
-  T.removeAttribute('aria-invalid');
+
+  const $target = $(targetElement);
+  $target.removeClass('Invalid');
+  $target.off('.fwtime');   // remove our handlers
+
+  // Force-close any lingering overlib tooltip
+  try { nd(); } catch (e) {}
+
+  targetElement.removeAttribute('aria-invalid');
 }
 
-function ValidateTimePicker(el){
-  if (!el) return false;
-  var r = ValidateHHMMUsingFwScheduleTime(el.value);
-  if (r.ok){
-    try { nd(); } catch(e){}
-    ClearTimePickerInvalid(el);
+function ValidateTimePicker(inputElement) {
+  if (!inputElement) return false;
+
+  const result = ValidateHHMMUsingFwScheduleTime(inputElement.value);
+
+  if (result.ok) {
+    try { nd(); } catch (e) {}
+    ClearTimePickerInvalid(inputElement);
     return true;
-  }else{
-    // keep newline-><br> for overlib formatting
-    MarkTimePickerInvalid(el, (r.msg || '').replace(/\n/g,'<br>'));
-    return false;
   }
+
+  // Keep newline-><br> for overlib formatting
+  const htmlMessage = String(result.msg || '').replace(/\n/g, '<br>');
+  MarkTimePickerInvalid(inputElement, htmlMessage);
+  return false;
 }
 
 /**-------------------------------------**/
@@ -656,148 +752,198 @@ function SetScheduleDAYofWEEK (cronDAYofWEEK)
 /** Modified by ExtremeFiretop [2025-Aug-24] **/
 /**------------------------------------------**/
 // FW_New_Update_Cron_Job_Schedule //
-function FWConvertCronScheduleToWebUISettings(rawCronSchedule){
-  let s = (rawCronSchedule || '').replace(/\|/g,' ').trim();
-  let fwRaw = s.split(/\s+/);
-  let T = document.getElementById('fwScheduleTIME');
-  if (!T) return;
+function FWConvertCronScheduleToWebUISettings(rawCronSchedule) {
+  const cronText = String(rawCronSchedule || '').replace(/\|/g, ' ').trim();
+  const fields = cronText.split(/\s+/);
 
-  ClearTimePickerInvalid(T);
+  const timeInputEl = document.getElementById('fwScheduleTIME');
+  if (!timeInputEl) return;
 
-  if (fwRaw.length < 5) {
+  ClearTimePickerInvalid(timeInputEl);
+
+  // Incomplete cron -> default to daily at 00:00
+  if (fields.length < 5) {
     ToggleDaysOfWeek(true, '1');
-    document.getElementById('fwSchedBoxDAYS1')?.setAttribute('checked','');
-    T.value = '00:00';
-    T.disabled = false;
+    const dailyBox = document.getElementById('fwSchedBoxDAYS1');
+    if (dailyBox) dailyBox.checked = true;
+    timeInputEl.value = '00:00';
+    timeInputEl.disabled = false;
     return;
   }
 
-  let [rawM, rawH, rawDM, rawMN, rawDW] = fwRaw;
+  const [rawM, rawH, rawDM, rawMN, rawDW] = fields;
 
   // ---- Time handling: use fwScheduleTime messages only ----
-  let timeCheck = ValidateHHMMUsingFwScheduleTime(String(rawH) + ':' + String(rawM));
-  if (!timeCheck.ok){
-    MarkTimePickerInvalid(T, (timeCheck.msg || '').replace(/\n/g,'<br>'));
+  const timeValidation = ValidateHHMMUsingFwScheduleTime(
+    String(rawH) + ':' + String(rawM)
+  );
+
+  if (!timeValidation.ok) {
+    const htmlMsg = String(timeValidation.msg || '').replace(/\n/g, '<br>');
+    MarkTimePickerInvalid(timeInputEl, htmlMsg);
   } else {
-    let h = parseInt(rawH,10), m = parseInt(rawM,10);
-    var hh = (h < 10 ? '0' : '') + h;
-    var mm = (m < 10 ? '0' : '') + m;
-    T.value = hh + ':' + mm;
-    ClearTimePickerInvalid(T);
+    const hourNum = parseInt(rawH, 10);
+    const minuteNum = parseInt(rawM, 10);
+    const hh = String(hourNum).padStart(2, '0');
+    const mm = String(minuteNum).padStart(2, '0');
+    timeInputEl.value = hh + ':' + mm;
+    ClearTimePickerInvalid(timeInputEl);
   }
 
-  // Days logic 
-  if (rawDM.match ('[*]/([2-9]|1[0-5])') !== null){
+  // ---- Days logic ----------------------------------------------------------
+  // Every X days of month, where X in [2..15]
+  if (/^\*\/([2-9]|1[0-5])$/.test(rawDM)) {
     ToggleDaysOfWeek(true, 'X');
-    fwSchedX = document.getElementById('fwSchedBoxDAYSX');
-    if (fwSchedX){ fwSchedX.checked = true; fwSchedX.disabled = false; }
-    fwXD = document.getElementById('fwScheduleXDAYS');
-    let temp = rawDM.split('/');
-    if (fwXD && temp.length > 1){ fwXD.value = temp[1]; }
-    T.disabled = false;
+
+    const xDaysBox = document.getElementById('fwSchedBoxDAYSX');
+    if (xDaysBox) {
+      xDaysBox.checked = true;
+      xDaysBox.disabled = false;
+    }
+
+    const xDaysInput = document.getElementById('fwScheduleXDAYS');
+    const dmParts = rawDM.split('/');
+    if (xDaysInput && dmParts.length > 1) {
+      xDaysInput.value = dmParts[1];
+    }
+
+    timeInputEl.disabled = false;
     return;
   }
-  else if (rawDW.match ('[*]/[2-3]') !== null){
+
+  // Every 2 or 3 days of week (*/2 or */3)
+  if (/^\*\/[2-3]$/.test(rawDW)) {
     ToggleDaysOfWeek(true, 'X');
-    fwSchedX = document.getElementById('fwSchedBoxDAYSX');
-    if (fwSchedX){ fwSchedX.checked = true; fwSchedX.disabled = false; }
-    fwXD = document.getElementById('fwScheduleXDAYS');
-    let temp = rawDW.split('/');
-    if (fwXD && temp.length > 1){ fwXD.value = temp[1]; }
-    T.disabled = false;
+
+    const xDaysBox = document.getElementById('fwSchedBoxDAYSX');
+    if (xDaysBox) {
+      xDaysBox.checked = true;
+      xDaysBox.disabled = false;
+    }
+
+    const xDaysInput = document.getElementById('fwScheduleXDAYS');
+    const dwParts = rawDW.split('/');
+    if (xDaysInput && dwParts.length > 1) {
+      xDaysInput.value = dwParts[1];
+    }
+
+    timeInputEl.disabled = false;
     return;
   }
-  else if (rawDM === '*' && rawDW === '*'){
+
+  // Daily (both DoM and DoW are wildcards)
+  if (rawDM === '*' && rawDW === '*') {
     ToggleDaysOfWeek(true, '1');
-    fwSchedD1 = document.getElementById('fwSchedBoxDAYS1');
-    if (fwSchedD1){ fwSchedD1.checked = true; fwSchedD1.disabled = false; }
-    T.disabled = false;
-    return;
-  }
-  else if (rawDM != '*' || rawMN != '*'){
-    // Not handled in UI (DoM/Month intervals)
-    ToggleDaysOfWeek(true, '0'); // disable day checkboxes
-    T.disabled = false;
+
+    const dailyBox = document.getElementById('fwSchedBoxDAYS1');
+    if (dailyBox) {
+      dailyBox.checked = true;
+      dailyBox.disabled = false;
+    }
+
+    timeInputEl.disabled = false;
     return;
   }
 
-  if (ValidateScheduleDAYofWEEK(rawDW)){ SetScheduleDAYofWEEK(rawDW); }
-  T.disabled = false;
+  // Not handled in UI: specific DoM or Month expressions
+  if (rawDM !== '*' || rawMN !== '*') {
+    ToggleDaysOfWeek(true, '0'); // disable day checkboxes
+    timeInputEl.disabled = false;
+    return;
+  }
+
+  // Specific DOW lists/ranges like "1-5", "1,3,5"
+  if (ValidateScheduleDAYofWEEK(rawDW)) {
+    SetScheduleDAYofWEEK(rawDW);
+  }
+
+  timeInputEl.disabled = false;
 }
 
 /**------------------------------------------**/
 /** Modified by ExtremeFiretop [2025-Aug-24] **/
 /**------------------------------------------**/
-function FWConvertWebUISettingsToCronSchedule(oldRawCronSchedule){
-  const delimChar = '|';
-  const defaultSchedule = '0|0|*|*|*';
+function FWConvertWebUISettingsToCronSchedule(previousCronSchedule) {
+  const fieldDelimiter = '|';
+  const defaultCron = '0|0|*|*|*';
 
-  if (oldRawCronSchedule === 'TBD' || oldRawCronSchedule.split(' ').length < 5){
-    return defaultSchedule;
+  const normalizedOld = String(previousCronSchedule || '')
+    .replace(/\|/g, ' ')
+    .trim();
+
+  if (normalizedOld === 'TBD' || normalizedOld.split(/\s+/).length < 5) {
+    return defaultCron;
   }
 
-  let fwRawSchedMINS = '0';
-  let fwRawSchedHOUR = '0';
-  let fwRawSchedDAYM = '*';
-  let fwRawSchedMNTH = '*';
-  let fwRawSchedDAYW = '*';
+  let cronMinute = '0';
+  let cronHour = '0';
+  let cronDayOfMonth = '*';
+  let cronMonth = '*';
+  let cronDayOfWeek = '*';
 
-  let T = document.getElementById('fwScheduleTIME');
+  const timeInputEl = document.getElementById('fwScheduleTIME');
 
-  // time from the single control
-  let parsed = ParseTimeHHMM(T ? T.value : '');
-  if (parsed.ok){
-    fwRawSchedHOUR = String(parsed.h);
-    fwRawSchedMINS = String(parsed.m);
+  // Time from the single control
+  const parsedTime = ParseTimeHHMM(timeInputEl ? timeInputEl.value : '');
+  if (parsedTime && parsedTime.ok) {
+    cronHour = String(parsedTime.h);
+    cronMinute = String(parsedTime.m);
   }
 
-  // days logic (unchanged)
-  let fwScheduleDAYS1 = document.getElementById('fwSchedBoxDAYS1');
-  let fwSchedBoxDAYSX = document.getElementById('fwSchedBoxDAYSX');
-  let fwScheduleXDAYS = document.getElementById('fwScheduleXDAYS');
-  let fwScheduleMON = document.getElementById('fwSched_MON');
-  let fwScheduleTUE = document.getElementById('fwSched_TUE');
-  let fwScheduleWED = document.getElementById('fwSched_WED');
-  let fwScheduleTHU = document.getElementById('fwSched_THU');
-  let fwScheduleFRI = document.getElementById('fwSched_FRI');
-  let fwScheduleSAT = document.getElementById('fwSched_SAT');
-  let fwScheduleSUN = document.getElementById('fwSched_SUN');
+  // Days logic (unchanged behavior)
+  const everyDayBox = document.getElementById('fwSchedBoxDAYS1');
+  const xDaysBox = document.getElementById('fwSchedBoxDAYSX');
+  const xDaysInput = document.getElementById('fwScheduleXDAYS');
 
-  if (fwScheduleDAYS1 && fwScheduleDAYS1.checked && fwScheduleDAYS1.disabled === false){
-    fwRawSchedDAYM = '*';
-    fwRawSchedDAYW = '*';
-  }
-  else if (fwSchedBoxDAYSX && fwSchedBoxDAYSX.checked && fwSchedBoxDAYSX.disabled === false){
-    if ((fwScheduleXDAYS.value == 2 || fwScheduleXDAYS.value == 3)){
-      fwRawSchedDAYM = '*';
-      fwRawSchedDAYW = '*/' + fwScheduleXDAYS.value;
-    } else {
-      fwRawSchedDAYW = '*';
-      fwRawSchedDAYM = '*/' + fwScheduleXDAYS.value;
+  const monBox = document.getElementById('fwSched_MON');
+  const tueBox = document.getElementById('fwSched_TUE');
+  const wedBox = document.getElementById('fwSched_WED');
+  const thuBox = document.getElementById('fwSched_THU');
+  const friBox = document.getElementById('fwSched_FRI');
+  const satBox = document.getElementById('fwSched_SAT');
+  const sunBox = document.getElementById('fwSched_SUN');
+
+  const isCheckedEnabled = (el) => !!(el && el.checked && !el.disabled);
+
+  if (isCheckedEnabled(everyDayBox)) {
+    cronDayOfMonth = '*';
+    cronDayOfWeek = '*';
+  } else if (isCheckedEnabled(xDaysBox)) {
+    const xDaysVal = parseInt(xDaysInput ? xDaysInput.value : '', 10);
+    if (xDaysVal === 2 || xDaysVal === 3) {
+      cronDayOfMonth = '*';
+      cronDayOfWeek = '*/' + xDaysVal;
+    } else if (!Number.isNaN(xDaysVal) && xDaysVal > 0) {
+      cronDayOfWeek = '*';
+      cronDayOfMonth = '*/' + xDaysVal;
+    }
+  } else {
+    const dowIndices = [];
+    const dowNames = [];
+
+    if (isCheckedEnabled(sunBox)) { dowIndices.push(0); dowNames.push('Sun'); }
+    if (isCheckedEnabled(monBox)) { dowIndices.push(1); dowNames.push('Mon'); }
+    if (isCheckedEnabled(tueBox)) { dowIndices.push(2); dowNames.push('Tue'); }
+    if (isCheckedEnabled(wedBox)) { dowIndices.push(3); dowNames.push('Wed'); }
+    if (isCheckedEnabled(thuBox)) { dowIndices.push(4); dowNames.push('Thu'); }
+    if (isCheckedEnabled(friBox)) { dowIndices.push(5); dowNames.push('Fri'); }
+    if (isCheckedEnabled(satBox)) { dowIndices.push(6); dowNames.push('Sat'); }
+
+    if (dowNames.length > 0) {
+      cronDayOfMonth = '*';
+      cronMonth = '*';
+      cronDayOfWeek =
+        dowNames.length === 7 ? '*' : GetCronDAYofWEEK(dowIndices, dowNames);
     }
   }
-  else {
-    let daysOfWeekArray = [], daysOfWeekIndex = [];
-    if (fwScheduleSUN && fwScheduleSUN.checked && fwScheduleSUN.disabled === false){ daysOfWeekIndex.push(0); daysOfWeekArray.push('Sun'); }
-    if (fwScheduleMON && fwScheduleMON.checked && fwScheduleMON.disabled === false){ daysOfWeekIndex.push(1); daysOfWeekArray.push('Mon'); }
-    if (fwScheduleTUE && fwScheduleTUE.checked && fwScheduleTUE.disabled === false){ daysOfWeekIndex.push(2); daysOfWeekArray.push('Tue'); }
-    if (fwScheduleWED && fwScheduleWED.checked && fwScheduleWED.disabled === false){ daysOfWeekIndex.push(3); daysOfWeekArray.push('Wed'); }
-    if (fwScheduleTHU && fwScheduleTHU.checked && fwScheduleTHU.disabled === false){ daysOfWeekIndex.push(4); daysOfWeekArray.push('Thu'); }
-    if (fwScheduleFRI && fwScheduleFRI.checked && fwScheduleFRI.disabled === false){ daysOfWeekIndex.push(5); daysOfWeekArray.push('Fri'); }
-    if (fwScheduleSAT && fwScheduleSAT.checked && fwScheduleSAT.disabled === false){ daysOfWeekIndex.push(6); daysOfWeekArray.push('Sat'); }
 
-    if (daysOfWeekArray.length > 0){
-      fwRawSchedDAYM = '*';
-      fwRawSchedMNTH = '*';
-      fwRawSchedDAYW = (daysOfWeekArray.length == 7) ? '*' : GetCronDAYofWEEK(daysOfWeekIndex, daysOfWeekArray);
-    }
-  }
-
-  return fwRawSchedMINS + delimChar +
-         fwRawSchedHOUR + delimChar +
-         fwRawSchedDAYM + delimChar +
-         fwRawSchedMNTH + delimChar +
-         fwRawSchedDAYW;
+  return [
+    cronMinute,
+    cronHour,
+    cronDayOfMonth,
+    cronMonth,
+    cronDayOfWeek
+  ].join(fieldDelimiter);
 }
 
 /**----------------------------------------**/
