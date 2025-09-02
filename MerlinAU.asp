@@ -339,6 +339,49 @@ function ToggleDaysOfWeek (isEveryXDayChecked, numberOfDays)
    }
 }
 
+function MerlinAU_TimeSelectFallbackAttach(id) {
+  var input = document.getElementById(id);
+  if (!input) return;
+
+  var isFirefox = /firefox/i.test(navigator.userAgent);
+  if (!isFirefox && typeof input.showPicker === 'function') return;
+
+  function pad(n){ return (n<10?'0':'')+n; }
+  function parseHHMM(v){
+    v = (v||'').trim();
+    var m = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(v);
+    if (m) return {h:+m[1], m:+m[2]};
+    var d = new Date(); return {h:d.getHours(), m:d.getMinutes()};
+  }
+
+  var wrap = document.createElement('span');
+  var selH = document.createElement('select');
+  var selM = document.createElement('select');
+
+  for (var h=0; h<24; h++) selH.add(new Option(pad(h), h));
+  for (var m=0; m<60; m++) selM.add(new Option(pad(m), m));
+
+  input.readOnly = true;
+
+  function apply(){
+    var hh = pad(+selH.value), mm = pad(+selM.value);
+    input.value = hh + ':' + mm;
+    if (window.ClearTimePickerInvalid) window.ClearTimePickerInvalid(input);
+    if (window.ValidateTimePicker) window.ValidateTimePicker(input);
+  }
+
+  if (input.nextSibling) input.parentNode.insertBefore(wrap, input.nextSibling);
+  else input.parentNode.appendChild(wrap);
+  wrap.appendChild(selH);
+  wrap.appendChild(document.createTextNode(' : '));
+  wrap.appendChild(selM);
+
+  var start = parseHHMM(input.value);
+  selH.value = start.h; selM.value = start.m;
+  selH.onchange = apply; selM.onchange = apply;
+  apply(); // normalize displayed HH:MM
+}
+
 /**---------------------------------------**/
 /** Added by ExtremeFiretop [2025-Aug-24] **/
 /**---------------------------------------**/
@@ -2107,6 +2150,7 @@ function initial()
     UpdateScriptVersion();
     showhide('Script_AutoUpdate_SchedText',true);
     showhide('FW_AutoUpdate_CheckSchedText',true);
+    MerlinAU_TimeSelectFallbackAttach('fwScheduleTIME');
 
     // Debugging iframe behavior //
     var hiddenFrame = document.getElementById('hidden_frame');
@@ -2929,7 +2973,7 @@ function initializeCollapsibleSections()
         name="fwScheduleTIME"
         value="00:00"
         step="60"
-        style="width: 140px; margin-left: 18px; margin-top: 6px; margin-bottom: 10px;"
+        style="width: 120px; margin-left: 18px; margin-top: 6px; margin-bottom: 10px;"
         oninput="ValidateTimePicker(this)"
         onblur="ValidateTimePicker(this)"
       />
