@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Aug-13
+# Last Modified: 2025-Sep-01
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.5.4
-readonly SCRIPT_VERSTAG="25082423"
+readonly SCRIPT_VERSTAG="25090208"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -501,6 +501,12 @@ _AcquireLock_()
    done
    return "$retCode"
 }
+
+##-------------------------------------##
+## Added by Martinski W. [2025-Sep-01] ##
+##-------------------------------------##
+_EscapeChars_()
+{ printf "%s" "$1" | sed 's/[][\/$.*^&-]/\\&/g' ; }
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Dec-26] ##
@@ -2563,7 +2569,7 @@ _ActionsAfterNewConfigSettings_()
 ##----------------------------------------##
 _UpdateConfigFromWebUISettings_()
 {
-   [ ! -f "$SHARED_SETTINGS_FILE" ] && return 1
+   [ ! -s "$SHARED_SETTINGS_FILE" ] && return 1
 
    local settingsMergeOK=true  logMsgTag="with errors."
    local oldLoginCredsENC  doRouterLoginTest=false
@@ -6131,12 +6137,44 @@ _Calculate_NextRunTime_()
     fi
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Sep-01] ##
+##-------------------------------------##
+_CheckFWAutoUpdateCronJobExists_()
+{
+   local fullCheck=true  cronSchedule  grepSchedStr
+
+   if [ $# -gt 0 ] && [ "$1" = "ANY" ]
+   then fullCheck=false
+   fi
+
+   if ! "$fullCheck"
+   then
+       if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+       then return 0
+       else return 1
+       fi
+   fi
+
+   cronSchedule="$(Get_Custom_Setting FW_New_Update_Cron_Job_Schedule)"
+   if [ -z "$cronSchedule" ] || [ "$cronSchedule" = "TBD" ]
+   then
+       cronSchedule="$FW_Update_CRON_DefaultSchedule"
+   fi
+   grepSchedStr="$(_EscapeChars_ "$cronSchedule")"
+
+   if eval $cronListCmd | grep -qE "^$grepSchedStr $CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   then return 0
+   else return 1
+   fi
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2023-Nov-19] ##
+## Modified by Martinski W. [2025-Sep-01] ##
 ##----------------------------------------##
 _AddFWAutoUpdateCronJob_()
 {
-   local newSchedule  newSetting  retCode=1
+   local newSchedule  newSetting  grepSchedStr  retCode=1
    if [ $# -gt 0 ] && [ -n "$1" ]
    then
        newSetting=true
@@ -6147,16 +6185,24 @@ _AddFWAutoUpdateCronJob_()
    fi
    if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD" ]
    then
+       newSetting=true
        newSchedule="$FW_Update_CRON_DefaultSchedule"
+   fi
+   grepSchedStr="$(_EscapeChars_ "$newSchedule")"
+
+   if eval $cronListCmd | grep -qE "^$grepSchedStr $CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   then
+       return 0  #Already exists#
    fi
 
    cru a "$CRON_JOB_TAG" "$newSchedule $CRON_JOB_RUN"
    sleep 1
-   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if eval $cronListCmd | grep -qE "^$grepSchedStr $CRON_JOB_RUN #${CRON_JOB_TAG}#$"
    then
        retCode=0
        "$newSetting" && \
        Update_Custom_Settings FW_New_Update_Cron_Job_Schedule "$newSchedule"
+       _Calculate_NextRunTime_ recal
    fi
    return "$retCode"
 }
@@ -6167,10 +6213,10 @@ _AddFWAutoUpdateCronJob_()
 _DelFWAutoUpdateCronJob_()
 {
    local retCode
-   if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+   if _CheckFWAutoUpdateCronJobExists_ ANY
    then
        cru d "$CRON_JOB_TAG" ; sleep 1
-       if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+       if _CheckFWAutoUpdateCronJobExists_ ANY
        then
            retCode=1
            printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
@@ -6238,21 +6284,27 @@ _GetScriptAutoUpdateCronSchedule_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-21] ##
+## Modified by Martinski W. [2025-Sep-01] ##
 ##----------------------------------------##
 _AddScriptAutoUpdateCronJob_()
 {
-   local newSchedule  retCode=1
+   local newSchedule  grepSchedStr  retCode=1
 
    newSchedule="$(_GetScriptAutoUpdateCronSchedule_)"
    if [ -z "$newSchedule" ] || [ "$newSchedule" = "TBD" ]
    then
        newSchedule="$ScriptAU_CRON_DefaultSchedule"
    fi
+   grepSchedStr="$(_EscapeChars_ "$newSchedule")"
+
+   if eval $cronListCmd | grep -qE "^$grepSchedStr $SCRIPT_UP_CRON_JOB_RUN #${SCRIPT_UP_CRON_JOB_TAG}#$"
+   then
+       return 0  #Already exists#
+   fi
 
    cru a "$SCRIPT_UP_CRON_JOB_TAG" "$newSchedule $SCRIPT_UP_CRON_JOB_RUN"
    sleep 1
-   if eval $cronListCmd | grep -qE "$SCRIPT_UP_CRON_JOB_RUN #${SCRIPT_UP_CRON_JOB_TAG}#$"
+   if eval $cronListCmd | grep -qE "^$grepSchedStr $SCRIPT_UP_CRON_JOB_RUN #${SCRIPT_UP_CRON_JOB_TAG}#$"
    then
        retCode=0
    fi
@@ -6810,7 +6862,6 @@ _Set_FW_UpdateCronScheduleCustom_()
             printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
             current_schedule_english="$(translate_schedule "$nextCronSchedule")"
             printf "Job Schedule: ${GRNct}${current_schedule_english}${NOct}\n"
-            _Calculate_NextRunTime_ recal
         else
             retCode=1
             printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
@@ -7211,14 +7262,13 @@ _Set_FW_UpdateCronScheduleGuided_()
        printf "Updating '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
        if _AddFWAutoUpdateCronJob_ "$nextCronSched"
        then
-            retCode=0
-            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
-            cronSchedStrHR="$(_TranslateCronSchedHR_ "$nextCronSched")"
-            printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
-            _Calculate_NextRunTime_ recal
+           retCode=0
+           printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was updated successfully.\n"
+           cronSchedStrHR="$(_TranslateCronSchedHR_ "$nextCronSched")"
+           printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
        else
-            retCode=1
-            printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
+           retCode=1
+           printf "${REDct}**ERROR**${NOct}: Failed to add/update the cron job [${CRON_JOB_TAG}].\n"
        fi
    else
        retCode=0
@@ -10035,7 +10085,7 @@ _EnableFWAutoUpdateChecks_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-11] ##
+## Modified by Martinski W. [2025-Sep-01] ##
 ##----------------------------------------##
 _ConfirmCronJobForFWAutoUpdates_()
 {
@@ -10046,7 +10096,8 @@ _ConfirmCronJobForFWAutoUpdates_()
     # Check if the PREVIOUS Cron Job ID already exists #
     if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
     then  #If it exists, delete the OLD one & create a NEW one#
-        cru d "$CRON_JOB_TAG_OLD" ; sleep 1 ; _AddFWAutoUpdateCronJob_
+        cru d "$CRON_JOB_TAG_OLD" ; sleep 1
+        _AddFWAutoUpdateCronJob_
     fi
 
     # Retrieve custom setting for automatic F/W update checks #
@@ -10068,7 +10119,7 @@ _ConfirmCronJobForFWAutoUpdates_()
     # 1) "ENABLED": Automatically enable checks (no user prompt) #
     if [ "$fwUpdateCheckState" = "ENABLED" ]
     then
-        if ! eval "$cronListCmd" | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+        if ! _CheckFWAutoUpdateCronJobExists_
         then
             printf "Auto-enabling cron job '${GRNct}${CRON_JOB_TAG}${NOct}'...\n"
             if _AddFWAutoUpdateCronJob_
@@ -10087,7 +10138,7 @@ _ConfirmCronJobForFWAutoUpdates_()
     # 2) "TBD": Prompt the user (original behavior) #
     elif [ "$fwUpdateCheckState" = "TBD" ]
     then
-        if ! eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+        if ! _CheckFWAutoUpdateCronJobExists_
         then
             _ShowLogo_
             printf "Do you want to enable automatic firmware update checks?\n"
@@ -10096,20 +10147,14 @@ _ConfirmCronJobForFWAutoUpdates_()
 
             if _WaitForYESorNO_
             then
-                # User said YES -> enable checks #
                 printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
-                if ! eval "$cronListCmd" | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG}#$"
+                if _AddFWAutoUpdateCronJob_
                 then
-                    if _AddFWAutoUpdateCronJob_
-                    then
-                        printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
-                        cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
-                        printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
-                    else
-                        printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
-                    fi
+                    printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                    cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
+                    printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
                 else
-                    printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+                    printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
                 fi
                 _EnableFWAutoUpdateChecks_
             else
