@@ -374,6 +374,7 @@ function MerlinAU_TimeSelectFallbackAttach(elementId) {
 
   const wrapper = document.createElement('span');
   wrapper.className = 'mau-time-fallback';
+  wrapper.style.marginLeft = '10px'; // add spacing between input and fallback
 
   const hourSelect = document.createElement('select');
   const minuteSelect = document.createElement('select');
