@@ -41,6 +41,7 @@ let isFormSubmitting = false;
 let FW_NewUpdateVersAvailable = '';
 var fwTimeInvalidFromConfig = false;
 var fwTimeInvalidMsg = '';
+var fwUpdateEstimatedRunDate = 'TBD';
 
 // Order of NVRAM keys to search for 'Model ID' and 'Product ID' //
 const modelKeys = ["nvram_odmpid", "nvram_wps_modelnum", "nvram_model", "nvram_build_name"];
@@ -343,8 +344,16 @@ function MerlinAU_TimeSelectFallbackAttach(id) {
   var input = document.getElementById(id);
   if (!input) return;
 
+  // guard: don’t double-attach
+  if (input.dataset.mauTimeApplied === '1') return;
+
+  // Native is fine almost everywhere except Firefox.
   var isFirefox = /firefox/i.test(navigator.userAgent);
-  if (!isFirefox && typeof input.showPicker === 'function') return;
+  var probe = document.createElement('input');
+  probe.type = 'time';
+  var hasNative = (probe.type === 'time'); // real time input, not text
+
+  if (hasNative && !isFirefox) return; // keep native on Chrome/Edge/Safari/iOS/Android
 
   function pad(n){ return (n<10?'0':'')+n; }
   function parseHHMM(v){
@@ -355,19 +364,29 @@ function MerlinAU_TimeSelectFallbackAttach(id) {
   }
 
   var wrap = document.createElement('span');
+  wrap.className = 'mau-time-fallback';
   var selH = document.createElement('select');
   var selM = document.createElement('select');
 
   for (var h=0; h<24; h++) selH.add(new Option(pad(h), h));
-  for (var m=0; m<60; m++) selM.add(new Option(pad(m), m));
+  var stepSec = parseInt(input.getAttribute('step') || '60', 10);
+  if (isNaN(stepSec) || stepSec < 60) stepSec = 60;
+  var minInc = Math.max(1, Math.floor(stepSec/60));
+  for (var m=0; m<60; m+=minInc) selM.add(new Option(pad(m), m));
 
   input.readOnly = true;
+  input.dataset.mauTimeApplied = '1';
+
+  function emit(el, type){
+    el.dispatchEvent(new Event(type, { bubbles:true }));
+  }
 
   function apply(){
     var hh = pad(+selH.value), mm = pad(+selM.value);
     input.value = hh + ':' + mm;
     if (window.ClearTimePickerInvalid) window.ClearTimePickerInvalid(input);
     if (window.ValidateTimePicker) window.ValidateTimePicker(input);
+    emit(input,'input'); emit(input,'change');
   }
 
   if (input.nextSibling) input.parentNode.insertBefore(wrap, input.nextSibling);
@@ -376,10 +395,40 @@ function MerlinAU_TimeSelectFallbackAttach(id) {
   wrap.appendChild(document.createTextNode(' : '));
   wrap.appendChild(selM);
 
+  input.setAttribute('aria-hidden','true');
+  input.tabIndex = -1;
+  selH.setAttribute('aria-label','Hour');
+  selM.setAttribute('aria-label','Minute');
+
   var start = parseHHMM(input.value);
   selH.value = start.h; selM.value = start.m;
   selH.onchange = apply; selM.onchange = apply;
-  apply(); // normalize displayed HH:MM
+  var flaggedInvalid = (input.getAttribute('aria-invalid') === 'true') ||
+                       (typeof fwTimeInvalidFromConfig !== 'undefined' && fwTimeInvalidFromConfig) ||
+                       (input.classList && input.classList.contains('Invalid'));
+
+  if (!flaggedInvalid) {
+    apply(); // normalize displayed HH:MM
+  }
+  
+  function syncDisabled(){
+    var dis = !!input.disabled;
+    selH.disabled = dis; selM.disabled = dis;
+    wrap.style.opacity = dis ? '0.5' : '1';
+  }
+  syncDisabled();
+
+  var mo = new MutationObserver(syncDisabled);
+  mo.observe(input, { attributes:true, attributeFilter:['disabled'] });
+
+  function syncFromInput(){
+    var v = (input.value || '').trim();
+    if (!v) return; // keep current selects if input was cleared for invalid state
+    var t = parseHHMM(v);
+    selH.value = t.h; selM.value = t.m;
+  }
+  input.addEventListener('input', syncFromInput);
+  input.addEventListener('change', syncFromInput);
 }
 
 /**---------------------------------------**/
@@ -415,20 +464,21 @@ function MarkTimePickerInvalid(T, msg){
   fwTimeInvalidMsg = msg;
 
   var $t = $(T);
-  $t.addClass('Invalid');
-  // Remove ONLY namespaced handlers, then rebind
-  $t.off('.fwtime');
-  // Show tooltip ONLY on mouseover (no focus)
-  $t.on('mouseover.fwtime', function(){ return overlib(msg,0,0); });
-  // Hide tooltip as soon as user stops hovering or edits/leaves the field
-  $t.on('mouseleave.fwtime input.fwtime keydown.fwtime keyup.fwtime blur.fwtime', function(){
-    try { nd(); } catch(e){}
-  });
-  // if something already opened a tooltip, close it now
+  $t.addClass('Invalid').off('.fwtime')
+    .on('mouseover.fwtime', function(){ return overlib(msg,0,0); })
+    .on('mouseleave.fwtime input.fwtime keydown.fwtime keyup.fwtime blur.fwtime', function(){ try { nd(); } catch(e){} });
+
   try { nd(); } catch(e){}
   T.setAttribute('aria-invalid','true');
   T.value = '';
-  setTimeout(function(){ T.focus(); }, 0); // focus no longer triggers tooltip
+
+  // If our fallback is attached, focus the hour select instead of the hidden input
+  if (T.dataset && T.dataset.mauTimeApplied === '1') {
+    var wrap = T.nextElementSibling; // our <span> wrapper
+    var sel = wrap && wrap.querySelector('select');
+    if (sel) { sel.focus(); return; }
+  }
+  setTimeout(function(){ T.focus(); }, 0);
 }
 
 function ClearTimePickerInvalid(T){
@@ -607,25 +657,22 @@ function SetScheduleDAYofWEEK (cronDAYofWEEK)
 /**------------------------------------------**/
 // FW_New_Update_Cron_Job_Schedule //
 function FWConvertCronScheduleToWebUISettings(rawCronSchedule){
-  let fwRaw = rawCronSchedule.split(' ');
+  let s = (rawCronSchedule || '').replace(/\|/g,' ').trim();
+  let fwRaw = s.split(/\s+/);
   let T = document.getElementById('fwScheduleTIME');
-  let fwSchedD1, fwSchedX, fwXD;
-
   if (!T) return;
 
-  // default UI state
   ClearTimePickerInvalid(T);
 
-  if (rawCronSchedule === 'TBD' || fwRaw.length < 5){
+  if (fwRaw.length < 5) {
     ToggleDaysOfWeek(true, '1');
-    fwSchedD1 = document.getElementById('fwSchedBoxDAYS1');
-    if (fwSchedD1){ fwSchedD1.checked = true; fwSchedD1.disabled = false; }
+    document.getElementById('fwSchedBoxDAYS1')?.setAttribute('checked','');
     T.value = '00:00';
     T.disabled = false;
     return;
   }
 
-  let rawM = fwRaw[0], rawH = fwRaw[1], rawDM = fwRaw[2], rawMN = fwRaw[3], rawDW = fwRaw[4];
+  let [rawM, rawH, rawDM, rawMN, rawDW] = fwRaw;
 
   // ---- Time handling: use fwScheduleTime messages only ----
   let timeCheck = ValidateHHMMUsingFwScheduleTime(String(rawH) + ':' + String(rawM));
@@ -1679,7 +1726,7 @@ function InitializeFields()
 
         let fwUpdateRawCronSchedule = custom_settings.FW_New_Update_Cron_Job_Schedule || 'TBD';
         FWConvertCronScheduleToWebUISettings (fwUpdateRawCronSchedule);
-
+        MerlinAU_TimeSelectFallbackAttach('fwScheduleTIME');
         SetUpEmailNotificationFields();
 
         if (rogFWBuildType)
@@ -2150,7 +2197,6 @@ function initial()
     UpdateScriptVersion();
     showhide('Script_AutoUpdate_SchedText',true);
     showhide('FW_AutoUpdate_CheckSchedText',true);
-    MerlinAU_TimeSelectFallbackAttach('fwScheduleTIME');
 
     // Debugging iframe behavior //
     var hiddenFrame = document.getElementById('hidden_frame');
