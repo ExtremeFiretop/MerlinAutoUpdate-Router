@@ -482,7 +482,7 @@ function MerlinAU_TimeSelectFallbackAttach(elementId) {
 /**---------------------------------------**/
 /** Added by ExtremeFiretop [2025-Aug-24] **/
 /**---------------------------------------**/
-function parseTimeHHMM(inputValue) {
+function ParseTimeHHMM(inputValue) {
   const timeText = String(inputValue || '').trim();
 
   // Shape check: "HH:MM"
@@ -3165,7 +3165,7 @@ function initializeCollapsibleSections()
         name="fwScheduleTIME"
         value="00:00"
         step="60"
-        style="width: 120px; margin-left: 18px; margin-top: 6px; margin-bottom: 10px;"
+        style="width: 100px; margin-left: 18px; margin-top: 6px; margin-bottom: 10px;"
         oninput="ValidateTimePicker(this)"
         onblur="ValidateTimePicker(this)"
       />
