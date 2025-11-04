@@ -4,16 +4,16 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Sep-01
+# Last Modified: 2025-Nov-02
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.4
-readonly SCRIPT_VERSTAG="25090123"
+readonly SCRIPT_VERSION=1.5.5
+readonly SCRIPT_VERSTAG="25110200"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -78,11 +78,11 @@ readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 readonly ScriptDirNameD="${ScriptFNameTag}.d"
 
-if [ "$SCRIPT_BRANCH" = "dev" ]
-then readonly branchx_TAG="Branch: development"
-else readonly branchx_TAG="Branch: $SCRIPT_BRANCH"
+if [ "$SCRIPT_BRANCH" = "master" ]
+then readonly branchxStr_TAG="[Branch: $SCRIPT_BRANCH]"
+else readonly branchxStr_TAG="[Branch: development]"
 fi
-readonly version_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
+readonly versionDev_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-15] ##
@@ -168,6 +168,7 @@ fi
 ## Modified by Martinski W. [2025-Jan-22] ##
 ##----------------------------------------##
 inMenuMode=true
+webguiMode=false
 isInteractive=false
 FlashStarted=false
 MerlinChangeLogURL=""
@@ -518,19 +519,55 @@ _DoExit_()
    _ReleaseLock_ ; exit "$exitCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-May-21] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2025-Nov-01] ##
+##-------------------------------------##
+_CenterTextStr_()
+{
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ] || \
+       ! echo "$2" | grep -qE "^[1-9][0-9]+$"
+    then echo ; return 1
+    fi
+    local stringLen="${#1}"
+    local space1Len="$((($2 - stringLen)/2))"
+    local space2Len="$space1Len"
+    local totalLen="$((space1Len + stringLen + space2Len))"
+
+    if [ "$totalLen" -lt "$2" ]
+    then space2Len="$((space2Len + 1))"
+    elif [ "$totalLen" -gt "$2" ]
+    then space1Len="$((space1Len - 1))"
+    fi
+    if [ "$space1Len" -gt 0 ] && [ "$space2Len" -gt 0 ]
+    then printf "%*s%s%*s" "$space1Len" '' "$1" "$space2Len" ''
+    else printf "%s" "$1"
+    fi
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2024-Nov-01] ##
+##----------------------------------------##
 _ShowLogo_()
 {
-  echo -e "${YLWct}"
-  echo -e "      __  __           _ _               _    _ "
-  echo -e "     |  \/  |         | (_)         /\  | |  | |"
-  echo -e "     | \  / | ___ _ __| |_ _ __    /  \ | |  | |"
-  echo -e "     | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | |"
-  echo -e "     | |  | |  __| |  | | | | | |/ ____ | |__| |"
-  echo -e "     |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}"
-  echo -e "${NOct}"
+   local showBranchStr
+   if [ $# -gt 0 ] && [ "$1" = "true" ]
+   then showBranchStr=true
+   else showBranchStr=false
+   fi
+   local spaceLen=58  colorCT
+   [ "$SCRIPT_BRANCH" = "master" ] && colorCT="$GRNct" || colorCT="$MGNTct"
+   echo
+   printf "${YLWct}\n"
+   printf "      __  __           _ _               _    _  \n"
+   printf "     |  \/  |         | (_)         /\  | |  | | \n"
+   printf "     | \  / | ___ _ __| |_ _ __    /  \ | |  | | \n"
+   printf "     | |\/| |/ _ | '__| | | '_ \  / /\ \| |  | | \n"
+   printf "     | |  | |  __| |  | | | | | |/ ____ | |__| | \n"
+   printf "     |_|  |_|\___|_|  |_|_|_| |_/_/    \_\____/ ${GRNct}v${SCRIPT_VERSION}${NOct}\n"
+
+   "$showBranchStr" && \
+   printf "\n${colorCT}%s${NOct}\n" "$(_CenterTextStr_ "$branchxStr_TAG" "$spaceLen")"
+   echo
 }
 
 ##----------------------------------------##
@@ -548,7 +585,7 @@ _ShowAbout_()
     fi
 
     clear
-    _ShowLogo_
+    _ShowLogo_ true
 
     printf "About ${MGNTct}${SCRIPT_VERS_INFO}${NOct}\n"
     cat <<EOF
@@ -585,7 +622,7 @@ EOF
 _ShowHelp_()
 {
     clear
-    _ShowLogo_
+    _ShowLogo_ true
 
     printf "HELP ${MGNTct}${SCRIPT_VERS_INFO}${NOct}\n"
     cat <<EOF
@@ -8736,7 +8773,7 @@ _RunOfflineUpdateNow_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Aug-10] ##
+## Modified by Martinski W. [2025-Nov-01] ##
 ##----------------------------------------##
 _RunFirmwareUpdateNow_()
 {
@@ -8844,11 +8881,13 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         if [ "$FW_UpdateCheckState" -eq 0 ]
         then
             Say "Automatic F/W update checks are currently ${REDct}DISABLED${NOct}."
-            ! "$inMenuMode" && return 1
-
+            if ! "$inMenuMode" && ! "$webguiMode"
+            then return 1
+            fi
             if [ -x "$FW_UpdateCheckScript" ]
             then
-                # Prompt the user to confirm and proceed IFF in "Menu Mode" #
+                # Prompt the user to confirm and proceed IFF in Interactive Mode #
+                "$isInteractive" && \
                 printf "\n${BOLDct}Would you like to proceed with a manual F/W update check now${NOct}"
                 ! _WaitForYESorNO_ && return 1
 
@@ -10509,7 +10548,7 @@ _ShowMainMenuOptions_()
    fi
 
    clear
-   _ShowLogo_
+   _ShowLogo_ "$([ "$SCRIPT_BRANCH" = "master" ] && echo false || echo true)"
    printf "${YLWct}============ By ExtremeFiretop & Martinski W. ============${NOct}\n\n"
 
    # New Script Update Notification #
@@ -11207,8 +11246,8 @@ _Gnuton_Check_Webs_Update_Script_()
 }
 
 if [ "$SCRIPT_BRANCH" = "master" ]
-then SCRIPT_VERS_INFO="[$branchx_TAG]"
-else SCRIPT_VERS_INFO="[$version_TAG, $branchx_TAG]"
+then SCRIPT_VERS_INFO=""
+else SCRIPT_VERS_INFO="[$versionDev_TAG]"
 fi
 
 ## Set variable to 'false' to stop the check ##
@@ -11354,6 +11393,7 @@ then
                            then bypassPostponedDays=true
                            else bypassPostponedDays=false
                            fi
+                           webguiMode=true
                            _RunFirmwareUpdateNow_
                            _ReleaseLock_ cliFileLock
                        fi
