@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Nov-02
+# Last Modified: 2025-Nov-05
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.5
-readonly SCRIPT_VERSTAG="25110200"
+readonly SCRIPT_VERSION=1.5.6
+readonly SCRIPT_VERSTAG="25110520"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -8773,7 +8773,7 @@ _RunOfflineUpdateNow_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Nov-01] ##
+## Modified by Martinski W. [2025-Nov-05] ##
 ##----------------------------------------##
 _RunFirmwareUpdateNow_()
 {
@@ -9247,6 +9247,36 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
+    ## To handle stopping and restarting Diversion when needed ##
+    local DIVER_VERSION  currentDIVER_version=""  requiredDIVER_version=""
+    if [ -f /opt/bin/diversion ]
+    then
+        DIVER_VERSION="$(grep "^VERSION=" /opt/bin/diversion | awk -F'=' '{print $2}' | tr -d ' ')"
+
+        # Adjust version format from 1.46 to 1.4.6 if needed #
+        local DDOT_COUNT="$(echo "$DIVER_VERSION" | tr -cd '.' | wc -c)"
+        if [ "$DDOT_COUNT" -eq 0 ]
+        then
+            # If there's no dot, it's a simple version like "1" (unlikely but let's handle it) #
+            DIVER_VERSION="${DIVER_VERSION}.0.0"
+        elif [ "$DDOT_COUNT" -eq 1 ]
+        then
+            # Check if there is only one character after the dot #
+            if echo "$DIVER_VERSION" | grep -qE '^[0-9]+\.[0-9]{1}$'
+            then
+                # If the version is like 5.2, convert it to 5.2.0 #
+                DIVER_VERSION="${DIVER_VERSION}.0"
+            else
+                # For versions like 5.26, insert a dot between the last two digits #
+                DIVER_VERSION="$(echo "$DIVER_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
+            fi
+        fi
+
+        # Convert version strings to numeric values #
+        currentDIVER_version="$(_ScriptVersionStrToNum_ "$DIVER_VERSION")"
+        requiredDIVER_version="$(_ScriptVersionStrToNum_ "5.2.0")"
+    fi
+
     ##------------------------------------------##
     ## Modified by ExtremeFiretop [2024-Sep-07] ##
     ##------------------------------------------##
@@ -9263,31 +9293,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
         _UpdateLoginPswdCheckHelper_ SUCCESS
+
         if [ -f /opt/bin/diversion ]
         then
-            # Extract version number from Diversion
-            local DIVER_VERSION="$(grep "^VERSION=" /opt/bin/diversion | awk -F'=' '{print $2}' | tr -d ' ')"
-
-            # Adjust version format from 1.46 to 1.4.6 if needed
-            local DDOT_COUNT="$(echo "$DIVER_VERSION" | tr -cd '.' | wc -c)"
-            if [ "$DDOT_COUNT" -eq 0 ]; then
-                # If there's no dot, it's a simple version like "1" (unlikely but let's handle it)
-                DIVER_VERSION="${DIVER_VERSION}.0.0"
-            elif [ "$DDOT_COUNT" -eq 1 ]; then
-                # Check if there is only one character after the dot
-                if echo "$DIVER_VERSION" | grep -qE '^[0-9]+\.[0-9]{1}$'; then
-                    # If the version is like 5.2, convert it to 5.2.0
-                    DIVER_VERSION="${DIVER_VERSION}.0"
-                else
-                    # For versions like 5.26, insert a dot between the last two digits
-                    DIVER_VERSION="$(echo "$DIVER_VERSION" | sed 's/\.\([0-9]\)\([0-9]\)/.\1.\2/')"
-                fi
-            fi
-
-            # Convert version strings to comparable numbers
-            local currentDIVER_version="$(_ScriptVersionStrToNum_ "$DIVER_VERSION")"
-            local requiredDIVER_version="$(_ScriptVersionStrToNum_ "5.2.0")"
-
             # Diversion unmount command also unloads entware services #
             Say "Stopping Diversion service..."
             if [ "$currentDIVER_version" -ge "$requiredDIVER_version" ]
@@ -9391,6 +9399,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
         _EntwareServicesHandler_ start
+
         if [ -f /opt/bin/diversion ]
         then
             Say "Restarting Diversion service..."
