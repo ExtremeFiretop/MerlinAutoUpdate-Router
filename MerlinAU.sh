@@ -8780,8 +8780,8 @@ _Unmount_Eject_USB_Drives_()
     local eject_USB_OK=1  usbMountPoint=""
     local curWaitDelaySecs=0
     local theWaitDelaySecs=5
-    local maxWaitDelaySecs=150  # Enough time?? #
-    local logMsg="Unmount/Eject USB Drives"
+    local maxWaitDelaySecs=180  # 3 mins enough time?? #
+    local logMsg="Unmount/Eject USB Drive"
 
     _MsgToSysLog_() { logger -st "${SCRIPT_NAME}_[$$]" -p 4 "$1" ; }
 
@@ -8810,6 +8810,11 @@ _Unmount_Eject_USB_Drives_()
     if [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
     then _MsgToSysLog_ "$logMsg [$curWaitDelaySecs secs] succeeded."
     else _MsgToSysLog_ "$logMsg Wait Timeout [$maxWaitDelaySecs secs] expired."
+    fi
+
+    if [ "$eject_USB_OK" -ne 0 ]
+    then
+        _MsgToSysLog_ "Unable to unmount USB drive. Device is likely busy."
     fi
 
     _MsgToSysLog_ "END of ${logMsg}."
