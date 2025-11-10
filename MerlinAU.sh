@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Nov-05
+# Last Modified: 2025-Nov-09
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.6
-readonly SCRIPT_VERSTAG="25110520"
+readonly SCRIPT_VERSION=1.5.7
+readonly SCRIPT_VERSTAG="25110922"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -8772,8 +8772,52 @@ _RunOfflineUpdateNow_()
     fi
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Nov-09] ##
+##-------------------------------------##
+_Unmount_Eject_USB_Drives_()
+{
+    local eject_USB_OK=1  usbMountPoint=""
+    local curWaitDelaySecs=0
+    local theWaitDelaySecs=5
+    local maxWaitDelaySecs=150  # Enough time?? #
+    local logMsg="Unmount/Eject USB Drives"
+
+    _MsgToSysLog_() { logger -st "${SCRIPT_NAME}_[$$]" -p 4 "$1" ; }
+
+    _MsgToSysLog_ "START of ${logMsg}..."
+
+    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+    do
+        if /sbin/ejusb -1 0 -u 1 2>/dev/null
+        then
+            eject_USB_OK=0 ; break
+        fi
+        if ! usbMountPoint="$(_GetDefaultUSBMountPoint_)"
+        then
+            _MsgToSysLog_ "${logMsg}. No USB-attached drives were found."
+            eject_USB_OK=0 ; break
+        fi
+        if [ "$curWaitDelaySecs" -gt 0 ] && \
+           [ "$((curWaitDelaySecs % 10))" -eq 0 ]
+        then _MsgToSysLog_ "$logMsg Wait Timeout [$curWaitDelaySecs secs]..."
+        fi
+
+        sleep "$theWaitDelaySecs"
+        curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
+    done
+
+    if [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+    then _MsgToSysLog_ "$logMsg [$curWaitDelaySecs secs] succeeded."
+    else _MsgToSysLog_ "$logMsg Wait Timeout [$maxWaitDelaySecs secs] expired."
+    fi
+
+    _MsgToSysLog_ "END of ${logMsg}."
+    return "$eject_USB_OK"
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Nov-05] ##
+## Modified by Martinski W. [2025-Nov-09] ##
 ##----------------------------------------##
 _RunFirmwareUpdateNow_()
 {
@@ -9339,7 +9383,13 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
         # *WARNING*: NO MORE logging at this point & beyond #
         sync ; sleep 2 ; echo 3 > /proc/sys/vm/drop_caches ; sleep 3
-        /sbin/ejusb -1 0 -u 1 2>/dev/null
+
+        ##-------------------------------------##
+        ## Added by Martinski W. [2025-Nov-09] ##
+        ##-------------------------------------##
+        # Unmount the USB drives. If "busy" let's wait until "idle" state. #
+        #------------------------------------------------------------------#
+        _Unmount_Eject_USB_Drives_
 
         #----------------------------------------------------------------------------------#
         # **IMPORTANT NOTE**:
@@ -9450,7 +9500,7 @@ _PostUpdateEmailNotification_()
       then break ; fi
 
       if [ "$curWaitDelaySecs" -gt 0 ] && \
-         [ "$((curWaitDelaySecs % 60))" -eq 0 ]
+         [ "$((curWaitDelaySecs % 30))" -eq 0 ]
       then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
 
       sleep $theWaitDelaySecs
@@ -9462,7 +9512,7 @@ _PostUpdateEmailNotification_()
    else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
    fi
 
-   Say "END of $logMsg [$$curWaitDelaySecs sec.]"
+   Say "END of $logMsg [$curWaitDelaySecs sec.]"
    sleep 20  ## Let's wait a bit & proceed ##
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
@@ -9494,7 +9544,7 @@ _PostRebootRunNow_()
       then break ; fi
 
       if [ "$curWaitDelaySecs" -gt 0 ] && \
-         [ "$((curWaitDelaySecs % 60))" -eq 0 ]
+         [ "$((curWaitDelaySecs % 30))" -eq 0 ]
       then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
 
       sleep $theWaitDelaySecs
@@ -9506,7 +9556,7 @@ _PostRebootRunNow_()
    else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
    fi
 
-   Say "END of $logMsg [$$curWaitDelaySecs sec.]"
+   Say "END of $logMsg [$curWaitDelaySecs sec.]"
    sleep 30  ## Let's wait a bit & proceed ##
    if _AcquireLock_ cliFileLock
    then
