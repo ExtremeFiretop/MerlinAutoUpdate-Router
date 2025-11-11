@@ -10,7 +10,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.5.7
-readonly SCRIPT_VERSTAG="25111002"
+readonly SCRIPT_VERSTAG="25111020"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -3000,9 +3000,9 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jun-17] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Nov-10] ##
+##----------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -3078,6 +3078,13 @@ _CreateEMailContent_()
            {
              echo "Started flashing the new F/W Update version <b>${fwNewUpdateVersion}</b> on the <b>${MODEL_ID}</b> router."
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
+           } > "$tempEMailBodyMsg"
+           ;;
+       FAILED_USB_DRIVE_UNMOUNT)
+           emailBodyTitle="USB Drive Unmount Failed"
+           {
+             echo "Unable to unmount the USB-attached drive before the F/W Update flash was started on the <b>${MODEL_ID}</b> router."
+             printf "\nThe USB drive was likely in a busy state.\n"
            } > "$tempEMailBodyMsg"
            ;;
        SUCCESS_SCRIPT_UPDATE_STATUS)
@@ -8842,6 +8849,7 @@ _Unmount_Eject_USB_Drives_()
     else
         _MsgToSysLog_ "$logMsg Wait Timeout [$maxWaitDelaySecs secs] expired."
         _MsgToSysLog_ "Unable to unmount USB drive. Device is likely busy."
+        _SendEMailNotification_ FAILED_USB_DRIVE_UNMOUNT
     fi
     _MsgToSysLog_ "END of ${logMsg}."
 
