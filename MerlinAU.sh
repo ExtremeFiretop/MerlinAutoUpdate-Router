@@ -4,16 +4,16 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Nov-05
+# Last Modified: 2025-Nov-10
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.6
-readonly SCRIPT_VERSTAG="25110520"
+readonly SCRIPT_VERSION=1.5.7
+readonly SCRIPT_VERSTAG="25111002"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -8772,8 +8772,84 @@ _RunOfflineUpdateNow_()
     fi
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2025-Nov-09] ##
+##-------------------------------------##
+_Unmount_Eject_USB_Drives_()
+{
+    local maxWaitDelaySecs=240  #4 mins#
+    local theWaitDelaySecs=5  curWaitDelaySecs=0
+    local ejectUSB_OK=false  ejectUSB_PID=""  usbMountPoint=""
+    local logMsg="Unmount/Eject USB Drive"
+
+    _MsgToSysLog_() { logger -st "${SCRIPT_NAME}_[$$]" -p 4 "$1" ; }
+
+    _MsgToSysLog_ "START of ${logMsg}..."
+
+    /sbin/ejusb -1 0 -u 1 2>/dev/null & ejectUSB_PID=$!
+
+    while [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+    do
+        ## If unmount succeeded, then exit loop ##
+        if [ -n "$ejectUSB_PID" ] && \
+           ! kill -EXIT "$ejectUSB_PID" 2>/dev/null && \
+           ! usbMountPoint="$(_GetDefaultUSBMountPoint_)"
+        then
+            ejectUSB_OK=true ; break
+        fi
+
+        ## If USB drive is no longer mounted, exit loop ##
+        if ! usbMountPoint="$(_GetDefaultUSBMountPoint_)"
+        then
+            _MsgToSysLog_ "${logMsg}: No USB drives are mounted."
+            ejectUSB_OK=true ; break
+        fi
+
+        ## If timeout was reached, check again and exit loop ##
+        if [ -n "$ejectUSB_PID" ] && \
+           [ "$curWaitDelaySecs" -ge "$maxWaitDelaySecs" ]
+        then
+            if ! kill -EXIT "$ejectUSB_PID" 2>/dev/null && \
+               ! usbMountPoint="$(_GetDefaultUSBMountPoint_)"
+            then
+                ejectUSB_OK=true ; break
+            fi
+            kill -KILL "$ejectUSB_PID" 2>/dev/null
+            wait $ejectUSB_PID ; break
+        fi
+
+        ## If USB drive is still mounted, try again ##
+        if [ -n "$ejectUSB_PID" ] && \
+           ! kill -EXIT "$ejectUSB_PID" 2>/dev/null && \
+           usbMountPoint="$(_GetDefaultUSBMountPoint_)"
+        then
+            /sbin/ejusb -1 0 -u 1 2>/dev/null & ejectUSB_PID=$!
+        fi
+
+        if [ "$curWaitDelaySecs" -gt 0 ] && \
+           [ "$((curWaitDelaySecs % 10))" -eq 0 ]
+        then _MsgToSysLog_ "$logMsg Wait Timeout [$curWaitDelaySecs secs]..."
+        fi
+
+        sleep "$theWaitDelaySecs"
+        curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
+    done
+
+    if "$ejectUSB_OK" || \
+       [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+    then
+        _MsgToSysLog_ "$logMsg succeeded [$curWaitDelaySecs secs]"
+    else
+        _MsgToSysLog_ "$logMsg Wait Timeout [$maxWaitDelaySecs secs] expired."
+        _MsgToSysLog_ "Unable to unmount USB drive. Device is likely busy."
+    fi
+    _MsgToSysLog_ "END of ${logMsg}."
+
+    "$ejectUSB_OK" && return 0 || return 1
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Nov-05] ##
+## Modified by Martinski W. [2025-Nov-09] ##
 ##----------------------------------------##
 _RunFirmwareUpdateNow_()
 {
@@ -9339,7 +9415,13 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
         # *WARNING*: NO MORE logging at this point & beyond #
         sync ; sleep 2 ; echo 3 > /proc/sys/vm/drop_caches ; sleep 3
-        /sbin/ejusb -1 0 -u 1 2>/dev/null
+
+        ##-------------------------------------##
+        ## Added by Martinski W. [2025-Nov-09] ##
+        ##-------------------------------------##
+        # Unmount the USB drives. If "busy" let's wait until "idle" state. #
+        #------------------------------------------------------------------#
+        _Unmount_Eject_USB_Drives_
 
         #----------------------------------------------------------------------------------#
         # **IMPORTANT NOTE**:
@@ -9450,7 +9532,7 @@ _PostUpdateEmailNotification_()
       then break ; fi
 
       if [ "$curWaitDelaySecs" -gt 0 ] && \
-         [ "$((curWaitDelaySecs % 60))" -eq 0 ]
+         [ "$((curWaitDelaySecs % 30))" -eq 0 ]
       then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
 
       sleep $theWaitDelaySecs
@@ -9462,7 +9544,7 @@ _PostUpdateEmailNotification_()
    else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
    fi
 
-   Say "END of $logMsg [$$curWaitDelaySecs sec.]"
+   Say "END of $logMsg [$curWaitDelaySecs sec.]"
    sleep 20  ## Let's wait a bit & proceed ##
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
@@ -9494,7 +9576,7 @@ _PostRebootRunNow_()
       then break ; fi
 
       if [ "$curWaitDelaySecs" -gt 0 ] && \
-         [ "$((curWaitDelaySecs % 60))" -eq 0 ]
+         [ "$((curWaitDelaySecs % 30))" -eq 0 ]
       then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
 
       sleep $theWaitDelaySecs
@@ -9506,7 +9588,7 @@ _PostRebootRunNow_()
    else Say "$logMsg [$maxWaitDelaySecs sec.] expired."
    fi
 
-   Say "END of $logMsg [$$curWaitDelaySecs sec.]"
+   Say "END of $logMsg [$curWaitDelaySecs sec.]"
    sleep 30  ## Let's wait a bit & proceed ##
    if _AcquireLock_ cliFileLock
    then
