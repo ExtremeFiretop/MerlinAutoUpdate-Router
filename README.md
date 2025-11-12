@@ -18,6 +18,7 @@
 
 ## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
+ - GT-BE19000AI
  - GT-BE98_PRO
  - GT-AX6000
  - GT-AXE16000
