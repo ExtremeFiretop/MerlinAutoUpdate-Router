@@ -30,7 +30,7 @@
  - RT-BE96U
  - RT-BE88U
  - RT-BE86U
- - RT-BE58 Go​
+ - RT-BE58_GO​
  - RT-AX88U_PRO 
  - RT-AX88U 
  - RT-AC86U
