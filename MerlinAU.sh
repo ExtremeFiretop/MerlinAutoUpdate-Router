@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Nov-10
+# Last Modified: 2025-Nov-16
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.5.7
-readonly SCRIPT_VERSTAG="25111020"
+readonly SCRIPT_VERSTAG="25111620"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -2544,9 +2544,9 @@ _WebUI_SetEmailConfigFileFromAMTM_()
    _WriteVarDefToHelperJSFile_ "isEMailConfigEnabledInAMTM" "$isEMailConfigEnabledInAMTM" true
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-May-21] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2025-Nov-16] ##
+##----------------------------------------##
 _ActionsAfterNewConfigSettings_()
 {
    if [ ! -s "${CONFIG_FILE}.bak" ] || \
@@ -2555,7 +2555,7 @@ _ActionsAfterNewConfigSettings_()
 
    _ConfigOptionChanged_()
    {
-      if diff "$CONFIG_FILE" "${CONFIG_FILE}.bak" | grep -q "$1"
+      if diff -U0 "$CONFIG_FILE" "${CONFIG_FILE}.bak" | grep -q "$1"
       then return 0
       else return 1
       fi
@@ -11333,7 +11333,7 @@ _Gnuton_Check_Webs_Update_Script_()
 
    # (Re)bind/mount only if remote is newer version OR files differ #
    if [ "$remoteVersTag" -gt "$localVersTag" ] || \
-      ! diff "$FW_UpdateCheckScript" "$dwnldGnutonWebsUpdateFilePath" >/dev/null 2>&1
+      ! diff -q "$FW_UpdateCheckScript" "$dwnldGnutonWebsUpdateFilePath" >/dev/null 2>&1
    then
        umount "$FW_UpdateCheckScript" 2>/dev/null
        mv -f "$dwnldGnutonWebsUpdateFilePath" "$fixedGnutonWebsUpdateFilePath"
