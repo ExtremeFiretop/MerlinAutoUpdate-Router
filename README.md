@@ -1,7 +1,7 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
 
-## v1.5.6
-## 2025-Nov-08
+## v1.5.7
+## 2025-Nov-25
 
 ## WebUI:
 ![image](https://github.com/user-attachments/assets/9c1dff99-9c13-491b-a7fa-aff924d5f02e)
@@ -18,6 +18,7 @@
 
 ## SUPPORTED MERLIN MODELS (Multi-image models) - i.e. Any model that uses a .w or a .pkgtb file
 
+ - GT-BE19000AI
  - GT-BE98_PRO
  - GT-AX6000
  - GT-AXE16000
@@ -29,7 +30,7 @@
  - RT-BE96U
  - RT-BE88U
  - RT-BE86U
- - RT-BE58 Go​
+ - RT-BE58_GO​
  - RT-AX88U_PRO 
  - RT-AX88U 
  - RT-AC86U

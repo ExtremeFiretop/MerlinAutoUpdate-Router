@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v5.0.0
+        uses: actions/checkout@v6.0.0
         with:
           fetch-depth: 0
           ref: 'main' # Ensure we're tagging the main branch after the merge
@@ -85,7 +85,7 @@ jobs:
           git push origin ${{ steps.nextver.outputs.tag }}
           
       - name: Create Release with Automated Release Notes
-        uses: softprops/action-gh-release@v2.4.1
+        uses: softprops/action-gh-release@v2.4.2
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.nextver.outputs.tag }}
