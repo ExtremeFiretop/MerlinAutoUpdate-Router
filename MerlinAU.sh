@@ -9,8 +9,8 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.7
-readonly SCRIPT_VERSTAG="25111620"
+readonly SCRIPT_VERSION=1.5.8
+readonly SCRIPT_VERSTAG="25123011"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -203,8 +203,8 @@ readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildV
 # For minimum supported firmware version check #
 MinFirmwareVerCheckFailed=false
 readonly MinSupportedFW_3004_386_Ver="3004.386.13.2"
-readonly MinSupportedFW_3004_388_Ver="3004.388.8.4"
-readonly MinSupportedFW_3006_102_Ver="3004.388.8.2"
+readonly MinSupportedFW_3004_388_Ver="3004.388.10.0"
+readonly MinSupportedFW_3006_102_Ver="3006.102.4.0"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Apr-09] ##
@@ -4797,6 +4797,40 @@ _GetNodeInfo_()
         return 1
     fi
 
+    #####################################################################
+    # Trigger AiMesh node "Check for updates" (mimics UI start_apply.htm) #
+    #####################################################################
+
+    curl -s -k "${NodeURLstr}/start_apply.htm" \
+        --referer "${NodeURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
+        --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+        -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+        -H 'Accept-Language: en-US,en;q=0.5' \
+        -H 'Content-Type: application/x-www-form-urlencoded' \
+        -H "Origin: ${NodeURLstr}" \
+        -H 'Connection: keep-alive' \
+        --data "current_page=Advanced_FirmwareUpgrade_Content.asp" \
+        --data "next_page=Advanced_FirmwareUpgrade_Content.asp" \
+        --data "flag=liveUpdate" \
+        --data "action_mode=apply" \
+        --data "action_script=start_webs_update" \
+        --data "action_wait=webs_update_trigger" \
+        --cookie '/tmp/nodecookies.txt' \
+        --max-time 3 > /tmp/node_fwcheck_trigger.txt 2>&1
+
+    # UI waits ~10s before querying status; give node a moment to update nvram/status
+    waitSeconds=8
+    waitMsg="Please wait while we query the node for update status"
+    printf "\n"
+    idx=0
+    while [ "$idx" -lt "$waitSeconds" ]
+    do
+        printf "\r%s (%ds)" "$waitMsg" "$((waitSeconds - idx))"
+        sleep 1
+        idx=$((idx + 1))
+    done
+    printf "\r%s Done.                                                    \n"
+
     # Retrieve the HTML content #
     htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -9091,7 +9125,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         Say "Please fix the BACKUPMON configuration, or consider uninstalling it to proceed flash.\n"
         Say "Resolving the BACKUPMON configuration is HIGHLY recommended for safety of the upgrade.\n"
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
-        _Reset_LEDs_
         return 1
     fi
 
