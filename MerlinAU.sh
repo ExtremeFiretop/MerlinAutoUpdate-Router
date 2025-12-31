@@ -4,7 +4,7 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Nov-16
+# Last Modified: 2025-Dec-30
 ###################################################################
 set -u
 
@@ -198,7 +198,7 @@ readonly fwInstalledInnerVers="$(nvram get innerver)"
 readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildVers" | awk -F'.' '{print $1}')"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Apr-09] ##
+## Modified by ExtremeFiretop [2025-Dec-30] ##
 ##------------------------------------------##
 # For minimum supported firmware version check #
 MinFirmwareVerCheckFailed=false
@@ -4720,6 +4720,14 @@ _Populate_Node_Settings_()
 }
 
 ##---------------------------------------##
+## Added by ExtremeFiretop [2025-Dec-30] ##
+##---------------------------------------##
+# Make an IP safe for filenames
+_MeshSafeID_() {
+    printf "%s" "$1" | tr '.:' '__'
+}
+
+##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Mar-26] ##
 ##---------------------------------------##
 _GetNodeURL_()
@@ -4743,13 +4751,95 @@ _GetNodeURL_()
     echo "${urlProto}://${NodeIP_Address}${urlPort}"
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2025-Dec-30] ##
+##---------------------------------------##
+# Trigger the node "Check for updates" (no waiting here)
+_MeshNodeTriggerFWCheck_() {
+    local NodeIP_Address="$1"
+    local runid="$2"
+    local safe_id="$(_MeshSafeID_ "$NodeIP_Address")"
+    local NodeURLstr="$(_GetNodeURL_ "$NodeIP_Address")"
+    local cookieFile="/tmp/${runid}.${safe_id}.cookie"
+
+    ## Check for Login Credentials ##
+    credsBase64="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
+    then
+        _UpdateLoginPswdCheckHelper_ InitPWD
+        Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
+        "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
+        return 1
+    fi
+
+    # Perform login request #
+    curl -s -k "${NodeURLstr}/login.cgi" \
+    --referer "${NodeURLstr}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${NodeURLstr}" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
+    --cookie-jar "$cookieFile" \
+    --max-time 2 >/dev/null 2>&1 || return 1
+
+    # Trigger firmware check (mimic WebUI "Check" button)
+    curl -s -k "${NodeURLstr}/start_apply.htm" \
+    --referer "${NodeURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${NodeURLstr}" \
+    -H 'Connection: keep-alive' \
+    --data "current_page=Advanced_FirmwareUpgrade_Content.asp" \
+    --data "next_page=Advanced_FirmwareUpgrade_Content.asp" \
+    --data "flag=liveUpdate" \
+    --data "action_mode=apply" \
+    --data "action_script=start_webs_update" \
+    --data "action_wait=webs_update_trigger" \
+    --cookie "$cookieFile" \
+    --max-time 3 >/dev/null 2>&1 || return 1
+
+    # Perform logout request #
+    curl -s -k "${NodeURLstr}/Logout.asp" \
+    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Accept-Encoding: gzip, deflate' \
+    -H 'Connection: keep-alive' \
+    -H "Referer: ${NodeURLstr}/Main_Login.asp" \
+    -H 'Upgrade-Insecure-Requests: 0' \
+    --cookie "$cookieFile" \
+    --max-time 2 >/dev/null 2>&1
+
+    if [ $? -ne 0 ]; then
+        return 1
+    fi
+
+    rm -f "$cookieFile"
+
+    return 0
+}
+
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jun-08] ##
+## Modified by ExtremeFiretop [2025-Dec-30] ##
 ##------------------------------------------##
 _GetNodeInfo_()
 {
     local NodeIP_Address="$1"
+    local runid="$2"
+    local safe_id="$(_MeshSafeID_ "$NodeIP_Address")"
     local NodeURLstr="$(_GetNodeURL_ "$NodeIP_Address")"
+    local cookieFile="/tmp/${runid}.${safe_id}.cookie"
+    local varsFile="/tmp/${runid}.${safe_id}.vars"
+
+    # Shell-safe single-quote wrapper for writing vars files
+    _sh_quote_() {
+        # prints a single-quoted literal that can be safely `.` sourced
+        printf "'%s'" "$(printf "%s" "$1" | sed "s/'/'\\\\''/g")"
+    }
 
     ## Default values for specific variables
     node_productid="Unreachable"
@@ -4774,6 +4864,7 @@ _GetNodeInfo_()
     if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
     then
         _UpdateLoginPswdCheckHelper_ InitPWD
+        rm -f "$varsFile"
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
@@ -4788,48 +4879,15 @@ _GetNodeInfo_()
     -H "Origin: ${NodeURLstr}" \
     -H 'Connection: keep-alive' \
     --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
-    --cookie-jar '/tmp/nodecookies.txt' \
-    --max-time 2 > /tmp/login_response.txt 2>&1
+    --cookie-jar "$cookieFile" \
+    --max-time 2 >/dev/null 2>&1
 
     if [ $? -ne 0 ]
     then
         printf "\n${REDct}Login failed for AiMesh Node [$NodeIP_Address].${NOct}\n"
+        rm -f "$varsFile" "$cookieFile"
         return 1
     fi
-
-    #####################################################################
-    # Trigger AiMesh node "Check for updates" (mimics UI start_apply.htm) #
-    #####################################################################
-
-    curl -s -k "${NodeURLstr}/start_apply.htm" \
-        --referer "${NodeURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
-        --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-        -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
-        -H 'Accept-Language: en-US,en;q=0.5' \
-        -H 'Content-Type: application/x-www-form-urlencoded' \
-        -H "Origin: ${NodeURLstr}" \
-        -H 'Connection: keep-alive' \
-        --data "current_page=Advanced_FirmwareUpgrade_Content.asp" \
-        --data "next_page=Advanced_FirmwareUpgrade_Content.asp" \
-        --data "flag=liveUpdate" \
-        --data "action_mode=apply" \
-        --data "action_script=start_webs_update" \
-        --data "action_wait=webs_update_trigger" \
-        --cookie '/tmp/nodecookies.txt' \
-        --max-time 3 > /tmp/node_fwcheck_trigger.txt 2>&1
-
-    # UI waits ~10s before querying status; give node a moment to update nvram/status
-    waitSeconds=8
-    waitMsg="Please wait while we query the node for update status"
-    printf "\n"
-    idx=0
-    while [ "$idx" -lt "$waitSeconds" ]
-    do
-        printf "\r%s (%ds)" "$waitMsg" "$((waitSeconds - idx))"
-        sleep 1
-        idx=$((idx + 1))
-    done
-    printf "\r%s Done.                                                    \n"
 
     # Retrieve the HTML content #
     htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
@@ -4840,11 +4898,15 @@ _GetNodeInfo_()
     -H 'Connection: keep-alive' \
     -H "Referer: ${NodeURLstr}/index.asp" \
     -H 'Upgrade-Insecure-Requests: 0' \
-    --cookie '/tmp/nodecookies.txt' \
+    --cookie "$cookieFile" \
     --max-time 2 2>&1)"
 
     if [ $? -ne 0 ] || [ -z "$htmlContent" ]
     then
+        rm -f "$varsFile"
+        rm -f "$cookieFile"
+        # Logout best-effort
+        curl -s -k "${NodeURLstr}/Logout.asp" --cookie "$cookieFile" --max-time 2 >/dev/null 2>&1
         printf "\n${REDct}Failed to get information for AiMesh Node [$NodeIP_Address].${NOct}\n"
         return 1
     fi
@@ -4880,41 +4942,66 @@ _GetNodeInfo_()
     -H 'Connection: keep-alive' \
     -H "Referer: ${NodeURLstr}/Main_Login.asp" \
     -H 'Upgrade-Insecure-Requests: 0' \
-    --cookie '/tmp/nodecookies.txt' \
-    --max-time 2 > /tmp/logout_response.txt 2>&1
+    --cookie "$cookieFile" \
+    --max-time 2 >/dev/null 2>&1
 
     if [ $? -ne 0 ]; then
         return 1
     fi
+
+    rm -f "$cookieFile"
+
+    # Write a vars file the parent shell can source safely
+    {
+        printf "node_productid=%s\n"       "$(_sh_quote_ "$node_productid")"
+        printf "node_asus_device_list=%s\n" "$(_sh_quote_ "$node_asus_device_list")"
+        printf "node_cfg_device_list=%s\n"  "$(_sh_quote_ "$node_cfg_device_list")"
+        printf "node_firmver=%s\n"         "$(_sh_quote_ "$node_firmver")"
+        printf "node_buildno=%s\n"         "$(_sh_quote_ "$node_buildno")"
+        printf "node_extendno=%s\n"        "$(_sh_quote_ "$node_extendno")"
+        printf "node_webs_state_flag=%s\n" "$(_sh_quote_ "$node_webs_state_flag")"
+        printf "node_webs_state_info=%s\n" "$(_sh_quote_ "$node_webs_state_info")"
+        printf "node_odmpid=%s\n"          "$(_sh_quote_ "$node_odmpid")"
+        printf "node_wps_modelnum=%s\n"    "$(_sh_quote_ "$node_wps_modelnum")"
+        printf "node_model=%s\n"           "$(_sh_quote_ "$node_model")"
+        printf "node_build_name=%s\n"      "$(_sh_quote_ "$node_build_name")"
+        printf "node_lan_hostname=%s\n"    "$(_sh_quote_ "$node_lan_hostname")"
+        printf "node_label_mac=%s\n"       "$(_sh_quote_ "$node_label_mac")"
+        printf "Node_combinedVer=%s\n"     "$(_sh_quote_ "$Node_combinedVer")"
+        printf "NodeGNUtonFW=%s\n"         "$NodeGNUtonFW"
+    } >"$varsFile"
+
+    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-Apr-06] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2025-Dec-30] ##
+##------------------------------------------##
 _GetLatestFWUpdateVersionFromNode_()
 {
    local retCode=0  webState  newVersionStr
 
-   if [ -z "${node_webs_state_flag:+xSETx}" ]
-   then webState=""
-   else webState="$node_webs_state_flag"
-   fi
-   if [ -z "$webState" ] || [ "$webState" -eq 0 ]
-   then retCode=1 ; fi
+    webState="${node_webs_state_flag:-}"
 
-   if [ -z "${node_webs_state_info:+xSETx}" ]
-   then
-       newVersionStr=""
-   else
-       newVersionStr="$(echo "$node_webs_state_info" | sed 's/_/./g')"
-       if [ $# -eq 0 ] || [ -z "$1" ]
-       then
-           newVersionStr="$(echo "$newVersionStr" | awk -F '-' '{print $1}')"
-       fi
-   fi
+    # Treat missing/non-numeric/zero as "no update info"
+    case "$webState" in
+        ""|*[!0-9]*|0) retCode=1 ;;
+    esac
 
-   [ -z "$newVersionStr" ] && retCode=1
-   echo "$newVersionStr" ; return "$retCode"
+    if [ -n "${node_webs_state_info:-}" ]
+    then
+        newVersionStr="$(printf "%s" "$node_webs_state_info" | sed 's/_/./g')"
+        if [ -z "$1" ]
+        then
+            newVersionStr="$(printf "%s" "$newVersionStr" | awk -F '-' '{print $1}')"
+        fi
+    else
+        newVersionStr=""
+    fi
+
+    [ -z "$newVersionStr" ] && retCode=1
+    printf "%s\n" "$newVersionStr"
+    return "$retCode"
 }
 
 ##----------------------------------------##
@@ -10121,7 +10208,7 @@ _ValidatePrivateIPv4Address_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Apr-30] ##
+## Modified by ExtremeFiretop [2025-Dec-30] ##
 ##------------------------------------------##
 _ProcessMeshNodes_()
 {
@@ -10137,11 +10224,66 @@ _ProcessMeshNodes_()
 
         if [ -n "$node_list" ]
         then
-            # Iterate over the list of nodes and print information for each node
+            # Unique run id for temp files
+            local runid="mesh_$$.$(date +%s)"
+
+            # ---- trigger FW check on all nodes in parallel ----
             for nodeIPv4addr in $node_list
             do
-                ! _ValidatePrivateIPv4Address_ "$nodeIPv4addr" && continue
-                _GetNodeInfo_ "$nodeIPv4addr"
+                _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
+                (
+                    _MeshNodeTriggerFWCheck_ "$nodeIPv4addr" "$runid"
+                ) >/dev/null 2>&1 &
+            done
+            wait
+
+            # ---- Single wait ----
+            local waitSeconds="${MESH_UPDATE_WAIT_SECONDS:-8}"
+            if [ "$includeExtraLogic" -eq 1 ]
+            then
+                local waitMsg="Please wait while we query the node(s) for status..."
+                printf "\n"
+                local idx=0
+                while [ "$idx" -lt "$waitSeconds" ]
+                do
+                    printf "\r%s (%ds)" "$waitMsg" "$((waitSeconds - idx))"
+                    sleep 1
+                    idx=$((idx + 1))
+                done
+                printf "\r%s Done.                                                      " "$waitMsg"
+            else
+                sleep "$waitSeconds"
+            fi
+
+            # ---- fetch node info on all nodes in parallel ----
+            for nodeIPv4addr in $node_list
+            do
+                _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
+                (
+                    _GetNodeInfo_ "$nodeIPv4addr" "$runid"
+                ) >/dev/null 2>&1 &
+            done
+            wait
+
+            # ---- read each node's vars ----
+            for nodeIPv4addr in $node_list
+            do
+                _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
+
+                local safe_id="$(_MeshSafeID_ "$nodeIPv4addr")"
+                local varsFile="/tmp/${runid}.${safe_id}.vars"
+
+                # Load per-node globals (node_*, Node_combinedVer, NodeGNUtonFW)
+                if [ -s "$varsFile" ]; then
+                    . "$varsFile"
+                else
+                    # keep defaults consistent
+                    node_productid="Unreachable"
+                    Node_combinedVer="Unreachable"
+                    node_extendno="Unreachable"
+                    NodeGNUtonFW=false
+                fi
+
                 if ! Node_FW_NewUpdateVersion="$(_GetLatestFWUpdateVersionFromNode_ 1)"
                 then
                     Node_FW_NewUpdateVersion="NONE FOUND"
@@ -10149,8 +10291,8 @@ _ProcessMeshNodes_()
                     _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
                 fi
 
-                # Apply extra logic if flag is '1'
-                if [ "$includeExtraLogic" -eq 1 ]; then
+                if [ "$includeExtraLogic" -eq 1 ]
+                then
                     _PrintNodeInfo "$nodeIPv4addr" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
                     uid="$((uid + 1))"
                 fi
@@ -10158,6 +10300,9 @@ _ProcessMeshNodes_()
             if [ -s "$tempNodeEMailList" ]; then
                 _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
             fi
+
+            rm -f "/tmp/${runid}."*.vars 2>/dev/null
+
         else
             if [ "$includeExtraLogic" -eq 1 ]; then
                 printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
