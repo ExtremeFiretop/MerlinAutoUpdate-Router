@@ -4802,23 +4802,9 @@ _MeshNodeTriggerFWCheck_() {
     --cookie "$cookieFile" \
     --max-time 3 >/dev/null 2>&1 || return 1
 
-    # Perform logout request #
-    curl -s -k "${NodeURLstr}/Logout.asp" \
-    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Accept-Encoding: gzip, deflate' \
-    -H 'Connection: keep-alive' \
-    -H "Referer: ${NodeURLstr}/Main_Login.asp" \
-    -H 'Upgrade-Insecure-Requests: 0' \
-    --cookie "$cookieFile" \
-    --max-time 2 >/dev/null 2>&1
-
     if [ $? -ne 0 ]; then
         return 1
     fi
-
-    rm -f "$cookieFile"
 
     return 0
 }
@@ -4844,17 +4830,11 @@ _GetNodeInfo_()
     ## Default values for specific variables
     node_productid="Unreachable"
     Node_combinedVer="Unreachable"
-    node_asus_device_list=""
-    node_cfg_device_list=""
     node_firmver="Unreachable"
     node_buildno="Unreachable"
     node_extendno="Unreachable"
     node_webs_state_flag=""
     node_webs_state_info=""
-    node_odmpid="Unreachable"
-    node_wps_modelnum="Unreachable"
-    node_model="Unreachable"
-    node_build_name="Unreachable"
     node_lan_hostname="Unreachable"
     node_label_mac="Unreachable"
     NodeGNUtonFW=false
@@ -4864,33 +4844,32 @@ _GetNodeInfo_()
     if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
     then
         _UpdateLoginPswdCheckHelper_ InitPWD
-        rm -f "$varsFile"
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
         "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
         return 1
     fi
 
-    # Perform login request #
-    curl -s -k "${NodeURLstr}/login.cgi" \
-    --referer "${NodeURLstr}/Main_Login.asp" \
-    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Content-Type: application/x-www-form-urlencoded' \
-    -H "Origin: ${NodeURLstr}" \
-    -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
-    --cookie-jar "$cookieFile" \
-    --max-time 2 >/dev/null 2>&1
-
-    if [ $? -ne 0 ]
+    # If Phase 1 already created a cookie, reuse it (skip login) else perform login request #
+    if [ ! -s "$cookieFile" ]
     then
-        printf "\n${REDct}Login failed for AiMesh Node [$NodeIP_Address].${NOct}\n"
-        rm -f "$varsFile" "$cookieFile"
-        return 1
+        curl -s -k "${NodeURLstr}/login.cgi" \
+            --referer "${NodeURLstr}/Main_Login.asp" \
+            --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+            -H 'Accept-Language: en-US,en;q=0.5' \
+            -H 'Content-Type: application/x-www-form-urlencoded' \
+            -H "Origin: ${NodeURLstr}" \
+            -H 'Connection: keep-alive' \
+            --data-raw \
+                "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
+            --cookie-jar "$cookieFile" \
+            --max-time 2 >/dev/null 2>&1 || {
+                printf "\n${REDct}Login failed for AiMesh Node [$NodeIP_Address].${NOct}\n"
+                return 1
+            }
     fi
 
     # Retrieve the HTML content #
-    htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(asus_device_list)%3bnvram_get(cfg_device_list)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(odmpid)%3bnvram_get(wps_modelnum)%3bnvram_get(model)%3bnvram_get(build_name)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
+    htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
     -H 'Accept-Language: en-US,en;q=0.5' \
@@ -4899,11 +4878,10 @@ _GetNodeInfo_()
     -H "Referer: ${NodeURLstr}/index.asp" \
     -H 'Upgrade-Insecure-Requests: 0' \
     --cookie "$cookieFile" \
-    --max-time 2 2>&1)"
+    --max-time 2 2>/dev/null)"
 
     if [ $? -ne 0 ] || [ -z "$htmlContent" ]
     then
-        rm -f "$varsFile"
         rm -f "$cookieFile"
         # Logout best-effort
         curl -s -k "${NodeURLstr}/Logout.asp" --cookie "$cookieFile" --max-time 2 >/dev/null 2>&1
@@ -4913,17 +4891,11 @@ _GetNodeInfo_()
 
     # Extract values using regular expressions #
     node_productid="$(echo "$htmlContent" | grep -o '"productid":"[^"]*' | sed 's/"productid":"//')"
-    node_asus_device_list="$(echo "$htmlContent" | grep -o '"asus_device_list":"[^"]*' | sed 's/"asus_device_list":"//')"
-    node_cfg_device_list="$(echo "$htmlContent" | grep -o '"cfg_device_list":"[^"]*' | sed 's/"cfg_device_list":"//')"
     node_firmver="$(echo "$htmlContent" | grep -o '"firmver":"[^"]*' | sed 's/"firmver":"//' | tr -d '.')"
     node_buildno="$(echo "$htmlContent" | grep -o '"buildno":"[^"]*' | sed 's/"buildno":"//')"
     node_extendno="$(echo "$htmlContent" | grep -o '"extendno":"[^"]*' | sed 's/"extendno":"//')"
     node_webs_state_flag="$(echo "$htmlContent" | grep -o '"webs_state_flag":"[^"]*' | sed 's/"webs_state_flag":"//')"
     node_webs_state_info="$(echo "$htmlContent" | grep -o '"webs_state_info":"[^"]*' | sed 's/"webs_state_info":"//')"
-    node_odmpid="$(echo "$htmlContent" | grep -o '"odmpid":"[^"]*' | sed 's/"odmpid":"//')"
-    node_wps_modelnum="$(echo "$htmlContent" | grep -o '"wps_modelnum":"[^"]*' | sed 's/"wps_modelnum":"//')"
-    node_model="$(echo "$htmlContent" | grep -o '"model":"[^"]*' | sed 's/"model":"//')"
-    node_build_name="$(echo "$htmlContent" | grep -o '"build_name":"[^"]*' | sed 's/"build_name":"//')"
     node_lan_hostname="$(echo "$htmlContent" | grep -o '"lan_hostname":"[^"]*' | sed 's/"lan_hostname":"//')"
     node_label_mac="$(echo "$htmlContent" | grep -o '"label_mac":"[^"]*' | sed 's/"label_mac":"//')"
 
@@ -4949,22 +4921,16 @@ _GetNodeInfo_()
         return 1
     fi
 
-    rm -f "$cookieFile"
+    rm -f "$cookieFile" >/dev/null 2>&1
 
     # Write a vars file the parent shell can source safely
     {
         printf "node_productid=%s\n"       "$(_sh_quote_ "$node_productid")"
-        printf "node_asus_device_list=%s\n" "$(_sh_quote_ "$node_asus_device_list")"
-        printf "node_cfg_device_list=%s\n"  "$(_sh_quote_ "$node_cfg_device_list")"
         printf "node_firmver=%s\n"         "$(_sh_quote_ "$node_firmver")"
         printf "node_buildno=%s\n"         "$(_sh_quote_ "$node_buildno")"
         printf "node_extendno=%s\n"        "$(_sh_quote_ "$node_extendno")"
         printf "node_webs_state_flag=%s\n" "$(_sh_quote_ "$node_webs_state_flag")"
         printf "node_webs_state_info=%s\n" "$(_sh_quote_ "$node_webs_state_info")"
-        printf "node_odmpid=%s\n"          "$(_sh_quote_ "$node_odmpid")"
-        printf "node_wps_modelnum=%s\n"    "$(_sh_quote_ "$node_wps_modelnum")"
-        printf "node_model=%s\n"           "$(_sh_quote_ "$node_model")"
-        printf "node_build_name=%s\n"      "$(_sh_quote_ "$node_build_name")"
         printf "node_lan_hostname=%s\n"    "$(_sh_quote_ "$node_lan_hostname")"
         printf "node_label_mac=%s\n"       "$(_sh_quote_ "$node_label_mac")"
         printf "Node_combinedVer=%s\n"     "$(_sh_quote_ "$Node_combinedVer")"
@@ -10231,9 +10197,7 @@ _ProcessMeshNodes_()
             for nodeIPv4addr in $node_list
             do
                 _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
-                (
-                    _MeshNodeTriggerFWCheck_ "$nodeIPv4addr" "$runid"
-                ) >/dev/null 2>&1 &
+                _MeshNodeTriggerFWCheck_ "$nodeIPv4addr" "$runid" >/dev/null 2>&1 &
             done
             wait
 
@@ -10259,9 +10223,7 @@ _ProcessMeshNodes_()
             for nodeIPv4addr in $node_list
             do
                 _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
-                (
-                    _GetNodeInfo_ "$nodeIPv4addr" "$runid"
-                ) >/dev/null 2>&1 &
+                _GetNodeInfo_ "$nodeIPv4addr" "$runid" >/dev/null 2>&1 &
             done
             wait
 
@@ -10274,13 +10236,16 @@ _ProcessMeshNodes_()
                 local varsFile="/tmp/${runid}.${safe_id}.vars"
 
                 # Load per-node globals (node_*, Node_combinedVer, NodeGNUtonFW)
-                if [ -s "$varsFile" ]; then
+                if [ -s "$varsFile" ]
+                then
                     . "$varsFile"
                 else
                     # keep defaults consistent
                     node_productid="Unreachable"
                     Node_combinedVer="Unreachable"
                     node_extendno="Unreachable"
+                    node_webs_state_flag=""
+                    node_webs_state_info=""
                     NodeGNUtonFW=false
                 fi
 
