@@ -10,7 +10,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.5.8
-readonly SCRIPT_VERSTAG="25123011"
+readonly SCRIPT_VERSTAG="251230119"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
