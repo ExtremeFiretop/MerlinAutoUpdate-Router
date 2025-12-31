@@ -10256,6 +10256,7 @@ _ProcessMeshNodes_()
                     _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
                 fi
 
+                # Apply extra logic if flag is '1'
                 if [ "$includeExtraLogic" -eq 1 ]
                 then
                     _PrintNodeInfo "$nodeIPv4addr" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
