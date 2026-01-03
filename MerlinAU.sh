@@ -4,16 +4,16 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2025-Dec-31
+# Last Modified: 2026-Jan-02
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.5.8
-readonly SCRIPT_VERSTAG="2512311"
+readonly SCRIPT_VERSTAG="26010210"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -927,6 +927,7 @@ else
     ## Set 20 minutes AFTER for APs and AiMesh Nodes ##
     readonly FW_Update_CRON_DefaultSchedule="20 0 * * *"
 fi
+readonly meshUpdate_WaitSecs=8
 
 ## Recommended 15 minutes BEFORE the F/W Update ##
 readonly ScriptAU_CRON_DefaultSchedule="45 23 * * *"
@@ -2087,23 +2088,23 @@ isEMailConfigEnabledInAMTM=false
 # Define the CRON job command to execute #
 readonly SCRIPT_UP_CRON_JOB_RUN="sh $ScriptFilePath checkupdates"
 readonly SCRIPT_UP_CRON_JOB_TAG="${ScriptFNameTag}_ScriptUpdate"
-readonly DAILY_SCRIPT_UPDATE_CHECK_JOB="sh $ScriptFilePath scriptAUCronJob &  $hookScriptTagStr"
-readonly DAILY_SCRIPT_UPDATE_CHECK_HOOK="[ -f $ScriptFilePath ] && $DAILY_SCRIPT_UPDATE_CHECK_JOB"
+readonly DAILY_SCRIPT_UPDATE_CHECK_JOB="$ScriptFilePath scriptAUCronJob &"
+readonly DAILY_SCRIPT_UPDATE_CHECK_HOOK="[ -x $ScriptFilePath ] && $DAILY_SCRIPT_UPDATE_CHECK_JOB $hookScriptTagStr"
 
 # Define the CRON job command to execute #
 readonly CRON_JOB_RUN="sh $ScriptFilePath run_now"
 readonly CRON_JOB_TAG_OLD="$ScriptFNameTag"
 readonly CRON_JOB_TAG="${ScriptFNameTag}_FWUpdate"
-readonly CRON_SCRIPT_JOB="sh $ScriptFilePath addCronJob &  $hookScriptTagStr"
-readonly CRON_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $CRON_SCRIPT_JOB"
+readonly CRON_SCRIPT_JOB="$ScriptFilePath addCronJob &"
+readonly CRON_SCRIPT_HOOK="[ -x $ScriptFilePath ] && $CRON_SCRIPT_JOB $hookScriptTagStr"
 
 # Define post-reboot run job command to execute #
-readonly POST_REBOOT_SCRIPT_JOB="sh $ScriptFilePath postRebootRun &  $hookScriptTagStr"
-readonly POST_REBOOT_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_REBOOT_SCRIPT_JOB"
+readonly POST_REBOOT_SCRIPT_JOB="$ScriptFilePath postRebootRun &"
+readonly POST_REBOOT_SCRIPT_HOOK="[ -x $ScriptFilePath ] && $POST_REBOOT_SCRIPT_JOB $hookScriptTagStr"
 
 # Define post-update email notification job command to execute #
-readonly POST_UPDATE_EMAIL_SCRIPT_JOB="sh $ScriptFilePath postUpdateEmail &  $hookScriptTagStr"
-readonly POST_UPDATE_EMAIL_SCRIPT_HOOK="[ -f $ScriptFilePath ] && $POST_UPDATE_EMAIL_SCRIPT_JOB"
+readonly POST_UPDATE_EMAIL_SCRIPT_JOB="$ScriptFilePath postUpdateEmail &"
+readonly POST_UPDATE_EMAIL_SCRIPT_HOOK="[ -x $ScriptFilePath ] && $POST_UPDATE_EMAIL_SCRIPT_JOB $hookScriptTagStr"
 
 if [ -d "$FW_LOG_DIR" ]
 then
@@ -3433,7 +3434,7 @@ _DelPostUpdateEmailNotifyScriptHook_()
 
    if grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFile"
    then
-       sed -i -e '/\/'"$ScriptFileName"' postUpdateEmail &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       sed -i -e '/\/'"$ScriptFileName"' postUpdateEmail & /d' "$hookScriptFile"
        if [ $? -eq 0 ]
        then
            Say "Post-update email notification hook was deleted successfully from '$hookScriptFile' script."
@@ -3486,7 +3487,7 @@ _DelPostRebootRunScriptHook_()
 
    if grep -qE "$POST_REBOOT_SCRIPT_JOB" "$hookScriptFile"
    then
-       sed -i -e '/\/'"$ScriptFileName"' postRebootRun &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       sed -i -e '/\/'"$ScriptFileName"' postRebootRun & /d' "$hookScriptFile"
        if [ $? -eq 0 ]
        then
            Say "Post-reboot run hook was deleted successfully from '$hookScriptFile' script."
@@ -4046,53 +4047,75 @@ _CheckForMinimumModelSupport_()
     "$routerModelCheckFailed" && return 1 || return 0
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2026-Jan-01] ##
+##-------------------------------------##
+_DoMainRouterLogin_()
+{
+    if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
+    then
+        echo ; return 1
+    fi
+    local routerURL="$1"
+    local credsENC="$2"
+    local cookieFile="$3"
+    local curlCode  curlResponse
+
+    curlResponse="$(curl -k "${routerURL}/login.cgi" \
+    --referer "${routerURL}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${routerURL}/" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsENC" \
+    --cookie-jar "$cookieFile")"
+    curlCode="$?"
+
+    echo "$curlResponse"
+    return "$curlCode"
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-07] ##
+## Modified by Martinski W. [2026-Jan-01] ##
 ##----------------------------------------##
 _TestLoginCredentials_()
 {
-    local credsENC  curlResponse  routerURLstr
+    local credsENC  routerURL  cookieFile  curlResponse  retCode
 
     if [ $# -gt 0 ] && [ -n "$1" ]
     then credsENC="$1"
     else credsENC="$(Get_Custom_Setting credentials_base64)"
     fi
 
-    # Define routerURLstr #
-    routerURLstr="$(_GetRouterURL_)"
+    routerURL="$(_GetRouterURL_)"
+    cookieFile="/tmp/MerlinAU_LoginCookie.txt"
 
     printf "\nRestarting web server... Please wait.\n"
-    /sbin/service restart_httpd >/dev/null 2>&1 &
-    sleep 5
+    /sbin/service restart_httpd >/dev/null 2>&1
+    sleep 4
 
-    curlResponse="$(curl -k "${routerURLstr}/login.cgi" \
-    --referer "${routerURLstr}/Main_Login.asp" \
-    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Content-Type: application/x-www-form-urlencoded' \
-    -H "Origin: ${routerURLstr}/" \
-    -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsENC}" \
-    --cookie-jar /tmp/cookie.txt)"
-
-    # Determine login success or failure. This is a basic check #
-    if echo "$curlResponse" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
+    if curlResponse="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")" && \
+       echo "$curlResponse" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
         _UpdateLoginPswdCheckHelper_ SUCCESS
         printf "\n${GRNct}Router Login test passed.${NOct}"
         printf "\nRestarting web server... Please wait.\n"
         /sbin/service restart_httpd >/dev/null 2>&1 &
         sleep 2
-        return 0
+        retCode=0
     else
         _UpdateLoginPswdCheckHelper_ FAILURE
         printf "\n${REDct}**ERROR**${NOct}: Router Login test failed.\n"
         printf "\n${routerLoginFailureMsg}\n\n"
         if _WaitForYESorNO_ "Would you like to try again?"
-        then return 1  # Indicates failure but with intent to retry #
-        else return 0  # User opted not to retry so just return #
+        then retCode=1  # Indicates failure but with intent to retry #
+        else retCode=0  # User chose not to retry so just return #
         fi
     fi
+
+    rm -f "$cookieFile"
+    return "$retCode"
 }
 
 ##----------------------------------------##
@@ -4619,13 +4642,14 @@ _GetLoginCredentials_()
         then
             _UpdateLoginPswdCheckHelper_ NewPSWD
             savedMsgStr="${GRNct}New credentials saved.${NOct}"
+            oldPWSDstring="$thePWSDstring"
         else
             _UpdateLoginPswdCheckHelper_ OldPSWD
             savedMsgStr="${GRNct}Credentials remain unchanged.${NOct}"
         fi
         printf "\n${savedMsgStr}\n"
         printf "Encoded Credentials:\n"
-        printf "${GRNct}$loginCredsENC${NOct}\n"
+        printf "${GRNct}${loginCredsENC}${NOct}\n"
 
         if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"
         then
@@ -4722,18 +4746,17 @@ _Populate_Node_Settings_()
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2025-Dec-30] ##
 ##---------------------------------------##
-# Make an IP safe for filenames
-_MeshSafeID_() {
-    printf "%s" "$1" | tr '.:' '__'
-}
+# Make an ID safe for filenames #
+_MeshSafeID_()
+{ printf "%s" "$1" | tr '.:' '__' ; }
 
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Mar-26] ##
 ##---------------------------------------##
 _GetNodeURL_()
 {
-    local NodeIP_Address="$1"
-    local urlProto urlDomain urlPort
+    local nodeIPv4addr="$1"
+    local urlProto  urlDomain  urlPort
 
     if [ "$(nvram get http_enable)" = "1" ]; then
         urlProto="https"
@@ -4748,23 +4771,54 @@ _GetNodeURL_()
         urlPort=":$urlPort"
     fi
 
-    echo "${urlProto}://${NodeIP_Address}${urlPort}"
+    echo "${urlProto}://${nodeIPv4addr}${urlPort}"
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2025-Dec-30] ##
-##---------------------------------------##
-# Trigger the node "Check for updates" (no waiting here)
-_MeshNodeTriggerFWCheck_() {
-    local NodeIP_Address="$1"
-    local runid="$2"
-    local safe_id="$(_MeshSafeID_ "$NodeIP_Address")"
-    local NodeURLstr="$(_GetNodeURL_ "$NodeIP_Address")"
-    local cookieFile="/tmp/${runid}.${safe_id}.cookie"
+##-------------------------------------##
+## Added by Martinski W. [2026-Jan-01] ##
+##-------------------------------------##
+_DoMeshNodeLogin_()
+{
+    if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
+    then
+        return 1
+    fi
+    local nodeURL="$1"
+    local credsENC="$2"
+    local cookieFile="$3"
 
-    ## Check for Login Credentials ##
-    credsBase64="$(Get_Custom_Setting credentials_base64)"
-    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
+    curl -s -k "${nodeURL}/login.cgi" \
+    --referer "${nodeURL}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Content-Type: application/x-www-form-urlencoded' \
+    -H "Origin: ${nodeURL}" \
+    -H 'Connection: keep-alive' \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsENC" \
+    --cookie-jar "$cookieFile" \
+    --max-time 3 >/dev/null 2>&1
+
+    return "$?"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2026-Jan-01] ##
+##----------------------------------------##
+# Trigger the node "Check for updates" (no waiting here)
+_MeshNodeTriggerFWCheck_()
+{
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+    then echo "**ERROR** **NO_PARAMS**" ; return 1
+    fi
+
+    local nodeIPv4addr="$1"  runID="$2"
+    local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
+    local nodeURL="$(_GetNodeURL_ "$nodeIPv4addr")"
+    local cookieFile="/tmp/${runID}.${safeID}.cookie"
+
+    # Check for Login Credentials #
+    credsENC="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$credsENC" ] || [ "$credsENC" = "TBD" ]
     then
         _UpdateLoginPswdCheckHelper_ InitPWD
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
@@ -4772,26 +4826,23 @@ _MeshNodeTriggerFWCheck_() {
         return 1
     fi
 
-    # Perform login request #
-    curl -s -k "${NodeURLstr}/login.cgi" \
-    --referer "${NodeURLstr}/Main_Login.asp" \
-    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Content-Type: application/x-www-form-urlencoded' \
-    -H "Origin: ${NodeURLstr}" \
-    -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
-    --cookie-jar "$cookieFile" \
-    --max-time 2 >/dev/null 2>&1 || return 1
+    if _DoMeshNodeLogin_ "$nodeURL" "$credsENC" "$cookieFile"
+    then
+        Say "${GRNct}Successful Login for AiMesh Node [$nodeIPv4addr].${NOct}"
+    else
+        rm -f "$cookieFile"
+        Say "${REDct}Failed Login for AiMesh Node [$nodeIPv4addr].${NOct}"
+        return 1
+    fi
 
-    # Trigger firmware check (mimic WebUI "Check" button)
-    curl -s -k "${NodeURLstr}/start_apply.htm" \
-    --referer "${NodeURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
+    # Trigger firmware check (mimic WebUI "Check" button) #
+    curl -s -k "${nodeURL}/start_apply.htm" \
+    --referer "${nodeURL}/Advanced_FirmwareUpgrade_Content.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
     -H 'Accept-Language: en-US,en;q=0.5' \
     -H 'Content-Type: application/x-www-form-urlencoded' \
-    -H "Origin: ${NodeURLstr}" \
+    -H "Origin: ${nodeURL}" \
     -H 'Connection: keep-alive' \
     --data "current_page=Advanced_FirmwareUpgrade_Content.asp" \
     --data "next_page=Advanced_FirmwareUpgrade_Content.asp" \
@@ -4800,34 +4851,34 @@ _MeshNodeTriggerFWCheck_() {
     --data "action_script=start_webs_update" \
     --data "action_wait=webs_update_trigger" \
     --cookie "$cookieFile" \
-    --max-time 3 >/dev/null 2>&1 || return 1
+    --max-time 3 >/dev/null 2>&1
 
-    if [ $? -ne 0 ]; then
-        return 1
-    fi
-
-    return 0
+    return "$?"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Dec-30] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Jan-01] ##
+##----------------------------------------##
 _GetNodeInfo_()
 {
-    local NodeIP_Address="$1"
-    local runid="$2"
-    local safe_id="$(_MeshSafeID_ "$NodeIP_Address")"
-    local NodeURLstr="$(_GetNodeURL_ "$NodeIP_Address")"
-    local cookieFile="/tmp/${runid}.${safe_id}.cookie"
-    local varsFile="/tmp/${runid}.${safe_id}.vars"
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+    then echo "**ERROR** **NO_PARAMS**" ; return 1
+    fi
 
-    # Shell-safe single-quote wrapper for writing vars files
-    _sh_quote_() {
-        # prints a single-quoted literal that can be safely `.` sourced
+    local curlCode  htmlContent
+    local nodeIPv4addr="$1"  runID="$2"
+    local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
+    local nodeURL="$(_GetNodeURL_ "$nodeIPv4addr")"
+    local cookieFile="/tmp/${runID}.${safeID}.cookie"
+    local varsFile="/tmp/${runID}.${safeID}.vars"
+
+    # Shell-safe single-quote wrapper for writing vars files #
+    _sh_quote_()
+    {   # prints a single-quoted literal that can be safely "sourced" #
         printf "'%s'" "$(printf "%s" "$1" | sed "s/'/'\\\\''/g")"
     }
 
-    ## Default values for specific variables
+    # Default values for specific variables #
     node_productid="Unreachable"
     Node_combinedVer="Unreachable"
     node_firmver="Unreachable"
@@ -4839,9 +4890,9 @@ _GetNodeInfo_()
     node_label_mac="Unreachable"
     NodeGNUtonFW=false
 
-    ## Check for Login Credentials ##
-    credsBase64="$(Get_Custom_Setting credentials_base64)"
-    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
+    # Check for Login Credentials #
+    credsENC="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$credsENC" ] || [ "$credsENC" = "TBD" ]
     then
         _UpdateLoginPswdCheckHelper_ InitPWD
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
@@ -4849,47 +4900,38 @@ _GetNodeInfo_()
         return 1
     fi
 
-    # If Phase 1 already created a cookie, reuse it (skip login) else perform login request #
-    if [ ! -s "$cookieFile" ]
+    # If already created a cookie, reuse it (skip login), else perform login request #
+    if [ ! -s "$cookieFile" ] && \
+       ! _DoMeshNodeLogin_ "$nodeURL" "$credsENC" "$cookieFile"
     then
-        curl -s -k "${NodeURLstr}/login.cgi" \
-            --referer "${NodeURLstr}/Main_Login.asp" \
-            --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-            -H 'Accept-Language: en-US,en;q=0.5' \
-            -H 'Content-Type: application/x-www-form-urlencoded' \
-            -H "Origin: ${NodeURLstr}" \
-            -H 'Connection: keep-alive' \
-            --data-raw \
-                "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsBase64" \
-            --cookie-jar "$cookieFile" \
-            --max-time 2 >/dev/null 2>&1 || {
-                printf "\n${REDct}Login failed for AiMesh Node [$NodeIP_Address].${NOct}\n"
-                return 1
-            }
+        rm -f "$cookieFile"
+        Say "${REDct}Failed Login for AiMesh Node [$nodeIPv4addr].${NOct}"
+        return 1
     fi
 
-    # Retrieve the HTML content #
-    htmlContent="$(curl -s -k "${NodeURLstr}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
+    # Retrieve Info #
+    htmlContent="$(curl -s -k "${nodeURL}/appGet.cgi?hook=nvram_get(productid)%3bnvram_get(firmver)%3bnvram_get(buildno)%3bnvram_get(extendno)%3bnvram_get(webs_state_flag)%3bnvram_get(lan_hostname)%3bnvram_get(webs_state_info)%3bnvram_get(label_mac)" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
     -H 'Accept-Language: en-US,en;q=0.5' \
     -H 'Accept-Encoding: gzip, deflate' \
     -H 'Connection: keep-alive' \
-    -H "Referer: ${NodeURLstr}/index.asp" \
+    -H "Referer: ${nodeURL}/index.asp" \
     -H 'Upgrade-Insecure-Requests: 0' \
     --cookie "$cookieFile" \
     --max-time 2 2>/dev/null)"
+    curlCode="$?"
 
-    if [ $? -ne 0 ] || [ -z "$htmlContent" ]
+    if [ "$curlCode" -ne 0 ] || [ -z "$htmlContent" ]
     then
+        # Logout best-effort #
+        curl -s -k "${nodeURL}/Logout.asp" --cookie "$cookieFile" --max-time 2 >/dev/null 2>&1
+        printf "\n${REDct}Failed to get information for AiMesh Node [$nodeIPv4addr].${NOct}\n"
         rm -f "$cookieFile"
-        # Logout best-effort
-        curl -s -k "${NodeURLstr}/Logout.asp" --cookie "$cookieFile" --max-time 2 >/dev/null 2>&1
-        printf "\n${REDct}Failed to get information for AiMesh Node [$NodeIP_Address].${NOct}\n"
         return 1
     fi
 
-    # Extract values using regular expressions #
+    # Extract values #
     node_productid="$(echo "$htmlContent" | grep -o '"productid":"[^"]*' | sed 's/"productid":"//')"
     node_firmver="$(echo "$htmlContent" | grep -o '"firmver":"[^"]*' | sed 's/"firmver":"//' | tr -d '.')"
     node_buildno="$(echo "$htmlContent" | grep -o '"buildno":"[^"]*' | sed 's/"buildno":"//')"
@@ -4905,25 +4947,20 @@ _GetNodeInfo_()
     # Combine extracted information into one string #
     Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
 
-    # Perform logout request #
-    curl -s -k "${NodeURLstr}/Logout.asp" \
+    # Logout request #
+    curl -s -k "${nodeURL}/Logout.asp" \
     -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
     -H 'Accept-Language: en-US,en;q=0.5' \
     -H 'Accept-Encoding: gzip, deflate' \
     -H 'Connection: keep-alive' \
-    -H "Referer: ${NodeURLstr}/Main_Login.asp" \
+    -H "Referer: ${nodeURL}/Main_Login.asp" \
     -H 'Upgrade-Insecure-Requests: 0' \
     --cookie "$cookieFile" \
     --max-time 2 >/dev/null 2>&1
+    curlCode="$?"
 
-    if [ $? -ne 0 ]; then
-        return 1
-    fi
-
-    rm -f "$cookieFile" >/dev/null 2>&1
-
-    # Write a vars file the parent shell can source safely
+    # Write a vars file the parent shell can source safely #
     {
         printf "node_productid=%s\n"       "$(_sh_quote_ "$node_productid")"
         printf "node_firmver=%s\n"         "$(_sh_quote_ "$node_firmver")"
@@ -4935,9 +4972,10 @@ _GetNodeInfo_()
         printf "node_label_mac=%s\n"       "$(_sh_quote_ "$node_label_mac")"
         printf "Node_combinedVer=%s\n"     "$(_sh_quote_ "$Node_combinedVer")"
         printf "NodeGNUtonFW=%s\n"         "$NodeGNUtonFW"
-    } >"$varsFile"
+    } > "$varsFile"
 
-    return 0
+    rm -f "$cookieFile"
+    return "$curlCode"
 }
 
 ##------------------------------------------##
@@ -4945,7 +4983,7 @@ _GetNodeInfo_()
 ##------------------------------------------##
 _GetLatestFWUpdateVersionFromNode_()
 {
-   local retCode=0  webState  newVersionStr
+    local retCode=0  webState  newVersionStr
 
     webState="${node_webs_state_flag:-}"
 
@@ -4966,7 +5004,7 @@ _GetLatestFWUpdateVersionFromNode_()
     fi
 
     [ -z "$newVersionStr" ] && retCode=1
-    printf "%s\n" "$newVersionStr"
+    echo "$newVersionStr"
     return "$retCode"
 }
 
@@ -8547,7 +8585,7 @@ _SelectOfflineUpdateFile_()
         return 1
     fi
 
-    # Confirm the selection
+    # Confirm selection #
     if _WaitForYESorNO_ "\nDo you want to continue with the selected file?"
     then
         printf "\n---------------------------------------------------\n"
@@ -8944,7 +8982,7 @@ _Unmount_Eject_USB_Drives_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Nov-09] ##
+## Modified by Martinski W. [2026-Jan-01] ##
 ##----------------------------------------##
 _RunFirmwareUpdateNow_()
 {
@@ -9019,10 +9057,10 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     if ! node_online_status="$(_NodeActiveStatus_)"
     then node_online_status="" 
-    else _ProcessMeshNodes_ 0
+    else _ProcessMeshNodes_ false
     fi
 
-    local retCode  credsBase64=""
+    local retCode  credsENC=""
     local currentVersionNum=""  releaseVersionNum=""
     local current_version=""
 
@@ -9129,8 +9167,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     dottedVersion="$(echo "$fwUpdateBaseNum" | sed 's/./&./g' | sed 's/.$//')"
 
     ## Check for Login Credentials ##
-    credsBase64="$(Get_Custom_Setting credentials_base64)"
-    if [ -z "$credsBase64" ] || [ "$credsBase64" = "TBD" ]
+    credsENC="$(Get_Custom_Setting credentials_base64)"
+    if [ -z "$credsENC" ] || [ "$credsENC" = "TBD" ]
     then
         _UpdateLoginPswdCheckHelper_ InitPWD
         Say "${REDct}**ERROR**${NOct}: No login credentials have been saved. Use the Main Menu to save login credentials."
@@ -9390,8 +9428,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
     check_memory_and_prompt_reboot "$requiredRAM_kb" "$availableRAM_kb"
 
-    routerURLstr="$(_GetRouterURL_)"
-    Say "Router Web URL is: ${routerURLstr}"
+    routerURL="$(_GetRouterURL_)"
+    Say "Router Web URL is: ${routerURL}"
+    cookieFile="/tmp/FW_UpgradeCookie.txt"
 
     if "$isInteractive"
     then
@@ -9412,7 +9451,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     #------------------------------------------------------------#
     "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
     /sbin/service restart_httpd >/dev/null 2>&1 &
-    sleep 5
+    sleep 4
 
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
@@ -9447,20 +9486,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         requiredDIVER_version="$(_ScriptVersionStrToNum_ "5.2.0")"
     fi
 
-    ##------------------------------------------##
-    ## Modified by ExtremeFiretop [2024-Sep-07] ##
-    ##------------------------------------------##
-    curl_response="$(curl -k "${routerURLstr}/login.cgi" \
-    --referer "${routerURLstr}/Main_Login.asp" \
-    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Content-Type: application/x-www-form-urlencoded' \
-    -H "Origin: ${routerURLstr}/" \
-    -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=${credsBase64}" \
-    --cookie-jar /tmp/cookie.txt)"
-
-    if echo "$curl_response" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
+    ##----------------------------------------##
+    ## Modified by Martinski W. [2026-Jan-01] ##
+    ##----------------------------------------##
+    if curlResponse="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")" && \
+       echo "$curlResponse" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
     then
         _UpdateLoginPswdCheckHelper_ SUCCESS
 
@@ -9523,11 +9553,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # the following 'curl' command MUST always be the last step in this block.
         # Do NOT insert any commands after it! (unless you understand the implications).
         #----------------------------------------------------------------------------------#
-        nohup curl -k "${routerURLstr}/upgrade.cgi" \
-        --referer "${routerURLstr}/Advanced_FirmwareUpgrade_Content.asp" \
+        nohup curl -k "${routerURL}/upgrade.cgi" \
+        --referer "${routerURL}/Advanced_FirmwareUpgrade_Content.asp" \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
         -H 'Accept-Language: en-US,en;q=0.5' \
-        -H "Origin: ${routerURLstr}/" \
+        -H "Origin: ${routerURL}/" \
         -F 'current_page=Advanced_FirmwareUpgrade_Content.asp' \
         -F 'next_page=' \
         -F 'action_mode=' \
@@ -9536,7 +9566,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         -F 'preferred_lang=EN' \
         -F "firmver=${dottedVersion}" \
         -F "file=@${firmware_file}" \
-        --cookie /tmp/cookie.txt > /tmp/upload_response.txt 2>&1 &
+        --cookie "$cookieFile" > /tmp/upload_response.txt 2>&1 &
         curlPID=$!
 
         #----------------------------------------------------------#
@@ -9572,6 +9602,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
             printf "\n${routerLoginFailureMsg}\n\n"
             _WaitForEnterKey_
         fi
+        rm -f "$cookieFile"
         _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
         _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
         _EntwareServicesHandler_ start
@@ -9703,7 +9734,7 @@ _DelFWAutoUpdateHook_()
 
    if grep -qE "$CRON_SCRIPT_JOB" "$hookScriptFile"
    then
-       sed -i -e '/\/'"$ScriptFileName"' addCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       sed -i -e '/\/'"$ScriptFileName"' addCronJob & /d' "$hookScriptFile"
        if [ $? -eq 0 ]
        then
            Say "F/W Update cron job hook was deleted successfully from '$hookScriptFile' script."
@@ -9787,7 +9818,7 @@ _DelScriptAutoUpdateHook_()
 
    if grep -qE "$DAILY_SCRIPT_UPDATE_CHECK_JOB" "$hookScriptFile"
    then
-       sed -i -e '/\/'"$ScriptFileName"' scriptAUCronJob &  '"$hookScriptTagStr"'/d' "$hookScriptFile"
+       sed -i -e '/\/'"$ScriptFileName"' scriptAUCronJob & /d' "$hookScriptFile"
        if [ $? -eq 0 ]
        then
            Say "ScriptAU cron job hook was deleted successfully from '$hookScriptFile' script."
@@ -10173,14 +10204,17 @@ _ValidatePrivateIPv4Address_()
    fi
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Dec-30] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Jan-01] ##
+##----------------------------------------##
 _ProcessMeshNodes_()
 {
-    includeExtraLogic="$1"  # Use '1' to include extra logic, '0' to exclude
     if [ $# -eq 0 ] || [ -z "$1" ]
-    then echo "**ERROR** **NO_PARAMS**" ; return 1 ; fi
+    then echo "**ERROR** **NO_PARAMS**" ; return 1
+    fi
+    # 'true' to include extra logic, 'false' to exclude #
+    local includeExtraLogic="$1"
+    local runID
 
     if "$aiMeshNodes_OK"
     then
@@ -10190,57 +10224,57 @@ _ProcessMeshNodes_()
 
         if [ -n "$node_list" ]
         then
-            # Unique run id for temp files
-            local runid="mesh_$$.$(date +%s)"
+            # Unique run ID for temp files #
+            runID="mesh_$$.$(date +%s)"
 
-            # ---- trigger FW check on all nodes in parallel ----
+            # ---- Trigger F/W check on all nodes in parallel ---- #
             for nodeIPv4addr in $node_list
             do
                 _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
-                _MeshNodeTriggerFWCheck_ "$nodeIPv4addr" "$runid" >/dev/null 2>&1 &
+                _MeshNodeTriggerFWCheck_ "$nodeIPv4addr" "$runID" >/dev/null 2>&1 &
             done
             wait
 
-            # ---- Single wait ----
-            local waitSeconds="${MESH_UPDATE_WAIT_SECONDS:-8}"
-            if [ "$includeExtraLogic" -eq 1 ]
+            # ---- Single wait ---- #
+            local waitSeconds="${meshUpdate_WaitSecs:-8}"
+            if "$includeExtraLogic"
             then
                 local waitMsg="Please wait while we query the node(s) for status..."
-                printf "\n"
+                echo
                 local idx=0
                 while [ "$idx" -lt "$waitSeconds" ]
                 do
                     printf "\r%s (%ds)" "$waitMsg" "$((waitSeconds - idx))"
                     sleep 1
-                    idx=$((idx + 1))
+                    idx="$((idx + 1))"
                 done
                 printf "\r%s Done.                                                      " "$waitMsg"
             else
                 sleep "$waitSeconds"
             fi
 
-            # ---- fetch node info on all nodes in parallel ----
+            # ---- Fetch info from all nodes in parallel ---- #
             for nodeIPv4addr in $node_list
             do
                 _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
-                _GetNodeInfo_ "$nodeIPv4addr" "$runid" >/dev/null 2>&1 &
+                _GetNodeInfo_ "$nodeIPv4addr" "$runID" >/dev/null 2>&1 &
             done
             wait
 
-            # ---- read each node's vars ----
+            # ---- Read each node's vars ---- #
             for nodeIPv4addr in $node_list
             do
                 _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
 
-                local safe_id="$(_MeshSafeID_ "$nodeIPv4addr")"
-                local varsFile="/tmp/${runid}.${safe_id}.vars"
+                local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
+                local varsFile="/tmp/${runID}.${safeID}.vars"
 
-                # Load per-node globals (node_*, Node_combinedVer, NodeGNUtonFW)
+                # Load per-node globals (node_*, Node_combinedVer, NodeGNUtonFW) #
                 if [ -s "$varsFile" ]
                 then
                     . "$varsFile"
                 else
-                    # keep defaults consistent
+                    # keep defaults consistent #
                     node_productid="Unreachable"
                     Node_combinedVer="Unreachable"
                     node_extendno="Unreachable"
@@ -10256,21 +10290,22 @@ _ProcessMeshNodes_()
                     _CheckNodeFWUpdateNotification_ "$Node_combinedVer" "$Node_FW_NewUpdateVersion"
                 fi
 
-                # Apply extra logic if flag is '1'
-                if [ "$includeExtraLogic" -eq 1 ]
+                if "$includeExtraLogic"
                 then
                     _PrintNodeInfo "$nodeIPv4addr" "$node_online_status" "$Node_FW_NewUpdateVersion" "$uid"
                     uid="$((uid + 1))"
                 fi
             done
-            if [ -s "$tempNodeEMailList" ]; then
+
+            if [ -s "$tempNodeEMailList" ]
+            then
                 _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
             fi
 
-            rm -f "/tmp/${runid}."*.vars 2>/dev/null
-
+            rm -f "/tmp/${runID}."*.vars 2>/dev/null
         else
-            if [ "$includeExtraLogic" -eq 1 ]; then
+            if "$includeExtraLogic"
+            then
                 printf "\n${padStr}${padStr}${padStr}${REDct}No AiMesh Node(s)${NOct}"
             fi
         fi
@@ -11115,7 +11150,8 @@ _ShowNodesMenu_()
    printf "${SEPstr}\n"
 
    if ! node_online_status="$(_NodeActiveStatus_)"
-   then node_online_status="" ; fi
+   then node_online_status=""
+   fi
 
    # Count the number of IP addresses
    local numIPs="$(echo "$node_list" | wc -w)"
@@ -11123,9 +11159,8 @@ _ShowNodesMenu_()
    # Print the result
    printf "\n${padStr}${padStr}${padStr}${GRNct} AiMesh Node(s): ${numIPs}${NOct}"
 
-   _ProcessMeshNodes_ 1
-
-   echo ""
+   _ProcessMeshNodes_ true
+   echo
 
    printf "\n  ${GRNct}e${NOct}.  Return to Main Menu\n"
    printf "${SEPstr}"
@@ -11549,7 +11584,7 @@ then
                _ReleaseLock_ cliFileLock
            fi
            ;;
-       processNodes) _ProcessMeshNodes_ 0
+       processNodes) _ProcessMeshNodes_ false
            ;;
        addCronJob) _AddFWAutoUpdateCronJob_
            ;;
