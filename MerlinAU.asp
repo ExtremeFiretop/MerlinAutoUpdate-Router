@@ -27,7 +27,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Oct-27 **/
+/** Last Modified: 2026-Jan-24 **/
 /**----------------------------**/
 
 // Separate variables for shared and AJAX settings //
@@ -69,7 +69,7 @@ var scriptAutoUpdateCronSchedHR = 'TBD';
 var fwAutoUpdateCheckCronSchedHR = 'TBD';
 var isScriptUpdateAvailable = 'TBD';
 var fwUpdateEstimatedRunDate = 'TBD';
-var MinimumScriptFWRequired = 'TBD';
+var minimumScriptFWRequired = 'TBD';
 
 let pendingScriptUpdateGateCheck = false;
 let scriptUpdateGateTries = 0;
@@ -261,7 +261,7 @@ function ExtractFWVersion(verStr)
    return match ? match[0] : String(verStr).trim();
 }
 
-// Prefer hidden #firmver (same nvram source, no formatting risk), else fallback to #fwVersionInstalled
+// Prefer hidden #firmver (same nvram source, no formatting risk), else fallback to #fwVersionInstalled //
 function GetInstalledFWVersionFromUI()
 {
    let firmverInput = document.getElementById('firmver');
@@ -288,10 +288,10 @@ function RunScriptUpdateFirmwareGateCheck()
 
       success: function()
       {
-         let requiredStr = ExtractFWVersion(MinimumScriptFWRequired);
+         let requiredStr = ExtractFWVersion(minimumScriptFWRequired);
          let installedStr = GetInstalledFWVersionFromUI();
 
-         // If required version isn't ready yet, retry a few times
+         // If required version isn't ready yet, retry a few times //
          if (!requiredStr || requiredStr === 'TBD')
          {
             if (scriptUpdateGateTries < scriptUpdateGateMaxTries)
@@ -313,11 +313,11 @@ function RunScriptUpdateFirmwareGateCheck()
          {
             alert(
                "**SCRIPT UPDATE BLOCKED**\n\n" +
-               "MerlinAU cannot update because your installed firmware is " +
-               "below the minimum required firmware for this script update.\n\n" +
-               "Installed firmware: " + installedStr + "\n" +
-               "Minimum required:  " + requiredStr + "\n\n" +
-               "Please update your router firmware, then try again."
+               "MerlinAU script cannot be updated because your router firmware is " +
+               "below the minimum firmware version supported by the new script update.\n\n" +
+               "Installed firmware version:  " + installedStr + "\n" +
+               "Minimum version supported:  " + requiredStr + "\n\n" +
+               "Please update the router firmware first, then try again to update the script."
             );
          }
       },
@@ -2223,14 +2223,12 @@ function initial()
         hiddenFrame.onload = function()
         {
             console.log("Hidden frame loaded with server response.");
-
             if (pendingScriptUpdateGateCheck)
             {
-                // Wait a moment to allow the backend logic to finish writing checkHelper.js
+                // Wait a moment to allow the backend logic to finish writing checkHelper.js //
                 setTimeout(RunScriptUpdateFirmwareGateCheck, 1000);
             }
         };
-
         initializeCollapsibleSections();
     }
 }

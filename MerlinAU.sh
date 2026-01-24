@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Jan-02
+# Last Modified: 2026-Jan-24
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.5.9
-readonly SCRIPT_VERSTAG="26012310"
+readonly SCRIPT_VERSTAG="26012404"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -198,12 +198,13 @@ readonly fwInstalledInnerVers="$(nvram get innerver)"
 readonly fwInstalledBranchVer="${fwInstalledBaseVers}.$(echo "$fwInstalledBuildVers" | awk -F'.' '{print $1}')"
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jan-23] ##
+## Modified by ExtremeFiretop [2026-Jan-23] ##
 ##------------------------------------------##
-# For minimum supported firmware version check #
-# TO NOTE: Due to Gnuton being behind RMerlin  #
-# Only lock out firmware versions that are 5   #
-# builds behind the current production         #
+# For minimum supported firmware version check.
+# *NOTE*: Due to Gnuton F/W being behind RMerlin
+# F/W releases, remove support for F/W versions
+# that are 5 builds behind the latest production.
+#------------------------------------------------#
 MinFirmwareVerCheckFailed=false
 NewMinSupportedFirmwareVers="TBD"
 readonly MinSupportedFW_3004_386_Ver="3004.386.13.2"
@@ -2810,13 +2811,13 @@ _DownloadScriptFiles_()
 }
 
 ##---------------------------------------##
-## Added by ExtremeFiretop [2025-Jan-23] ##
+## Added by ExtremeFiretop [2026-Jan-23] ##
 ##---------------------------------------##
 _GetRemoteMinSupportedFirmwareVers_()
 {
-   # Echoes the minimum supported FW version (string) for the
-   # currently-installed FW branch (e.g. 3004.388), based on the
-   # *REMOTE* script content. Returns 0 on success.
+   # Returns the minimum supported F/W version string for the #
+   # currently-installed F/W branch (e.g. 3004.388), based on #
+   # the *REMOTE* script content. Returns code 0 on success. #
    local tmpScript srceScriptUrl current_version branchVer branchKey
    local varName minVers defaultVar
 
@@ -2860,24 +2861,25 @@ _GetRemoteMinSupportedFirmwareVers_()
 }
 
 ##---------------------------------------##
-## Added by ExtremeFiretop [2025-Jan-23] ##
+## Added by ExtremeFiretop [2026-Jan-23] ##
 ##---------------------------------------##
 _CheckNewScriptMinFWBeforeUpdate_()
 {
-   # Returns 0 if OK (or unknown), 1 if the NEW script requires newer FW.
-   # Sets global NewMinSupportedFirmwareVers when known.
+   # Returns 0 if OK (or unknown), 1 if the NEW script requires newer FW. #
+   # Sets global NewMinSupportedFirmwareVers when known. #
    local current_version numOfFields numCurrentVers numNewMinVers
    local newMinVers
 
-   # If already known, reuse it (do not re-download / re-parse remote script)
-   if [ -n "$NewMinSupportedFirmwareVers" ] && [ "$NewMinSupportedFirmwareVers" != "TBD" ]
+   # If already known, reuse it (do not re-download / re-parse remote script) #
+   if [ -n "$NewMinSupportedFirmwareVers" ] && \
+      [ "$NewMinSupportedFirmwareVers" != "TBD" ]
    then
        newMinVers="$NewMinSupportedFirmwareVers"
    else
        newMinVers="$(_GetRemoteMinSupportedFirmwareVers_)" || return 0
        [ -n "$newMinVers" ] || return 0
 
-       # Cache for future calls
+       # Cache for future calls #
        NewMinSupportedFirmwareVers="$newMinVers"
    fi
 
@@ -2892,10 +2894,12 @@ _CheckNewScriptMinFWBeforeUpdate_()
 }
 
 ##-------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jan-23] ##
+## Modified by ExtremeFiretop [2026-Jan-23] ##
 ##-------------------------------------------##
 _SCRIPT_UPDATE_()
 {
+   local current_version
+
    ScriptUpdateDeclined=false
    if [ $# -gt 0 ] && [ "$1" = "force" ]
    then
@@ -2906,17 +2910,15 @@ _SCRIPT_UPDATE_()
        current_version="$(_GetCurrentFWInstalledLongVersion_)"
        if ! _CheckNewScriptMinFWBeforeUpdate_
        then
-           _WriteVarDefToHelperJSFile_ "MinimumScriptFWRequired" "$NewMinSupportedFirmwareVers"
+           _WriteVarDefToHelperJSFile_ "minimumScriptFWRequired" "$NewMinSupportedFirmwareVers"
            printf "\n${CRITct}*WARNING*:${NOct} MerlinAU v${DLRepoVersion} "
-           printf "requires newer router firmware.\n"
-           printf "\nCurrent F/W version found: ${REDct}%s${NOct}" \
-               "$current_version"
-           printf "\nMinimum version required: ${GRNct}%s${NOct}\n" \
-               "$NewMinSupportedFirmwareVers"
-           printf "\n${BOLDct}Recommendation:${NOct} Update router firmware first.\n"
+           printf "requires a newer router firmware version.\n"
+           printf "\nCurrent F/W version found: ${REDct}%s${NOct}" "$current_version"
+           printf "\nMinimum version supported: ${GRNct}%s${NOct}\n" "$NewMinSupportedFirmwareVers"
+           printf "\n${BOLDct}RECOMMENDATION:${NOct}\nUpdate the router firmware first before updating the MerlinAU script.\n"
            if "$isInteractive"
            then
-               printf "\n${BOLDct}Continue downloading anyway?${NOct}"
+               printf "\n${BOLDct}Continue to download and update the script anyway?${NOct}"
                if ! _WaitForYESorNO_
                then
                    ScriptUpdateDeclined=true
@@ -2924,7 +2926,7 @@ _SCRIPT_UPDATE_()
                    return 1
                fi
            else
-               # Non-interactive (auto-update): do NOT brick the script.
+               # Non-interactive (auto-update): do NOT brick the script #
                _SendEMailNotification_ FAILED_SCRIPT_UPDATE_MIN_FW_STATUS
                return 1
            fi
@@ -2971,19 +2973,18 @@ _SCRIPT_UPDATE_()
    printf "${CYANct}Update Version Available Now: ${YLWct}${DLRepoVersion}${NOct}\n\n"
 
    if "$mountWebGUI_OK"
-   then _SetVersionSharedSettings_ server "$DLRepoVersion" ; fi
+   then _SetVersionSharedSettings_ server "$DLRepoVersion"
+   fi
 
    current_version="$(_GetCurrentFWInstalledLongVersion_)"
    if ! _CheckNewScriptMinFWBeforeUpdate_
    then
-       _WriteVarDefToHelperJSFile_ "MinimumScriptFWRequired" "$NewMinSupportedFirmwareVers"
-       printf "\n${CRITct}*WARNING*:${NOct} Updating to MerlinAU v${DLRepoVersion} "
-       printf "requires newer router firmware.\n"
-       printf "\nCurrent F/W version found: ${REDct}%s${NOct}" \
-           "$current_version"
-       printf "\nMinimum version required: ${GRNct}%s${NOct}\n" \
-           "$NewMinSupportedFirmwareVers"
-       printf "\n${BOLDct}Recommendation:${NOct} Update router firmware first.\n"
+       _WriteVarDefToHelperJSFile_ "minimumScriptFWRequired" "$NewMinSupportedFirmwareVers"
+       printf "\n${CRITct}*WARNING*:${NOct} MerlinAU v${DLRepoVersion} "
+       printf "requires a newer router firmware version.\n"
+       printf "\nCurrent F/W version found: ${REDct}%s${NOct}" "$current_version"
+       printf "\nMinimum version supported: ${GRNct}%s${NOct}\n" "$NewMinSupportedFirmwareVers"
+       printf "\n${BOLDct}RECOMMENDATION:${NOct}\nUpdate the router firmware first before updating the MerlinAU script.\n\n"
    fi
 
    if [ "$SCRIPT_VERSION" = "$DLRepoVersion" ] && \
@@ -3097,9 +3098,9 @@ _CheckForNewScriptUpdates_()
    then
        if ! _CheckNewScriptMinFWBeforeUpdate_
        then
-           _WriteVarDefToHelperJSFile_ "MinimumScriptFWRequired" "$NewMinSupportedFirmwareVers"
+           _WriteVarDefToHelperJSFile_ "minimumScriptFWRequired" "$NewMinSupportedFirmwareVers"
        else 
-           _WriteVarDefToHelperJSFile_ "MinimumScriptFWRequired" "TBD"
+           _WriteVarDefToHelperJSFile_ "minimumScriptFWRequired" "TBD"
        fi
        scriptUpdateNotify="New script update available.
 ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
@@ -3114,7 +3115,7 @@ ${REDct}v${SCRIPT_VERSION}${NOct} --> ${GRNct}v${DLRepoVersion}${NOct}"
        fi
    else
        scriptUpdateNotify=0
-       _WriteVarDefToHelperJSFile_ "MinimumScriptFWRequired" "TBD"
+       _WriteVarDefToHelperJSFile_ "minimumScriptFWRequired" "TBD"
        _WriteVarDefToHelperJSFile_ "isScriptUpdateAvailable" "TBD"
    fi
    return 0
@@ -3142,7 +3143,7 @@ _GetLatestFWUpdateVersionFromRouter_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Jan-23] ##
+## Modified by ExtremeFiretop [2026-Jan-23] ##
 ##------------------------------------------##
 _CreateEMailContent_()
 {
@@ -3243,8 +3244,8 @@ _CreateEMailContent_()
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_SCRIPT_UPDATE_MIN_FW_STATUS)
-           # best-effort: use already-known minimum requirement if available,
-           # otherwise attempt to compute it again from remote script
+           # Use already-known minimum version requirement if available; #
+           # otherwise, attempt to compute it again from remote script #
            minFwRequired="$NewMinSupportedFirmwareVers"
            if [ -z "$minFwRequired" ]
            then
@@ -3255,11 +3256,11 @@ _CreateEMailContent_()
            emailBodyTitle="MerlinAU Script Update Blocked (Unsupported Firmware)"
            {
              echo "MerlinAU did NOT install the new Script Update version <b>${DLRepoVersion}</b> on your <b>${MODEL_ID}</b> router."
-             echo "Reason: Your router firmware is below the minimum supported firmware required by this MerlinAU update."
-             printf "\nCurrent router firmware version:\n<b>${fwInstalledVersion}</b>\n"
-             printf "\nMinimum firmware required for MerlinAU v${DLRepoVersion}:\n<b>${minFwRequired}</b>\n"
+             echo "Reason: Your router firmware is below the minimum firmware version supported by the new MerlinAU update."
+             printf "\nCurrent router firmware version installed:\n<b>${fwInstalledVersion}</b>\n"
+             printf "\nMinimum firmware version supported by MerlinAU v${DLRepoVersion}:\n<b>${minFwRequired}</b>\n"
              printf "\nThe installed script version remains: <b>${SCRIPT_VERSION}</b>\n"
-             printf "\nRecommendation: Update your router firmware first, then retry the MerlinAU update.\n"
+             printf "\nRECOMMENDATION:\nUpdate the router firmware first, then try again to update the MerlinAU script.\n"
            } > "$tempEMailBodyMsg"
            ;;
        FAILED_SCRIPT_UPDATE_STATUS)
@@ -10018,7 +10019,7 @@ _CheckForMinimumRequirements_()
        requirementsCheckOK=false
        Say "\n${CRITct}*WARNING*:${NOct} The current firmware version is below the minimum supported by this script."
        printf "\nCurrent F/W version found: ${REDct}${FW_InstalledVersion}${NOct}"
-       printf "\nMinimum version required: ${GRNct}${MinSupportedFirmwareVers}${NOct}\n"
+       printf "\nMinimum version supported: ${GRNct}${MinSupportedFirmwareVers}${NOct}\n"
    fi
 
    jffsScriptOK="$(nvram get jffs2_scripts)"
