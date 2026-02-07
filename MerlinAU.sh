@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Jan-24
+# Last Modified: 2026-Feb-06
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.5.9
-readonly SCRIPT_VERSTAG="26012404"
+readonly SCRIPT_VERSTAG="26020622"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -332,7 +332,7 @@ Say()
    logMsg="$(echo "$1" | \
    sed 's/\\e\[[0-1]m//g; s/\\e\[[3-4][0-9]m//g; s/\\e\[[0-1];[3-4][0-9]m//g; s/\\e\[30;10[1-9]m//g; s/\\n/ /g')"
    _UserLogMsg_ "$logMsg"
-   printf "$logMsg" | logger -t "[${SCRIPT_NAME}] $$"
+   printf "$logMsg" | logger -t "${SCRIPT_NAME}_[$$]"
 }
 
 ##----------------------------------------------##
