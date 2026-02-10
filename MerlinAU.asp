@@ -27,7 +27,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2025-Oct-27 **/
+/** Last Modified: 2026-Jan-24 **/
 /**----------------------------**/
 
 // Separate variables for shared and AJAX settings //
@@ -68,6 +68,12 @@ var isEMailConfigEnabledInAMTM = false;
 var scriptAutoUpdateCronSchedHR = 'TBD';
 var fwAutoUpdateCheckCronSchedHR = 'TBD';
 var isScriptUpdateAvailable = 'TBD';
+var fwUpdateEstimatedRunDate = 'TBD';
+var minimumScriptFWRequired = 'TBD';
+
+let pendingScriptUpdateGateCheck = false;
+let scriptUpdateGateTries = 0;
+const scriptUpdateGateMaxTries = 12;
 
 const validationErrorMsg = 'Validation failed. Please correct invalid value and try again.';
 
@@ -170,7 +176,7 @@ function FormatNumericSetting (formInput)
 const numberRegExp = '^[0-9]+$';
 const daysOfWeekNumbr = ['0', '1', '2', '3', '4', '5', '6'];
 const daysOfWeekNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const daysOfWeekRexpN = '([S|s]un|[M|m]on|[T|t]ue|[W|w]ed|[T|t]hu|[F|f]ri|[S|s]at)';
+const daysOfWeekRexpN = '([Ss]un|[Mm]on|[Tt]ue|[Ww]ed|[Tt]hu|[Ff]ri|[Ss]at)';
 const daysOfWeekRexp1 = `${daysOfWeekRexpN}|[0-6]`;
 const daysOfWeekRexp2 = `${daysOfWeekRexpN}[-]${daysOfWeekRexpN}|[0-6][-][0-6]`;
 const daysOfWeekRexp3 = `${daysOfWeekRexpN}([,]${daysOfWeekRexpN})+|[0-6]([,][0-6])+`;
@@ -247,6 +253,84 @@ const fwScheduleTime =
        return 'INVALID input';
    }
 };
+
+function ExtractFWVersion(verStr)
+{
+   if (!verStr) { return ''; }
+   let match = String(verStr).trim().match(/\d+(?:\.\d+)+/);
+   return match ? match[0] : String(verStr).trim();
+}
+
+// Prefer hidden #firmver (same nvram source, no formatting risk), else fallback to #fwVersionInstalled //
+function GetInstalledFWVersionFromUI()
+{
+   let firmverInput = document.getElementById('firmver');
+   if (firmverInput && firmverInput.value)
+   { return ExtractFWVersion(firmverInput.value); }
+
+   let fwCell = document.getElementById('fwVersionInstalled');
+   if (fwCell)
+   { return ExtractFWVersion(fwCell.textContent); }
+
+   return '';
+}
+
+function RunScriptUpdateFirmwareGateCheck()
+{
+   if (!pendingScriptUpdateGateCheck) { return; }
+
+   scriptUpdateGateTries++;
+
+   $.ajax({
+      url: '/ext/MerlinAU/checkHelper.js?_=' + new Date().getTime(),
+      dataType: 'script',
+      timeout: 5000,
+
+      success: function()
+      {
+         let requiredStr = ExtractFWVersion(minimumScriptFWRequired);
+         let installedStr = GetInstalledFWVersionFromUI();
+
+         // If required version isn't ready yet, retry a few times //
+         if (!requiredStr || requiredStr === 'TBD')
+         {
+            if (scriptUpdateGateTries < scriptUpdateGateMaxTries)
+            { setTimeout(RunScriptUpdateFirmwareGateCheck, 1000); }
+            else
+            { pendingScriptUpdateGateCheck = false; isFormSubmitting = false; }
+            return;
+         }
+
+         let installedNum = FWVersionStrToNum(installedStr);
+         let requiredNum  = FWVersionStrToNum(requiredStr);
+
+         pendingScriptUpdateGateCheck = false;
+         isFormSubmitting = false;
+
+         if (installedNum === 0 || requiredNum === 0) { return; }
+
+         if (installedNum < requiredNum)
+         {
+            alert(
+               "**SCRIPT UPDATE BLOCKED**\n\n" +
+               "MerlinAU script cannot be updated because your router firmware is " +
+               "below the minimum firmware version supported by the new script update.\n\n" +
+               "Installed firmware version:  " + installedStr + "\n" +
+               "Minimum version supported:  " + requiredStr + "\n\n" +
+               "Please update the router firmware first, then try again to update the script."
+            );
+         }
+      },
+
+      error: function()
+      {
+         if (scriptUpdateGateTries < scriptUpdateGateMaxTries)
+         { setTimeout(RunScriptUpdateFirmwareGateCheck, 1000); }
+         else
+         { pendingScriptUpdateGateCheck = false; isFormSubmitting = false; }
+      }
+   });
+}
 
 /**-------------------------------------**/
 /** Added by Martinski W. [2025-Jan-24] **/
@@ -910,6 +994,10 @@ function ShowLatestChangelog(e)
                     box.scrollTop -= 40;
                     ev.preventDefault();
                     break;
+                case 'Escape':
+                    $('#changelogModal').hide();
+                    ev.preventDefault();
+                    break;
                 default:
                     break;
             }
@@ -997,7 +1085,7 @@ function ValidateDirectoryPath (formField, dirType)
 function GetExternalCheckResults()
 {
     $.ajax({
-        url: '/ext/MerlinAU/checkHelper.js',
+        url: '/ext/MerlinAU/checkHelper.js?_=' + new Date().getTime(),
         dataType: 'script',
         timeout: 5000,
         error: function(xhr){
@@ -1537,7 +1625,10 @@ function GetLoginPswdCheckStatus()
 
             document.getElementById('LoginPswdStatusText').textContent = pswdStatusText;
             showhide('LoginPswdStatusText',true);
-            loginPswdHint = loginPswdHint.replace (/PswdSTATUS/, pswdStatusHint1);
+            // Rebuild the base hint fresh EACH time (so PswdSTATUS always exists) //
+            let loginUserStr = document.getElementById('http_username')?.value.trim() || 'admin';
+            let baseHint = loginPswdStatHintMsg.replace(/LoginUSER/, loginUserStr);
+            loginPswdHint = baseHint.replace(/PswdSTATUS/, pswdStatusHint1);
 
             pswdField = document.getElementById('routerPassword');
             if (passwordFailed || pswdVerified || pswdUnverified)
@@ -1688,7 +1779,7 @@ function InitializeFields()
         if (script_AutoUpdate_Check)
         {
             script_AutoUpdate_Check.checked = (custom_settings.Allow_Script_Auto_Update === 'ENABLED');
-            UpdateForceScriptCheckboxState(script_AutoUpdate_Check?.checked);
+            UpdateForceScriptCheckboxState(script_AutoUpdate_Check && script_AutoUpdate_Check.checked);
         }
 
         if (betaToReleaseUpdatesEnabled)
@@ -2132,6 +2223,11 @@ function initial()
         hiddenFrame.onload = function()
         {
             console.log("Hidden frame loaded with server response.");
+            if (pendingScriptUpdateGateCheck)
+            {
+                // Wait a moment to allow the backend logic to finish writing checkHelper.js //
+                setTimeout(RunScriptUpdateFirmwareGateCheck, 1000);
+            }
         };
         initializeCollapsibleSections();
     }
@@ -2142,6 +2238,9 @@ function initial()
 /**----------------------------------------**/
 function SaveCombinedConfig()
 {
+    // Reset containers per-save so stale values never leak forward //
+    advanced_settings = {};
+
     // Clear the hidden field before saving //
     document.getElementById('amng_custom').value = '';
 
@@ -2386,6 +2485,10 @@ function UpdateMerlinAUScript()
                         ? 'start_MerlinAUscrptupdate_force'
                         : 'start_MerlinAUscrptupdate';
 
+    pendingScriptUpdateGateCheck = true;
+    scriptUpdateGateTries = 0;
+    isFormSubmitting = true;
+
     document.form.action_script.value = actionScriptValue;
     document.form.action_wait.value   = 10;
     showLoading();
@@ -2612,7 +2715,6 @@ function initializeCollapsibleSections()
 <input type="hidden" id="nvram_model" value="<% nvram_get("model"); %>" />
 <input type="hidden" id="nvram_build_name" value="<% nvram_get("build_name"); %>" />
 <input type="hidden" id="nvram_productid" value="<% nvram_get("productid"); %>" />
-<input type="hidden" name="installedfirm" value="<% nvram_get("innerver"); %>" />
 <input type="hidden" name="amng_custom" id="amng_custom" value="" />
 
 <table class="content" cellpadding="0" cellspacing="0" style="margin:0 auto;">
@@ -2636,7 +2738,7 @@ function initializeCollapsibleSections()
 <div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
 <div style="margin:10px 0 10px 5px;" class="splitLine"></div>
 <div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI
-<span style="margin-left:8px;" id="WikiURL"">[
+<span style="margin-left:8px;" id="WikiURL">[
    <a style="font-weight:bolder; text-decoration:underline; cursor:pointer;"
       href="https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/wiki"
       title="Go to MerlinAU Wiki page" target="_blank">Wiki</a> ]
@@ -2761,7 +2863,7 @@ function initializeCollapsibleSections()
    <input type="submit" id="FWUpdateCheckButton" onclick="CheckFirmwareUpdate();
     return false;" value="F/W Update Check" class="button_gen savebutton" name="button">
    <br>
-   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8px">
    <input type="checkbox" checked="" id="BypassPostponedDays" name="BypassPostponedDays"
     style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Bypass postponed days</label>
    </br>
@@ -2770,7 +2872,7 @@ function initializeCollapsibleSections()
    <input type="submit" id="LatestChangelogButton" onclick="ShowLatestChangelog();
     return false;" value="Latest Changelog" class="button_gen savebutton" title="View the latest changelog" name="button">
    <br>
-   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8px">
    <input type="checkbox" id="approveChangelogCheck" name="approveChangelogCheck" onclick="ToggleChangelogApproval(this);"
    style="padding:0; vertical-align:middle; position:relative; margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Approve changelog</label>
    </br>
@@ -2794,7 +2896,7 @@ function initializeCollapsibleSections()
    <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;"
     value="Uninstall" class="button_gen savebutton" name="button">
    <br>
-   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8x">
+   <label style="color:#FFCC00; margin-top: 5px; margin-bottom:8px">
    <input type="checkbox" checked="" id="KeepConfigFile" name="KeepConfigFile"
     style="padding:0; vertical-align:middle; position:relative; margin-left:-3px; margin-top:5px; margin-bottom:8px"/>Keep configuration file</label>
    </br>
@@ -2812,7 +2914,7 @@ function initializeCollapsibleSections()
 <tbody>
   <tr>
     <td colspan="2">
-      <form id="advancedOptionsForm">
+      <div id="advancedOptionsForm">
         <table class="FormTable SettingsTable" width="100%" border="0" cellpadding="5" cellspacing="5" style="table-layout: fixed;">
 <colgroup>
   <col style="width: 37%;" />
@@ -2838,7 +2940,7 @@ function initializeCollapsibleSections()
              onblur="ValidatePasswordString(this,'onBLUR')"
              onkeyup="ValidatePasswordString(this,'onKEYUP')"/>
       <div id="eyeToggle" onclick="togglePassword();"
-           style="position: absolute; display: inline-block; margin-left: 5px; vertical-align: middle; width:24px; height:24px; background:url('/images/icon-visible@2x.png') no-repeat center; background-size: contain; cursor: pointer;">
+           style="position: relative; display: inline-block; margin-left: 5px; vertical-align: middle; width:24px; height:24px; background:url('/images/icon-visible@2x.png') no-repeat center; background-size: contain; cursor: pointer;">
       </div>
     </div>
     <br>
@@ -3086,7 +3188,7 @@ function initializeCollapsibleSections()
    <input type="submit" onclick="SaveCombinedConfig(); return false;"
     value="Save Configuration" class="button_gen savebutton" name="button">
 </div>
-</form></td></tr></tbody></table>
+</div></td></tr></tbody></table>
 <div id="footerTitle" style="margin-top:10px;text-align:center;">MerlinAU</div>
 </td></tr></tbody></table></td></tr></table></td>
 <td width="10"></td>
