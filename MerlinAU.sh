@@ -4,16 +4,16 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Feb-07
+# Last Modified: 2026-Feb-22
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.9
-readonly SCRIPT_VERSTAG="26020700"
+readonly SCRIPT_VERSION=1.5.10
+readonly SCRIPT_VERSTAG="26022202"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -51,6 +51,9 @@ scriptUpdateNotify=0
 # For router model check #
 routerModelCheckFailed=false
 offlineUpdateTrigger=false
+
+# To support automatic script updates from AMTM #
+doScriptUpdateFromAMTM=true
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Feb-18] ##
@@ -169,6 +172,7 @@ fi
 ##----------------------------------------##
 inMenuMode=true
 webguiMode=false
+isVerbose=false
 isInteractive=false
 FlashStarted=false
 MerlinChangeLogURL=""
@@ -273,7 +277,10 @@ routerLoginFailureMsg="Please try the following:
    to restrict access to the router webGUI from the router's IP address [${GRNct}${mainLAN_IPaddr}${NOct}].
 3. Confirm your password via the \"Set Router Login Password\" option from the Main Menu."
 
-[ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
+if [ -t 0 ] && ! tty | grep -qwi "NOT"
+then
+   isInteractive=true ; isVerbose=true
+fi
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-23] ##
@@ -321,13 +328,23 @@ _UserLogMsg_()
    fi
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2026-Feb-22] ##
+##-------------------------------------##
+DoPrintf()
+{
+    if "$isInteractive" && "$isVerbose"
+    then printf "$@"
+    fi
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-May-05] ##
+## Modified by Martinski W. [2026-Feb-22] ##
 ##----------------------------------------##
 Say()
 {
    local logMsg
-   "$isInteractive" && printf "${1}\n"
+   DoPrintf "${1}\n"
    # Remove all "color escape sequences" from the system log file entries #
    logMsg="$(echo "$1" | \
    sed 's/\\e\[[0-1]m//g; s/\\e\[[3-4][0-9]m//g; s/\\e\[[0-1];[3-4][0-9]m//g; s/\\e\[30;10[1-9]m//g; s/\\n/ /g')"
@@ -335,9 +352,9 @@ Say()
    printf "$logMsg" | logger -t "${SCRIPT_NAME}_[$$]"
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-20] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-20] ##
+##----------------------------------------##
 _WaitForEnterKey_()
 {
    ! "$isInteractive" && return 0
@@ -2912,9 +2929,9 @@ _CheckNewScriptMinFWBeforeUpdate_()
    return 0
 }
 
-##-------------------------------------------##
-## Modified by ExtremeFiretop [2026-Jan-23] ##
-##-------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Feb-22] ##
+##----------------------------------------##
 _SCRIPT_UPDATE_()
 {
    local current_version
@@ -2964,9 +2981,15 @@ _SCRIPT_UPDATE_()
                _SendEMailNotification_ SUCCESS_SCRIPT_UPDATE_STATUS
            fi
            sleep 1
-           _ReleaseLock_
-           exec "$ScriptFilePath"
-           exit 0
+           if [ $# -lt 2 ] || [ -z "$2" ]
+           then
+               _ReleaseLock_
+               exec "$ScriptFilePath"
+               exit 0
+           elif [ "$2" = "unattended" ]
+           then
+               return 0
+           fi
        else
            if ! "$isInteractive"
            then
@@ -3065,6 +3088,32 @@ _SCRIPT_UPDATE_()
           return 0
       fi
    fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Feb-22] ##
+##-------------------------------------##
+ScriptUpdateFromAMTM()
+{
+    local retCode=1
+
+    ScriptAutoUpdateSetting="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+    if ! "$doScriptUpdateFromAMTM" || \
+       [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
+    then
+        printf "Automatic script updates via AMTM are currently disabled.\n\n"
+        return 1
+    fi
+    if [ $# -gt 0 ] && [ "$1" = "check" ]
+    then return 0
+    fi
+    if _AcquireLock_ cliFileLock
+    then
+        _SCRIPT_UPDATE_ force unattended
+        retCode="$?"
+        _ReleaseLock_ cliFileLock
+    fi
+    return "$retCode"
 }
 
 ##------------------------------------------##
@@ -6568,14 +6617,14 @@ _DelFWAutoUpdateCronJob_()
        if _CheckFWAutoUpdateCronJobExists_ ANY
        then
            retCode=1
-           printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
+           DoPrintf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
        else
            retCode=0
-           printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was removed successfully.\n"
+           DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was removed successfully.\n"
        fi
    else
        retCode=0
-       printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' does not exist.\n"
+       DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' does not exist.\n"
    fi
    return "$retCode"
 }
@@ -6672,14 +6721,14 @@ _DelScriptAutoUpdateCronJob_()
        if eval $cronListCmd | grep -qE "$SCRIPT_UP_CRON_JOB_RUN #${SCRIPT_UP_CRON_JOB_TAG}#$"
        then
            retCode=1
-           printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}].\n"
+           DoPrintf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}].\n"
        else
            retCode=0
-           printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' was removed successfully.\n"
+           DoPrintf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' was removed successfully.\n"
        fi
    else
        retCode=0
-       printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' does not exist.\n"
+       DoPrintf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' does not exist.\n"
    fi
    return "$retCode"
 }
@@ -9573,7 +9622,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
             _CheckFirmwareMD5_
             retCode="$?"
         else
-            retCode=0  # Skip if the MD5 file does not exist
+            retCode=0  # Skip if the MD5 file does NOT exist #
         fi
     else
         if "$isGNUtonFW"
@@ -9920,7 +9969,7 @@ _DelFWAutoUpdateHook_()
            Say "F/W Update cron job hook was deleted successfully from '$hookScriptFile' script."
        fi
    else
-       printf "F/W Update cron job hook does not exist in '$hookScriptFile' script.\n"
+       DoPrintf "F/W Update cron job hook does not exist in '$hookScriptFile' script.\n"
    fi
 }
 
@@ -10004,7 +10053,7 @@ _DelScriptAutoUpdateHook_()
            Say "ScriptAU cron job hook was deleted successfully from '$hookScriptFile' script."
        fi
    else
-       printf "ScriptAU cron job hook does not exist in '$hookScriptFile' script.\n"
+       DoPrintf "ScriptAU cron job hook does not exist in '$hookScriptFile' script.\n"
    fi
 }
 
@@ -10582,13 +10631,14 @@ _EnableFWAutoUpdateChecks_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Sep-01] ##
+## Modified by Martinski W. [2026-Feb-22] ##
 ##----------------------------------------##
 _ConfirmCronJobForFWAutoUpdates_()
 {
     if [ $# -gt 0 ] && [ -n "$1" ] && \
        echo "$1" | grep -qE "^(install|startup|uninstall)$"
-    then return 1 ; fi
+    then return 1
+    fi
 
     # Check if the PREVIOUS Cron Job ID already exists #
     if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
@@ -10618,17 +10668,17 @@ _ConfirmCronJobForFWAutoUpdates_()
     then
         if ! _CheckFWAutoUpdateCronJobExists_
         then
-            printf "Auto-enabling cron job '${GRNct}${CRON_JOB_TAG}${NOct}'...\n"
+            DoPrintf "Auto-enabling cron job '${GRNct}${CRON_JOB_TAG}${NOct}'...\n"
             if _AddFWAutoUpdateCronJob_
             then
-                printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
                 cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
-                printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+                DoPrintf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
             else
-                printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+                DoPrintf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
             fi
         else
-            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+            DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
         fi
         _EnableFWAutoUpdateChecks_
 
@@ -10637,32 +10687,34 @@ _ConfirmCronJobForFWAutoUpdates_()
     then
         if ! _CheckFWAutoUpdateCronJobExists_
         then
-            _ShowLogo_
-            printf "Do you want to enable automatic firmware update checks?\n"
-            printf "This will create a CRON job to check for updates regularly.\n"
-            printf "The CRON can be disabled at any time via the main menu.\n"
-
-            if _WaitForYESorNO_
+            if "$isInteractive" && "$isVerbose"
             then
-                printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+                _ShowLogo_
+                printf "Do you want to enable automatic firmware update checks?\n"
+                printf "This will create a CRON job to check for updates regularly.\n"
+                printf "The CRON can be disabled at any time via the main menu.\n"
+            fi
+            if "$isVerbose" && _WaitForYESorNO_
+            then
+                DoPrintf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
                 if _AddFWAutoUpdateCronJob_
                 then
-                    printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                    DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
                     cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
-                    printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+                    DoPrintf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
                 else
-                    printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+                    DoPrintf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
                 fi
                 _EnableFWAutoUpdateChecks_
             else
                 # User said NO -> disable checks #
-                printf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
-                printf "You can enable this feature later via the main menu.\n"
+                DoPrintf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
+                DoPrintf "You can enable this feature later via the main menu.\n"
                 _DisableFWAutoUpdateChecks_ 
             fi
             _WaitForEnterKey_
         else
-            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+            DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
             Update_Custom_Settings "FW_Update_Check" "ENABLED"
             _AddFWAutoUpdateHook_
             runfwUpdateCheck=true
@@ -10671,12 +10723,12 @@ _ConfirmCronJobForFWAutoUpdates_()
     # 3) "DISABLED": Perform the disable steps (same as _Toggle_FW_UpdateCheckSetting_) #
     elif [ "$fwUpdateCheckState" = "DISABLED" ]
     then
-        printf "Firmware update checks have been ${REDct}DISABLED${NOct}.\n"
+        DoPrintf "Firmware update checks have been ${REDct}DISABLED${NOct}.\n"
         _DisableFWAutoUpdateChecks_
 
     # 4) Unknown/fallback -> treat as DISABLED #
     else
-        printf "Unknown FW_Update_Check value: '%s'. Disabling firmware checks.\n" "$fwUpdateCheckState"
+        DoPrintf "Unknown FW_Update_Check value: '%s'. Disabling firmware checks.\n" "$fwUpdateCheckState"
         _DisableFWAutoUpdateChecks_
     fi
 
@@ -11745,12 +11797,14 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-May-11] ##
+## Modified by Martinski W. [2026-Feb-22] ##
 ##----------------------------------------##
 if [ $# -gt 0 ]
 then
    if ! _AcquireLock_ cliOptsLock
    then Say "Exiting..." ; exit 1 ; fi
+
+   [ "$1" = "amtmupdate" ] && isVerbose=false
 
    inMenuMode=false
    _DoInitializationStartup_ "$1"
@@ -11791,6 +11845,11 @@ then
                _SCRIPT_UPDATE_ force
                _ReleaseLock_ cliFileLock
            fi
+           ;;
+       amtmupdate)
+           shift
+           ScriptUpdateFromAMTM "$@"
+           _DoExit_ "$?"
            ;;
        develop) _ChangeToDev_
            ;;
