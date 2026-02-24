@@ -3218,11 +3218,13 @@ _CreateEMailContent_()
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    local fwInstalledVersion  fwNewUpdateVersion
    local savedInstalledVersion  savedNewUpdateVersion
-   local subjectStr  emailBodyTitle=""  release_version
+   local subjectStrTag  subjectStr  emailBodyTitle=""  release_version
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
-   local subjectStrTag="F/W Update Status"
+   if [ -s "$tempNodeEMailList" ]
+   then subjectStrTag="F/W Update Available"
+   else subjectStrTag="F/W Update Status"
    if echo "$1" | grep -q '._SCRIPT_UPDATE_.'
    then subjectStrTag="Script Update Status"
    fi
