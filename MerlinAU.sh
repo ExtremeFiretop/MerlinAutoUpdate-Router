@@ -9,8 +9,8 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.10
-readonly SCRIPT_VERSTAG="26022202"
+readonly SCRIPT_VERSION=1.6.0
+readonly SCRIPT_VERSTAG="26022409"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -3227,7 +3227,7 @@ _CreateEMailContent_()
    then subjectStrTag="Script Update Status"
    fi
    if [ -s "$tempNodeEMailList" ]
-   then subjectStr="$subjectStrTag for $node_lan_hostname"
+   then subjectStr="$subjectStrTag for AiMesh Node(s)"
    else subjectStr="$subjectStrTag for $MODEL_ID"
    fi
 
