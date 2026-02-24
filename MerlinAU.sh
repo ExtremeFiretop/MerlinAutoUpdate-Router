@@ -3225,6 +3225,7 @@ _CreateEMailContent_()
    if [ -s "$tempNodeEMailList" ]
    then subjectStrTag="F/W Update Available"
    else subjectStrTag="F/W Update Status"
+   fi
    if echo "$1" | grep -q '._SCRIPT_UPDATE_.'
    then subjectStrTag="Script Update Status"
    fi
