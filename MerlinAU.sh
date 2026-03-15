@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Feb-22
+# Last Modified: 2026-Mar-15
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.0
-readonly SCRIPT_VERSTAG="26022409"
+readonly SCRIPT_VERSTAG="26031508"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -10113,6 +10113,7 @@ _CheckForMinimumRequirements_()
 ##-------------------------------------##
 _DoStartupInit_()
 {
+   Say "$SCRIPT_NAME $SCRIPT_VERSION starting up"
    _CreateDirPaths_
    _InitCustomDefaultsConfig_
    _InitCustomUserSettings_
