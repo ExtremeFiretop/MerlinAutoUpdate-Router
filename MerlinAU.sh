@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Mar-15
+# Last Modified: 2026-Mar-17
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.0
-readonly SCRIPT_VERSTAG="26031508"
+readonly SCRIPT_VERSTAG="26031700"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -429,6 +429,7 @@ _ReleaseLock_()
 }
 
 ## Defaults ##
+LockSleepDelaySecs=5
 LockMaxTimeoutSecs=120
 LockFileMaxAgeSecs=600  #10-minutes#
 
@@ -439,8 +440,9 @@ then
    LockFileMaxAgeSecs=1200
 else
    case "$1" in
-       run_now|resetLockFile)
-           LockMaxTimeoutSecs=3
+       run_now|amtmupdate|resetLockFile)
+           LockSleepDelaySecs=2
+           LockMaxTimeoutSecs=1
            LockFileMaxAgeSecs=1200
            ;;
        startup|addCronJob)
@@ -457,7 +459,7 @@ _AcquireLock_()
 {
    local retCode  waitTimeoutSecs
    local lockFileSecs  ageOfLockSecs  oldPID
-   local lockTypeReq  lockTypeFound
+   local lockTypeReq  lockTypeFound  savedVerbose
 
    if [ $# -gt 0 ] && [ -n "$1" ]
    then lockTypeReq="$1"
@@ -474,6 +476,8 @@ _AcquireLock_()
    retCode=1
    lockTypeFound=""
    waitTimeoutSecs=0
+   savedVerbose="$isVerbose"
+   isVerbose=true
 
    while true
    do
@@ -515,13 +519,15 @@ _AcquireLock_()
           then
               Say "Lock Found [$lockTypeFound: $ageOfLockSecs secs]. Waiting for script [PID=$oldPID] to exit [Timer: $waitTimeoutSecs secs]"
           fi
-          sleep 5
-          waitTimeoutSecs="$((waitTimeoutSecs + 5))"
+          sleep "$LockSleepDelaySecs"
+          waitTimeoutSecs="$((waitTimeoutSecs + LockSleepDelaySecs))"
       else
           Say "${REDct}**ERROR**${NOct}: The shell script ${ScriptFileName} [PID=$oldPID] is already running [$lockTypeFound: $ageOfLockSecs secs]"
           retCode=1 ; break
       fi
    done
+
+   isVerbose="$savedVerbose"
    return "$retCode"
 }
 
