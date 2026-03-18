@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Mar-17
+# Last Modified: 2026-Mar-18
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.0
-readonly SCRIPT_VERSTAG="26031700"
+readonly SCRIPT_VERSTAG="26031800"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -476,8 +476,7 @@ _AcquireLock_()
    retCode=1
    lockTypeFound=""
    waitTimeoutSecs=0
-   savedVerbose="$isVerbose"
-   isVerbose=true
+   savedVerbose="$isVerbose" ; isVerbose=true
 
    while true
    do
@@ -529,6 +528,66 @@ _AcquireLock_()
 
    isVerbose="$savedVerbose"
    return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Mar-18] ##
+##-------------------------------------##
+fwupMutexFLock_FD=576
+fwupMutexFLock_FN="/tmp/var/${ScriptFNameTag}_FW_Update.FLock"
+
+_ReleaseMutexFLock_()
+{
+    printf '' > "$fwupMutexFLock_FN"
+    flock -u "$fwupMutexFLock_FD" 2>/dev/null
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Mar-18] ##
+##-------------------------------------##
+#--------------------------------------------------------------#
+# This is a mutually exclusive, non-blocking FLOCK mechanism
+# to be used when MerlinAU is perforning a F/W Update so that
+# AMTM can check and prevent running automatic script updates
+# while the F/W Update is in progress.
+#--------------------------------------------------------------#
+_AcquireMutexFLock_()
+{
+    local retCode  savedVerbose
+    local procInfo  procName=""  procIDno=""  procIDof=""
+
+    savedVerbose="$isVerbose" ; isVerbose=true
+
+    if [ -s "$fwupMutexFLock_FN" ]
+    then
+        procInfo="$(head -n1 "$fwupMutexFLock_FN")"
+        procName="$(echo "$procInfo" | cut -d'|' -f1)"
+        procIDno="$(echo "$procInfo" | cut -d'|' -f2)"
+        if [ -n "$procName" ] && [ -n "$procIDno" ]
+        then procIDof="$(pidof "$procName")"
+        fi
+        if [ -z "$procIDof" ] || ! echo "$procIDof" | grep -qow "$procIDno"
+        then
+            Say "Stale F/W Update Lock Found. Resetting lock file..."
+            _ReleaseMutexFLock_
+        fi
+    fi
+
+    [ ! -s "$fwupMutexFLock_FN" ] && \
+    eval exec "$fwupMutexFLock_FD>$fwupMutexFLock_FN"
+
+    if flock -x -n "$fwupMutexFLock_FD" 2>/dev/null
+    then
+        printf "$(basename "$0")|$$\n" > "$fwupMutexFLock_FN"
+        retCode=0
+    else
+        procInfo="$(head -n1 "$fwupMutexFLock_FN")"
+        Say "${REDct}**ERROR**${NOct}: Another process [$procInfo] has the F/W Update Lock file."
+        retCode=1
+    fi
+
+    isVerbose="$savedVerbose"
+    return "$retCode"
 }
 
 ##-------------------------------------##
@@ -9126,10 +9185,12 @@ _RunOfflineUpdateNow_()
                 FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
                 _GnutonBuildSelection_
             fi
-            if _AcquireLock_ cliFileLock
+            if _AcquireLock_ cliFileLock && \
+               _AcquireMutexFLock_
             then
                 _RunFirmwareUpdateNow_
                 _ReleaseLock_ cliFileLock
+                _ReleaseMutexFLock_
             fi
             _ClearOfflineUpdateState_
         else
@@ -9953,10 +10014,12 @@ _PostRebootRunNow_()
 
    Say "END of $logMsg [$curWaitDelaySecs sec.]"
    sleep 30  ## Let's wait a bit & proceed ##
-   if _AcquireLock_ cliFileLock
+   if _AcquireLock_ cliFileLock && \
+      _AcquireMutexFLock_
    then
        _RunFirmwareUpdateNow_
        _ReleaseLock_ cliFileLock
+       _ReleaseMutexFLock_
    fi
 }
 
@@ -11615,10 +11678,12 @@ _MainMenu_()
                  HIDE_ROUTER_SECTION=true
              fi
              ;;
-          1) if _AcquireLock_ cliFileLock
+          1) if _AcquireLock_ cliFileLock && \
+                _AcquireMutexFLock_
              then
                  _RunFirmwareUpdateNow_
                  _ReleaseLock_ cliFileLock
+                 _ReleaseMutexFLock_
                  FlashStarted=false
              fi
              ;;
@@ -11822,10 +11887,12 @@ then
 
    case "$1" in
        run_now)
-           if _AcquireLock_ cliFileLock
+           if _AcquireLock_ cliFileLock && \
+              _AcquireMutexFLock_
            then
                _RunFirmwareUpdateNow_
                _ReleaseLock_ cliFileLock
+               _ReleaseMutexFLock_
            fi
            ;;
        processNodes) _ProcessMeshNodes_ false
@@ -11914,7 +11981,8 @@ then
                        ;;
                    "${SCRIPT_NAME}checkfwupdate" | \
                    "${SCRIPT_NAME}checkfwupdate_bypassDays")
-                       if _AcquireLock_ cliFileLock
+                       if _AcquireLock_ cliFileLock && \
+                          _AcquireMutexFLock_
                        then
                            if [ "$3" = "${SCRIPT_NAME}checkfwupdate_bypassDays" ]
                            then bypassPostponedDays=true
@@ -11923,6 +11991,7 @@ then
                            webguiMode=true
                            _RunFirmwareUpdateNow_
                            _ReleaseLock_ cliFileLock
+                           _ReleaseMutexFLock_
                        fi
                        ;;
                    "${SCRIPT_NAME}scrptupdate" | \
