@@ -10,7 +10,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.0
-readonly SCRIPT_VERSTAG="26031800"
+readonly SCRIPT_VERSTAG="26031823"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -409,7 +409,7 @@ readonly LockTypeRegEx="(cliMenuLock|cliOptsLock|cliFileLock)"
 _FindLockFileTypes_()
 { grep -woE "$LockTypeRegEx" "$LockFilePath" | tr '\n' ' ' | sed 's/[ ]*$//' ; }
 
-_ReleaseLock_() 
+_ReleaseLock_()
 {
    local lockType
    if [ $# -eq 0 ] || [ -z "$1" ]
@@ -421,7 +421,7 @@ _ReleaseLock_()
    then
        if [ -z "$lockType" ]
        then sed -i "/^$$|/d" "$LockFilePath"
-       else sed -i "/.*|${1}$/d" "$LockFilePath"
+       else sed -i "/^$$|${1}$/d" "$LockFilePath"
        fi
        [ -s "$LockFilePath" ] && return 0
    fi
@@ -535,11 +535,19 @@ _AcquireLock_()
 ##-------------------------------------##
 fwupMutexFLock_FD=576
 fwupMutexFLock_FN="/tmp/var/${ScriptFNameTag}_FW_Update.FLock"
+fwupMutexFLock_OK=false  #DO NOT have FLock#
 
 _ReleaseMutexFLock_()
 {
+    if [ $# -gt 0 ] && \
+       [ "$1" = "checkLockOK" ] && \
+       [ "$fwupMutexFLock_OK" != "true" ]
+    then return 0
+    fi
+
     printf '' > "$fwupMutexFLock_FN"
     flock -u "$fwupMutexFLock_FD" 2>/dev/null
+    fwupMutexFLock_OK=false
 }
 
 ##-------------------------------------##
@@ -554,7 +562,7 @@ _ReleaseMutexFLock_()
 _AcquireMutexFLock_()
 {
     local retCode  savedVerbose
-    local procInfo  procName=""  procIDno=""  procIDof=""
+    local procInfo  procName  procIDno  procIDof=""
 
     savedVerbose="$isVerbose" ; isVerbose=true
 
@@ -566,7 +574,8 @@ _AcquireMutexFLock_()
         if [ -n "$procName" ] && [ -n "$procIDno" ]
         then procIDof="$(pidof "$procName")"
         fi
-        if [ -z "$procIDof" ] || ! echo "$procIDof" | grep -qow "$procIDno"
+        if [ -z "$procIDof" ] || \
+           ! echo "$procIDof" | grep -qow "$procIDno"
         then
             Say "Stale F/W Update Lock Found. Resetting lock file..."
             _ReleaseMutexFLock_
@@ -579,11 +588,14 @@ _AcquireMutexFLock_()
     if flock -x -n "$fwupMutexFLock_FD" 2>/dev/null
     then
         printf "$(basename "$0")|$$\n" > "$fwupMutexFLock_FN"
-        retCode=0
+        retCode=0 ; fwupMutexFLock_OK=true
     else
         procInfo="$(head -n1 "$fwupMutexFLock_FN")"
+        if [ -n "$procInfo" ]
+        then procInfo="$(echo "$procInfo" | sed 's/|/, PID=/')"
+        fi
         Say "${REDct}**ERROR**${NOct}: Another process [$procInfo] has the F/W Update Lock file."
-        retCode=1
+        retCode=1 ; fwupMutexFLock_OK=false
     fi
 
     isVerbose="$savedVerbose"
@@ -603,7 +615,9 @@ _DoExit_()
 {
    local exitCode=0
    [ $# -gt 0 ] && [ -n "$1" ] && exitCode="$1"
-   _ReleaseLock_ ; exit "$exitCode"
+   _ReleaseLock_
+   _ReleaseMutexFLock_ checkLockOK
+   exit "$exitCode"
 }
 
 ##-------------------------------------##
@@ -9189,9 +9203,11 @@ _RunOfflineUpdateNow_()
                _AcquireMutexFLock_
             then
                 _RunFirmwareUpdateNow_
-                _ReleaseLock_ cliFileLock
-                _ReleaseMutexFLock_
+            else
+                _WaitForEnterKey_
             fi
+            _ReleaseLock_ cliFileLock
+            _ReleaseMutexFLock_ checkLockOK
             _ClearOfflineUpdateState_
         else
             _ClearOfflineUpdateState_ 1
@@ -11682,10 +11698,12 @@ _MainMenu_()
                 _AcquireMutexFLock_
              then
                  _RunFirmwareUpdateNow_
-                 _ReleaseLock_ cliFileLock
-                 _ReleaseMutexFLock_
                  FlashStarted=false
+             else
+                 _WaitForEnterKey_
              fi
+             _ReleaseLock_ cliFileLock
+             _ReleaseMutexFLock_ checkLockOK
              ;;
           2) _GetLoginCredentials_
              ;;
