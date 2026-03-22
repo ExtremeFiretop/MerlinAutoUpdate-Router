@@ -4,16 +4,16 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Feb-07
+# Last Modified: 2026-Mar-18
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.5.9
-readonly SCRIPT_VERSTAG="26020700"
+readonly SCRIPT_VERSION=1.6.0
+readonly SCRIPT_VERSTAG="26031823"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -51,6 +51,9 @@ scriptUpdateNotify=0
 # For router model check #
 routerModelCheckFailed=false
 offlineUpdateTrigger=false
+
+# To support automatic script updates from AMTM #
+doScriptUpdateFromAMTM=true
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Feb-18] ##
@@ -169,6 +172,7 @@ fi
 ##----------------------------------------##
 inMenuMode=true
 webguiMode=false
+isVerbose=false
 isInteractive=false
 FlashStarted=false
 MerlinChangeLogURL=""
@@ -273,7 +277,10 @@ routerLoginFailureMsg="Please try the following:
    to restrict access to the router webGUI from the router's IP address [${GRNct}${mainLAN_IPaddr}${NOct}].
 3. Confirm your password via the \"Set Router Login Password\" option from the Main Menu."
 
-[ -t 0 ] && ! tty | grep -qwi "NOT" && isInteractive=true
+if [ -t 0 ] && ! tty | grep -qwi "NOT"
+then
+   isInteractive=true ; isVerbose=true
+fi
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2023-Dec-23] ##
@@ -321,13 +328,23 @@ _UserLogMsg_()
    fi
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2026-Feb-22] ##
+##-------------------------------------##
+DoPrintf()
+{
+    if "$isInteractive" && "$isVerbose"
+    then printf "$@"
+    fi
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-May-05] ##
+## Modified by Martinski W. [2026-Feb-22] ##
 ##----------------------------------------##
 Say()
 {
    local logMsg
-   "$isInteractive" && printf "${1}\n"
+   DoPrintf "${1}\n"
    # Remove all "color escape sequences" from the system log file entries #
    logMsg="$(echo "$1" | \
    sed 's/\\e\[[0-1]m//g; s/\\e\[[3-4][0-9]m//g; s/\\e\[[0-1];[3-4][0-9]m//g; s/\\e\[30;10[1-9]m//g; s/\\n/ /g')"
@@ -335,9 +352,9 @@ Say()
    printf "$logMsg" | logger -t "${SCRIPT_NAME}_[$$]"
 }
 
-##----------------------------------------------##
-## Added/Modified by Martinski W. [2023-Nov-20] ##
-##----------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2023-Nov-20] ##
+##----------------------------------------##
 _WaitForEnterKey_()
 {
    ! "$isInteractive" && return 0
@@ -392,7 +409,7 @@ readonly LockTypeRegEx="(cliMenuLock|cliOptsLock|cliFileLock)"
 _FindLockFileTypes_()
 { grep -woE "$LockTypeRegEx" "$LockFilePath" | tr '\n' ' ' | sed 's/[ ]*$//' ; }
 
-_ReleaseLock_() 
+_ReleaseLock_()
 {
    local lockType
    if [ $# -eq 0 ] || [ -z "$1" ]
@@ -404,7 +421,7 @@ _ReleaseLock_()
    then
        if [ -z "$lockType" ]
        then sed -i "/^$$|/d" "$LockFilePath"
-       else sed -i "/.*|${1}$/d" "$LockFilePath"
+       else sed -i "/^$$|${1}$/d" "$LockFilePath"
        fi
        [ -s "$LockFilePath" ] && return 0
    fi
@@ -412,6 +429,7 @@ _ReleaseLock_()
 }
 
 ## Defaults ##
+LockSleepDelaySecs=5
 LockMaxTimeoutSecs=120
 LockFileMaxAgeSecs=600  #10-minutes#
 
@@ -422,8 +440,9 @@ then
    LockFileMaxAgeSecs=1200
 else
    case "$1" in
-       run_now|resetLockFile)
-           LockMaxTimeoutSecs=3
+       run_now|amtmupdate|resetLockFile)
+           LockSleepDelaySecs=2
+           LockMaxTimeoutSecs=1
            LockFileMaxAgeSecs=1200
            ;;
        startup|addCronJob)
@@ -440,7 +459,7 @@ _AcquireLock_()
 {
    local retCode  waitTimeoutSecs
    local lockFileSecs  ageOfLockSecs  oldPID
-   local lockTypeReq  lockTypeFound
+   local lockTypeReq  lockTypeFound  savedVerbose
 
    if [ $# -gt 0 ] && [ -n "$1" ]
    then lockTypeReq="$1"
@@ -457,6 +476,7 @@ _AcquireLock_()
    retCode=1
    lockTypeFound=""
    waitTimeoutSecs=0
+   savedVerbose="$isVerbose" ; isVerbose=true
 
    while true
    do
@@ -498,14 +518,88 @@ _AcquireLock_()
           then
               Say "Lock Found [$lockTypeFound: $ageOfLockSecs secs]. Waiting for script [PID=$oldPID] to exit [Timer: $waitTimeoutSecs secs]"
           fi
-          sleep 5
-          waitTimeoutSecs="$((waitTimeoutSecs + 5))"
+          sleep "$LockSleepDelaySecs"
+          waitTimeoutSecs="$((waitTimeoutSecs + LockSleepDelaySecs))"
       else
           Say "${REDct}**ERROR**${NOct}: The shell script ${ScriptFileName} [PID=$oldPID] is already running [$lockTypeFound: $ageOfLockSecs secs]"
           retCode=1 ; break
       fi
    done
+
+   isVerbose="$savedVerbose"
    return "$retCode"
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Mar-18] ##
+##-------------------------------------##
+fwupMutexFLock_FD=576
+fwupMutexFLock_FN="/tmp/var/${ScriptFNameTag}_FW_Update.FLock"
+fwupMutexFLock_OK=false  #DO NOT have FLock#
+
+_ReleaseMutexFLock_()
+{
+    if [ $# -gt 0 ] && \
+       [ "$1" = "checkLockOK" ] && \
+       [ "$fwupMutexFLock_OK" != "true" ]
+    then return 0
+    fi
+
+    printf '' > "$fwupMutexFLock_FN"
+    flock -u "$fwupMutexFLock_FD" 2>/dev/null
+    fwupMutexFLock_OK=false
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Mar-18] ##
+##-------------------------------------##
+#--------------------------------------------------------------#
+# This is a mutually exclusive, non-blocking FLOCK mechanism
+# to be used when MerlinAU is perforning a F/W Update so that
+# AMTM can check and prevent running automatic script updates
+# while the F/W Update is in progress.
+#--------------------------------------------------------------#
+_AcquireMutexFLock_()
+{
+    local retCode  savedVerbose
+    local procInfo  procName  procIDno  procIDof=""
+
+    savedVerbose="$isVerbose" ; isVerbose=true
+
+    if [ -s "$fwupMutexFLock_FN" ]
+    then
+        procInfo="$(head -n1 "$fwupMutexFLock_FN")"
+        procName="$(echo "$procInfo" | cut -d'|' -f1)"
+        procIDno="$(echo "$procInfo" | cut -d'|' -f2)"
+        if [ -n "$procName" ] && [ -n "$procIDno" ]
+        then procIDof="$(pidof "$procName")"
+        fi
+        if [ -z "$procIDof" ] || \
+           ! echo "$procIDof" | grep -qow "$procIDno"
+        then
+            Say "Stale F/W Update Lock Found. Resetting lock file..."
+            _ReleaseMutexFLock_
+        fi
+    fi
+
+    [ ! -s "$fwupMutexFLock_FN" ] && \
+    eval exec "$fwupMutexFLock_FD>$fwupMutexFLock_FN"
+
+    if flock -x -n "$fwupMutexFLock_FD" 2>/dev/null
+    then
+        printf "$(basename "$0")|$$\n" > "$fwupMutexFLock_FN"
+        retCode=0 ; fwupMutexFLock_OK=true
+    else
+        procInfo="$(head -n1 "$fwupMutexFLock_FN")"
+        if [ -n "$procInfo" ]
+        then procInfo="$(echo "$procInfo" | sed 's/|/, PID=/')"
+        fi
+        Say "${REDct}**ERROR**${NOct}: Another process [$procInfo] has the F/W Update Lock file."
+        retCode=1 ; fwupMutexFLock_OK=false
+    fi
+
+    isVerbose="$savedVerbose"
+    return "$retCode"
 }
 
 ##-------------------------------------##
@@ -521,7 +615,9 @@ _DoExit_()
 {
    local exitCode=0
    [ $# -gt 0 ] && [ -n "$1" ] && exitCode="$1"
-   _ReleaseLock_ ; exit "$exitCode"
+   _ReleaseLock_
+   _ReleaseMutexFLock_ checkLockOK
+   exit "$exitCode"
 }
 
 ##-------------------------------------##
@@ -2912,9 +3008,9 @@ _CheckNewScriptMinFWBeforeUpdate_()
    return 0
 }
 
-##-------------------------------------------##
-## Modified by ExtremeFiretop [2026-Jan-23] ##
-##-------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Feb-22] ##
+##----------------------------------------##
 _SCRIPT_UPDATE_()
 {
    local current_version
@@ -2964,9 +3060,15 @@ _SCRIPT_UPDATE_()
                _SendEMailNotification_ SUCCESS_SCRIPT_UPDATE_STATUS
            fi
            sleep 1
-           _ReleaseLock_
-           exec "$ScriptFilePath"
-           exit 0
+           if [ $# -lt 2 ] || [ -z "$2" ]
+           then
+               _ReleaseLock_
+               exec "$ScriptFilePath"
+               exit 0
+           elif [ "$2" = "unattended" ]
+           then
+               return 0
+           fi
        else
            if ! "$isInteractive"
            then
@@ -3065,6 +3167,32 @@ _SCRIPT_UPDATE_()
           return 0
       fi
    fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Feb-22] ##
+##-------------------------------------##
+ScriptUpdateFromAMTM()
+{
+    local retCode=1
+
+    ScriptAutoUpdateSetting="$(Get_Custom_Setting Allow_Script_Auto_Update)"
+    if ! "$doScriptUpdateFromAMTM" || \
+       [ "$ScriptAutoUpdateSetting" = "ENABLED" ]
+    then
+        printf "Automatic script updates via AMTM are currently disabled.\n\n"
+        return 1
+    fi
+    if [ $# -gt 0 ] && [ "$1" = "check" ]
+    then return 0
+    fi
+    if _AcquireLock_ cliFileLock
+    then
+        _SCRIPT_UPDATE_ force unattended
+        retCode="$?"
+        _ReleaseLock_ cliFileLock
+    fi
+    return "$retCode"
 }
 
 ##------------------------------------------##
@@ -3169,16 +3297,19 @@ _CreateEMailContent_()
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    local fwInstalledVersion  fwNewUpdateVersion
    local savedInstalledVersion  savedNewUpdateVersion
-   local subjectStr  emailBodyTitle=""  release_version
+   local subjectStrTag  subjectStr  emailBodyTitle=""  release_version
 
    rm -f "$tempEMailContent" "$tempEMailBodyMsg"
 
-   local subjectStrTag="F/W Update Status"
+   if [ -s "$tempNodeEMailList" ]
+   then subjectStrTag="F/W Update Available"
+   else subjectStrTag="F/W Update Status"
+   fi
    if echo "$1" | grep -q '._SCRIPT_UPDATE_.'
    then subjectStrTag="Script Update Status"
    fi
    if [ -s "$tempNodeEMailList" ]
-   then subjectStr="$subjectStrTag for $node_lan_hostname"
+   then subjectStr="$subjectStrTag for AiMesh Node(s)"
    else subjectStr="$subjectStrTag for $MODEL_ID"
    fi
 
@@ -6568,14 +6699,14 @@ _DelFWAutoUpdateCronJob_()
        if _CheckFWAutoUpdateCronJobExists_ ANY
        then
            retCode=1
-           printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
+           DoPrintf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${CRON_JOB_TAG}${NOct}].\n"
        else
            retCode=0
-           printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was removed successfully.\n"
+           DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was removed successfully.\n"
        fi
    else
        retCode=0
-       printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' does not exist.\n"
+       DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' does not exist.\n"
    fi
    return "$retCode"
 }
@@ -6672,14 +6803,14 @@ _DelScriptAutoUpdateCronJob_()
        if eval $cronListCmd | grep -qE "$SCRIPT_UP_CRON_JOB_RUN #${SCRIPT_UP_CRON_JOB_TAG}#$"
        then
            retCode=1
-           printf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}].\n"
+           DoPrintf "${REDct}**ERROR**${NOct}: Failed to remove cron job [${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}].\n"
        else
            retCode=0
-           printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' was removed successfully.\n"
+           DoPrintf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' was removed successfully.\n"
        fi
    else
        retCode=0
-       printf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' does not exist.\n"
+       DoPrintf "Cron job '${GRNct}${SCRIPT_UP_CRON_JOB_TAG}${NOct}' does not exist.\n"
    fi
    return "$retCode"
 }
@@ -9068,11 +9199,15 @@ _RunOfflineUpdateNow_()
                 FW_DL_FPATH="${FW_ZIP_DIR}/${FW_FileName}.${extension}"
                 _GnutonBuildSelection_
             fi
-            if _AcquireLock_ cliFileLock
+            if _AcquireLock_ cliFileLock && \
+               _AcquireMutexFLock_
             then
                 _RunFirmwareUpdateNow_
-                _ReleaseLock_ cliFileLock
+            else
+                _WaitForEnterKey_
             fi
+            _ReleaseLock_ cliFileLock
+            _ReleaseMutexFLock_ checkLockOK
             _ClearOfflineUpdateState_
         else
             _ClearOfflineUpdateState_ 1
@@ -9573,7 +9708,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
             _CheckFirmwareMD5_
             retCode="$?"
         else
-            retCode=0  # Skip if the MD5 file does not exist
+            retCode=0  # Skip if the MD5 file does NOT exist #
         fi
     else
         if "$isGNUtonFW"
@@ -9895,10 +10030,12 @@ _PostRebootRunNow_()
 
    Say "END of $logMsg [$curWaitDelaySecs sec.]"
    sleep 30  ## Let's wait a bit & proceed ##
-   if _AcquireLock_ cliFileLock
+   if _AcquireLock_ cliFileLock && \
+      _AcquireMutexFLock_
    then
        _RunFirmwareUpdateNow_
        _ReleaseLock_ cliFileLock
+       _ReleaseMutexFLock_
    fi
 }
 
@@ -9920,7 +10057,7 @@ _DelFWAutoUpdateHook_()
            Say "F/W Update cron job hook was deleted successfully from '$hookScriptFile' script."
        fi
    else
-       printf "F/W Update cron job hook does not exist in '$hookScriptFile' script.\n"
+       DoPrintf "F/W Update cron job hook does not exist in '$hookScriptFile' script.\n"
    fi
 }
 
@@ -10004,7 +10141,7 @@ _DelScriptAutoUpdateHook_()
            Say "ScriptAU cron job hook was deleted successfully from '$hookScriptFile' script."
        fi
    else
-       printf "ScriptAU cron job hook does not exist in '$hookScriptFile' script.\n"
+       DoPrintf "ScriptAU cron job hook does not exist in '$hookScriptFile' script.\n"
    fi
 }
 
@@ -10061,6 +10198,7 @@ _CheckForMinimumRequirements_()
 ##-------------------------------------##
 _DoStartupInit_()
 {
+   Say "$SCRIPT_NAME $SCRIPT_VERSION starting up"
    _CreateDirPaths_
    _InitCustomDefaultsConfig_
    _InitCustomUserSettings_
@@ -10582,13 +10720,14 @@ _EnableFWAutoUpdateChecks_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Sep-01] ##
+## Modified by Martinski W. [2026-Feb-22] ##
 ##----------------------------------------##
 _ConfirmCronJobForFWAutoUpdates_()
 {
     if [ $# -gt 0 ] && [ -n "$1" ] && \
        echo "$1" | grep -qE "^(install|startup|uninstall)$"
-    then return 1 ; fi
+    then return 1
+    fi
 
     # Check if the PREVIOUS Cron Job ID already exists #
     if eval $cronListCmd | grep -qE "$CRON_JOB_RUN #${CRON_JOB_TAG_OLD}#$"
@@ -10618,17 +10757,17 @@ _ConfirmCronJobForFWAutoUpdates_()
     then
         if ! _CheckFWAutoUpdateCronJobExists_
         then
-            printf "Auto-enabling cron job '${GRNct}${CRON_JOB_TAG}${NOct}'...\n"
+            DoPrintf "Auto-enabling cron job '${GRNct}${CRON_JOB_TAG}${NOct}'...\n"
             if _AddFWAutoUpdateCronJob_
             then
-                printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
                 cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
-                printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+                DoPrintf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
             else
-                printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+                DoPrintf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
             fi
         else
-            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+            DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
         fi
         _EnableFWAutoUpdateChecks_
 
@@ -10637,32 +10776,34 @@ _ConfirmCronJobForFWAutoUpdates_()
     then
         if ! _CheckFWAutoUpdateCronJobExists_
         then
-            _ShowLogo_
-            printf "Do you want to enable automatic firmware update checks?\n"
-            printf "This will create a CRON job to check for updates regularly.\n"
-            printf "The CRON can be disabled at any time via the main menu.\n"
-
-            if _WaitForYESorNO_
+            if "$isInteractive" && "$isVerbose"
             then
-                printf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
+                _ShowLogo_
+                printf "Do you want to enable automatic firmware update checks?\n"
+                printf "This will create a CRON job to check for updates regularly.\n"
+                printf "The CRON can be disabled at any time via the main menu.\n"
+            fi
+            if "$isVerbose" && _WaitForYESorNO_
+            then
+                DoPrintf "Adding '${GRNct}${CRON_JOB_TAG}${NOct}' cron job...\n"
                 if _AddFWAutoUpdateCronJob_
                 then
-                    printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
+                    DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' was added successfully.\n"
                     cronSchedStrHR="$(_TranslateCronSchedHR_ "$FW_UpdateCronJobSchedule")"
-                    printf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
+                    DoPrintf "Job Schedule: ${GRNct}${cronSchedStrHR}${NOct}\n"
                 else
-                    printf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
+                    DoPrintf "${REDct}**ERROR**${NOct}: Failed to add the cron job [${CRON_JOB_TAG}].\n"
                 fi
                 _EnableFWAutoUpdateChecks_
             else
                 # User said NO -> disable checks #
-                printf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
-                printf "You can enable this feature later via the main menu.\n"
+                DoPrintf "Automatic firmware update checks will be ${REDct}DISABLED${NOct}.\n"
+                DoPrintf "You can enable this feature later via the main menu.\n"
                 _DisableFWAutoUpdateChecks_ 
             fi
             _WaitForEnterKey_
         else
-            printf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
+            DoPrintf "Cron job '${GRNct}${CRON_JOB_TAG}${NOct}' already exists.\n"
             Update_Custom_Settings "FW_Update_Check" "ENABLED"
             _AddFWAutoUpdateHook_
             runfwUpdateCheck=true
@@ -10671,12 +10812,12 @@ _ConfirmCronJobForFWAutoUpdates_()
     # 3) "DISABLED": Perform the disable steps (same as _Toggle_FW_UpdateCheckSetting_) #
     elif [ "$fwUpdateCheckState" = "DISABLED" ]
     then
-        printf "Firmware update checks have been ${REDct}DISABLED${NOct}.\n"
+        DoPrintf "Firmware update checks have been ${REDct}DISABLED${NOct}.\n"
         _DisableFWAutoUpdateChecks_
 
     # 4) Unknown/fallback -> treat as DISABLED #
     else
-        printf "Unknown FW_Update_Check value: '%s'. Disabling firmware checks.\n" "$fwUpdateCheckState"
+        DoPrintf "Unknown FW_Update_Check value: '%s'. Disabling firmware checks.\n" "$fwUpdateCheckState"
         _DisableFWAutoUpdateChecks_
     fi
 
@@ -11553,12 +11694,16 @@ _MainMenu_()
                  HIDE_ROUTER_SECTION=true
              fi
              ;;
-          1) if _AcquireLock_ cliFileLock
+          1) if _AcquireLock_ cliFileLock && \
+                _AcquireMutexFLock_
              then
                  _RunFirmwareUpdateNow_
-                 _ReleaseLock_ cliFileLock
                  FlashStarted=false
+             else
+                 _WaitForEnterKey_
              fi
+             _ReleaseLock_ cliFileLock
+             _ReleaseMutexFLock_ checkLockOK
              ;;
           2) _GetLoginCredentials_
              ;;
@@ -11745,12 +11890,14 @@ then
 fi
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-May-11] ##
+## Modified by Martinski W. [2026-Feb-22] ##
 ##----------------------------------------##
 if [ $# -gt 0 ]
 then
    if ! _AcquireLock_ cliOptsLock
    then Say "Exiting..." ; exit 1 ; fi
+
+   [ "$1" = "amtmupdate" ] && isVerbose=false
 
    inMenuMode=false
    _DoInitializationStartup_ "$1"
@@ -11758,10 +11905,12 @@ then
 
    case "$1" in
        run_now)
-           if _AcquireLock_ cliFileLock
+           if _AcquireLock_ cliFileLock && \
+              _AcquireMutexFLock_
            then
                _RunFirmwareUpdateNow_
                _ReleaseLock_ cliFileLock
+               _ReleaseMutexFLock_
            fi
            ;;
        processNodes) _ProcessMeshNodes_ false
@@ -11791,6 +11940,11 @@ then
                _SCRIPT_UPDATE_ force
                _ReleaseLock_ cliFileLock
            fi
+           ;;
+       amtmupdate)
+           shift
+           ScriptUpdateFromAMTM "$@"
+           _DoExit_ "$?"
            ;;
        develop) _ChangeToDev_
            ;;
@@ -11845,7 +11999,8 @@ then
                        ;;
                    "${SCRIPT_NAME}checkfwupdate" | \
                    "${SCRIPT_NAME}checkfwupdate_bypassDays")
-                       if _AcquireLock_ cliFileLock
+                       if _AcquireLock_ cliFileLock && \
+                          _AcquireMutexFLock_
                        then
                            if [ "$3" = "${SCRIPT_NAME}checkfwupdate_bypassDays" ]
                            then bypassPostponedDays=true
@@ -11854,6 +12009,7 @@ then
                            webguiMode=true
                            _RunFirmwareUpdateNow_
                            _ReleaseLock_ cliFileLock
+                           _ReleaseMutexFLock_
                        fi
                        ;;
                    "${SCRIPT_NAME}scrptupdate" | \
