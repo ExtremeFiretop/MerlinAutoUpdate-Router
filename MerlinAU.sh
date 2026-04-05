@@ -9955,7 +9955,7 @@ _PostUpdateEmailNotification_()
    fi
 
    current_version="$(_GetCurrentFWInstalledLongVersion_)"
-   release_version="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   release_version="$(Get_Custom_Setting FW_New_Update_Notification_Vers)"
 
    _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
 
