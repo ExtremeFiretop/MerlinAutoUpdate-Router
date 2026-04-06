@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Mar-18
+# Last Modified: 2026-Apr-05
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.6.0
-readonly SCRIPT_VERSTAG="26031823"
+readonly SCRIPT_VERSION=1.6.1
+readonly SCRIPT_VERSTAG="26040512"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -9943,7 +9943,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Nov-17] ##
+## Modified by ExtremeFiretop [2026-Apr-05] ##
 ##----------------------------------------##
 _PostUpdateEmailNotification_()
 {

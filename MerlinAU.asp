@@ -27,7 +27,7 @@
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2026-Jan-24 **/
+/** Last Modified: 2026-Apr-05 **/
 /**----------------------------**/
 
 // Separate variables for shared and AJAX settings //
@@ -301,8 +301,8 @@ function RunScriptUpdateFirmwareGateCheck()
             return;
          }
 
-         let installedNum = FWVersionStrToNum(installedStr);
-         let requiredNum  = FWVersionStrToNum(requiredStr);
+         let installedNum = FWVersionStrToNum(installedStr, false);
+         let requiredNum  = FWVersionStrToNum(requiredStr, false);
 
          pendingScriptUpdateGateCheck = false;
          isFormSubmitting = false;
@@ -1287,45 +1287,76 @@ function ConfirmLoginTest(formInput)
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jan-26] **/
+/** Modified by ExtremeFiretop [2026-Apr-05] **/
 /**----------------------------------------**/
 // Converts F/W version string with the format: "3006.102.5.2" //
 // to a number of the format: '30061020502'  //
-function FWVersionStrToNum (verStr)
+//
+// If usePrereleaseRank is true:
+//   release > rc > beta > alpha for the SAME numeric version.
+//
+// If usePrereleaseRank is false:
+//   only the numeric version parts are compared.
+//
+function FWVersionStrToNum(verStr, usePrereleaseRank)
 {
-    if (verStr === null ||
-        verStr.length === 0 ||
-        verStr === 'TBD')
+    if (verStr == null)
     { return 0; }
 
-    let nonProductionVersionWeight = 0;
-    let foundAlphaBetaVersion = verStr.match (/([Aa]lpha|[Bb]eta)/);
-    if (foundAlphaBetaVersion == null)
-    { nonProductionVersionWeight = 0; }
-    else
+    let versionText = String(verStr).trim();
+    if (versionText === '' || versionText === 'TBD')
+    { return 0; }
+
+    let numericMatch = versionText.match(/^\d+(?:\.\d+)*/);
+    if (numericMatch == null)
+    { return 0; }
+
+    let versionCore = numericMatch[0];
+    let segments = versionCore.split('.');
+    let versionNumStr = '';
+
+    for (let index = 0; index < segments.length; index++)
     {
-       nonProductionVersionWeight = 100;
-       verStr = verStr.replace (/([Aa]lpha|[Bb]eta)[0-9]*/,'0');
-    }
+        let segmentText = segments[index];
 
-    // Remove everything after the first non-numeric-and-dot character //
-    // e.g. "3006.102.1.alpha1" => "3006.102.1" //
-    verStr = verStr.split(/[^\d.]/, 1)[0];
-
-    let segments = verStr.split('.');
-    let partNum=0, partStr='', verNumStr='';
-
-    for (var index=0 ; index < segments.length ; index++)
-    {
-        if (segments[index].length > 2)
-        { partStr = segments[index]; }
+        if (segmentText.length > 2)
+        { versionNumStr += segmentText; }
         else
-        { partStr = segments[index].padStart(2, '0'); }
-        verNumStr = (verNumStr + partStr);
+        { versionNumStr += segmentText.padStart(2, '0'); }
     }
-    let verNum = (parseInt(verNumStr, 10) - nonProductionVersionWeight);
 
-    return (verNum);
+    let baseVersionNum = parseInt(versionNumStr, 10);
+    if (isNaN(baseVersionNum))
+    { return 0; }
+
+    // Default: numeric-only comparison //
+    if (usePrereleaseRank !== true)
+    { return (baseVersionNum * 100); }
+
+    let lowerVersionText = versionText.toLowerCase();
+    let prereleaseRank = 99;   // release //
+
+    let rcMatch = lowerVersionText.match(/rc(\d*)/);
+    let betaMatch = lowerVersionText.match(/beta(\d*)/);
+    let alphaMatch = lowerVersionText.match(/alpha(\d*)/);
+
+    if (alphaMatch != null)
+    {
+        let alphaNum = parseInt(alphaMatch[1] || '0', 10);
+        prereleaseRank = 20 + Math.min(alphaNum, 19);
+    }
+    else if (betaMatch != null)
+    {
+        let betaNum = parseInt(betaMatch[1] || '0', 10);
+        prereleaseRank = 50 + Math.min(betaNum, 19);
+    }
+    else if (rcMatch != null)
+    {
+        let rcNum = parseInt(rcMatch[1] || '0', 10);
+        prereleaseRank = 80 + Math.min(rcNum, 19);
+    }
+
+    return ((baseVersionNum * 100) + prereleaseRank);
 }
 
 /**----------------------------------------**/
@@ -1826,9 +1857,13 @@ function InitializeFields()
             var fwUpdateAvailable = FW_NewUpdateVersAvailable;
             var fwVersionInstalled = fwVersionInstalledElement.textContent.trim();
 
+            // Only apply beta/alpha/release weighting if Beta-to-Release Updates is enabled //
+            var usePrereleaseRank =
+                (custom_settings.FW_Allow_Beta_Production_Up === 'ENABLED');
+
             // Convert both to numeric forms //
-            var verNumAvailable = FWVersionStrToNum(fwUpdateAvailable);
-            var verNumInstalled = FWVersionStrToNum(fwVersionInstalled);
+            var verNumAvailable = FWVersionStrToNum(fwUpdateAvailable, usePrereleaseRank);
+            var verNumInstalled = FWVersionStrToNum(fwVersionInstalled, usePrereleaseRank);
 
             // If verNumAvailable is 0, maybe treat as "NONE FOUND" //
             if (verNumAvailable === 0)
@@ -1840,7 +1875,7 @@ function InitializeFields()
             {   // Update available //
                 fwUpdateAvailableElement.innerHTML = InvYLWct + fwUpdateAvailable + InvCLEAR;
                 isFwUpdateAvailable = true;
-            } 
+            }
             else // No update //
             {
                 fwUpdateAvailableElement.innerHTML = InvYLWct + "NONE FOUND" + InvCLEAR;
