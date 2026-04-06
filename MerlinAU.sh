@@ -9954,11 +9954,6 @@ _PostUpdateEmailNotification_()
       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
    fi
 
-   current_version="$(_GetCurrentFWInstalledLongVersion_)"
-   release_version="$(Get_Custom_Setting FW_New_Update_Notification_Vers)"
-
-   _CheckNewUpdateFirmwareNotification_ "$current_version" "$release_version"
-
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
