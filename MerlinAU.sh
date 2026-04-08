@@ -4,16 +4,16 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Apr-05
+# Last Modified: 2026-Apr-06
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.1
-readonly SCRIPT_VERSTAG="26040512"
+readonly SCRIPT_VERSTAG="26040607"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -3289,9 +3289,82 @@ _GetLatestFWUpdateVersionFromRouter_()
    echo "$newVersionStr" ; return "$retCode"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2026-Jan-23] ##
-##------------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2026-Apr-06] ##
+##-------------------------------------##
+_Check_PostReboot_FWUpdate_Setup_()
+{
+   local fwInstalledVersion  savedInstalledVersion  savedNewUpdateVersion
+
+   if [ ! -s "$saveEMailInfoMsg" ]
+   then return 1
+   fi
+
+   if [ "$sendEMailNotificationsFlag" = "ENABLED" ] && \
+      _CheckEMailConfigFileFromAMTM_ 0 && \
+      grep -qE "$POST_UPDATE_EMAIL_SCRIPT_JOB" "$hookScriptFPath"
+   then return 0  #Email is ENABLED#
+   fi
+
+   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+   #-----------------------------------------------------------#
+   # Remove "_rog" or "_tuf" or -gHASHVALUES suffix to avoid 
+   # version comparison failure. Keep 'Beta' & 'Alpha' tags.
+   #-----------------------------------------------------------#
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10})$//')"
+
+   savedInstalledVersion="$(grep "^FW_InstalledVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
+   savedNewUpdateVersion="$(grep "^FW_NewUpdateVersion=" "$saveEMailInfoMsg" | awk -F '=' '{print $2}')"
+   if [ -n "$savedInstalledVersion" ] && \
+      [ -n "$savedNewUpdateVersion" ] && \
+      [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ]
+   then
+       Say "Flashing of new F/W Update version ${fwInstalledVersion} for the ${MODEL_ID} router was successful."
+       Update_Custom_Settings FW_New_Update_Notification_Vers TBD
+       Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
+   fi
+   rm -f "$saveEMailInfoMsg"
+
+   if [ "$(Get_Custom_Setting CheckChangeLog)" = "ENABLED" ]
+   then
+      Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
+   fi
+}
+
+##-------------------------------------##
+## Added by Martinski W. [2026-Apr-06] ##
+##-------------------------------------##
+_Do_PostReboot_FWUpdate_Setup_()
+{
+   local fwInstalledVersion  fwNewUpdateVersion
+
+   if ! "$offlineUpdateTrigger"
+   then fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
+   else fwNewUpdateVersion="$(Get_Custom_Setting FW_New_Update_Notification_Vers)"
+   fi
+
+   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+   #-----------------------------------------------------------#
+   # Remove "_rog" or "_tuf" or -gHASHVALUES suffix to avoid 
+   # version comparison failure. Keep 'Beta' & 'Alpha' tags.
+   #-----------------------------------------------------------#
+   fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10})$//')"
+
+   {
+      echo "FW_InstalledVersion=$fwInstalledVersion"
+      echo "FW_NewUpdateVersion=$fwNewUpdateVersion"
+   } > "$saveEMailInfoMsg"
+
+   if [ "$sendEMailNotificationsFlag" != "ENABLED" ] || \
+      ! _CheckEMailConfigFileFromAMTM_ 0
+   then return 1  #Email is DISABLED#
+   fi
+    _AddPostUpdateEmailNotifyScriptHook_
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2026-Apr-06] ##
+##----------------------------------------##
 _CreateEMailContent_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
@@ -3313,15 +3386,18 @@ _CreateEMailContent_()
    else subjectStr="$subjectStrTag for $MODEL_ID"
    fi
 
-   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
    if ! "$offlineUpdateTrigger"
    then
         fwNewUpdateVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
    else
-        fwNewUpdateVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+        fwNewUpdateVersion="$(Get_Custom_Setting FW_New_Update_Notification_Vers)"
    fi
 
-   # Remove "_rog" or "_tuf" or -gHASHVALUES suffix to avoid version comparison failure, can't remove all for proper beta and alpha comparison #
+   fwInstalledVersion="$(_GetCurrentFWInstalledLongVersion_)"
+   #-----------------------------------------------------------#
+   # Remove "_rog" or "_tuf" or -gHASHVALUES suffix to avoid 
+   # version comparison failure. Keep 'Beta' & 'Alpha' tags.
+   #-----------------------------------------------------------#
    fwInstalledVersion="$(echo "$fwInstalledVersion" | sed -E 's/(_(rog|tuf)|-g[0-9a-f]{10})$//')"
 
    case "$1" in
@@ -3487,16 +3563,8 @@ _CreateEMailContent_()
              printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
            } > "$tempEMailBodyMsg"
            ;;
-       POST_REBOOT_FW_UPDATE_SETUP)
-           {
-              echo "FW_InstalledVersion=$fwInstalledVersion"
-              echo "FW_NewUpdateVersion=$fwNewUpdateVersion"
-           } > "$saveEMailInfoMsg"
-           _AddPostUpdateEmailNotifyScriptHook_
-           return 0
-           ;;
        POST_REBOOT_FW_UPDATE_STATUS)
-           if [ ! -f "$saveEMailInfoMsg" ]
+           if [ ! -s "$saveEMailInfoMsg" ]
            then
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [No saved info file]."
                return 1
@@ -3506,10 +3574,13 @@ _CreateEMailContent_()
            if [ -z "$savedInstalledVersion" ] || [ -z "$savedNewUpdateVersion" ]
            then
                Say "${REDct}**ERROR**${NOct}: Unable to send post-update email notification [Saved info is empty]."
+               rm -f "$saveEMailInfoMsg"
                return 1
            fi
            if [ "$savedNewUpdateVersion" = "$fwInstalledVersion" ]
            then
+              Update_Custom_Settings FW_New_Update_Notification_Vers TBD
+              Update_Custom_Settings FW_New_Update_Expected_Run_Date TBD
               emailBodyTitle="Successful Firmware Update"
               {
                 echo "Flashing of new F/W Update version <b>${fwInstalledVersion}</b> for the <b>${MODEL_ID}</b> router was successful."
@@ -3663,9 +3734,9 @@ _CheckEMailConfigFileFromAMTM_()
    return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Dec-21] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Apr-06] ##
+##----------------------------------------##
 _SendEMailNotification_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ]  || \
@@ -3679,8 +3750,6 @@ _SendEMailNotification_()
    [ -z "$FRIENDLY_ROUTER_NAME" ] && FRIENDLY_ROUTER_NAME="$MODEL_ID"
 
    ! _CreateEMailContent_ "$1" && return 1
-
-   [ "$1" = "POST_REBOOT_FW_UPDATE_SETUP" ] && return 0
 
    if "$isInteractive"
    then
@@ -5381,7 +5450,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
     then
         routerVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
     else
-        routerVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+        routerVersion="$(Get_Custom_Setting FW_New_Update_Notification_Vers)"
     fi
     if [ -z "$routerVersion" ]
     then
@@ -5446,7 +5515,7 @@ GetLatestFirmwareMD5URL()
     then
         routerVersion="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
     else
-        routerVersion="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+        routerVersion="$(Get_Custom_Setting FW_New_Update_Notification_Vers)"
     fi
     if [ -z "$routerVersion" ]
     then
@@ -5795,7 +5864,7 @@ _CheckFirmwareMD5_()
 ##----------------------------------------##
 _toggle_change_log_check_()
 {
-    local currentSetting="$(Get_Custom_Setting "CheckChangeLog")"
+    local currentSetting="$(Get_Custom_Setting CheckChangeLog)"
 
     if [ "$currentSetting" = "ENABLED" ]
     then
@@ -7973,14 +8042,14 @@ _ChangelogVerificationCheck_()
     local mode="$1"  # Mode should be 'auto' or 'interactive' #
     local current_version  formatted_current_version
     local release_version  formatted_release_version
-    local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+    local checkChangeLogSetting="$(Get_Custom_Setting CheckChangeLog)"
     local changeLogFName  changeLogFPath  changeLogTag
     local matchNum1  matchNum2  lineNum1  lineNum2
 
     if [ "$checkChangeLogSetting" = "ENABLED" ]
     then
         current_version="$(_GetCurrentFWInstalledLongVersion_)"
-        release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+        release_version="$(Get_Custom_Setting FW_New_Update_Notification_Vers)"
 
         if "$isGNUtonFW"
         then
@@ -8107,7 +8176,7 @@ _ManageChangelogMerlin_()
         fi 
     fi
 
-    release_version="$(Get_Custom_Setting "FW_New_Update_Notification_Vers")"
+    release_version="$(Get_Custom_Setting FW_New_Update_Notification_Vers)"
     # force 3006 changelog if tag is NG but $release_version says 3006 #
     if [ "$changeLogTag" = "NG" ] && \
        echo "$release_version" | grep -qE "^3006[.]"
@@ -9847,7 +9916,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
 
-        _SendEMailNotification_ POST_REBOOT_FW_UPDATE_SETUP
+        _Do_PostReboot_FWUpdate_Setup_
         echo
         Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
         echo
@@ -9943,13 +10012,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 }
 
 ##----------------------------------------##
-## Modified by ExtremeFiretop [2026-Apr-05] ##
+## Modified by Martinski W. [2026-Apr-06] ##
 ##----------------------------------------##
 _PostUpdateEmailNotification_()
 {
-   _DelPostUpdateEmailNotifyScriptHook_
-   currentChangelogValue="$(Get_Custom_Setting CheckChangeLog)"
-   if [ "$currentChangelogValue" = "ENABLED" ]
+   if [ "$(Get_Custom_Setting CheckChangeLog)" = "ENABLED" ]
    then
       Update_Custom_Settings "FW_New_Update_Changelog_Approval" "TBD"
    fi
@@ -9985,7 +10052,8 @@ _PostUpdateEmailNotification_()
    fi
 
    Say "END of $logMsg [$curWaitDelaySecs sec.]"
-   sleep 20  ## Let's wait a bit & proceed ##
+   sleep 25  ## Let's wait a bit & proceed ##
+   _DelPostUpdateEmailNotifyScriptHook_
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
 
@@ -10204,6 +10272,7 @@ _DoStartupInit_()
    _InitCustomUserSettings_
    _CreateSymLinks_
    _InitHelperJSFile_
+   _Check_PostReboot_FWUpdate_Setup_
    _SetVersionSharedSettings_ local "$SCRIPT_VERSION"
 
    if "$mountWebGUI_OK"
@@ -11238,7 +11307,7 @@ _ShowMainMenuOptions_()
    printf "\n  ${GRNct}4${NOct}.  Set F/W Update Postponement Days"
    printf "\n${padStr}[Current Days: ${GRNct}${FW_UpdatePostponementDays}${NOct}]\n"
 
-   local checkChangeLogSetting="$(Get_Custom_Setting "CheckChangeLog")"
+   local checkChangeLogSetting="$(Get_Custom_Setting CheckChangeLog)"
    if [ "$checkChangeLogSetting" = "DISABLED" ]
    then
        printf "\n  ${GRNct}5${NOct}.  Toggle F/W Changelog Check"
