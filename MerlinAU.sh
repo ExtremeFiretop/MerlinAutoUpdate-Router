@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Apr-06
+# Last Modified: 2026-Apr-08
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.1
-readonly SCRIPT_VERSTAG="26040607"
+readonly SCRIPT_VERSTAG="26040823"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -5003,7 +5003,8 @@ _GetLoginCredentials_()
 
     while [ "$retry" = "yes" ]
     do
-        printf "=== Login Credentials ===\n\n"
+        printf "==== Router Login Password ====\n"
+        printf "[${MGNTct}<TAB>${NOct} key to show/hide, ${MGNTct}<ESC>${NOct} key to exit]\n\n"
         _GetPasswordInput_ "Enter password for user ${GRNct}${userName}${NOct}"
 
         if [ -z "$thePWSDstring" ]
@@ -5021,14 +5022,14 @@ _GetLoginCredentials_()
         if [ "$thePWSDstring" != "$oldPWSDstring" ]
         then
             _UpdateLoginPswdCheckHelper_ NewPSWD
-            savedMsgStr="${GRNct}New credentials saved.${NOct}"
+            savedMsgStr="Login credentials are saved."
             oldPWSDstring="$thePWSDstring"
         else
             _UpdateLoginPswdCheckHelper_ OldPSWD
-            savedMsgStr="${GRNct}Credentials remain unchanged.${NOct}"
+            savedMsgStr="Credentials remain unchanged."
         fi
-        printf "\n${savedMsgStr}\n"
-        printf "Encoded Credentials:\n"
+        printf "\n\n${GRNct}${savedMsgStr}${NOct}\n"
+        printf "\nEncoded Credentials:\n"
         printf "${GRNct}${loginCredsENC}${NOct}\n"
 
         if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"
