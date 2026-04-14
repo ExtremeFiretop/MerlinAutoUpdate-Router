@@ -1,0 +1,12 @@
+* text eol=lf
+*.sh text eol=lf
+*.md text eol=lf
+*.asp text eol=lf
+*.js text eol=lf
+*.css text eol=lf
+*.gz binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.zip binary
+*.tar.gz binary
