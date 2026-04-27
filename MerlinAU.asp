@@ -37,7 +37,7 @@
    background:
       radial-gradient(circle at top left, rgba(70,145,180,0.18), transparent 35%),
       linear-gradient(145deg, #465156 0%, #313b40 100%) !important;
-   padding: 12px !important;
+   padding: 18px !important;
 }
 
 /* Page title */
@@ -45,6 +45,14 @@
    font-size: 26px !important;
    letter-spacing: 0.5px;
    text-shadow: 0 2px 8px rgba(0,0,0,0.45);
+}
+
+.merlinDivider {
+   height: 1px;
+   margin: 10px 0;
+   background: rgba(255,255,255,0.12);
+   border-top: 1px solid rgba(0,0,0,0.35);
+   box-sizing: border-box;
 }
 
 /* Description area */
@@ -3082,7 +3090,7 @@ function initializeCollapsibleSections()
 <td valign="top">
 <div>&nbsp;</div>
 <div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
-<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
+<div class="merlinDivider"></div>
 <div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI
 <span style="margin-left:8px;" id="WikiURL">[
    <a style="font-weight:bolder; text-decoration:underline; cursor:pointer;"
