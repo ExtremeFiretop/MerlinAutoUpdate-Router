@@ -40,18 +40,11 @@
    padding: 18px !important;
 }
 
-/* Page title */
-#headerTitle {
-   font-size: 26px !important;
-   letter-spacing: 0.5px;
-   text-shadow: 0 2px 8px rgba(0,0,0,0.45);
-}
-
 .merlinDivider {
-   height: 3px;
+   height: 2px;
    margin: 10px 0;
    background: rgba(255,255,255,0.12);
-   border-top: 2px solid rgba(0,0,0,0.35);
+   border-top: 1px solid rgba(0,0,0,0.35);
    box-sizing: border-box;
 }
 
@@ -3088,7 +3081,6 @@ function initializeCollapsibleSections()
 <tbody>
 <tr style="background-color:#4D595D;">
 <td valign="top">
-<div>&nbsp;</div>
 <div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
 <div class="merlinDivider"></div>
 <div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI
