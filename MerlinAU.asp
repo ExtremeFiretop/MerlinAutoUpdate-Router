@@ -3238,7 +3238,7 @@ function initializeCollapsibleSections()
                       margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Install script update</label>
     </br>
 </td>
-<td style="text-align: left; border: none;">
+<td style="text-align: center; border: none;">
    <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;"
     value="Uninstall" class="button_gen savebutton" name="button">
    <br>
