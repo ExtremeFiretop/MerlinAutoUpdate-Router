@@ -12,8 +12,273 @@
 <link rel="stylesheet" type="text/css" href="form_style.css" />
 <title>MerlinAU add-on for ASUSWRT-Merlin Firmware</title>
 <style>
-.SettingsTable .Invalid {background-color: red !important;}
-.SettingsTable .Disabled {background-color:#ccc;color:#888}
+/* Existing validation states */
+.SettingsTable .Invalid {
+   background-color: red !important;
+   color: #fff !important;
+}
+
+.SettingsTable .Disabled {
+   background-color:#ccc !important;
+   color: #888 !important;
+}
+
+/* MerlinAU modern UI overrides */
+.FormTitle {
+   border-radius: 18px !important;
+   overflow: hidden;
+   border: 1px solid rgba(255,255,255,0.12);
+   box-shadow: 0 18px 45px rgba(0,0,0,0.35);
+   background: linear-gradient(145deg, #3f4a4f 0%, #2f383d 100%) !important;
+}
+
+/* Main panel background */
+.FormTitle > tbody > tr > td {
+   background:
+      radial-gradient(circle at top left, rgba(70,145,180,0.18), transparent 35%),
+      linear-gradient(145deg, #465156 0%, #313b40 100%) !important;
+   padding: 18px !important;
+}
+
+/* Page title */
+#headerTitle {
+   font-size: 26px !important;
+   letter-spacing: 0.5px;
+   text-shadow: 0 2px 8px rgba(0,0,0,0.45);
+}
+
+/* Description area */
+.formfontdesc {
+   background: rgba(255,255,255,0.06);
+   border: 1px solid rgba(255,255,255,0.10);
+   border-radius: 12px;
+   padding: 12px 14px;
+   line-height: 1.5;
+}
+
+/* Section cards */
+.FormTable,
+.SettingsTable {
+   border-collapse: separate !important;
+   border-spacing: 0 !important;
+   border-radius: 14px;
+   overflow: hidden;
+   background: rgba(20,25,28,0.35) !important;
+   border: 1px solid rgba(255,255,255,0.10) !important;
+   box-shadow: 0 8px 22px rgba(0,0,0,0.22);
+   margin-bottom: 14px;
+}
+
+/* Section headers */
+.FormTable thead td,
+.SettingsTable thead td,
+.collapsible-jquery td {
+   background: linear-gradient(135deg, #24333a 0%, #1a252b 100%) !important;
+   color: #f4f8fb !important;
+   font-weight: bold;
+   letter-spacing: 0.2px;
+   padding: 10px 12px !important;
+   border-bottom: 1px solid rgba(255,255,255,0.10) !important;
+}
+
+/* Clickable/collapsible headers */
+.collapsible-jquery {
+   cursor: pointer;
+}
+
+.collapsible-jquery td:hover {
+   background: linear-gradient(135deg, #2d4651 0%, #20333c 100%) !important;
+}
+
+/* Table rows - reduced padding to avoid fixed-width ASUSWRT wrapping */
+.FormTable td,
+.SettingsTable td {
+   border-color: rgba(255,255,255,0.08) !important;
+   padding: 6px 8px !important;
+   box-sizing: border-box;
+}
+
+/* Row hover */
+.FormTable tbody tr:hover,
+.SettingsTable tbody tr:hover {
+   background: rgba(255,255,255,0.045) !important;
+}
+
+/* Keep left-side labels from wrapping */
+.FormTable td:first-child,
+.SettingsTable td:first-child {
+   white-space: nowrap;
+}
+
+/* Keep important status/value fields on one line */
+#fwVersionInstalled,
+#fwUpdateAvailable,
+#fwNotificationsDate,
+#firmwareProductModelID,
+#firmwareProductModel,
+#firmwareVariant,
+#changelogApprovalStatus,
+#fwUpdateCheckStatus,
+#changelogCheckStatus,
+#betaToReleaseStatus,
+#tailscaleVPNStatus,
+#automaticBackupsStatus,
+#scriptAutoUpdateStatus,
+#emailNotificationsStatus {
+   white-space: nowrap !important;
+}
+
+/* Inputs/selects */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+select,
+textarea {
+   border-radius: 9px !important;
+   border: 1px solid rgba(255,255,255,0.18) !important;
+   background: #20292e !important;
+   color: #f1f5f7 !important;
+   padding: 6px 8px !important;
+   box-shadow: inset 0 1px 4px rgba(0,0,0,0.35);
+   box-sizing: border-box;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+select:focus,
+textarea:focus {
+   outline: none;
+   border-color: #5fb3d1 !important;
+   box-shadow:
+      0 0 0 2px rgba(95,179,209,0.20),
+      inset 0 1px 4px rgba(0,0,0,0.35);
+}
+
+/* Fix narrow schedule number boxes */
+#fwScheduleHOUR,
+#fwScheduleMINS,
+#fwScheduleXDAYS,
+#fwUpdatePostponement {
+   width: 48px !important;
+   min-width: 48px !important;
+   height: 28px !important;
+   line-height: 20px !important;
+   padding: 3px 8px !important;
+   text-align: center;
+   box-sizing: border-box;
+   overflow: visible;
+}
+
+/* Slightly smaller box for "Every X days" */
+#fwScheduleXDAYS {
+   width: 42px !important;
+   min-width: 42px !important;
+   margin-left: 6px;
+   margin-right: 6px;
+}
+
+/* Better spacing for schedule checkbox labels */
+#fwSchedBoxDAYS1,
+#fwSchedBoxDAYSX,
+#fwSched_SUN,
+#fwSched_MON,
+#fwSched_TUE,
+#fwSched_WED,
+#fwSched_THU,
+#fwSched_FRI,
+#fwSched_SAT {
+   margin-left: 6px;
+   margin-right: 4px;
+   vertical-align: middle;
+}
+
+/* Keep schedule controls aligned */
+#fwScheduleHOUR,
+#fwScheduleMINS,
+#fwScheduleXDAYS {
+   margin-right: 6px;
+   vertical-align: middle;
+}
+
+/* Checkboxes */
+input[type="checkbox"] {
+   transform: scale(1.08);
+   cursor: pointer;
+}
+
+/* Buttons - modern look without breaking fixed ASUSWRT button widths */
+.button_gen,
+button,
+input[type="button"],
+input[type="submit"] {
+   border-radius: 999px !important;
+   border: 1px solid rgba(255,255,255,0.14) !important;
+   background: linear-gradient(135deg, #307f9d 0%, #1f5f78 100%) !important;
+   color: #fff !important;
+   font-weight: bold;
+   padding: 5px 10px !important;
+   cursor: pointer;
+   box-shadow: 0 5px 14px rgba(0,0,0,0.28);
+   transition: all 0.15s ease-in-out;
+   box-sizing: border-box;
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: clip;
+}
+
+.button_gen:hover,
+button:hover,
+input[type="button"]:hover,
+input[type="submit"]:hover {
+   transform: translateY(-1px);
+   background: linear-gradient(135deg, #3b98ba 0%, #28728e 100%) !important;
+   box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+}
+
+.button_gen:active,
+button:active,
+input[type="button"]:active,
+input[type="submit"]:active {
+   transform: translateY(0);
+   box-shadow: 0 3px 8px rgba(0,0,0,0.30);
+}
+
+/* Action button spacing/fix for text getting clipped */
+#FW_Update_Check,
+#Latest_Changelog,
+#Script_Update_Check,
+#Uninstall_Script,
+input[value="F/W Update Check"],
+input[value="Latest Changelog"],
+input[value="Script Update Check"],
+input[value="Uninstall"] {
+   min-width: 160px !important;
+   max-width: none !important;
+}
+
+/* Status labels/badges */
+[id$="Status"],
+[id$="StatusText"],
+[id$="Available"] {
+   border-radius: 8px;
+}
+
+/* Changelog modal polish */
+#changelogModal {
+   backdrop-filter: blur(3px);
+}
+
+#changelogContent {
+   border-radius: 16px !important;
+   border: 1px solid rgba(255,255,255,0.20);
+   box-shadow: 0 22px 60px rgba(0,0,0,0.55);
+}
+
+/* Keep the old ASUS layout width but make it feel less cramped */
+table.content {
+   margin-top: 10px !important;
+}
 </style>
 <!-- Native built-in JS files -->
 <script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
@@ -2531,7 +2796,7 @@ function UpdateMerlinAUScript()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-May-11] **/
+/** Modified by ExtremeFiretop [2026-Apr-27] **/
 /**----------------------------------------**/
 function CheckFirmwareUpdate()
 {
@@ -2539,7 +2804,10 @@ function CheckFirmwareUpdate()
 
    let actionScriptValue;
    let bypassPostponedDays = document.getElementById('BypassPostponedDays');
-   if (!bypassPostponedDays.checked)
+   let isBypassPostponedDays =
+       bypassPostponedDays ? bypassPostponedDays.checked : false;
+
+   if (!isBypassPostponedDays)
    {
        actionScriptValue = 'start_MerlinAUcheckfwupdate';
        if (!confirm("NOTE:\nIf you have no postponement days set or remaining, the firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
@@ -2552,8 +2820,56 @@ function CheckFirmwareUpdate()
        { return; }
    }
 
+   let fwVersionInstalled = GetInstalledFWVersionFromUI();
+   let fwUpdateAvailable = FW_NewUpdateVersAvailable || '';
+
+   let usePrereleaseRank =
+       (custom_settings.FW_Allow_Beta_Production_Up === 'ENABLED');
+
+   let verNumAvailable =
+       FWVersionStrToNum(fwUpdateAvailable, usePrereleaseRank);
+
+   let verNumInstalled =
+       FWVersionStrToNum(fwVersionInstalled, usePrereleaseRank);
+
+   let isFwUpdateAvailable =
+       (verNumAvailable !== 0 && verNumAvailable > verNumInstalled);
+
+   let fwUpdatePostponement =
+       document.getElementById('fwUpdatePostponement');
+
+   let postponedDaysValue = fwUpdatePostponement
+       ? fwUpdatePostponement.value
+       : custom_settings.FW_New_Update_Postponement_Days;
+
+   let postponedDays = parseInt(postponedDaysValue || '0', 10);
+
+   if (isNaN(postponedDays))
+   { postponedDays = 0; }
+
+   let hasPostponementConfigured = (postponedDays > 0);
+
+   let actionWaitSeconds = 60;
+
+   if (isBypassPostponedDays || isFwUpdateAvailable)
+   {
+       actionWaitSeconds = 180;
+   }
+   else if (!isFwUpdateAvailable &&
+            hasPostponementConfigured &&
+            !isBypassPostponedDays)
+   {
+       actionWaitSeconds = 30;
+   }
+
    document.form.action_script.value = actionScriptValue;
-   document.form.action_wait.value = 60;
+   document.form.action_wait.value = actionWaitSeconds;
+
+   ConsoleLogDEBUG(
+       "F/W Update Check action_wait:",
+       document.form.action_wait.value
+   );
+
    showLoading();
    document.form.submit();
 }

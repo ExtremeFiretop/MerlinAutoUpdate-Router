@@ -4,16 +4,16 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Apr-08
+# Last Modified: 2026-Apr-27
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.6.1
-readonly SCRIPT_VERSTAG="26040823"
+readonly SCRIPT_VERSION=1.6.2
+readonly SCRIPT_VERSTAG="26042703"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -1028,7 +1028,7 @@ else
     ## Set 20 minutes AFTER for APs and AiMesh Nodes ##
     readonly FW_Update_CRON_DefaultSchedule="20 0 * * *"
 fi
-readonly meshUpdate_WaitSecs=8
+readonly meshUpdate_WaitSecs=5
 
 ## Recommended 15 minutes BEFORE the F/W Update ##
 readonly ScriptAU_CRON_DefaultSchedule="45 23 * * *"
@@ -10624,7 +10624,7 @@ _ProcessMeshNodes_()
             wait
 
             # ---- Single wait ---- #
-            local waitSeconds="${meshUpdate_WaitSecs:-8}"
+            local waitSeconds="${meshUpdate_WaitSecs:-5}"
             if "$includeExtraLogic"
             then
                 local waitMsg="Please wait while we query the node(s) for status..."
