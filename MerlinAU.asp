@@ -37,7 +37,7 @@
    background:
       radial-gradient(circle at top left, rgba(70,145,180,0.18), transparent 35%),
       linear-gradient(145deg, #465156 0%, #313b40 100%) !important;
-   padding: 18px !important;
+   padding: 12px !important;
 }
 
 /* Page title */
