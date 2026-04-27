@@ -48,10 +48,10 @@
 }
 
 .merlinDivider {
-   height: 1px;
+   height: 3px;
    margin: 10px 0;
    background: rgba(255,255,255,0.12);
-   border-top: 1px solid rgba(0,0,0,0.35);
+   border-top: 2px solid rgba(0,0,0,0.35);
    box-sizing: border-box;
 }
 
