@@ -1028,7 +1028,7 @@ else
     ## Set 20 minutes AFTER for APs and AiMesh Nodes ##
     readonly FW_Update_CRON_DefaultSchedule="20 0 * * *"
 fi
-readonly meshUpdate_WaitSecs=5
+readonly meshUpdate_WaitSecs=6
 
 ## Recommended 15 minutes BEFORE the F/W Update ##
 readonly ScriptAU_CRON_DefaultSchedule="45 23 * * *"
@@ -10624,7 +10624,7 @@ _ProcessMeshNodes_()
             wait
 
             # ---- Single wait ---- #
-            local waitSeconds="${meshUpdate_WaitSecs:-5}"
+            local waitSeconds="${meshUpdate_WaitSecs:-6}"
             if "$includeExtraLogic"
             then
                 local waitMsg="Please wait while we query the node(s) for status..."
