@@ -274,11 +274,6 @@ input[value="Uninstall"] {
    border: 1px solid rgba(255,255,255,0.20);
    box-shadow: 0 22px 60px rgba(0,0,0,0.55);
 }
-
-/* Keep the old ASUS layout width but make it feel less cramped */
-table.content {
-   margin-top: 10px !important;
-}
 </style>
 <!-- Native built-in JS files -->
 <script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
