@@ -12,8 +12,269 @@
 <link rel="stylesheet" type="text/css" href="form_style.css" />
 <title>MerlinAU add-on for ASUSWRT-Merlin Firmware</title>
 <style>
-.SettingsTable .Invalid {background-color: red !important;}
-.SettingsTable .Disabled {background-color:#ccc;color:#888}
+/* Existing validation states */
+.SettingsTable .Invalid {
+   background-color: red !important;
+   color: #fff !important;
+}
+
+.SettingsTable .Disabled {
+   background-color:#ccc !important;
+   color: #888 !important;
+}
+
+/* MerlinAU modern UI overrides */
+.FormTitle {
+   border-radius: 0 18px 18px 18px !important;
+   overflow: hidden;
+   border: 1px solid rgba(255,255,255,0.12);
+   box-shadow: 0 18px 45px rgba(0,0,0,0.35);
+   background: linear-gradient(145deg, #3f4a4f 0%, #2f383d 100%) !important;
+}
+
+/* Main panel background */
+.FormTitle > tbody > tr > td {
+   background:
+      radial-gradient(circle at top left, rgba(70,145,180,0.18), transparent 35%),
+      linear-gradient(145deg, #465156 0%, #313b40 100%) !important;
+   padding: 18px !important;
+}
+
+.merlinDivider {
+   height: 2px;
+   margin: 10px 0;
+   background: rgba(255,255,255,0.12);
+   border-top: 1px solid rgba(0,0,0,0.35);
+   box-sizing: border-box;
+}
+
+/* Description area */
+.formfontdesc {
+   background: rgba(255,255,255,0.06);
+   border: 1px solid rgba(255,255,255,0.10);
+   border-radius: 12px;
+   padding: 12px 14px;
+   line-height: 1.5;
+}
+
+/* Section cards */
+.FormTable,
+.SettingsTable {
+   border-collapse: separate !important;
+   border-spacing: 0 !important;
+   border-radius: 14px;
+   overflow: hidden;
+   background: rgba(20,25,28,0.35) !important;
+   border: 1px solid rgba(255,255,255,0.10) !important;
+   box-shadow: 0 8px 22px rgba(0,0,0,0.22);
+   margin-bottom: 14px;
+}
+
+/* Section headers */
+.FormTable thead td,
+.SettingsTable thead td,
+.collapsible-jquery td {
+   background: linear-gradient(135deg, #24333a 0%, #1a252b 100%) !important;
+   color: #f4f8fb !important;
+   font-weight: bold;
+   letter-spacing: 0.2px;
+   padding: 10px 12px !important;
+   border-bottom: 1px solid rgba(255,255,255,0.10) !important;
+}
+
+/* Clickable/collapsible headers */
+.collapsible-jquery {
+   cursor: pointer;
+}
+
+.collapsible-jquery td:hover {
+   background: linear-gradient(135deg, #2d4651 0%, #20333c 100%) !important;
+}
+
+/* Table rows - reduced padding to avoid fixed-width ASUSWRT wrapping */
+.FormTable td,
+.SettingsTable td {
+   border-color: rgba(255,255,255,0.08) !important;
+   padding: 6px 8px !important;
+   box-sizing: border-box;
+}
+
+/* Row hover */
+.FormTable tbody tr:hover,
+.SettingsTable tbody tr:hover {
+   background: rgba(255,255,255,0.045) !important;
+}
+
+/* Keep left-side labels from wrapping */
+.FormTable td:first-child,
+.SettingsTable td:first-child {
+   white-space: nowrap;
+}
+
+/* Keep important status/value fields on one line */
+#fwVersionInstalled,
+#fwUpdateAvailable,
+#fwNotificationsDate,
+#firmwareProductModelID,
+#firmwareProductModel,
+#firmwareVariant,
+#changelogApprovalStatus,
+#fwUpdateCheckStatus,
+#changelogCheckStatus,
+#betaToReleaseStatus,
+#tailscaleVPNStatus,
+#automaticBackupsStatus,
+#scriptAutoUpdateStatus,
+#emailNotificationsStatus {
+   white-space: nowrap !important;
+}
+
+/* Inputs/selects */
+input[type="text"],
+input[type="password"],
+input[type="email"],
+select,
+textarea {
+   border-radius: 9px !important;
+   border: 1px solid rgba(255,255,255,0.18) !important;
+   background: #20292e !important;
+   color: #f1f5f7 !important;
+   padding: 6px 8px !important;
+   box-shadow: inset 0 1px 4px rgba(0,0,0,0.35);
+   box-sizing: border-box;
+}
+
+input[type="text"]:focus,
+input[type="password"]:focus,
+input[type="email"]:focus,
+select:focus,
+textarea:focus {
+   outline: none;
+   border-color: #5fb3d1 !important;
+   box-shadow:
+      0 0 0 2px rgba(95,179,209,0.20),
+      inset 0 1px 4px rgba(0,0,0,0.35);
+}
+
+/* Fix narrow schedule number boxes */
+#fwScheduleHOUR,
+#fwScheduleMINS,
+#fwScheduleXDAYS,
+#fwUpdatePostponement {
+   width: 48px !important;
+   min-width: 48px !important;
+   height: 28px !important;
+   line-height: 20px !important;
+   padding: 3px 8px !important;
+   text-align: center;
+   box-sizing: border-box;
+   overflow: visible;
+}
+
+/* Slightly smaller box for "Every X days" */
+#fwScheduleXDAYS {
+   width: 42px !important;
+   min-width: 42px !important;
+   margin-left: 6px;
+   margin-right: 6px;
+}
+
+/* Better spacing for schedule checkbox labels */
+#fwSchedBoxDAYS1,
+#fwSchedBoxDAYSX,
+#fwSched_SUN,
+#fwSched_MON,
+#fwSched_TUE,
+#fwSched_WED,
+#fwSched_THU,
+#fwSched_FRI,
+#fwSched_SAT {
+   margin-left: 6px;
+   margin-right: 4px;
+   vertical-align: middle;
+}
+
+/* Keep schedule controls aligned */
+#fwScheduleHOUR,
+#fwScheduleMINS,
+#fwScheduleXDAYS {
+   margin-right: 6px;
+   vertical-align: middle;
+}
+
+/* Checkboxes */
+input[type="checkbox"] {
+   transform: scale(1.08);
+   cursor: pointer;
+}
+
+/* Buttons - modern look without breaking fixed ASUSWRT button widths */
+.button_gen,
+button,
+input[type="button"],
+input[type="submit"] {
+   border-radius: 999px !important;
+   border: 1px solid rgba(255,255,255,0.14) !important;
+   background: linear-gradient(135deg, #307f9d 0%, #1f5f78 100%) !important;
+   color: #fff !important;
+   font-weight: bold;
+   padding: 5px 10px !important;
+   cursor: pointer;
+   box-shadow: 0 5px 14px rgba(0,0,0,0.28);
+   transition: all 0.15s ease-in-out;
+   box-sizing: border-box;
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: clip;
+}
+
+.button_gen:hover,
+button:hover,
+input[type="button"]:hover,
+input[type="submit"]:hover {
+   transform: translateY(-1px);
+   background: linear-gradient(135deg, #3b98ba 0%, #28728e 100%) !important;
+   box-shadow: 0 8px 18px rgba(0,0,0,0.35);
+}
+
+.button_gen:active,
+button:active,
+input[type="button"]:active,
+input[type="submit"]:active {
+   transform: translateY(0);
+   box-shadow: 0 3px 8px rgba(0,0,0,0.30);
+}
+
+/* Action button spacing/fix for text getting clipped */
+#FW_Update_Check,
+#Latest_Changelog,
+#Script_Update_Check,
+#Uninstall_Script,
+input[value="F/W Update Check"],
+input[value="Latest Changelog"],
+input[value="Script Update Check"],
+input[value="Uninstall"] {
+   min-width: 160px !important;
+   max-width: none !important;
+}
+
+/* Status labels/badges */
+[id$="Status"],
+[id$="StatusText"],
+[id$="Available"] {
+   border-radius: 8px;
+}
+
+/* Changelog modal polish */
+#changelogModal {
+   backdrop-filter: blur(3px);
+}
+
+#changelogContent {
+   border-radius: 16px !important;
+   border: 1px solid rgba(255,255,255,0.20);
+   box-shadow: 0 22px 60px rgba(0,0,0,0.55);
+}
 </style>
 <!-- Native built-in JS files -->
 <script language="JavaScript" type="text/javascript" src="/js/jquery.js"></script>
@@ -1313,6 +1574,12 @@ function FWVersionStrToNum(verStr, usePrereleaseRank)
 
     let versionCore = numericMatch[0];
     let segments = versionCore.split('.');
+
+    // Merlin firmware versions should compare as 4-part versions.
+    // Example: 3006.102.8.alpha2 -> 3006.102.8.0.alpha2
+    while (segments.length < 4)
+    { segments.push('0'); }
+
     let versionNumStr = '';
 
     for (let index = 0; index < segments.length; index++)
@@ -1329,34 +1596,66 @@ function FWVersionStrToNum(verStr, usePrereleaseRank)
     if (isNaN(baseVersionNum))
     { return 0; }
 
-    // Default: numeric-only comparison //
-    if (usePrereleaseRank !== true)
-    { return (baseVersionNum * 100); }
+    let buildSuffixNum = 0;
+    let versionForBuild = versionText;
 
-    let lowerVersionText = versionText.toLowerCase();
-    let prereleaseRank = 99;   // release //
+    // Match shell behavior: do not treat alpha/beta/rc tag numbers
+    // as build suffix numbers.
+    versionForBuild = versionForBuild.replace(/[.][Aa]lpha.*/, '.0');
+    versionForBuild = versionForBuild.replace(/[.][Bb]eta.*/, '.0');
+    versionForBuild = versionForBuild.replace(/[.][Rr][Cc].*/, '.0');
 
-    let rcMatch = lowerVersionText.match(/rc(\d*)/);
-    let betaMatch = lowerVersionText.match(/beta(\d*)/);
-    let alphaMatch = lowerVersionText.match(/alpha(\d*)/);
+    versionForBuild = versionForBuild.replace(/[_-]?[Aa]lpha.*/, '');
+    versionForBuild = versionForBuild.replace(/[_-]?[Bb]eta.*/, '');
+    versionForBuild = versionForBuild.replace(/[_-]?[Rr][Cc].*/, '');
 
-    if (alphaMatch != null)
+    let buildSuffixMatch = versionForBuild.match(
+        /^\d+(?:\.\d+)*[^0-9.]+(\d+)(?:[_-][A-Za-z]+)?$/
+    );
+
+    if (buildSuffixMatch != null)
     {
-        let alphaNum = parseInt(alphaMatch[1] || '0', 10);
-        prereleaseRank = 20 + Math.min(alphaNum, 19);
-    }
-    else if (betaMatch != null)
-    {
-        let betaNum = parseInt(betaMatch[1] || '0', 10);
-        prereleaseRank = 50 + Math.min(betaNum, 19);
-    }
-    else if (rcMatch != null)
-    {
-        let rcNum = parseInt(rcMatch[1] || '0', 10);
-        prereleaseRank = 80 + Math.min(rcNum, 19);
+        buildSuffixNum = parseInt(buildSuffixMatch[1], 10);
+        if (isNaN(buildSuffixNum))
+        { buildSuffixNum = 0; }
+
+        // Keep suffix as a 2-digit tie-breaker field.
+        buildSuffixNum = Math.min(buildSuffixNum, 99);
     }
 
-    return ((baseVersionNum * 100) + prereleaseRank);
+    let prereleaseRank = 0;
+
+    if (usePrereleaseRank === true)
+    {
+        let lowerVersionText = versionText.toLowerCase();
+        prereleaseRank = 99;   // release //
+
+        let rcMatch = lowerVersionText.match(/rc(\d*)/);
+        let betaMatch = lowerVersionText.match(/beta(\d*)/);
+        let alphaMatch = lowerVersionText.match(/alpha(\d*)/);
+
+        if (alphaMatch != null)
+        {
+            let alphaNum = parseInt(alphaMatch[1] || '0', 10);
+            prereleaseRank = 20 + Math.min(alphaNum, 19);
+        }
+        else if (betaMatch != null)
+        {
+            let betaNum = parseInt(betaMatch[1] || '0', 10);
+            prereleaseRank = 50 + Math.min(betaNum, 19);
+        }
+        else if (rcMatch != null)
+        {
+            let rcNum = parseInt(rcMatch[1] || '0', 10);
+            prereleaseRank = 80 + Math.min(rcNum, 19);
+        }
+    }
+
+    return (
+        (baseVersionNum * 10000) +
+        (buildSuffixNum * 100) +
+        prereleaseRank
+    );
 }
 
 /**----------------------------------------**/
@@ -2530,8 +2829,71 @@ function UpdateMerlinAUScript()
     document.form.submit();
 }
 
+function ParseMerlinAUDate(dateText)
+{
+   if (dateText === null || typeof dateText === 'undefined')
+   { return null; }
+
+   let cleanText = String(dateText).trim();
+
+   if (cleanText.length === 0 || cleanText === 'TBD')
+   { return null; }
+
+   cleanText = cleanText.replace('_', ' ');
+
+   let dateMatch = cleanText.match(
+      /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/
+   );
+
+   if (dateMatch === null)
+   { return null; }
+
+   let yearNum = parseInt(dateMatch[1], 10);
+   let monthNum = parseInt(dateMatch[2], 10) - 1;
+   let dayNum = parseInt(dateMatch[3], 10);
+   let hourNum = parseInt(dateMatch[4] || '0', 10);
+   let minsNum = parseInt(dateMatch[5] || '0', 10);
+   let secsNum = parseInt(dateMatch[6] || '0', 10);
+
+   let parsedDate = new Date(
+      yearNum,
+      monthNum,
+      dayNum,
+      hourNum,
+      minsNum,
+      secsNum
+   );
+
+   if (isNaN(parsedDate.getTime()))
+   { return null; }
+
+   return parsedDate;
+}
+
+function IsFWPostponementExpired(postponedDays)
+{
+   if (postponedDays <= 0)
+   { return true; }
+
+   let estimatedRunDate = ParseMerlinAUDate(fwUpdateEstimatedRunDate);
+
+   if (estimatedRunDate !== null)
+   { return (estimatedRunDate.getTime() <= Date.now()); }
+
+   let notifyDate = ParseMerlinAUDate(
+      custom_settings.FW_New_Update_Notifications_Date
+   );
+
+   if (notifyDate === null)
+   { return false; }
+
+   notifyDate.setDate(notifyDate.getDate() + postponedDays);
+
+   return (notifyDate.getTime() <= Date.now());
+}
+
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-May-11] **/
+/** Modified by ExtremeFiretop [2026-Apr-27] **/
 /**----------------------------------------**/
 function CheckFirmwareUpdate()
 {
@@ -2539,21 +2901,97 @@ function CheckFirmwareUpdate()
 
    let actionScriptValue;
    let bypassPostponedDays = document.getElementById('BypassPostponedDays');
-   if (!bypassPostponedDays.checked)
+   let isBypassPostponedDays =
+       bypassPostponedDays ? bypassPostponedDays.checked : false;
+
+   let fwVersionInstalled = GetInstalledFWVersionFromUI();
+   let fwUpdateAvailable = FW_NewUpdateVersAvailable || '';
+
+   let usePrereleaseRank =
+       (custom_settings.FW_Allow_Beta_Production_Up === 'ENABLED');
+
+   let verNumAvailable =
+       FWVersionStrToNum(fwUpdateAvailable, usePrereleaseRank);
+
+   let verNumInstalled =
+       FWVersionStrToNum(fwVersionInstalled, usePrereleaseRank);
+
+   let isFwUpdateAvailable =
+       (verNumAvailable !== 0 && verNumAvailable > verNumInstalled);
+
+   let fwUpdatePostponement =
+       document.getElementById('fwUpdatePostponement');
+
+   let postponedDaysValue = fwUpdatePostponement
+       ? fwUpdatePostponement.value
+       : custom_settings.FW_New_Update_Postponement_Days;
+
+   let postponedDays = parseInt(postponedDaysValue || '0', 10);
+
+   if (isNaN(postponedDays))
+   { postponedDays = 0; }
+
+   let hasPostponementConfigured = (postponedDays > 0);
+
+   let isPostponementExpired =
+       isFwUpdateAvailable &&
+       hasPostponementConfigured &&
+       IsFWPostponementExpired(postponedDays);
+
+   let mayFlashNow =
+       isBypassPostponedDays ||
+       !hasPostponementConfigured ||
+       isPostponementExpired;
+
+   if (!isBypassPostponedDays)
    {
        actionScriptValue = 'start_MerlinAUcheckfwupdate';
-       if (!confirm("NOTE:\nIf you have no postponement days set or remaining, the firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
-       { return; }
+
+       if (mayFlashNow)
+       {
+           if (!confirm(
+               "NOTE:\n" +
+               "A firmware update may flash NOW!\n" +
+               "This means logging you out of the WebUI and rebooting " +
+               "the router.\n\n" +
+               "Continue to check for firmware updates now?"
+           ))
+           { return; }
+       }
+       else
+       {
+           if (!confirm(
+               "NOTE:\n" +
+               "This check will respect your configured postponement days.\n" +
+               "If a firmware update is found or already known, it should " +
+               "remain postponed until the postponement period has passed.\n\n" +
+               "Continue to check for firmware updates now?"
+           ))
+           { return; }
+       }
    }
    else
    {
        actionScriptValue = 'start_MerlinAUcheckfwupdate_bypassDays';
-       if (!confirm("NOTE:\nThe firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
+
+       if (!confirm(
+           "NOTE:\n" +
+           "Bypassing postponed days means the firmware may flash NOW!\n" +
+           "This means logging you out of the WebUI and rebooting " +
+           "the router.\n\n" +
+           "Continue to check for firmware updates now?"
+       ))
        { return; }
    }
 
    document.form.action_script.value = actionScriptValue;
-   document.form.action_wait.value = 60;
+   document.form.action_wait.value = mayFlashNow ? 180 : 30;
+
+   ConsoleLogDEBUG(
+       "F/W Update Check action_wait:",
+       document.form.action_wait.value
+   );
+
    showLoading();
    document.form.submit();
 }
@@ -2769,9 +3207,8 @@ function initializeCollapsibleSections()
 <tbody>
 <tr style="background-color:#4D595D;">
 <td valign="top">
-<div>&nbsp;</div>
 <div class="formfonttitle" id="headerTitle" style="text-align:center;">MerlinAU</div>
-<div style="margin:10px 0 10px 5px;" class="splitLine"></div>
+<div class="merlinDivider"></div>
 <div class="formfontdesc">This is the MerlinAU add-on integrated into the router WebUI
 <span style="margin-left:8px;" id="WikiURL">[
    <a style="font-weight:bolder; text-decoration:underline; cursor:pointer;"
@@ -2927,7 +3364,7 @@ function initializeCollapsibleSections()
                       margin-left:-5px; margin-top:5px; margin-bottom:8px"/>Install script update</label>
     </br>
 </td>
-<td style="text-align: left; border: none;">
+<td style="text-align: center; border: none;">
    <input type="submit" id="UninstallButton" onclick="Uninstall(); return false;"
     value="Uninstall" class="button_gen savebutton" name="button">
    <br>
