@@ -1596,34 +1596,66 @@ function FWVersionStrToNum(verStr, usePrereleaseRank)
     if (isNaN(baseVersionNum))
     { return 0; }
 
-    // Default: numeric-only comparison //
-    if (usePrereleaseRank !== true)
-    { return (baseVersionNum * 100); }
+    let buildSuffixNum = 0;
+    let versionForBuild = versionText;
 
-    let lowerVersionText = versionText.toLowerCase();
-    let prereleaseRank = 99;   // release //
+    // Match shell behavior: do not treat alpha/beta/rc tag numbers
+    // as build suffix numbers.
+    versionForBuild = versionForBuild.replace(/[.][Aa]lpha.*/, '.0');
+    versionForBuild = versionForBuild.replace(/[.][Bb]eta.*/, '.0');
+    versionForBuild = versionForBuild.replace(/[.][Rr][Cc].*/, '.0');
 
-    let rcMatch = lowerVersionText.match(/rc(\d*)/);
-    let betaMatch = lowerVersionText.match(/beta(\d*)/);
-    let alphaMatch = lowerVersionText.match(/alpha(\d*)/);
+    versionForBuild = versionForBuild.replace(/[_-]?[Aa]lpha.*/, '');
+    versionForBuild = versionForBuild.replace(/[_-]?[Bb]eta.*/, '');
+    versionForBuild = versionForBuild.replace(/[_-]?[Rr][Cc].*/, '');
 
-    if (alphaMatch != null)
+    let buildSuffixMatch = versionForBuild.match(
+        /^\d+(?:\.\d+)*[^0-9.]+(\d+)(?:[_-][A-Za-z]+)?$/
+    );
+
+    if (buildSuffixMatch != null)
     {
-        let alphaNum = parseInt(alphaMatch[1] || '0', 10);
-        prereleaseRank = 20 + Math.min(alphaNum, 19);
-    }
-    else if (betaMatch != null)
-    {
-        let betaNum = parseInt(betaMatch[1] || '0', 10);
-        prereleaseRank = 50 + Math.min(betaNum, 19);
-    }
-    else if (rcMatch != null)
-    {
-        let rcNum = parseInt(rcMatch[1] || '0', 10);
-        prereleaseRank = 80 + Math.min(rcNum, 19);
+        buildSuffixNum = parseInt(buildSuffixMatch[1], 10);
+        if (isNaN(buildSuffixNum))
+        { buildSuffixNum = 0; }
+
+        // Keep suffix as a 2-digit tie-breaker field.
+        buildSuffixNum = Math.min(buildSuffixNum, 99);
     }
 
-    return ((baseVersionNum * 100) + prereleaseRank);
+    let prereleaseRank = 0;
+
+    if (usePrereleaseRank === true)
+    {
+        let lowerVersionText = versionText.toLowerCase();
+        prereleaseRank = 99;   // release //
+
+        let rcMatch = lowerVersionText.match(/rc(\d*)/);
+        let betaMatch = lowerVersionText.match(/beta(\d*)/);
+        let alphaMatch = lowerVersionText.match(/alpha(\d*)/);
+
+        if (alphaMatch != null)
+        {
+            let alphaNum = parseInt(alphaMatch[1] || '0', 10);
+            prereleaseRank = 20 + Math.min(alphaNum, 19);
+        }
+        else if (betaMatch != null)
+        {
+            let betaNum = parseInt(betaMatch[1] || '0', 10);
+            prereleaseRank = 50 + Math.min(betaNum, 19);
+        }
+        else if (rcMatch != null)
+        {
+            let rcNum = parseInt(rcMatch[1] || '0', 10);
+            prereleaseRank = 80 + Math.min(rcNum, 19);
+        }
+    }
+
+    return (
+        (baseVersionNum * 10000) +
+        (buildSuffixNum * 100) +
+        prereleaseRank
+    );
 }
 
 /**----------------------------------------**/
