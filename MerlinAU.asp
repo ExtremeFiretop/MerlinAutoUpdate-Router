@@ -1574,6 +1574,12 @@ function FWVersionStrToNum(verStr, usePrereleaseRank)
 
     let versionCore = numericMatch[0];
     let segments = versionCore.split('.');
+
+    // Merlin firmware versions should compare as 4-part versions.
+    // Example: 3006.102.8.alpha2 -> 3006.102.8.0.alpha2
+    while (segments.length < 4)
+    { segments.push('0'); }
+
     let versionNumStr = '';
 
     for (let index = 0; index < segments.length; index++)
@@ -2791,6 +2797,69 @@ function UpdateMerlinAUScript()
     document.form.submit();
 }
 
+function ParseMerlinAUDate(dateText)
+{
+   if (dateText === null || typeof dateText === 'undefined')
+   { return null; }
+
+   let cleanText = String(dateText).trim();
+
+   if (cleanText.length === 0 || cleanText === 'TBD')
+   { return null; }
+
+   cleanText = cleanText.replace('_', ' ');
+
+   let dateMatch = cleanText.match(
+      /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2})(?::(\d{2}))?)?$/
+   );
+
+   if (dateMatch === null)
+   { return null; }
+
+   let yearNum = parseInt(dateMatch[1], 10);
+   let monthNum = parseInt(dateMatch[2], 10) - 1;
+   let dayNum = parseInt(dateMatch[3], 10);
+   let hourNum = parseInt(dateMatch[4] || '0', 10);
+   let minsNum = parseInt(dateMatch[5] || '0', 10);
+   let secsNum = parseInt(dateMatch[6] || '0', 10);
+
+   let parsedDate = new Date(
+      yearNum,
+      monthNum,
+      dayNum,
+      hourNum,
+      minsNum,
+      secsNum
+   );
+
+   if (isNaN(parsedDate.getTime()))
+   { return null; }
+
+   return parsedDate;
+}
+
+function IsFWPostponementExpired(postponedDays)
+{
+   if (postponedDays <= 0)
+   { return true; }
+
+   let estimatedRunDate = ParseMerlinAUDate(fwUpdateEstimatedRunDate);
+
+   if (estimatedRunDate !== null)
+   { return (estimatedRunDate.getTime() <= Date.now()); }
+
+   let notifyDate = ParseMerlinAUDate(
+      custom_settings.FW_New_Update_Notifications_Date
+   );
+
+   if (notifyDate === null)
+   { return false; }
+
+   notifyDate.setDate(notifyDate.getDate() + postponedDays);
+
+   return (notifyDate.getTime() <= Date.now());
+}
+
 /**----------------------------------------**/
 /** Modified by ExtremeFiretop [2026-Apr-27] **/
 /**----------------------------------------**/
@@ -2802,19 +2871,6 @@ function CheckFirmwareUpdate()
    let bypassPostponedDays = document.getElementById('BypassPostponedDays');
    let isBypassPostponedDays =
        bypassPostponedDays ? bypassPostponedDays.checked : false;
-
-   if (!isBypassPostponedDays)
-   {
-       actionScriptValue = 'start_MerlinAUcheckfwupdate';
-       if (!confirm("NOTE:\nIf you have no postponement days set or remaining, the firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
-       { return; }
-   }
-   else
-   {
-       actionScriptValue = 'start_MerlinAUcheckfwupdate_bypassDays';
-       if (!confirm("NOTE:\nThe firmware may flash NOW!\nThis means logging you out of the WebUI and rebooting the router.\nContinue to check for firmware updates now?"))
-       { return; }
-   }
 
    let fwVersionInstalled = GetInstalledFWVersionFromUI();
    let fwUpdateAvailable = FW_NewUpdateVersAvailable || '';
@@ -2845,21 +2901,59 @@ function CheckFirmwareUpdate()
 
    let hasPostponementConfigured = (postponedDays > 0);
 
-   let actionWaitSeconds = 60;
+   let isPostponementExpired =
+       isFwUpdateAvailable &&
+       hasPostponementConfigured &&
+       IsFWPostponementExpired(postponedDays);
 
-   if (isBypassPostponedDays || isFwUpdateAvailable)
+   let mayFlashNow =
+       isBypassPostponedDays ||
+       !hasPostponementConfigured ||
+       isPostponementExpired;
+
+   if (!isBypassPostponedDays)
    {
-       actionWaitSeconds = 180;
+       actionScriptValue = 'start_MerlinAUcheckfwupdate';
+
+       if (mayFlashNow)
+       {
+           if (!confirm(
+               "NOTE:\n" +
+               "A firmware update may flash NOW!\n" +
+               "This means logging you out of the WebUI and rebooting " +
+               "the router.\n\n" +
+               "Continue to check for firmware updates now?"
+           ))
+           { return; }
+       }
+       else
+       {
+           if (!confirm(
+               "NOTE:\n" +
+               "This check will respect your configured postponement days.\n" +
+               "If a firmware update is found or already known, it should " +
+               "remain postponed until the postponement period has passed.\n\n" +
+               "Continue to check for firmware updates now?"
+           ))
+           { return; }
+       }
    }
-   else if (!isFwUpdateAvailable &&
-            hasPostponementConfigured &&
-            !isBypassPostponedDays)
+   else
    {
-       actionWaitSeconds = 30;
+       actionScriptValue = 'start_MerlinAUcheckfwupdate_bypassDays';
+
+       if (!confirm(
+           "NOTE:\n" +
+           "Bypassing postponed days means the firmware may flash NOW!\n" +
+           "This means logging you out of the WebUI and rebooting " +
+           "the router.\n\n" +
+           "Continue to check for firmware updates now?"
+       ))
+       { return; }
    }
 
    document.form.action_script.value = actionScriptValue;
-   document.form.action_wait.value = actionWaitSeconds;
+   document.form.action_wait.value = mayFlashNow ? 180 : 30;
 
    ConsoleLogDEBUG(
        "F/W Update Check action_wait:",
