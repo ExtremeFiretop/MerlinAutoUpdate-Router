@@ -168,10 +168,10 @@ The script can be run using the below options:
 ## Use this Automatic F/W Update script at your own discretion. By using this script you assume all risks associated with updating a router to a new firmware version.
 
 ## Star History
-<a href="https://www.star-history.com/?repos=ExtremeFiretop%2FMerlinAutoUpdate-Router&type=date&legend=top-left">
+<a href="https://www.star-history.com/?repos=ExtremeFiretop%2FMerlinAutoUpdate-Router&type=date&legend=bottom-right">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=date&theme=dark&legend=top-left&sealed_token=SvtDTGn3ayQ6JOEngOw2Uz8BgLA_RnbqbKio0cajBSdBZMeIoBdzMhL3RUa2hCEL5RV_MXg7q94HsJEiRcDUQcvz0IhRIIXbf6KAg3zXIobD-VavFkmnNw" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=date&legend=top-left&sealed_token=SvtDTGn3ayQ6JOEngOw2Uz8BgLA_RnbqbKio0cajBSdBZMeIoBdzMhL3RUa2hCEL5RV_MXg7q94HsJEiRcDUQcvz0IhRIIXbf6KAg3zXIobD-VavFkmnNw" />
-   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=date&legend=top-left&sealed_token=SvtDTGn3ayQ6JOEngOw2Uz8BgLA_RnbqbKio0cajBSdBZMeIoBdzMhL3RUa2hCEL5RV_MXg7q94HsJEiRcDUQcvz0IhRIIXbf6KAg3zXIobD-VavFkmnNw" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=date&theme=dark&legend=bottom-right&sealed_token=D_Q2Fw266xY4x4aXW58nikdwO4KETwObM4kq4bYECTuVgLhDXEr-fDzt6kL7jjTKb8PWgHlJgT5KRk9FF2DYvWmtVYiSoE0E67jkeR7oGV2MzU9abVuq7A" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=date&legend=bottom-right&sealed_token=D_Q2Fw266xY4x4aXW58nikdwO4KETwObM4kq4bYECTuVgLhDXEr-fDzt6kL7jjTKb8PWgHlJgT5KRk9FF2DYvWmtVYiSoE0E67jkeR7oGV2MzU9abVuq7A" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=date&legend=bottom-right&sealed_token=D_Q2Fw266xY4x4aXW58nikdwO4KETwObM4kq4bYECTuVgLhDXEr-fDzt6kL7jjTKb8PWgHlJgT5KRk9FF2DYvWmtVYiSoE0E67jkeR7oGV2MzU9abVuq7A" />
  </picture>
 </a>
