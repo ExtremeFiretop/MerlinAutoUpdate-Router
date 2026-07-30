@@ -5382,7 +5382,8 @@ _DoMeshNodeLogin_()
     -H 'Content-Type: application/x-www-form-urlencoded' \
     -H "Origin: ${nodeURL}" \
     -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsENC" \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp" \
+    --data-urlencode "login_authorization=$credsENC" \
     --cookie-jar "$cookieFile" \
     --max-time 3 >/dev/null 2>&1
 
