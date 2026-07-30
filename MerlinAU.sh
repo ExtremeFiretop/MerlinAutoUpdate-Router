@@ -9,8 +9,8 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.6.5
-readonly SCRIPT_VERSTAG="26062300"
+readonly SCRIPT_VERSION=1.6.6
+readonly SCRIPT_VERSTAG="26073010"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -4490,9 +4490,9 @@ _CheckForMinimumModelSupport_()
     "$routerModelCheckFailed" && return 1 || return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2026-Jan-01] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Jul-30] ##
+##------------------------------------------##
 _DoMainRouterLogin_()
 {
     if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
@@ -4511,7 +4511,8 @@ _DoMainRouterLogin_()
     -H 'Content-Type: application/x-www-form-urlencoded' \
     -H "Origin: ${routerURL}/" \
     -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsENC" \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp" \
+    --data-urlencode "login_authorization=$credsENC" \
     --cookie-jar "$cookieFile")"
     curlCode="$?"
 
