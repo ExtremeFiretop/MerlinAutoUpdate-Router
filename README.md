@@ -168,10 +168,10 @@ The script can be run using the below options:
 ## Use this Automatic F/W Update script at your own discretion. By using this script you assume all risks associated with updating a router to a new firmware version.
 
 ## Star History
-<a href="https://www.star-history.com/#ExtremeFiretop/MerlinAutoUpdate-Router&Date">
+<a href="https://www.star-history.com/?type=date&repos=ExtremeFiretop%2FMerlinAutoUpdate-Router">
  <picture>
-   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/svg?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=Date&theme=dark" />
-   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/svg?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=Date" />
-   <img alt="Star History Chart" src="https://api.star-history.com/svg?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=Date" />
+   <source media="(prefers-color-scheme: dark)" srcset="https://api.star-history.com/chart?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=date&theme=dark&legend=top-left&sealed_token=NwwNd78xUwJP1ZQWLeA6EOACJCdonltEEJQZGwLDACmcOBNENPwITgOF3QelN6Onf1hemw" />
+   <source media="(prefers-color-scheme: light)" srcset="https://api.star-history.com/chart?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=date&legend=top-left&sealed_token=NwwNd78xUwJP1ZQWLeA6EOACJCdonltEEJQZGwLDACmcOBNENPwITgOF3QelN6Onf1hemw" />
+   <img alt="Star History Chart" src="https://api.star-history.com/chart?repos=ExtremeFiretop/MerlinAutoUpdate-Router&type=date&legend=top-left&sealed_token=NwwNd78xUwJP1ZQWLeA6EOACJCdonltEEJQZGwLDACmcOBNENPwITgOF3QelN6Onf1hemw" />
  </picture>
 </a>
