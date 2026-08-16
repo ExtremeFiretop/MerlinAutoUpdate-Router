@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Jun-23
+# Last Modified: 2026-Aug-16
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.6.5
-readonly SCRIPT_VERSTAG="26062300"
+readonly SCRIPT_VERSION=1.6.6
+readonly SCRIPT_VERSTAG="26081603"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -1648,7 +1648,7 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-20] ##
+## Modified by Martinski W. [2026-Aug-16] ##
 ##----------------------------------------##
 Update_Custom_Settings()
 {
@@ -1678,7 +1678,8 @@ Update_Custom_Settings()
                 then
                     if [ "$setting_value" != "$(grep "^$setting_type" "$CONFIG_FILE" | cut -f2 -d' ')" ]
                     then
-                        sed -i "s/^$setting_type.*/$setting_type $setting_value/" "$CONFIG_FILE"
+                        fixedVal="$(echo "$setting_value" | sed 's/[\/&]/\\&/g')"
+                        sed -i "s/^${setting_type}.*/$setting_type $fixedVal/" "$CONFIG_FILE"
                     fi
                 else
                     echo "$setting_type $setting_value" >> "$CONFIG_FILE"
@@ -4490,9 +4491,9 @@ _CheckForMinimumModelSupport_()
     "$routerModelCheckFailed" && return 1 || return 0
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2026-Jan-01] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Jul-30] ##
+##------------------------------------------##
 _DoMainRouterLogin_()
 {
     if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
@@ -4511,7 +4512,8 @@ _DoMainRouterLogin_()
     -H 'Content-Type: application/x-www-form-urlencoded' \
     -H "Origin: ${routerURL}/" \
     -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsENC" \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp" \
+    --data-urlencode "login_authorization=$credsENC" \
     --cookie-jar "$cookieFile")"
     curlCode="$?"
 
@@ -5381,7 +5383,8 @@ _DoMeshNodeLogin_()
     -H 'Content-Type: application/x-www-form-urlencoded' \
     -H "Origin: ${nodeURL}" \
     -H 'Connection: keep-alive' \
-    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp&login_authorization=$credsENC" \
+    --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp" \
+    --data-urlencode "login_authorization=$credsENC" \
     --cookie-jar "$cookieFile" \
     --max-time 3 >/dev/null 2>&1
 
@@ -8850,11 +8853,11 @@ _Toggle_FW_UpdateCheckSetting_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-22] ##
+## Modified by Martinski W. [2026-Jul-30] ##
 ##----------------------------------------##
 _RemoveCronJobsFromAddOns_()
 {
-   eval $cronListCmd | grep -E "$cronJobsRegEx1|$cronJobsRegEx2|$cronJobsRegEx3|cronJobsRegEx4|$cronJobsRegEx5|$cronJobsRegEx6" > "$addonCronJobList"
+   eval $cronListCmd | grep -E "$cronJobsRegEx1|$cronJobsRegEx2|$cronJobsRegEx3|$cronJobsRegEx4|$cronJobsRegEx5|$cronJobsRegEx6" > "$addonCronJobList"
    if [ ! -s "$addonCronJobList" ]
    then
        rm -f "$addonCronJobList"
@@ -8862,12 +8865,36 @@ _RemoveCronJobsFromAddOns_()
        return 1
    fi
 
+   _RemoveCronJobWithTimeout_()
+   {
+      local cruProcID  cruProcOK=false
+      local waitSecsMAX=10  waitSecsCNT=0
+
+      cru d "$1" & cruProcID="$!"
+
+      while [ "$waitSecsCNT" -lt "$waitSecsMAX" ]
+      do
+          sleep 1
+          waitSecsCNT="$((waitSecsCNT + 1))"
+          if ! kill -EXIT "$cruProcID" 2>/dev/null
+          then cruProcOK=true ; break
+          fi
+      done
+
+      if kill -EXIT "$cruProcID" 2>/dev/null
+      then
+          kill -9 "$cruProcID"
+          Say "Wait Timeout [$waitSecsMAX secs] for CRU command expired."
+      fi
+   }
+
    local cronJobCount=0  cronJobIDx  cronJobCMD
 
    while read -r cronJobLINE
    do
       if [ -z "$cronJobLINE" ] || echo "$cronJobLINE" | grep -qE "^[[:blank:]]*#"
-      then continue ; fi
+      then continue
+      fi
       cronJobCount="$((cronJobCount + 1))"
 
       [ "$cronJobCount" -eq 1 ] && \
@@ -8879,7 +8906,7 @@ _RemoveCronJobsFromAddOns_()
 
       if [ -n "$cronJobIDx" ]
       then
-          cru d "$cronJobIDx" ; sleep 1
+          _RemoveCronJobWithTimeout_ "$cronJobIDx"
           if eval $cronListCmd | grep -qE "#${cronJobIDx}#$"
           then Say "**ERROR**: Failed to remove cron job [$cronJobIDx]."
           else Say "Cron job [$cronJobIDx] was removed successfully."
