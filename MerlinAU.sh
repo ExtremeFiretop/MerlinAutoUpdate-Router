@@ -4,13 +4,13 @@
 #
 # Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
 # Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Jul-30
+# Last Modified: 2026-Aug-16
 ###################################################################
 set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.6
-readonly SCRIPT_VERSTAG="26073018"
+readonly SCRIPT_VERSTAG="26081603"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -1648,7 +1648,7 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-20] ##
+## Modified by Martinski W. [2026-Aug-16] ##
 ##----------------------------------------##
 Update_Custom_Settings()
 {
@@ -1678,7 +1678,8 @@ Update_Custom_Settings()
                 then
                     if [ "$setting_value" != "$(grep "^$setting_type" "$CONFIG_FILE" | cut -f2 -d' ')" ]
                     then
-                        sed -i "s/^$setting_type.*/$setting_type $setting_value/" "$CONFIG_FILE"
+                        fixedVal="$(echo "$setting_value" | sed 's/[\/&]/\\&/g')"
+                        sed -i "s/^${setting_type}.*/$setting_type $fixedVal/" "$CONFIG_FILE"
                     fi
                 else
                     echo "$setting_type $setting_value" >> "$CONFIG_FILE"
