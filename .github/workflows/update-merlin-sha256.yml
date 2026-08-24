@@ -36,32 +36,12 @@ jobs:
           trap 'rm -f "$page_file" "$candidate_file"' EXIT
 
           echo "Fetching SHA256 signatures from ${SOURCE_URL}..."
-
-          http_code="$(
-            curl --location --silent --show-error \
-              --retry 4 --retry-delay 5 --retry-connrefused \
-              --connect-timeout 15 --max-time 60 \
-              --user-agent 'MerlinAutoUpdate checksum mirror (+https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router)' \
-              --output "$page_file" \
-              --write-out '%{http_code}' \
-              "$SOURCE_URL"
-          )"
-
-          echo "HTTP response code: ${http_code}"
-          echo "Downloaded page size: $(wc -c < "$page_file") bytes"
-
-          echo "Relevant response markers:"
-          grep -iE 'SHA256|signature|forbidden|blocked|access denied|cloudflare|captcha|wix|error' \
-            "$page_file" | head -n 30 || true
-
-          echo "First 5000 bytes of returned document:"
-          head -c 5000 "$page_file"
-          echo
-
-          if [[ ! "$http_code" =~ ^2[0-9][0-9]$ ]]; then
-            echo "ERROR: Source returned HTTP ${http_code}." >&2
-            exit 1
-          fi
+          curl --fail --location --silent --show-error \
+            --retry 4 --retry-delay 5 --retry-connrefused \
+            --connect-timeout 15 --max-time 60 \
+            --user-agent 'MerlinAutoUpdate checksum mirror (+https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router)' \
+            --output "$page_file" \
+            "$SOURCE_URL"
 
           # Keep the same source section MerlinAU consumes today, but write to a
           # temporary candidate so a scrape/parser failure cannot destroy the
