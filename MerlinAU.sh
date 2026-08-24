@@ -6033,8 +6033,7 @@ _CheckOnlineFirmwareSHA256_()
     then
         checksumSource="ASUSWRT-Merlin website"
     else
-        Say "${YLWct}**WARNING**${NOct}: Could not obtain a unique valid SHA256 signature for ${fw_name} from the ASUSWRT-Merlin website."
-        Say "Trying the independent MerlinAU GitHub checksum mirror..."
+        Say "${YLWct}**WARNING**${NOct}: Independently published checksum could not be retrieved from the ASUSWRT-Merlin website."
 
         # SECONDARY: Use the repository mirror only when the official source
         # did not yield a usable checksum. Never use the checksum bundled in
@@ -6057,7 +6056,7 @@ _CheckOnlineFirmwareSHA256_()
         fi
 
         checksumSource="MerlinAU GitHub checksum mirror"
-        Say "${YLWct}**WARNING**${NOct}: Using the MerlinAU GitHub checksum mirror for verification."
+        Say "${YLWct}**WARNING**${NOct}: Using the MerlinAU GitHub checksum mirror for verification. (15 MINUTE DELAY!)"
     fi
 
     # If the primary source supplied a checksum but it mismatches, this fails
