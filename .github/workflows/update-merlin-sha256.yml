@@ -48,7 +48,10 @@ jobs:
           # last-known-good mirror in the repository.
           sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' "$page_file" | \
             sed -n '/<pre[^>]*>/,/<\/pre>/p' | \
-            sed -e 's/<[^>]*>//g; s/^[[:space:]]*//; s/[[:space:]]*$//' | \
+            sed -e 's/^.*<pre[^>]*>//' \
+                -e 's/<[^>]*>//g' \
+                -e 's/^[[:space:]]*//' \
+                -e 's/[[:space:]]*$//' | \
             tr -d '\r' | \
             sed '/^[[:space:]]*$/d' > "$candidate_file"
 
