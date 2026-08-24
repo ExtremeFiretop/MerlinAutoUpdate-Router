@@ -1,0 +1,116 @@
+name: Update Merlin SHA256 Checksums
+
+on:
+  schedule:
+    # Every 15 minutes, offset from the top of the hour to reduce scheduler congestion.
+    - cron: '7,22,37,52 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-merlin-sha256
+  cancel-in-progress: false
+
+jobs:
+  scrape-and-commit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Fetch, parse, and validate SHA256 signatures
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          readonly SOURCE_URL='https://www.asuswrt-merlin.net/download'
+          readonly TARGET_FILE='merlin-sha256.txt'
+          readonly MIN_EXPECTED_ENTRIES=5
+
+          page_file="$(mktemp)"
+          candidate_file="$(mktemp)"
+          trap 'rm -f "$page_file" "$candidate_file"' EXIT
+
+          echo "Fetching SHA256 signatures from ${SOURCE_URL}..."
+          curl --fail --location --silent --show-error \
+            --retry 4 --retry-delay 5 --retry-connrefused \
+            --connect-timeout 15 --max-time 60 \
+            --user-agent 'MerlinAutoUpdate checksum mirror (+https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router)' \
+            --output "$page_file" \
+            "$SOURCE_URL"
+
+          # Keep the same source section MerlinAU consumes today, but write to a
+          # temporary candidate so a scrape/parser failure cannot destroy the
+          # last-known-good mirror in the repository.
+          sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' "$page_file" | \
+            sed -n '/<pre[^>]*>/,/<\/pre>/p' | \
+            sed -e 's/<[^>]*>//g; s/^[[:space:]]*//; s/[[:space:]]*$//' | \
+            tr -d '\r' | \
+            sed '/^[[:space:]]*$/d' > "$candidate_file"
+
+          echo "Validating candidate checksum list..."
+          awk -v min_entries="$MIN_EXPECTED_ENTRIES" '
+            BEGIN {
+              valid = 1
+              count = 0
+            }
+            {
+              count++
+
+              if (NF != 2) {
+                printf "Invalid field count on line %d: %s\n", NR, $0 > "/dev/stderr"
+                valid = 0
+                next
+              }
+
+              if (length($1) != 64 || $1 ~ /[^0-9A-Fa-f]/) {
+                printf "Invalid SHA256 on line %d: %s\n", NR, $1 > "/dev/stderr"
+                valid = 0
+              }
+
+              if (seen[$2]++) {
+                printf "Duplicate firmware filename on line %d: %s\n", NR, $2 > "/dev/stderr"
+                valid = 0
+              }
+            }
+            END {
+              if (count < min_entries) {
+                printf "Only %d checksum entries were parsed; expected at least %d.\n", count, min_entries > "/dev/stderr"
+                valid = 0
+              }
+
+              if (!valid)
+                exit 1
+            }
+          ' "$candidate_file"
+
+          echo "Validated $(wc -l < "$candidate_file") checksum entries."
+          echo "Candidate preview:"
+          head -n 5 "$candidate_file"
+
+          # Replace the working-tree copy only after the candidate has passed
+          # every validation check. A failed run therefore leaves the repository
+          # and its last-known-good checksum mirror unchanged.
+          mv -f "$candidate_file" "$TARGET_FILE"
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+
+          git add merlin-sha256.txt
+
+          if git diff --cached --quiet; then
+            echo 'No checksum changes detected. Nothing to commit.'
+            exit 0
+          fi
+
+          git commit -m 'Automated update: refresh Merlin SHA256 checksums'
+          git push

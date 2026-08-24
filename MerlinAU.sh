@@ -9,11 +9,11 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.6.6
-readonly SCRIPT_VERSTAG="26081603"
+readonly SCRIPT_VERSION=1.6.7
+readonly SCRIPT_VERSTAG="26082409"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -26,6 +26,9 @@ SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
 readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly FW_SFURL_RELEASE_SUFFIX="Release"
 readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
+readonly FW_SHA256_URL="https://www.asuswrt-merlin.net/download"
+# The scheduled checksum mirror is maintained on the repository's default branch. #
+readonly FW_SHA256_MIRROR_URL="${SCRIPT_URL_BASE}/main/merlin-sha256.txt"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
@@ -5971,45 +5974,104 @@ _CopyGnutonFiles_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Feb-17] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Aug-24] ##
+##------------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Aug-24] ##
+##------------------------------------------##
+_GetFirmwareSHA256FromList_()
+{
+    local checksumList="$1"
+    local firmwareName="$2"
+
+    # Return a checksum only when there is exactly one exact filename match
+    # and its digest is a syntactically valid SHA256 value. Using awk avoids
+    # treating firmware filenames as regular expressions.
+    printf '%s\n' "$checksumList" | awk -v firmwareName="$firmwareName" '
+        $2 == firmwareName && length($1) == 64 && $1 !~ /[^0-9A-Fa-f]/ {
+            matchCount++
+            checksum = tolower($1)
+        }
+        END {
+            if (matchCount == 1)
+                print checksum
+        }'
+}
+
 _CheckOnlineFirmwareSHA256_()
 {
-    # Fetch the latest SHA256 checksums from ASUSWRT-Merlin website #
-    checksums="$(curl -Ls --retry 4 --retry-delay 5 --retry-connrefused \
-        https://www.asuswrt-merlin.net/download            |
-        sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' |
-        sed -n '/<pre[^>].*>/,/<\/pre>/p'                  |
-        sed -e 's/<[^>].*>//g; s/^[[:space:]]*//; s/[[:space:]]*$//')"
+    local checksums=""
+    local dl_sig=""
+    local fw_name=""
+    local fw_sig=""
+    local checksumSource=""
 
-    if [ -z "$checksums" ]
+    if [ ! -f "$firmware_file" ]
     then
-        Say "${REDct}**ERROR**${NOct}: Could not download the firmware SHA256 signatures from the website."
-        _DoCleanUp_ 1
-        return 1
-    fi
-
-    if [ -f "$firmware_file" ]
-    then
-        fw_sig="$(openssl sha256 "$firmware_file" | awk -F ' ' '{print $2}')"
-        # Extract the corresponding signature for the firmware file from the fetched checksums #
-        dl_sig="$(echo "$checksums" | grep "$(basename "$firmware_file")" | awk -F ' ' '{print $1}')"
-        if [ "$fw_sig" != "$dl_sig" ]
-        then
-            Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the website."
-            _DoCleanUp_ 1
-            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
-            return 1
-        else
-            Say "SHA256 signature check for firmware image file passed successfully."
-            return 0
-        fi
-    else
         Say "${REDct}**ERROR**${NOct}: Firmware image file NOT found!"
         _DoCleanUp_ 1
         return 1
     fi
+
+    fw_name="$(basename "$firmware_file")"
+    fw_sig="$(openssl sha256 "$firmware_file" | awk -F ' ' '{print tolower($2)}')"
+
+    # PRIMARY: Fetch the checksum directly from the ASUSWRT-Merlin website.
+    checksums="$(curl -Lfs --retry 4 --retry-delay 5 --retry-connrefused \
+        "$FW_SHA256_URL" 2>/dev/null                         |
+        sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' |
+        sed -n '/<pre[^>]*>/,/<\/pre>/p'                   |
+        sed -e 's/<[^>]*>//g; s/^[[:space:]]*//; s/[[:space:]]*$//')"
+
+    if [ -n "$checksums" ]
+    then
+        dl_sig="$(_GetFirmwareSHA256FromList_ "$checksums" "$fw_name")"
+    fi
+
+    if [ -n "$dl_sig" ]
+    then
+        checksumSource="ASUSWRT-Merlin website"
+    else
+        Say "${YLWct}**WARNING**${NOct}: Could not obtain a unique valid SHA256 signature for ${fw_name} from the ASUSWRT-Merlin website."
+        Say "Trying the independent MerlinAU GitHub checksum mirror..."
+
+        # SECONDARY: Use the repository mirror only when the official source
+        # did not yield a usable checksum. Never use the checksum bundled in
+        # the firmware archive for an online update.
+        checksums="$(curl -Lfs --retry 4 --retry-delay 5 --retry-connrefused \
+            "$FW_SHA256_MIRROR_URL" 2>/dev/null)"
+
+        if [ -n "$checksums" ]
+        then
+            dl_sig="$(_GetFirmwareSHA256FromList_ "$checksums" "$fw_name")"
+        fi
+
+        if [ -z "$dl_sig" ]
+        then
+            Say "${REDct}**ERROR**${NOct}: No unique valid SHA256 signature for ${fw_name} was available from either independent online source."
+            Say "Online firmware update was aborted; bundled archive checksum fallback is intentionally disabled."
+            _DoCleanUp_ 1
+            _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+            return 1
+        fi
+
+        checksumSource="MerlinAU GitHub checksum mirror"
+        Say "${YLWct}**WARNING**${NOct}: Using the MerlinAU GitHub checksum mirror for verification."
+    fi
+
+    # If the primary source supplied a checksum but it mismatches, this fails
+    # immediately. The mirror is never used to bypass a checksum mismatch.
+    if [ "$fw_sig" != "$dl_sig" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the ${checksumSource}."
+        _DoCleanUp_ 1
+        _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
+        return 1
+    fi
+
+    Say "SHA256 signature check for firmware image file passed successfully using the ${checksumSource}."
+    return 0
 }
 
 ##----------------------------------------##
@@ -10371,9 +10433,9 @@ _DelFWAutoUpdateHook_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2024-May-17] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Aug-24] ##
+##------------------------------------------##
 _AddFWAutoUpdateHook_()
 {
    local hookScriptFile  jobHookAdded=false
@@ -10398,12 +10460,12 @@ _AddFWAutoUpdateHook_()
 
    if "$jobHookAdded"
    then Say "Cron job hook was added successfully to '$hookScriptFile' script."
-   else Say "Cron job hook already exists in '$hookScriptFile' script."
+   else DoPrintf "Cron job hook already exists in '$hookScriptFile' script.\n"
    fi
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Nov-18] ##
+## Modified by ExtremeFiretop [2026-Aug-24] ##
 ##------------------------------------------##
 _AddScriptAutoUpdateHook_()
 {
@@ -10429,7 +10491,7 @@ _AddScriptAutoUpdateHook_()
 
    if "$jobHookAdded"
    then Say "Cron job hook was added successfully to '$hookScriptFile' script."
-   else Say "Cron job hook already exists in '$hookScriptFile' script."
+   else DoPrintf "Cron job hook already exists in '$hookScriptFile' script.\n"
    fi
 }
 
