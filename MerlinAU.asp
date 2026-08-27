@@ -1,3 +1,21 @@
+<!--
+  MerlinAU / MerlinAutoUpdate
+
+  Project Created: 2023-Oct-01 by @ExtremeFiretop
+  Official Co-Author: @Martinski W. since 2023-Nov-01
+
+  Official project:
+  https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
+
+  Licensed under the GNU General Public License v3.0.
+  Additional terms under GPLv3 Section 7 apply to covered material.
+  See ADDITIONAL_TERMS.md.
+
+  MerlinAU™ and MerlinAutoUpdate™ are project trademarks.
+  The GPLv3 license does not grant trademark rights.
+  See TRADEMARKS.md.
+-->
+
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
