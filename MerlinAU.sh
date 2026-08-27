@@ -10,8 +10,11 @@
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
 #
 # Licensed under the GNU General Public License v3.0.
-# Additional terms under GPLv3 Section 7 apply.
-# See ADDITIONAL_TERMS.md and TRADEMARKS.md.
+# Additional terms under GPLv3 Section 7 apply to covered material.
+# See ADDITIONAL_TERMS.md.
+#
+# MerlinAU™ and MerlinAutoUpdate™ are project trademarks.
+# The GPLv3 license does not grant trademark rights. See TRADEMARKS.md.
 ##############################################################################
 set -u
 
