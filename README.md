@@ -216,9 +216,9 @@ The script can be run using the below options:
 
 - (Cron calculator here: https://crontab.guru/)
 ## Contribution
-- Before any contributions, please review: [CONTRIBUTING.md](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/blob/main/CONTRIBUTING.md) Guidelines. 
-- Also please review the: [CODE_OF_CONDUCT.md](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/blob/main/CODE_OF_CONDUCT.md).
-- Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
+- Before contributing, please review the [Contributing Guidelines](CONTRIBUTING.md).
+- Please also review the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Feel free to contribute by submitting issues or pull requests. Your feedback and contributions are greatly appreciated!
 
 ## Use this Automatic F/W Update script at your own discretion. By using this script you assume all risks associated with updating a router to a new firmware version.
 
