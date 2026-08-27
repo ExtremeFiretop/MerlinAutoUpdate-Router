@@ -48,17 +48,22 @@ trademark owner.
 Merely forking, cloning, modifying, or redistributing MerlinAU does not
 make a derivative version an official MerlinAU release.
 
-## 4. Official Co-Author
+## 4. Official Co-Author and Licensed Use
 
-Martinski W. is an official co-author of MerlinAU and is authorized to
-use the MerlinAU Marks in connection with his development,
+Martinski W. is an official co-author of MerlinAU and is authorized
+to use the MerlinAU Marks in connection with his development,
 documentation, support, promotion, and other authorized work on the
 official MerlinAU project.
 
 Use of the MerlinAU Marks by Martinski W. in connection with the
-official project is authorized by the trademark owner.
+official MerlinAU project is licensed by the trademark owner.
 
-This authorization does not transfer ownership of the MerlinAU Marks.
+The trademark owner retains direct or indirect control over the
+character and quality of software and services distributed under the
+MerlinAU Marks.
+
+This authorization and licensed use do not transfer ownership of the
+MerlinAU Marks.
 
 ## 5. Uses That Do Not Require Permission Under This Policy
 
