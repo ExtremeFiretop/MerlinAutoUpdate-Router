@@ -1,11 +1,14 @@
 #!/bin/sh
-###################################################################
+##############################################################################
 # MerlinAU.sh (MerlinAutoUpdate)
 #
-# Original Creation Date: 2023-Oct-01 by @ExtremeFiretop.
-# Official Co-Author: @Martinski W. - Date: 2023-Nov-01
-# Last Modified: 2026-Aug-16
-###################################################################
+# Project Created: 2023-Oct-01 by @ExtremeFiretop
+# Official Co-Author: @Martinski W. since 2023-Nov-01
+# Last Modified: 2026-Aug-27
+#
+# MerlinAU™ / MerlinAutoUpdate™
+# Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
+##############################################################################
 set -u
 
 ## Set version for each Production Release ##
