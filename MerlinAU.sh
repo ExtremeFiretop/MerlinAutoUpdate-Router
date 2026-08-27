@@ -4,10 +4,14 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Aug-27
+# Last Modified: 2026-Aug-16
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
+#
+# Licensed under the GNU General Public License v3.0.
+# Additional terms under GPLv3 Section 7 apply.
+# See ADDITIONAL_TERMS.md and TRADEMARKS.md.
 ##############################################################################
 set -u
 
