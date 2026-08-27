@@ -4,7 +4,8 @@ We're thrilled that you're interested in contributing to MerlinAU!
 
 This document provides a set of guidelines for contributing to MerlinAU, which is hosted on GitHub here: [MerlinAU](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router).
 
-These are mostly guidelines, not rules. Use your best judgment, and feel free to propose changes to this document in a pull request.
+Most contribution workflow guidance in this document is advisory. However, the licensing, intellectual property, and Contributor Certification provisions describe terms applicable to contributions
+submitted to the MerlinAU project. Use your best judgment regarding the contribution guidelines, and feel free to propose changes to this document in a pull request.
 
 ## Code of Conduct
 
@@ -115,13 +116,18 @@ Pull requests are the method for submitting changes. Here's the general process:
 
 ## Contributor Certification
 
-By submitting a contribution to the official MerlinAU project, you certify that, to the best of your knowledge:
+By submitting a contribution to the official MerlinAU project, you
+agree that your contribution may be distributed under GPLv3 and the
+applicable MerlinAU Section 7 Additional Terms.
+
+You also certify, to the best of your knowledge, that:
 
 * you created the contribution or otherwise have the right to submit it;
 * you understand that the contribution will be publicly distributed;
-* you agree that it may be distributed under GPLv3 and the applicable MerlinAU Section 7 Additional Terms;
-* you have identified any third-party material included in the contribution and its applicable licensing requirements; and
-* you understand that contributing to MerlinAU does not make an independently maintained derivative an official MerlinAU project.
+* you have identified any third-party material included in the
+  contribution and its applicable licensing requirements; and
+* you understand that contributing to MerlinAU does not make an
+  independently maintained derivative an official MerlinAU project.
 
 ## Documentation Styleguide
 
