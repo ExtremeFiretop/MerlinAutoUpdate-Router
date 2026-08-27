@@ -60,7 +60,7 @@ from which it was derived.
 A modified version must not misrepresent its origin or represent itself
 as an unmodified official MerlinAU release.
 
-Where reasonably visible to users, the modified version should identify
+Where reasonably visible to users, the modified version must identify
 that:
 
 1. it contains modifications to MerlinAU;
