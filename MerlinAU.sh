@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Aug-27
+# Last Modified: 2026-Sep-03
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -20,7 +20,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.7
-readonly SCRIPT_VERSTAG="26082409"
+readonly SCRIPT_VERSTAG="26090309"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -37,7 +37,7 @@ readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly FW_SFURL_RELEASE_SUFFIX="Release"
 readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
 readonly FW_SHA256_URL="https://www.asuswrt-merlin.net/download"
-# The scheduled checksum mirror is maintained on the repository's default branch. #
+# The scheduled checksum mirror is maintained on the repository's default branch #
 readonly FW_SHA256_MIRROR_URL="${SCRIPT_URL_BASE}/main/merlin-sha256.txt"
 
 ##----------------------------------------##
@@ -103,6 +103,7 @@ readonly versionDev_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-15] ##
 ##----------------------------------------##
+readonly TEMP_DIR="/tmp/var/tmp"
 readonly ADDONS_PATH="/jffs/addons"
 readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
@@ -124,6 +125,9 @@ readonly TEMPFILE="/tmp/MerlinAU_settings_$$.txt"
 readonly webPageFileRegExp="user([1-9]|[1-2][0-9])[.]asp"
 readonly webPageLineTabExp="\{url: \"$webPageFileRegExp\", tabName: "
 readonly webPageLineRegExp="${webPageLineTabExp}\"$SCRIPT_NAME\"\},"
+readonly curlHTTPstatusStr="HTTP/S_Status_Code"
+readonly curlTmpLogFile="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.TMP.LOG"
+readonly curlErrLogFile="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.ERR.LOG"
 
 # Give FIRST priority to built-in binaries over any other #
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
@@ -169,9 +173,9 @@ readonly FW_UpdateEMailNotificationDefault=DISABLED
 readonly amtmMailDirPath="/jffs/addons/amtm/mail"
 readonly amtmMailConfFile="${amtmMailDirPath}/email.conf"
 readonly amtmMailPswdFile="${amtmMailDirPath}/emailpw.enc"
-readonly tempEMailContent="/tmp/var/tmp/tempEMailContent.$$.TXT"
-readonly tempNodeEMailList="/tmp/var/tmp/tempNodeEMailList.$$.TXT"
-readonly tempEMailBodyMsg="/tmp/var/tmp/tempEMailBodyMsg.$$.TXT"
+readonly tempEMailContent="${TEMP_DIR}/tempEMailContent.$$.TXT"
+readonly tempEMailBodyMsg="${TEMP_DIR}/tempEMailBodyMsg.$$.TXT"
+readonly tempNodeEMailList="${TEMP_DIR}/tempNodeEMailList.$$.TXT"
 readonly saveEMailInfoMsg="${SETTINGS_DIR}/savedEMailInfoMsg.SAVE.TXT"
 readonly theEMailDateTimeFormat="%Y-%b-%d %a %I:%M:%S %p %Z"
 
@@ -356,7 +360,7 @@ _UserLogMsg_()
 DoPrintf()
 {
     if "$isInteractive" && "$isVerbose"
-    then printf "$@"
+    then printf "$1"
     fi
 }
 
@@ -593,9 +597,9 @@ _ReleaseMutexFLock_()
        [ "$fwupMutexFLock_OK" != "true" ]
     then return 0
     fi
-
     printf '' > "$fwupMutexFLock_FN"
     flock -u "$fwupMutexFLock_FD" 2>/dev/null
+    eval exec "${fwupMutexFLock_FD}>&-"
     fwupMutexFLock_OK=false
 }
 
@@ -631,9 +635,7 @@ _AcquireMutexFLock_()
         fi
     fi
 
-    [ ! -s "$fwupMutexFLock_FN" ] && \
     eval exec "$fwupMutexFLock_FD>$fwupMutexFLock_FN"
-
     if flock -x -n "$fwupMutexFLock_FD" 2>/dev/null
     then
         printf "$(basename "$0")|$$\n" > "$fwupMutexFLock_FN"
@@ -2917,18 +2919,26 @@ _CurlFileDownload_()
    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
    then return 1
    fi
-   local retCode=1
    local tempFilePathDL="${2}.DL.$$.TMP"
-   local srceFilePathDL="${SCRIPT_URL_REPO}/$1"
+   local srceFilePathURL="${SCRIPT_URL_REPO}/$1"
+   local curlRetCode  returnCODE  statusSTRx  httpStatusSTR
 
-   curl -LSs --retry 4 --retry-delay 5 --retry-connrefused \
-        "$srceFilePathDL" -o "$tempFilePathDL"
-   if [ $? -ne 0 ] || [ ! -s "$tempFilePathDL" ] || \
-      grep -iq "^404: Not Found" "$tempFilePathDL"
+   rm -f "$tempFilePathDL"
+   printf '' > "$curlErrLogFile" ; printf '' > "$curlTmpLogFile"
+
+   curl -LSs --retry 3 --retry-delay 5 --retry-connrefused \
+   --connect-timeout 30 --max-time 60 \
+   -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFile" \
+   "$srceFilePathURL" --output "$tempFilePathDL" >> "$curlTmpLogFile"
+   curlRetCode="$?"
+
+   returnCODE="$curlRetCode"
+   statusSTRx="Curl Status Code: $curlRetCode"
+   httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFile")"
+
+   if [ "$curlRetCode" -eq 0 ] && \
+      [ -z "$httpStatusSTR" ] && [ -s "$tempFilePathDL" ]
    then
-       rm -f "$tempFilePathDL"
-       retCode=1
-   else
        if [ "$1" = "$SCRIPT_WEB_ASP_FILE" ] && \
           [ -f "$2" ] && [ -f "$TEMP_MENU_TREE" ] && \
           ! diff -q "$tempFilePathDL" "$2" >/dev/null 2>&1
@@ -2937,13 +2947,24 @@ _CurlFileDownload_()
        fi
        if ! mv -f "$tempFilePathDL" "$2"
        then
+           returnCODE=111
            rm -f "$tempFilePathDL"
-           return 1
        fi
-       retCode=0
+   else
+       if [ "$curlRetCode" -eq 0 ] && [ -n "$httpStatusSTR" ]
+       then
+           returnCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
+           statusSTRx="HTTP/S Status Code: $returnCODE"
+       fi
+       if [ -s "$curlErrLogFile" ] && "$isInteractive"
+       then echo ; cat "$curlErrLogFile"
+       fi
+       Say "${REDct}**ERROR**${NOct}: Unable to download the file [$2] [${MGNTct}${statusSTRx}${NOct}]"
+       rm -f "$tempFilePathDL"
    fi
 
-   return "$retCode"
+   rm -f "$curlErrLogFile" "$curlTmpLogFile"
+   return "$returnCODE"
 }
 
 ##----------------------------------------##
@@ -2966,9 +2987,12 @@ _DownloadScriptFiles_()
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
    fi
+
    if "$mountWebGUI_OK" && \
       _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
    then
+       retCode=0
+       dos2unix "$SCRIPT_WEB_ASP_PATH"
        chmod 664 "$SCRIPT_WEB_ASP_PATH"
        if "$updatedWebUIPage"
        then
@@ -2981,15 +3005,17 @@ _DownloadScriptFiles_()
            fi
            "$isUpdateAction" && _Mount_WebUI_
        fi
-       retCode=0
    elif "$mountWebGUI_OK"
    then
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
    fi
+
    if _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$ScriptFilePath"
    then
-       retCode=0 ; chmod 755 "$ScriptFilePath"
+       retCode=0
+       dos2unix "$ScriptFilePath"
+       chmod 755 "$ScriptFilePath"
    else
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest script file for $SCRIPT_NAME."
@@ -3098,7 +3124,7 @@ _SCRIPT_UPDATE_()
        if ! _CheckNewScriptMinFWBeforeUpdate_
        then
            _WriteVarDefToHelperJSFile_ "minimumScriptFWRequired" "$NewMinSupportedFirmwareVers"
-           printf "\n${CRITct}*WARNING*:${NOct} MerlinAU v${DLRepoVersion} "
+           printf "\n${CRITct}*WARNING*${NOct}: MerlinAU v${DLRepoVersion} "
            printf "requires a newer router firmware version.\n"
            printf "\nCurrent F/W version found: ${REDct}%s${NOct}" "$current_version"
            printf "\nMinimum version supported: ${GRNct}%s${NOct}\n" "$NewMinSupportedFirmwareVers"
@@ -3172,7 +3198,7 @@ _SCRIPT_UPDATE_()
    if ! _CheckNewScriptMinFWBeforeUpdate_
    then
        _WriteVarDefToHelperJSFile_ "minimumScriptFWRequired" "$NewMinSupportedFirmwareVers"
-       printf "\n${CRITct}*WARNING*:${NOct} MerlinAU v${DLRepoVersion} "
+       printf "\n${CRITct}*WARNING*${NOct}: MerlinAU v${DLRepoVersion} "
        printf "requires a newer router firmware version.\n"
        printf "\nCurrent F/W version found: ${REDct}%s${NOct}" "$current_version"
        printf "\nMinimum version supported: ${GRNct}%s${NOct}\n" "$NewMinSupportedFirmwareVers"
@@ -3271,7 +3297,7 @@ ScriptUpdateFromAMTM()
 ##----------------------------------------##
 _CheckForNewScriptUpdates_()
 {
-   local verStr  DLScriptVerPath="${SCRIPT_VERPATH}.DL.tmp"
+   local verStr  DLScriptVerPath="${SCRIPT_VERPATH}.DL.TMP"
    echo
    DLRepoVersion="$SCRIPT_VERSION"
    if [ -s "$SCRIPT_VERPATH" ]
@@ -4909,7 +4935,7 @@ _GetPasswordInput_()
    local newPSWDtmpStr  PSWDprompt  showPSWD
    local retCode  charNum  newPSWDlength
    # For more responsive TAB keypress debounce #
-   local tabKeyDebounceSem="/tmp/var/tmp/${ScriptFNameTag}_TabKeySEM.txt"
+   local tabKeyDebounceSem="${TEMP_DIR}/${ScriptFNameTag}_TabKeySEM.txt"
 
    if [ $# -eq 0 ] || [ -z "$1" ]
    then
@@ -5858,7 +5884,6 @@ _DownloadForMerlin_()
     wget --tries=5 --waitretry=5 --retry-connrefused \
          -O "$FW_ZIP_FPATH" "$release_link"
 
-    # Check if the file was downloaded successfully #
     if [ ! -s "$FW_ZIP_FPATH" ]
     then return 1
     else return 0
@@ -5957,7 +5982,7 @@ _CopyGnutonFiles_()
    if "$copy_attempted" && "$copy_success"
    then
        #---------------------------------------------------------------#
-       # Check if Gntuon file was downloaded to a USB-attached drive.
+       # Check if Gnuton file was downloaded to a USB-attached drive.
        # Take into account special case for Entware "/opt/" paths.
        #---------------------------------------------------------------#
        if ! echo "$FW_DL_FPATH" | grep -qE "^(/tmp/mnt/|/tmp/opt/|/opt/)"
@@ -5987,17 +6012,16 @@ _CopyGnutonFiles_()
 ##------------------------------------------##
 ## Modified by ExtremeFiretop [2026-Aug-24] ##
 ##------------------------------------------##
-##------------------------------------------##
-## Modified by ExtremeFiretop [2026-Aug-24] ##
-##------------------------------------------##
 _GetFirmwareSHA256FromList_()
 {
     local checksumList="$1"
     local firmwareName="$2"
 
-    # Return a checksum only when there is exactly one exact filename match
-    # and its digest is a syntactically valid SHA256 value. Using awk avoids
-    # treating firmware filenames as regular expressions.
+    #-------------------------------------------------------------------#
+    # Return a checksum ONLY when there is exactly one filename match
+    # and its digest is a valid SHA256 value. Using awk avoids
+    # treating the firmware image filenames as regular expressions.
+    #-------------------------------------------------------------------#
     printf '%s\n' "$checksumList" | awk -v firmwareName="$firmwareName" '
         $2 == firmwareName && length($1) == 64 && $1 !~ /[^0-9A-Fa-f]/ {
             matchCount++
@@ -6009,13 +6033,61 @@ _GetFirmwareSHA256FromList_()
         }'
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2026-Sep-03] ##
+##-------------------------------------##
+_GetChecksumsFromRMerlinWebsite_()
+{
+   local curlRetCode  returnCODE  statusSTRx  httpStatusSTR
+   local outTempFPathDL="${TEMP_DIR}/SHA256_SIGS_DL_$$.TMP"
+
+   theChecksums=""
+   rm -f "$outTempFPathDL"
+   printf '' > "$curlErrLogFile" ; printf '' > "$curlTmpLogFile"
+
+   curl -LSs --retry 3 --retry-delay 5 --retry-connrefused \
+   --connect-timeout 30 --max-time 60 \
+   -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFile" \
+   "$FW_SHA256_URL" --output "$outTempFPathDL" >> "$curlTmpLogFile"
+   curlRetCode="$?"
+
+   returnCODE="$curlRetCode"
+   statusSTRx="Curl Status Code: $curlRetCode"
+   httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFile")"
+
+   if [ "$curlRetCode" -eq 0 ] && \
+      [ -z "$httpStatusSTR" ] && [ -s "$outTempFPathDL" ]
+   then
+       theChecksums="$(cat "$outTempFPathDL" | \
+                       sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' | \
+                       sed -n '/<pre[^>]*>/,/<\/pre>/p'          | \
+                       sed -e 's/^.*<pre[^>]*>// ; s/<[^>]*>//g' | \
+                       sed -e 's/^[[:space:]]*//g' | \
+                       sed -e 's/[[:space:]]*$//g' | \
+                       sed -e '/^[[:space:]]*$/d' | tr -d '\r')"
+   else
+       if [ "$curlRetCode" -eq 0 ] && [ -n "$httpStatusSTR" ]
+       then
+           returnCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
+           statusSTRx="HTTP/S Status Code: $returnCODE"
+       fi
+       if [ -s "$curlErrLogFile" ] && "$isInteractive"
+       then echo ; cat "$curlErrLogFile"
+       fi
+       Say "${MGNTct}*WARNING*${NOct}: Unable to download the SHA256 checksum signature list from the ASUSWRT-Merlin website [${MGNTct}${statusSTRx}${NOct}]"
+   fi
+
+   rm -f "$curlErrLogFile" "$curlTmpLogFile" "$outTempFPathDL"
+   return "$returnCODE"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2026-Sep-03] ##
+##----------------------------------------##
 _CheckOnlineFirmwareSHA256_()
 {
-    local checksums=""
-    local dl_sig=""
-    local fw_name=""
-    local fw_sig=""
-    local checksumSource=""
+    local fw_name  fw_sig  dl_sig=""
+    local theChecksums=""  checksumSource=""
 
     if [ ! -f "$firmware_file" ]
     then
@@ -6027,59 +6099,65 @@ _CheckOnlineFirmwareSHA256_()
     fw_name="$(basename "$firmware_file")"
     fw_sig="$(openssl sha256 "$firmware_file" | awk -F ' ' '{print tolower($2)}')"
 
-    # PRIMARY: Fetch the checksum directly from the ASUSWRT-Merlin website.
-    checksums="$(curl -Lfs --retry 4 --retry-delay 5 --retry-connrefused \
-        "$FW_SHA256_URL" 2>/dev/null                         |
-        sed -n '/<.*>SHA256 signatures:<\/.*>/,/<\/pre>/p' |
-        sed -n '/<pre[^>]*>/,/<\/pre>/p'                   |
-        sed -e 's/<[^>]*>//g; s/^[[:space:]]*//; s/[[:space:]]*$//')"
+    #-----------------------------------------------------------------------#
+    # PRIMARY SOURCE: Fetch directly from ASUSWRT-Merlin official website.
+    # RMerlin's website host has a tendency to ban whole countries from 
+    # accessing the server so we'll do more error checking & reporting 
+    # to show when that happens so users become aware of the situation.
+    #-----------------------------------------------------------------------#
+    _GetChecksumsFromRMerlinWebsite_
 
-    if [ -n "$checksums" ]
+    if [ -n "$theChecksums" ]
     then
-        dl_sig="$(_GetFirmwareSHA256FromList_ "$checksums" "$fw_name")"
+        dl_sig="$(_GetFirmwareSHA256FromList_ "$theChecksums" "$fw_name")"
     fi
 
     if [ -n "$dl_sig" ]
     then
         checksumSource="ASUSWRT-Merlin website"
     else
-        Say "${YLWct}**WARNING**${NOct}: Independently published checksum could not be retrieved from the ASUSWRT-Merlin website."
+        Say "${MGNTct}*WARNING*${NOct}: Independently published checksum signature could NOT be retrieved from the ASUSWRT-Merlin website."
 
-        # SECONDARY: Use the repository mirror only when the official source
-        # did not yield a usable checksum. Never use the checksum bundled in
-        # the firmware archive for an online update.
-        checksums="$(curl -Lfs --retry 4 --retry-delay 5 --retry-connrefused \
+        #-----------------------------------------------------------------------#
+        # SECONDARY SOURCE: Use the repository mirror ONLY when the official
+        # source did NOT yield a usable checksum. Never use a checksum bundled
+        # with the firmware image in the ZIP archive for an online F/W update.
+        #-----------------------------------------------------------------------#
+        theChecksums="$(curl -Lfs --retry 3 --retry-delay 5 --retry-connrefused \
+            --connect-timeout 30 --max-time 60 \
             "$FW_SHA256_MIRROR_URL" 2>/dev/null)"
 
-        if [ -n "$checksums" ]
+        if [ -n "$theChecksums" ]
         then
-            dl_sig="$(_GetFirmwareSHA256FromList_ "$checksums" "$fw_name")"
+            dl_sig="$(_GetFirmwareSHA256FromList_ "$theChecksums" "$fw_name")"
         fi
 
         if [ -z "$dl_sig" ]
         then
-            Say "${REDct}**ERROR**${NOct}: No unique valid SHA256 signature for ${fw_name} was available from either independent online source."
-            Say "Online firmware update was aborted; bundled archive checksum fallback is intentionally disabled."
+            Say "${REDct}**ERROR**${NOct}: No unique and valid SHA256 checksum signature for ${fw_name} was available from either independent online source."
+            Say "Online firmware update was aborted. Bundled archive checksum fallback is intentionally disabled."
             _DoCleanUp_ 1
             _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
             return 1
         fi
 
-        checksumSource="MerlinAU GitHub checksum mirror"
-        Say "${YLWct}**WARNING**${NOct}: Using the MerlinAU GitHub checksum mirror for verification. (15 MINUTE DELAY!)"
+        checksumSource="MerlinAU GitHub repository mirror"
+        Say "${MGNTct}*WARNING*${NOct}: Using the MerlinAU GitHub checksum mirror for verification (15-MINUTE Update Intervals!)"
     fi
 
-    # If the primary source supplied a checksum but it mismatches, this fails
-    # immediately. The mirror is never used to bypass a checksum mismatch.
+    #--------------------------------------------------------------------------#
+    # If the PRIMARY source supplied a checksum but it's a mismatch, it fails
+    # immediately. The mirror must NOT be used to bypass a checksum mismatch.
+    #--------------------------------------------------------------------------#
     if [ "$fw_sig" != "$dl_sig" ]
     then
-        Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does not match the SHA256 signature from the ${checksumSource}."
+        Say "${REDct}**ERROR**${NOct}: SHA256 signature from extracted firmware file does NOT match the SHA256 signature from the ${checksumSource}."
         _DoCleanUp_ 1
         _SendEMailNotification_ FAILED_FW_CHECKSUM_STATUS
         return 1
     fi
 
-    Say "SHA256 signature check for firmware image file passed successfully using the ${checksumSource}."
+    Say "SHA256 signature check for firmware image file passed successfully [source: ${checksumSource}]"
     return 0
 }
 
@@ -6414,7 +6492,7 @@ _Approve_FW_Update_()
 
     if [ "$currentSetting" = "BLOCKED" ]
     then
-        printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the changelog file.\n"
+        printf "${REDct}*WARNING*${NOct}: Found high-risk phrases in the changelog file.\n"
         printf "The advice is to approve if you've read the firmware changelog and you want to proceed with the update.\n"
 
         if _WaitForYESorNO_ "Do you want to ${GRNct}APPROVE${NOct} the latest firmware update?"
@@ -6426,7 +6504,7 @@ _Approve_FW_Update_()
             printf "The latest firmware update remain ${REDct}BLOCKED.${NOct}\n"
         fi
     else
-        printf "${REDct}*WARNING*:${NOct} Found high-risk phrases in the changelog file.\n"
+        printf "${REDct}*WARNING*${NOct}: Found high-risk phrases in the changelog file.\n"
         if _WaitForYESorNO_ "Do you want to ${REDct}BLOCK${NOct} the latest firmware update?"
         then
             Update_Custom_Settings "FW_New_Update_Changelog_Approval" "BLOCKED"
@@ -9149,7 +9227,7 @@ _GetOfflineFirmwareVersion_()
     then
         fwVersionFormat="${BLUEct}BASE${WHITEct}.${CYANct}MAJOR${WHITEct}.${MGNTct}MINOR${WHITEct}.${YLWct}PATCH${NOct}"
         # Prompt user for the firmware version if extraction fails #
-        printf "\n${REDct}**WARNING**${NOct}\n"
+        printf "\n${REDct}*WARNING*${NOct}\n"
         if "$isGNUtonFW"
         then
             printf "\nFailed to identify firmware version from the update file name."
@@ -9172,7 +9250,7 @@ _GetOfflineFirmwareVersion_()
             then
                 return 1
             fi
-            printf "\n${REDct}**WARNING**${NOct} Invalid format detected!\n"
+            printf "\n${REDct}*WARNING*${NOct}: Invalid format detected!\n"
             printf "\nPlease enter the firmware version number in the format ${fwVersionFormat}\n"
             if "$isGNUtonFW"
             then
@@ -9694,7 +9772,7 @@ _RunFirmwareUpdateNow_()
     # it has the minimum firmware version supported.
     if "$routerModelCheckFailed"
     then
-        Say "${REDct}*WARNING*:${NOct} The current router model is not supported by this script."
+        Say "${REDct}*WARNING*${NOct}: The current router model is not supported by this script."
         if "$inMenuMode"
         then
             printf "\nWould you like to uninstall the script now?"
@@ -9714,7 +9792,7 @@ _RunFirmwareUpdateNow_()
     fi
     if "$MinFirmwareVerCheckFailed" && ! "$offlineUpdateTrigger"
     then
-        Say "${REDct}*WARNING*:${NOct} The current firmware version is below the minimum supported.
+        Say "${REDct}*WARNING*${NOct}: The current firmware version is below the minimum supported.
 Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or higher to use this script.\n"
         "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
@@ -9818,16 +9896,16 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Use set to read the output of the function into variables #
         if "$isGNUtonFW"
         then
-           Say "Using release information for Gnuton Firmware."
-           _GnutonBuildSelection_
-           md5_url="$(GetLatestFirmwareMD5URL "$FW_GITURL_RELEASE" "$firmware_choice")"
-           GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
-           set -- $(_GetLatestFWUpdateVersionFromGitHub_ "$FW_GITURL_RELEASE" "$firmware_choice")
-           retCode="$?"
+            Say "Using release information for Gnuton Firmware."
+            _GnutonBuildSelection_
+            md5_url="$(GetLatestFirmwareMD5URL "$FW_GITURL_RELEASE" "$firmware_choice")"
+            GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
+            set -- $(_GetLatestFWUpdateVersionFromGitHub_ "$FW_GITURL_RELEASE" "$firmware_choice")
+            retCode="$?"
         else
-           Say "Using release information for Merlin Firmware."
-           set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
-           retCode="$?"
+            Say "Using release information for Merlin Firmware."
+            set -- $(_GetLatestFWUpdateVersionFromWebsite_ "$FW_SFURL_RELEASE")
+            retCode="$?"
         fi
         if [ "$retCode" -eq 0 ] && [ $# -eq 2 ] && \
            [ "$1" != "**ERROR**" ] && [ "$2" != "**NO_URL**" ]
@@ -9852,7 +9930,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         NewUpdate_VersionVerify="$(_GetLatestFWUpdateVersionFromRouter_ 1)"
         if [ "$NewUpdate_VersionVerify" != "$release_version" ]
         then
-            Say "WARNING: The release version found by MerlinAU [$release_version] does not match the F/W update version from the router [$NewUpdate_VersionVerify]."
+            Say "*WARNING*: The release version found by MerlinAU [$release_version] does NOT match the F/W update version from the router [$NewUpdate_VersionVerify]."
             "$inMenuMode" && _WaitForEnterKey_ "$mainMenuReturnPromptStr"
             return 1
         fi
@@ -10246,8 +10324,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
         #----------------------------------------------------------------------------------#
         # **IMPORTANT NOTE**:
-        # Due to the nature of 'nohup' and the specific behavior of this 'curl' request,
-        # the following 'curl' command MUST always be the last step in this block.
+        # Due to the nature of 'nohup' and the specific behavior of this 'Curl' request,
+        # the following 'Curl' command MUST always be the last step in this block.
         # Do NOT insert any commands after it! (unless you understand the implications).
         #----------------------------------------------------------------------------------#
         nohup curl -k "${routerURL}/upgrade.cgi" \
@@ -10268,9 +10346,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
-        # some reason & the "curl" cmd never returns, we create
+        # some reason & the "Curl" cmd never returns, we create
         # a background child process that sleeps for 3 minutes
-        # and then kills the "curl" process if it still exists.
+        # and then kills the "Curl" process if it still exists.
         # Otherwise, this child process does nothing & returns.
         # NORMALLY the "Curl" command returns almost instantly
         # once the upload is complete.
@@ -10536,25 +10614,25 @@ _CheckForMinimumRequirements_()
    if [ "$(uname -o)" != "ASUSWRT-Merlin" ]
    then
        requirementsCheckOK=false
-       Say "\n${CRITct}*WARNING*:${NOct} The current firmware installed is NOT ASUSWRT-Merlin.\n"
+       Say "\n${CRITct}*WARNING*${NOct}: The current firmware installed is NOT ASUSWRT-Merlin.\n"
    fi
 
    if ! nvram get rc_support | grep -qwoF "am_addons"
    then
        requirementsCheckOK=false
-       Say "\n${CRITct}*WARNING*:${NOct} The current firmware installed does NOT support add-ons.\n"
+       Say "\n${CRITct}*WARNING*${NOct}: The current firmware installed does NOT support add-ons.\n"
    fi
 
    if ! _CheckForMinimumModelSupport_
    then
        requirementsCheckOK=false
-       Say "\n${CRITct}*WARNING*:${NOct} The current router model ${REDct}${FW_RouterModelID}${NOct} is NOT supported by this script.\n"
+       Say "\n${CRITct}*WARNING*${NOct}: The current router model ${REDct}${FW_RouterModelID}${NOct} is NOT supported by this script.\n"
    fi
 
    if ! _CheckForMinimumVersionSupport_
    then
        requirementsCheckOK=false
-       Say "\n${CRITct}*WARNING*:${NOct} The current firmware version is below the minimum supported by this script."
+       Say "\n${CRITct}*WARNING*${NOct}: The current firmware version is below the minimum supported by this script."
        printf "\nCurrent F/W version found: ${REDct}${FW_InstalledVersion}${NOct}"
        printf "\nMinimum version supported: ${GRNct}${MinSupportedFirmwareVers}${NOct}\n"
    fi
@@ -11542,20 +11620,20 @@ _ShowMainMenuOptions_()
    # Unsupported Model Check #
    if "$routerModelCheckFailed"
    then
-      Say "${REDct}*WARNING*:${NOct} The current router model is not supported by this script.
+      Say "${REDct}*WARNING*${NOct}: The current router model is not supported by this script.
  Please uninstall."
       echo
    fi
    if "$MinFirmwareVerCheckFailed"
    then
-      Say "${REDct}*WARNING*:${NOct} The current firmware version is below the minimum supported.
+      Say "${REDct}*WARNING*${NOct}: The current firmware version is below the minimum supported.
  Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or higher to use this script."
       echo
    fi
 
    if ! _HasRouterMoreThan256MBtotalRAM_ && ! _ValidateUSBMountPoint_ "$FW_ZIP_BASE_DIR"
    then
-      Say "${REDct}*WARNING*:${NOct} Limited RAM detected (256MB).
+      Say "${REDct}*WARNING*${NOct}: Limited RAM detected (256MB).
  A USB drive is required for F/W updates."
       echo
    fi
@@ -12289,7 +12367,7 @@ _RunLockedInitializationChecks_()
 
    if ! _CleanUpOldLogFiles_
    then
-       Say "${YLWct}WARNING:${NOct} Unable to clean up old firmware-update log files."
+       Say "${YLWct}*WARNING*${NOct}: Unable to clean up old firmware-update log files."
        retCode=1
    fi
 
@@ -12297,7 +12375,7 @@ _RunLockedInitializationChecks_()
    checkWebsUpdateScriptForGnuton="$isGNUtonFW"
    if ! _Gnuton_Check_Webs_Update_Script_
    then
-       Say "${YLWct}WARNING:${NOct} Unable to check or install the GNUton \"${FW_WebsUpdateFile}\" patch."
+       Say "${YLWct}*WARNING*${NOct}: Unable to check or install the GNUton \"${FW_WebsUpdateFile}\" patch."
        retCode=1
    fi
 
