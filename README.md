@@ -1,7 +1,7 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
 
-## v1.6.6
-## 2026-Aug-16
+## v1.6.7
+## 2026-Sep-03
 
 ## WebUI:
 <img width="775" height="1640" alt="image" src="https://github.com/user-attachments/assets/846f889b-b39f-4ffe-a37a-8892ad9b2f7f" />
@@ -87,6 +87,61 @@ Blocked due to being single image models.
 MerlinAU.sh is a versatile shell script designed to automate the firmware update process for ASUS routers running Asuswrt-Merlin firmware. 
 It streamlines the firmware update procedure, automatically detects your router model, fetches the latest firmware, and offers options for installation.
 
+## License, Official Project, and Trademarks
+
+MerlinAU is free and open-source software licensed under the
+[GNU General Public License version 3.0](LICENSE).
+
+Official MerlinAU releases are maintained through this repository:
+
+**https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router**
+
+### Project Authors
+
+- **Project Creator:** @ExtremeFiretop — October 1, 2023
+- **Official Co-Author:** @Martinski W. — since November 1, 2023
+
+### GPLv3 Additional Terms
+
+Certain MerlinAU material is also subject to additional terms permitted
+under Section 7 of GPLv3, including requirements concerning attribution,
+identification of modified versions, misrepresentation of origin, and
+the absence of any grant of trademark rights.
+
+See:
+
+**[ADDITIONAL_TERMS.md](ADDITIONAL_TERMS.md)**
+
+### MerlinAU Trademarks
+
+**MerlinAU™** and **MerlinAutoUpdate™** identify the official MerlinAU
+project.
+
+The GPLv3 license grants rights to copy, modify, and redistribute the
+software. It does not grant ownership of the MerlinAU trademarks or an
+unrestricted right to use MerlinAU branding for an independently
+maintained derivative project.
+
+Forks and modified versions are permitted under the terms of GPLv3, but
+they must not misrepresent themselves as official MerlinAU releases.
+
+A derivative project may truthfully identify itself as:
+
+> "Based on MerlinAU"
+
+or:
+
+> "An unofficial fork of MerlinAU"
+
+Use of names such as **MerlinAU Zero**, **MerlinAU Pro**,
+**MerlinAutoUpdate Zero**, or similar names for an independently
+branded derivative is not authorized under the MerlinAU trademark
+policy without permission.
+
+See:
+
+**[TRADEMARKS.md](TRADEMARKS.md)**
+
 ## NOTE: It is highly recommended to configure backups using BACKUPMON
 - https://github.com/ViktorJp/BACKUPMON/tree/main
 
@@ -161,9 +216,9 @@ The script can be run using the below options:
 
 - (Cron calculator here: https://crontab.guru/)
 ## Contribution
-- Before any contributions, please review: [CONTRIBUTING.md](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/blob/main/CONTRIBUTING.md) Guidelines. 
-- Also please review the: [CODE_OF_CONDUCT.md](https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/blob/main/CODE_OF_CONDUCT.md).
-- Feel free to contribute to this script by submitting issues or pull requests on GitHub. Your feedback and contributions are greatly appreciated!
+- Before contributing, please review the [Contributing Guidelines](CONTRIBUTING.md).
+- Please also review the [Code of Conduct](CODE_OF_CONDUCT.md).
+- Feel free to contribute by submitting issues or pull requests. Your feedback and contributions are greatly appreciated!
 
 ## Use this Automatic F/W Update script at your own discretion. By using this script you assume all risks associated with updating a router to a new firmware version.
 
