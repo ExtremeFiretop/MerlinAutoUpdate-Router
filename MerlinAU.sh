@@ -37,7 +37,6 @@ readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly FW_SFURL_RELEASE_SUFFIX="Release"
 readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
 readonly FW_SHA256_URL="https://www.asuswrt-merlin.net/download"
-# The scheduled checksum mirror is maintained on the repository's default branch #
 readonly FW_SHA256_MIRROR_URL="https://fwupdate.asuswrt-merlin.net/sha256sums-ng.txt"
 
 ##----------------------------------------##
@@ -6119,7 +6118,7 @@ _CheckOnlineFirmwareSHA256_()
         Say "${MGNTct}*WARNING*${NOct}: Independently published checksum signature could NOT be retrieved from the ASUSWRT-Merlin website."
 
         #-----------------------------------------------------------------------#
-        # SECONDARY SOURCE: Use the repository mirror ONLY when the official
+        # SECONDARY SOURCE: Use the official mirror ONLY when the Merlin Website
         # source did NOT yield a usable checksum. Never use a checksum bundled
         # with the firmware image in the ZIP archive for an online F/W update.
         #-----------------------------------------------------------------------#
