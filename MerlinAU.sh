@@ -19,11 +19,11 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.6.7
-readonly SCRIPT_VERSTAG="26090309"
+readonly SCRIPT_VERSION=1.6.8
+readonly SCRIPT_VERSTAG="26090718"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -37,8 +37,7 @@ readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly FW_SFURL_RELEASE_SUFFIX="Release"
 readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
 readonly FW_SHA256_URL="https://www.asuswrt-merlin.net/download"
-# The scheduled checksum mirror is maintained on the repository's default branch #
-readonly FW_SHA256_MIRROR_URL="${SCRIPT_URL_BASE}/main/merlin-sha256.txt"
+readonly FW_SHA256_MIRROR_URL="https://fwupdate.asuswrt-merlin.net/sha256sums-ng.txt"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-May-31] ##
@@ -6119,7 +6118,7 @@ _CheckOnlineFirmwareSHA256_()
         Say "${MGNTct}*WARNING*${NOct}: Independently published checksum signature could NOT be retrieved from the ASUSWRT-Merlin website."
 
         #-----------------------------------------------------------------------#
-        # SECONDARY SOURCE: Use the repository mirror ONLY when the official
+        # SECONDARY SOURCE: Use the official mirror ONLY when the Merlin Website
         # source did NOT yield a usable checksum. Never use a checksum bundled
         # with the firmware image in the ZIP archive for an online F/W update.
         #-----------------------------------------------------------------------#
@@ -6141,8 +6140,8 @@ _CheckOnlineFirmwareSHA256_()
             return 1
         fi
 
-        checksumSource="MerlinAU GitHub repository mirror"
-        Say "${MGNTct}*WARNING*${NOct}: Using the MerlinAU GitHub checksum mirror for verification (15-MINUTE Update Intervals!)"
+        checksumSource="FwUpdate VPS mirror"
+        Say "${MGNTct}*WARNING*${NOct}: Using the FwUpdate VPS checksum mirror for verification."
     fi
 
     #--------------------------------------------------------------------------#
