@@ -10255,14 +10255,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     nvram set merlinau_fw_update=1
     rm -f "$fwUploadResponseFile" "$fwUploadDiagFile"
 
-    #------------------------------------------------------------#
-    # Restart the WebGUI to make sure nobody else is logged in
-    # so that the F/W Update can start without interruptions.
-    #------------------------------------------------------------#
-    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
-    /sbin/service restart_httpd >/dev/null 2>&1 &
-    sleep 4
-
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
 
@@ -10333,19 +10325,16 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Remove SIGHUP to allow script to continue #
         trap '' HUP
 
-        # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
-        _EntwareServicesHandler_ stop -noskip
-
         ##-------------------------------------##
         ## Added by Martinski W. [2024-Sep-15] ##
         ##-------------------------------------##
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
 
+        # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
+        _EntwareServicesHandler_ stop -noskip
+
         _Do_PostReboot_FWUpdate_Setup_
-        echo
-        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
-        echo
 
         # Avoid persistent logging from this point during the normal flash path. #
         # Failure diagnostics are written only if the router does not reboot. #
@@ -10357,6 +10346,18 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Unmount the USB drives. If "busy" let's wait until "idle" state. #
         #------------------------------------------------------------------#
         _Unmount_Eject_USB_Drives_
+
+        echo
+        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
+        echo
+
+        #------------------------------------------------------------#
+        # Restart the WebGUI to make sure nobody else is logged in
+        # so that the F/W Update can start without interruptions.
+        #------------------------------------------------------------#
+        "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+        /sbin/service restart_httpd >/dev/null 2>&1 &
+        sleep 3
 
         #----------------------------------------------------------------------------------#
         # **IMPORTANT NOTE**:
