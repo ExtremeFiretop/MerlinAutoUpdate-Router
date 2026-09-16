@@ -5483,12 +5483,6 @@ _MeshNodeTriggerFWCheck_()
     if [ "$nodeBusyRC" -eq 0 ] && echo "$nodeBusy" | grep -Eq '"merlinau_fw_update"[[:space:]]*:[[:space:]]*"1"'
     then
         Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check."
-
-        # Best-effort logout of this primary-router session, then remove its cookie.
-        curl -s -k "${nodeURL}/Logout.asp" \
-        --cookie "$cookieFile" \
-        --max-time 2 >/dev/null 2>&1
-        rm -f "$cookieFile"
         return 0
     fi
 
