@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Sep-03
+# Last Modified: 2026-Sep-17
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -19,11 +19,11 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.6.8
-readonly SCRIPT_VERSTAG="26090718"
+readonly SCRIPT_VERSION=1.6.9
+readonly SCRIPT_VERSTAG="26091700"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -4647,7 +4647,7 @@ _GetRawKeypress_()
    fi
    local savedSettings="$(stty -g)"
    stty -icanon -echo
-   dd bs=4 count=1 2>/dev/null
+   dd bs=64 count=1 2>/dev/null
    stty "$savedSettings"
    stty -echo
 }
@@ -4774,6 +4774,7 @@ _GetKeypressInput_()
    inputString=""
    inputStrLen=0
    keypressCnt=0
+   keypressLen=0
    prevxStrLen=0
    _ClearKeySeqState_
    _ShowInputString_
@@ -4782,7 +4783,8 @@ _GetKeypressInput_()
    do
       theChar="$(_GetRawKeypress_)"
       charNum="$(printf "%d" "'$theChar")"
-      keypressCnt="$((keypressCnt + 1))"
+      keypressLen="${#theChar}"
+      keypressCnt="$((keypressCnt + keypressLen))"
 
       ##<ENTER>##
       if echo "$charNum" | grep -qE "^(0|10|13)$"
@@ -4980,6 +4982,7 @@ _GetPasswordInput_()
    charNum=""
    showPSWD=0
    keypressCnt=0
+   keypressLen=0
    prevxStrLen=0
    newPSWDstring="$thePWSDstring"
    newPSWDlength="${#newPSWDstring}"
@@ -4990,7 +4993,8 @@ _GetPasswordInput_()
    do
       theChar="$(_GetRawKeypress_)"
       charNum="$(printf "%d" "'$theChar")"
-      keypressCnt="$((keypressCnt + 1))"
+      keypressLen="${#theChar}"
+      keypressCnt="$((keypressCnt + keypressLen))"
 
       ##<ENTER>##
       if echo "$charNum" | grep -qE "^(0|10|13)$"
@@ -6140,8 +6144,8 @@ _CheckOnlineFirmwareSHA256_()
             return 1
         fi
 
-        checksumSource="FwUpdate VPS mirror"
-        Say "${MGNTct}*WARNING*${NOct}: Using the FwUpdate VPS checksum mirror for verification."
+        checksumSource="RMerlin's F/W Update VPS mirror"
+        Say "${MGNTct}*WARNING*${NOct}: Using RMerlin's F/W Update VPS checksum mirror for verification."
     fi
 
     #--------------------------------------------------------------------------#
