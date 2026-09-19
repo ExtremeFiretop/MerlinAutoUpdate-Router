@@ -4335,7 +4335,7 @@ _ReEnableAsusTrendMicroProcesses_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
+## Modified by ExtremeFiretop [2025-Sep-16] ##
 ##------------------------------------------##
 _DoCleanUp_()
 {
@@ -4352,6 +4352,10 @@ _DoCleanUp_()
    [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
    [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
    [ $# -gt 2 ] && [ "$3" -eq 1 ] && keepWfile=true
+
+   # Clear the volatile F/W-update guard used by AiMesh primaries. #
+   # This value is intentionally never committed to NVRAM. #
+   nvram unset merlinau_fw_update 2>/dev/null
 
    # Stop the LEDs blinking #
    _Reset_LEDs_ 1
@@ -5433,9 +5437,9 @@ _DoMeshNodeLogin_()
     return "$?"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2026-Jan-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-16] ##
+##------------------------------------------##
 # Trigger the node "Check for updates" (no waiting here)
 _MeshNodeTriggerFWCheck_()
 {
@@ -5447,6 +5451,7 @@ _MeshNodeTriggerFWCheck_()
     local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
     local nodeURL="$(_GetNodeURL_ "$nodeIPv4addr")"
     local cookieFile="/tmp/${runID}.${safeID}.cookie"
+    local nodeBusy nodeBusyRC
 
     # Check for Login Credentials #
     credsENC="$(Get_Custom_Setting credentials_base64)"
@@ -5465,6 +5470,24 @@ _MeshNodeTriggerFWCheck_()
         rm -f "$cookieFile"
         Say "${REDct}Failed Login for AiMesh Node [$nodeIPv4addr].${NOct}"
         return 1
+    fi
+
+    # Check if the AiMesh node is already performing a MerlinAU F/W update 
+    # before triggering the built-in firmware update check.
+    nodeBusy="$(curl -s -k "${nodeURL}/appGet.cgi?hook=nvram_get(merlinau_fw_update)" \
+    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: application/json,text/plain,*/*' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Connection: keep-alive' \
+    -H "Referer: ${nodeURL}/index.asp" \
+    --cookie "$cookieFile" \
+    --max-time 2 2>/dev/null)"
+    nodeBusyRC="$?"
+
+    if [ "$nodeBusyRC" -eq 0 ] && echo "$nodeBusy" | grep -Eq '"merlinau_fw_update"[[:space:]]*:[[:space:]]*"1"'
+    then
+        Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check."
+        return 0
     fi
 
     # Trigger firmware check (mimic WebUI "Check" button) #
@@ -9759,11 +9782,15 @@ _Unmount_Eject_USB_Drives_()
     "$ejectUSB_OK" && return 0 || return 1
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2026-Jan-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-16] ##
+##------------------------------------------##
 _RunFirmwareUpdateNow_()
 {
+    local fwUploadResponseFile="/tmp/upload_response.txt"
+    local fwUploadDiagFile="${SETTINGS_DIR}/last_fw_upload_response.txt"
+    local curlRC=0  uploadHTTPcode=""
+
     # Double-check the directory exists before using it #
     [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
 
@@ -10223,13 +10250,14 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
-    #------------------------------------------------------------#
-    # Restart the WebGUI to make sure nobody else is logged in
-    # so that the F/W Update can start without interruptions.
-    #------------------------------------------------------------#
-    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
-    /sbin/service restart_httpd >/dev/null 2>&1 &
-    sleep 4
+    #------------------------------------------------------------------------#
+    # A volatile guard before restarting/logging into the WebGUI.
+    # Primary routers running MerlinAU can query this nvram value with appGet.cgi 
+    # and avoid triggering start_webs_update on this router mid-flash.
+    # Do not commit this value since a reboot should clear it automatically.
+    #------------------------------------------------------------------------#
+    nvram set merlinau_fw_update=1
+    rm -f "$fwUploadResponseFile" "$fwUploadDiagFile"
 
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
@@ -10301,21 +10329,19 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Remove SIGHUP to allow script to continue #
         trap '' HUP
 
-        # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
-        _EntwareServicesHandler_ stop -noskip
-
         ##-------------------------------------##
         ## Added by Martinski W. [2024-Sep-15] ##
         ##-------------------------------------##
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
 
-        _Do_PostReboot_FWUpdate_Setup_
-        echo
-        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
-        echo
+        # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
+        _EntwareServicesHandler_ stop -noskip
 
-        # *WARNING*: NO MORE logging at this point & beyond #
+        _Do_PostReboot_FWUpdate_Setup_
+
+        # Avoid persistent logging from this point during the normal flash path. #
+        # Failure diagnostics are written only if the router does not reboot. #
         sync ; sleep 2 ; echo 3 > /proc/sys/vm/drop_caches ; sleep 3
 
         ##-------------------------------------##
@@ -10325,13 +10351,25 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         #------------------------------------------------------------------#
         _Unmount_Eject_USB_Drives_
 
+        echo
+        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
+        echo
+
+        #------------------------------------------------------------#
+        # Restart the WebGUI to make sure nobody else is logged in
+        # so that the F/W Update can start without interruptions.
+        #------------------------------------------------------------#
+        "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+        /sbin/service restart_httpd >/dev/null 2>&1 &
+        sleep 3
+
         #----------------------------------------------------------------------------------#
         # **IMPORTANT NOTE**:
         # Due to the nature of 'nohup' and the specific behavior of this 'Curl' request,
         # the following 'Curl' command MUST always be the last step in this block.
         # Do NOT insert any commands after it! (unless you understand the implications).
         #----------------------------------------------------------------------------------#
-        nohup curl -k "${routerURL}/upgrade.cgi" \
+        nohup curl -sS -k "${routerURL}/upgrade.cgi" \
         --referer "${routerURL}/Advanced_FirmwareUpgrade_Content.asp" \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
         -H 'Accept-Language: en-US,en;q=0.5' \
@@ -10344,7 +10382,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         -F 'preferred_lang=EN' \
         -F "firmver=${dottedVersion}" \
         -F "file=@${firmware_file}" \
-        --cookie "$cookieFile" > /tmp/upload_response.txt 2>&1 &
+        --cookie "$cookieFile" \
+        --write-out '\nMERLINAU_HTTP_CODE:%{http_code}\n' \
+        > "$fwUploadResponseFile" 2>&1 &
         curlPID=$!
 
         #----------------------------------------------------------#
@@ -10360,16 +10400,40 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
            sleep 180
            if [ "$curlPID" -gt 0 ]
            then
-               kill -EXIT $curlPID 2>/dev/null || return
-               kill -TERM $curlPID 2>/dev/null
+               kill -EXIT "$curlPID" 2>/dev/null || return
+               kill -TERM "$curlPID" 2>/dev/null
            fi
         ) &
-        wait $curlPID ; curlPID=0
+
+        # Preserve Curl's actual result instead of discarding it. #
+        wait "$curlPID"
+        curlRC=$?
+        curlPID=0
+        uploadHTTPcode="$(sed -n 's/^MERLINAU_HTTP_CODE://p' "$fwUploadResponseFile" 2>/dev/null | tail -n 1)"
+
         #----------------------------------------------------------#
         # Let's wait for 3 minutes here. If the router does not
-        # reboot by itself after the process returns, do it now.
+        # reboot by itself after the process returns, 
+        # preserve any diagnostics then reboot.
+        # A successful flash reboots before this step.
         #----------------------------------------------------------#
         sleep 180
+
+        {
+            echo "MerlinAU v$SCRIPT_VERSION firmware upload diagnostics"
+            echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+            echo "Router: $MODEL_ID"
+            echo "Firmware image: $firmware_file"
+            echo "Curl exit code: $curlRC"
+            echo "HTTP status: ${uploadHTTPcode:-UNKNOWN}"
+            echo "------------------------------------------------------------"
+            [ -s "$fwUploadResponseFile" ] && cat "$fwUploadResponseFile"
+        } > "$fwUploadDiagFile" 2>/dev/null
+        chmod 600 "$fwUploadDiagFile" 2>/dev/null
+
+        _MsgToSysLog_ "F/W upload did not cause the router to reboot within 180 seconds. Curl exit code [$curlRC], HTTP status [${uploadHTTPcode:-UNKNOWN}]."
+        _MsgToSysLog_ "F/W upload diagnostics saved to [$fwUploadDiagFile]."
+
         _ReleaseLock_
         /sbin/service reboot
     else
