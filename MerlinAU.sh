@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Sep-21
+# Last Modified: 2026-Sep-22
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -20,7 +20,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.9
-readonly SCRIPT_VERSTAG="26092121"
+readonly SCRIPT_VERSTAG="26092200"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -5499,7 +5499,7 @@ _GetNodeURL_()
 _DoMeshNodeLogin_()
 {
     if [ $# -lt 4 ] || [ -z "$1" ] || \
-       [ -z "$2" ] || [ -z "$3" ] | [ -z "$4" ]
+       [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]
     then echo ; return 1
     fi
     local nodeURL="$1"  credsENC="$2"  cookieFile="$3"
