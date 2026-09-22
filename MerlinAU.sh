@@ -20,7 +20,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.9
-readonly SCRIPT_VERSTAG="26092200"
+readonly SCRIPT_VERSTAG="26092216"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -5505,7 +5505,7 @@ _DoMeshNodeLogin_()
     local nodeURL="$1"  credsENC="$2"  cookieFile="$3"
     local responseFPath="${curlTmpRespFile}.${4}.NODE.LOGIN"
     local curlErrLogFile="${curlErrLogFPath}.${4}.NODE.LOGIN"
-    local curlTmpLogFile="${curlTmpLogFPath}.${4}.NONE.LOGIN"
+    local curlTmpLogFile="${curlTmpLogFPath}.${4}.NODE.LOGIN"
     local curlRetCode  statusCODE  statusSTRx  httpStatusSTR
 
     printf '' > "$responseFPath"
