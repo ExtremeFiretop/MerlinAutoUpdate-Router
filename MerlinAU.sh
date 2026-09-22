@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Sep-20
+# Last Modified: 2026-Sep-21
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -20,7 +20,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.9
-readonly SCRIPT_VERSTAG="26092015"
+readonly SCRIPT_VERSTAG="26092121"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -5493,21 +5493,24 @@ _GetNodeURL_()
     echo "${urlProto}://${nodeIPv4addr}${urlPort}"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2026-Jan-01] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Sep-21] ##
+##----------------------------------------##
 _DoMeshNodeLogin_()
 {
-    if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
+    if [ $# -lt 4 ] || [ -z "$1" ] || \
+       [ -z "$2" ] || [ -z "$3" ] | [ -z "$4" ]
     then echo ; return 1
     fi
     local nodeURL="$1"  credsENC="$2"  cookieFile="$3"
-    local responseFPath="${curlTmpRespFile}.NODE.LOGIN"
+    local responseFPath="${curlTmpRespFile}.${4}.NODE.LOGIN"
+    local curlErrLogFile="${curlErrLogFPath}.${4}.NODE.LOGIN"
+    local curlTmpLogFile="${curlTmpLogFPath}.${4}.NONE.LOGIN"
     local curlRetCode  statusCODE  statusSTRx  httpStatusSTR
 
     printf '' > "$responseFPath"
-    printf '' > "$curlErrLogFPath"
-    printf '' > "$curlTmpLogFPath"
+    printf '' > "$curlErrLogFile"
+    printf '' > "$curlTmpLogFile"
 
     curl -kiLSs "${nodeURL}/login.cgi" \
     --connect-timeout 10 --max-time 15 \
@@ -5520,13 +5523,13 @@ _DoMeshNodeLogin_()
     --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp" \
     --data-urlencode "login_authorization=$credsENC" \
     --cookie-jar "$cookieFile" \
-    -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFPath" \
-    --output "$responseFPath" >> "$curlTmpLogFPath"
+    -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFile" \
+    --output "$responseFPath" >> "$curlTmpLogFile"
     curlRetCode="$?"
 
     statusCODE="$curlRetCode"
     statusSTRx="Curl Status Code: $curlRetCode"
-    httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFPath")"
+    httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFile")"
 
     if [ "$curlRetCode" -eq 0 ] && \
        [ -z "$httpStatusSTR" ] && [ -s "$responseFPath" ]
@@ -5545,27 +5548,30 @@ _DoMeshNodeLogin_()
         fi
     fi
 
-    rm -f "$curlErrLogFPath" "$curlTmpLogFPath" "$responseFPath"
+    rm -f "$curlErrLogFile" "$curlTmpLogFile" "$responseFPath"
     echo "$statusSTRx"
     return "$statusCODE"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2026-Sep-20] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Sep-21] ##
+##----------------------------------------##
 _GetNVRAM_FromWebUI_()
 {
-    if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
+    if [ $# -lt 4 ] || [ -z "$1" ] || \
+       [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]
     then echo ; return 1
     fi
     local webUIcURL="$1"  cookieFile="$2"  nvramKey="$3"
-    local responseFPath="${curlTmpRespFile}.NVRAM.TMP"
+    local responseFPath="${curlTmpRespFile}.${4}.NVRAM.TMP"
+    local curlErrLogFile="${curlErrLogFPath}.${4}.NVRAM.TMP"
+    local curlTmpLogFile="${curlTmpLogFPath}.${4}.NVRAM.TMP"
     local curlRetCode  statusCODE  statusSTRx  httpStatusSTR
     local nvramKeyValPair=""
 
     printf '' > "$responseFPath"
-    printf '' > "$curlErrLogFPath"
-    printf '' > "$curlTmpLogFPath"
+    printf '' > "$curlErrLogFile"
+    printf '' > "$curlTmpLogFile"
 
     curl -kiLSs "${webUIcURL}/appGet.cgi?hook=nvram_get($nvramKey)" \
     --connect-timeout 10 --max-time 15 \
@@ -5575,13 +5581,13 @@ _GetNVRAM_FromWebUI_()
     -H 'Connection: keep-alive' \
     -H "Referer: ${webUIcURL}/index.asp" \
     --cookie "$cookieFile" \
-    -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFPath" \
-    --output "$responseFPath" >> "$curlTmpLogFPath"
+    -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFile" \
+    --output "$responseFPath" >> "$curlTmpLogFile"
     curlRetCode="$?"
 
     statusCODE="$curlRetCode"
     statusSTRx="Curl Status Code: $curlRetCode"
-    httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFPath")"
+    httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFile")"
 
     if [ "$curlRetCode" -eq 0 ] && \
        [ -z "$httpStatusSTR" ] && [ -s "$responseFPath" ]
@@ -5602,13 +5608,13 @@ _GetNVRAM_FromWebUI_()
     fi
     [ -z "$nvramKeyValPair" ] && nvramKeyValPair="$statusSTRx"
 
-    rm -f "$curlErrLogFPath" "$curlTmpLogFPath" "$responseFPath"
+    rm -f "$curlErrLogFile" "$curlTmpLogFile" "$responseFPath"
     echo "$nvramKeyValPair"
     return "$statusCODE"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2026-Sep-20] ##
+## Modified by Martinski W. [2026-Sep-21] ##
 ##----------------------------------------##
 # Trigger the node "Check for updates" (no waiting here) #
 _MeshNodeTriggerFWCheck_()
@@ -5633,7 +5639,7 @@ _MeshNodeTriggerFWCheck_()
         return 1
     fi
 
-    if curlStatus="$(_DoMeshNodeLogin_ "$nodeURL" "$credsENC" "$cookieFile")"
+    if curlStatus="$(_DoMeshNodeLogin_ "$nodeURL" "$credsENC" "$cookieFile" "${runID}.${safeID}")"
     then
         Say "${GRNct}Successful Login for AiMesh Node [$nodeIPv4addr].${NOct}"
     else
@@ -5646,7 +5652,7 @@ _MeshNodeTriggerFWCheck_()
     # Check if the AiMesh node is already performing a MerlinAU F/W update 
     # *BEFORE* triggering the built-in firmware update check.
     #-----------------------------------------------------------------------#
-    if nvramKeyPair="$(_GetNVRAM_FromWebUI_ "$nodeURL" "$cookieFile" "$nvramTempFWupdateKey")"
+    if nvramKeyPair="$(_GetNVRAM_FromWebUI_ "$nodeURL" "$cookieFile" "$nvramTempFWupdateKey" "${runID}.${safeID}")"
     then
         if echo "$nvramKeyPair" | grep -qE "\"$nvramTempFWupdateKey\"[[:blank:]]*:[[:blank:]]*\"1\""
         then
@@ -5724,7 +5730,7 @@ _GetNodeInfo_()
 
     # If already created a cookie, reuse it (skip login), else perform login request #
     if [ ! -s "$cookieFile" ] && \
-       ! curlStatus="$(_DoMeshNodeLogin_ "$nodeURL" "$credsENC" "$cookieFile")"
+       ! curlStatus="$(_DoMeshNodeLogin_ "$nodeURL" "$credsENC" "$cookieFile" "${runID}.${safeID}")"
     then
         rm -f "$cookieFile"
         Say "${REDct}Failed Login for AiMesh Node [$nodeIPv4addr] [$curlStatus].${NOct}"
@@ -9948,9 +9954,9 @@ _Unmount_Eject_USB_Drives_()
     "$ejectUSB_OK" && return 0 || return 1
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2026-Sep-16] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Sep-21] ##
+##----------------------------------------##
 _RunFirmwareUpdateNow_()
 {
     local fwUploadResponseFile="/tmp/upload_response.txt"
@@ -10534,7 +10540,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # If this login fails now then we have to abort here and reboot.
         # Added by Martinski W. [2026-Sep-20]
         #-------------------------------------------------------------------#
-        if ! nvramKeyPair="$(_GetNVRAM_FromWebUI_ "$routerURL" "$cookieFile" "$nvramTempFWupdateKey")"
+        if ! nvramKeyPair="$(_GetNVRAM_FromWebUI_ "$routerURL" "$cookieFile" "$nvramTempFWupdateKey" "$$")"
         then
             rm -f "$cookieFile"
             if ! curlStatus="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")"
