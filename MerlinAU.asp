@@ -1228,7 +1228,7 @@ function FetchChangelog(startTime)
         timeout: 1500, // each attempt times out after 9 seconds //
         success: function(data)
         {
-            $('#changelogData').html('<pre>' + data + '</pre>');
+            $('#changelogData').empty().append($('<pre>').text(data));
         },
         error: function()
         {
