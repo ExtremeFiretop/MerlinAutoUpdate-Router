@@ -22,7 +22,7 @@ set -u
 readonly SCRIPT_VERSION=1.6.9
 readonly SCRIPT_VERSTAG="26092216"
 readonly SCRIPT_NAME="MerlinAU"
-## Set to "master" for Production Releases ##
+## Set to "main" for Production Releases ##
 SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
@@ -97,7 +97,7 @@ readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 readonly ScriptDirNameD="${ScriptFNameTag}.d"
 
-if [ "$SCRIPT_BRANCH" = "master" ]
+if [ "$SCRIPT_BRANCH" = "main" ]
 then readonly branchxStr_TAG="[Branch: $SCRIPT_BRANCH]"
 else readonly branchxStr_TAG="[Branch: development]"
 fi
@@ -730,7 +730,7 @@ _ShowLogo_()
    else showBranchStr=false
    fi
    local spaceLen=58  colorCT
-   [ "$SCRIPT_BRANCH" = "master" ] && colorCT="$GRNct" || colorCT="$MGNTct"
+   [ "$SCRIPT_BRANCH" = "main" ] && colorCT="$GRNct" || colorCT="$MGNTct"
    echo
    printf "${YLWct}\n"
    printf "      __  __           _ _               _    _  \n"
@@ -809,7 +809,7 @@ Available commands:
   ${SCRIPT_NAME}.sh run_now         run F/W update process
   ${SCRIPT_NAME}.sh processNodes    run update check on nodes
   ${SCRIPT_NAME}.sh develop         switch to development branch
-  ${SCRIPT_NAME}.sh stable          switch to stable master branch
+  ${SCRIPT_NAME}.sh stable          switch to stable main branch
   ${SCRIPT_NAME}.sh startup         run startup initialization actions
   ${SCRIPT_NAME}.sh install         install MerlinAU files
   ${SCRIPT_NAME}.sh uninstall       uninstall MerlinAU files
@@ -1189,7 +1189,7 @@ _ChangeToStable_()
     if ! _AcquireLock_ cliFileLock
     then return 1
     fi
-    SCRIPT_BRANCH="master"
+    SCRIPT_BRANCH="main"
     SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
     _SCRIPT_UPDATE_ force
     _DoExit_ 0
@@ -11867,7 +11867,7 @@ _ShowMainMenuOptions_()
    fi
 
    clear
-   _ShowLogo_ "$([ "$SCRIPT_BRANCH" = "master" ] && echo false || echo true)"
+   _ShowLogo_ "$([ "$SCRIPT_BRANCH" = "main" ] && echo false || echo true)"
    printf "${YLWct}============ By ExtremeFiretop & Martinski W. ============${NOct}\n\n"
 
    # New Script Update Notification #
@@ -12642,7 +12642,7 @@ _RunLockedInitializationChecks_()
    return "$retCode"
 }
 
-if [ "$SCRIPT_BRANCH" = "master" ]
+if [ "$SCRIPT_BRANCH" = "main" ]
 then SCRIPT_VERS_INFO=""
 else SCRIPT_VERS_INFO="[$versionDev_TAG]"
 fi
