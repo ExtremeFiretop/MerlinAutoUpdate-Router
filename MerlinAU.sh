@@ -5334,7 +5334,10 @@ _GetLoginCredentials_()
         _UpdateLoginPswdCheckHelper_ InitPWD
     else
         loginCredsDEC="$(echo "$loginCredsENC" | openssl base64 -d)"
-        thePWSDstring="$(echo "$loginCredsDEC" | sed "s/${userName}://")"
+        case "$loginCredsDEC" in
+            *:*) thePWSDstring="${loginCredsDEC#*:}" ;;
+            *)   thePWSDstring="" ;;
+        esac
     fi
     oldPWSDstring="$thePWSDstring"
     newPSWDstring="$thePWSDstring"

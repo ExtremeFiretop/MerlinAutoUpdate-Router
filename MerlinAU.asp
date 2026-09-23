@@ -2456,7 +2456,8 @@ function AssignAjaxSetting (keyName, keyValue)
            try
            {
                var decoded = atob(keyValue);
-               var password = decoded.split(':')[1] || '';
+               var separatorIndex = decoded.indexOf(':');
+               var password = (separatorIndex >= 0) ? decoded.slice(separatorIndex + 1) : '';
                ajax_custom_settings.routerPassword = password;
            }
            catch (e)
