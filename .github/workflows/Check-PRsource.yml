@@ -6,13 +6,15 @@ on:
       - reopened
       - synchronize
       - edited
+
+permissions: {}
+
 jobs:
   check-branches:
     runs-on: ubuntu-latest
     steps:
-      - name: Check branches
+      - name: Reject non-dev pull requests to main
+        if: github.base_ref == 'main' && github.head_ref != 'dev'
         run: |
-          if [ ${{ github.head_ref }} != "dev" ] && [ ${{ github.base_ref }} == "main" ]; then
-            echo "Merge requests to main branch are only allowed from dev branch."
-            exit 1
-          fi
+          echo "Merge requests to main branch are only allowed from dev branch."
+          exit 1
