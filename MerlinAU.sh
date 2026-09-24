@@ -2991,11 +2991,11 @@ _CurlFileDownload_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-27] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 _DownloadScriptFiles_()
 {
-   local retCode  isUpdateAction  updatedWebUIPage  theWebPage
+   local retCode=0  isUpdateAction  updatedWebUIPage  theWebPage
 
    if [ $# -gt 0 ] && [ "$1" = "update" ]
    then isUpdateAction=true
@@ -3005,7 +3005,7 @@ _DownloadScriptFiles_()
 
    if _CurlFileDownload_ "version.txt" "$SCRIPT_VERPATH"
    then
-       retCode=0 ; chmod 664 "$SCRIPT_VERPATH"
+       chmod 664 "$SCRIPT_VERPATH"
    else
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
@@ -3014,7 +3014,6 @@ _DownloadScriptFiles_()
    if "$mountWebGUI_OK" && \
       _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
    then
-       retCode=0
        dos2unix "$SCRIPT_WEB_ASP_PATH"
        chmod 664 "$SCRIPT_WEB_ASP_PATH"
        if "$updatedWebUIPage"
@@ -3036,7 +3035,6 @@ _DownloadScriptFiles_()
 
    if _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$ScriptFilePath"
    then
-       retCode=0
        dos2unix "$ScriptFilePath"
        chmod 755 "$ScriptFilePath"
    else
