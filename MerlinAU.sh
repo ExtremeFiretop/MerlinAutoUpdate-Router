@@ -1718,6 +1718,17 @@ _ClearLegacyLoginCredentials_()
         return 1
     fi
 
+    # A previous WebUI save may have left a persistent config backup that
+    # still contains the legacy credential. Sanitize that copy as well.
+    if [ -f "${CONFIG_FILE}.bak" ] && \
+       grep -q "^credentials_base64 " "${CONFIG_FILE}.bak"
+    then
+        if ! sed -i 's/^credentials_base64 .*/credentials_base64 TBD/' "${CONFIG_FILE}.bak"
+        then return 1
+        fi
+        chmod 664 "${CONFIG_FILE}.bak" 2>/dev/null || return 1
+    fi
+
     return 0
 }
 
