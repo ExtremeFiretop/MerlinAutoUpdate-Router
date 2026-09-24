@@ -1521,10 +1521,23 @@ const loginPassword =
 };
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Jun-01] **/
+/** Modified by maghuro [2026-Sep-24]     **/
 /**----------------------------------------**/
 function ValidatePasswordString (formField, eventID)
 {
+   if (formField.value.length === 0 &&
+       custom_settings &&
+       custom_settings.credentialsStored === 'ENABLED')
+   {
+      loginPassword.pswdStr = '';
+      loginPassword.pswdLen = 0;
+      loginPassword.pswdFocus = false;
+      loginPassword.pswdInvalid = false;
+      $(formField).removeClass('Invalid');
+      $(formField).off('mouseover');
+      return true;
+   }
+
    if (loginPassword.ValidateString(formField, eventID))
    {
       $(formField).removeClass('Invalid');
@@ -2053,9 +2066,9 @@ function BlockChangelog()
     document.form.submit();
 }
 
-/**------------------------------------------**/
-/** Modified by ExtremeFiretop [2025-May-18] **/
-/**------------------------------------------**/
+/**----------------------------------------**/
+/** Modified by maghuro [2026-Sep-24]     **/
+/**----------------------------------------**/
 function InitializeFields()
 {
     console.log("Initializing fields...");
@@ -2101,10 +2114,11 @@ function InitializeFields()
     {
         if (routerPassword)
         {
-           if (custom_settings.routerPassword === 'TBD')
-           { routerPassword.value = ''; }
+           routerPassword.value = '';
+           if (custom_settings.credentialsStored === 'ENABLED')
+           { routerPassword.placeholder = 'Stored password - leave blank to keep'; }
            else
-           { routerPassword.value = custom_settings.routerPassword; }
+           { routerPassword.placeholder = 'Enter password'; }
         }
         loginUsername = usernameElem ? usernameElem.value.trim() : 'admin';
         loginPswdHint = loginPswdStatHintMsg.replace (/LoginUSER/, loginUsername);
@@ -2381,7 +2395,7 @@ function GetConfigSettings()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-23] **/
+/** Modified by maghuro [2026-Sep-24]     **/
 /**----------------------------------------**/
 // Helper function to assign settings based on key //
 function AssignAjaxSetting (keyName, keyValue)
@@ -2453,16 +2467,12 @@ function AssignAjaxSetting (keyName, keyValue)
            break;
 
        case keyUpper === 'CREDENTIALS_BASE64':
-           try
-           {
-               var decoded = atob(keyValue);
-               var password = decoded.split(':')[1] || '';
-               ajax_custom_settings.routerPassword = password;
-           }
-           catch (e)
-           {
-               console.error("Error decoding credentials_base64:", e);
-           }
+           // The real credential is kept in protected server-side storage. //
+           ajax_custom_settings.routerPassword = '';
+           break;
+
+       case keyUpper === 'CREDENTIALS_STORED':
+           ajax_custom_settings.credentialsStored = convertToStatus(keyValue);
            break;
 
        case keyUpper === 'ROGBUILD':
@@ -2612,7 +2622,7 @@ function initial()
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Mar-07] **/
+/** Modified by maghuro [2026-Sep-24]     **/
 /**----------------------------------------**/
 function SaveCombinedConfig()
 {
@@ -2681,19 +2691,21 @@ function SaveCombinedConfig()
     let fwUpdateRawCronSchedule = custom_settings.FW_New_Update_Cron_Job_Schedule;
     fwUpdateRawCronSchedule = FWConvertWebUISettingsToCronSchedule(fwUpdateRawCronSchedule);
 
-    // Encode credentials in Base64 //
-    var credentials = usernameStr + ':' + passwordElem.value;
-    var encodedCredentials = btoa(credentials);
-
     // Build the Actions settings object //
     var action_settings =
     {
-        credentials_base64: encodedCredentials,
         FW_New_Update_Cron_Job_Schedule: fwUpdateRawCronSchedule,
         FW_New_Update_Postponement_Days: document.getElementById('fwUpdatePostponement')?.value || '0',
         CheckChangeLog: document.getElementById('changelogCheckEnabled').checked ? 'ENABLED' : 'DISABLED',
         FW_Update_Check: document.getElementById('FW_AutoUpdate_Check').checked ? 'ENABLED' : 'DISABLED'
     };
+
+    // Only send credentials when the user actually entered a replacement password. //
+    if (passwordElem.value.length > 0)
+    {
+        var credentials = usernameStr + ':' + passwordElem.value;
+        action_settings.credentials_base64 = btoa(credentials);
+    }
 
     // Prefix Actions settings //
     var prefixedActionSettings = PrefixCustomSettings(action_settings, 'MerlinAU_');
@@ -2795,7 +2807,10 @@ function SaveCombinedConfig()
     /**==============================**/
     // Merge shared settings with prefixed Action and Advanced settings //
     var updatedSettings = Object.assign({}, shared_custom_settings, prefixedActionSettings, prefixedAdvancedSettings);
-    ConsoleLogDEBUG("Combined Config Form submitted with settings:", updatedSettings);
+    var debugSettings = Object.assign({}, updatedSettings);
+    if (debugSettings.MerlinAU_credentials_base64)
+    { debugSettings.MerlinAU_credentials_base64 = '[REDACTED]'; }
+    ConsoleLogDEBUG("Combined Config Form submitted with settings:", debugSettings);
 
     // Save merged settings to the hidden input field //
     document.getElementById('amng_custom').value = JSON.stringify(updatedSettings);

@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Sep-22
+# Last Modified: 2026-Sep-24
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -104,13 +104,14 @@ fi
 readonly versionDev_TAG="${SCRIPT_VERSION}_${SCRIPT_VERSTAG}"
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 readonly TEMP_DIR="/tmp/var/tmp"
 readonly ADDONS_PATH="/jffs/addons"
 readonly SCRIPTS_PATH="/jffs/scripts"
 readonly SETTINGS_DIR="${ADDONS_PATH}/$ScriptDirNameD"
 readonly CONFIG_FILE="${SETTINGS_DIR}/custom_settings.txt"
+readonly LOGIN_CREDS_FILE="${SETTINGS_DIR}/login_credentials.b64"
 readonly SCRIPT_VERPATH="${SETTINGS_DIR}/version.txt"
 readonly HELPER_JSFILE="${SETTINGS_DIR}/CheckHelper.js"
 readonly PSWD_CHECK_JS="${SETTINGS_DIR}/PswdCheckStatus.js"
@@ -1407,7 +1408,7 @@ _UpdateLoginPswdCheckHelper_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-09] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 _InitCustomDefaultsConfig_()
 {
@@ -1435,6 +1436,7 @@ _InitCustomDefaultsConfig_()
          echo "FW_Allow_Beta_Production_Up ENABLED"
          echo "Allow_Script_Auto_Update DISABLED"
          echo "Script_Update_Cron_Job_SchedDays=\"${SW_Update_CRON_DefaultSchedDays}\""
+         echo "credentials_stored DISABLED"
       } > "$CONFIG_FILE"
       chmod 664 "$CONFIG_FILE"
       _UpdateLoginPswdCheckHelper_ InitPWD
@@ -1598,6 +1600,11 @@ _InitCustomDefaultsConfig_()
        fi
        retCode=1
    fi
+   if ! grep -q "^credentials_stored " "$CONFIG_FILE"
+   then
+       echo "credentials_stored DISABLED" >> "$CONFIG_FILE"
+       retCode=1
+   fi
    dos2unix "$CONFIG_FILE"
    chmod 664 "$CONFIG_FILE"
 
@@ -1630,8 +1637,236 @@ _InitCustomUserSettings_()
    _SetUp_FW_UpdateLOG_DirectoryPaths_
 }
 
+##-------------------------------------##
+## Added by maghuro [2026-Sep-24]      ##
+##-------------------------------------##
+_ValidateLoginCredentialsValue_()
+{
+    if [ $# -lt 1 ] || [ -z "$1" ] || [ "$1" = "TBD" ]
+    then return 1 ; fi
+
+    local credsENC="$1"
+    local credsDEC  reencoded
+    credsDEC="$(printf '%s\n' "$credsENC" | openssl base64 -d 2>/dev/null)" || return 1
+    reencoded="$(printf '%s' "$credsDEC" | openssl base64 -A 2>/dev/null)" || return 1
+
+    [ "$reencoded" != "$credsENC" ] && return 1
+
+    case "$credsDEC" in
+        *:*) [ -n "${credsDEC#*:}" ] ;;
+        *)   return 1 ;;
+    esac
+}
+
+##-------------------------------------##
+## Added by maghuro [2026-Sep-24]      ##
+##-------------------------------------##
+_GetStoredLoginCredentials_()
+{
+    local credsENC=""
+    if [ -s "$LOGIN_CREDS_FILE" ]
+    then credsENC="$(tr -d '\r\n' < "$LOGIN_CREDS_FILE")"
+    fi
+
+    if _ValidateLoginCredentialsValue_ "$credsENC"
+    then echo "$credsENC"
+    else echo "TBD"
+    fi
+}
+
+##-------------------------------------##
+## Added by maghuro [2026-Sep-24]      ##
+##-------------------------------------##
+_GetLegacyLoginCredentials_()
+{
+    local credsENC=""
+    if [ -f "$CONFIG_FILE" ]
+    then credsENC="$(grep "^credentials_base64 " "$CONFIG_FILE" | awk -F ' ' '{print $2}')"
+    fi
+
+    if _ValidateLoginCredentialsValue_ "$credsENC"
+    then echo "$credsENC"
+    else echo "TBD"
+    fi
+}
+
+##-------------------------------------##
+## Added by maghuro [2026-Sep-24]      ##
+##-------------------------------------##
+_ClearLegacyLoginCredentials_()
+{
+    [ ! -f "$CONFIG_FILE" ] && return 1
+
+    local tmpConfig="${CONFIG_FILE}.credentials.$$"
+
+    if ! ( umask 077 ; cp "$CONFIG_FILE" "$tmpConfig" )
+    then
+        rm -f "$tmpConfig"
+        return 1
+    fi
+
+    if ! sed -i 's/^credentials_base64 .*/credentials_base64 TBD/' "$tmpConfig"
+    then
+        rm -f "$tmpConfig"
+        return 1
+    fi
+
+    if ! chmod 664 "$tmpConfig" 2>/dev/null || \
+       ! mv -f "$tmpConfig" "$CONFIG_FILE"
+    then
+        rm -f "$tmpConfig"
+        return 1
+    fi
+
+    return 0
+}
+
+##-------------------------------------##
+## Added by maghuro [2026-Sep-24]      ##
+##-------------------------------------##
+_WriteStoredLoginCredentials_()
+{
+    if [ $# -lt 1 ] || ! _ValidateLoginCredentialsValue_ "$1"
+    then return 1 ; fi
+
+    local credsENC="$1"
+    local tmpCredsFile="${LOGIN_CREDS_FILE}.tmp.$$"
+
+    [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
+
+    if ! ( umask 077 ; printf '%s\n' "$credsENC" > "$tmpCredsFile" )
+    then
+        rm -f "$tmpCredsFile"
+        return 1
+    fi
+
+    if ! chmod 600 "$tmpCredsFile" 2>/dev/null || \
+       [ "$(tr -d '\r\n' < "$tmpCredsFile")" != "$credsENC" ]
+    then
+        rm -f "$tmpCredsFile"
+        return 1
+    fi
+
+    if ! mv -f "$tmpCredsFile" "$LOGIN_CREDS_FILE"
+    then
+        rm -f "$tmpCredsFile"
+        return 1
+    fi
+
+    chmod 600 "$LOGIN_CREDS_FILE" 2>/dev/null || return 1
+    return 0
+}
+
+##-------------------------------------##
+## Added by maghuro [2026-Sep-24]      ##
+##-------------------------------------##
+_SetCredentialsStoredState_()
+{
+    [ ! -f "$CONFIG_FILE" ] && return 1
+
+    local state="DISABLED"
+    local credsENC="$(_GetStoredLoginCredentials_)"
+    [ "$credsENC" != "TBD" ] && state="ENABLED"
+
+    if grep -q "^credentials_stored " "$CONFIG_FILE"
+    then sed -i "s/^credentials_stored .*/credentials_stored $state/" "$CONFIG_FILE"
+    else echo "credentials_stored $state" >> "$CONFIG_FILE"
+    fi
+}
+
+##-------------------------------------##
+## Added by maghuro [2026-Sep-24]      ##
+##-------------------------------------##
+_InitLoginCredentialsStorage_()
+{
+    local legacyRaw=""
+    local legacyCreds=""
+    local storedCreds=""
+    local credsDEC=""
+    local storedUser=""
+    local currentUser=""
+    local password=""
+
+    if [ -f "$CONFIG_FILE" ]
+    then
+        legacyRaw="$(grep "^credentials_base64 " "$CONFIG_FILE" | awk -F ' ' '{print $2}')"
+    fi
+    legacyCreds="$(_GetLegacyLoginCredentials_)"
+
+    # A non-empty legacy value that is not TBD but cannot be validated must
+    # never be exposed through the WebUI. Preserve it for recovery and fail
+    # this initialization so callers can disable WebUI access for this run.
+    if [ -n "$legacyRaw" ] && [ "$legacyRaw" != "TBD" ] && \
+       [ "$legacyCreds" = "TBD" ]
+    then
+        Say "${REDct}**ERROR**${NOct}: Legacy router credential storage is invalid. WebUI credential exposure protection cannot be completed safely."
+        _SetCredentialsStoredState_
+        return 1
+    fi
+
+    # Prefer a real legacy value over an existing private copy. This keeps
+    # downgrade/re-upgrade changes made by an older MerlinAU version.
+    if [ "$legacyCreds" != "TBD" ]
+    then
+        if ! _WriteStoredLoginCredentials_ "$legacyCreds"
+        then
+            Say "${REDct}**ERROR**${NOct}: Unable to migrate saved router credentials to protected storage."
+            _SetCredentialsStoredState_
+            return 1
+        fi
+
+        if ! _ClearLegacyLoginCredentials_
+        then
+            Say "${REDct}**ERROR**${NOct}: Router credentials were protected, but the legacy config value could not be cleared safely."
+            _SetCredentialsStoredState_
+            return 1
+        fi
+        Say "Saved router credentials were migrated to protected storage."
+    fi
+
+    storedCreds="$(_GetStoredLoginCredentials_)"
+    if [ "$storedCreds" = "TBD" ]
+    then
+        [ -e "$LOGIN_CREDS_FILE" ] && \
+        Say "${REDct}**WARNING**${NOct}: Protected router credential storage is invalid or empty."
+        _SetCredentialsStoredState_
+        _UpdateLoginPswdCheckHelper_ InitPWD
+        return 0
+    fi
+
+    # The previous WebUI rewrote the encoded credential using the current
+    # router username whenever settings were saved. Preserve that behavior
+    # even when the password field is now intentionally left blank.
+    credsDEC="$(printf '%s\n' "$storedCreds" | openssl base64 -d 2>/dev/null)"
+    storedUser="${credsDEC%%:*}"
+    password="${credsDEC#*:}"
+    currentUser="$(nvram get http_username)"
+
+    if [ -n "$currentUser" ] && [ "$storedUser" != "$currentUser" ]
+    then
+        storedCreds="$(printf '%s' "${currentUser}:${password}" | openssl base64 -A 2>/dev/null)"
+        if ! _WriteStoredLoginCredentials_ "$storedCreds"
+        then
+            Say "${REDct}**ERROR**${NOct}: Unable to update protected credentials for the current router username."
+            _SetCredentialsStoredState_
+            return 1
+        fi
+    fi
+
+    if ! chmod 600 "$LOGIN_CREDS_FILE" 2>/dev/null
+    then
+        Say "${REDct}**ERROR**${NOct}: Unable to enforce protected permissions on saved router credentials."
+        _SetCredentialsStoredState_
+        return 1
+    fi
+
+    _SetCredentialsStoredState_
+    _UpdateLoginPswdCheckHelper_ UNKNOWN
+    return 0
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 Get_Custom_Setting()
 {
@@ -1641,11 +1876,21 @@ Get_Custom_Setting()
     local setting_value=""  setting_type="$1"  default_value="TBD"
     [ $# -gt 1 ] && default_value="$2"
 
+    if [ "$setting_type" = "credentials_base64" ]
+    then
+        setting_value="$(_GetStoredLoginCredentials_)"
+        if [ "$setting_value" = "TBD" ]
+        then setting_value="$(_GetLegacyLoginCredentials_)"
+        fi
+        echo "$setting_value"
+        return 0
+    fi
+
     if [ -f "$CONFIG_FILE" ]
     then
         case "$setting_type" in
             "ROGBuild" | "TUFBuild" | \
-            "credentials_base64" | \
+            "credentials_base64" | "credentials_stored" | \
             "CheckChangeLog" | \
             "FW_Update_Check" | \
             "Allow_Updates_OverVPN" | \
@@ -1694,12 +1939,30 @@ Update_Custom_Settings()
     local fixedVal  oldVal=""
     local setting_type="$1"  setting_value="$2"
 
+    if [ "$setting_type" = "credentials_base64" ]
+    then
+        if ! _WriteStoredLoginCredentials_ "$setting_value"
+        then return 1
+        fi
+        if [ -f "$CONFIG_FILE" ]
+        then
+            if grep -q "^credentials_base64 " "$CONFIG_FILE"
+            then
+                _ClearLegacyLoginCredentials_ || return 1
+            else
+                echo "credentials_base64 TBD" >> "$CONFIG_FILE" || return 1
+            fi
+            _SetCredentialsStoredState_ || return 1
+        fi
+        return 0
+    fi
+
     # Check if the directory exists, and if not, create it #
     [ ! -d "$SETTINGS_DIR" ] && mkdir -m 755 -p "$SETTINGS_DIR"
 
     case "$setting_type" in
         "ROGBuild" | "TUFBuild" | \
-        "credentials_base64" | \
+        "credentials_base64" | "credentials_stored" | \
         "CheckChangeLog" | \
         "FW_Update_Check" | \
         "Allow_Updates_OverVPN" | \
@@ -1813,7 +2076,7 @@ Update_Custom_Settings()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2024-Jun-04] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 Delete_Custom_Settings()
 {
@@ -1821,6 +2084,21 @@ Delete_Custom_Settings()
     then return 1 ; fi
 
     local setting_type="$1"
+
+    if [ "$setting_type" = "credentials_base64" ]
+    then
+        rm -f "$LOGIN_CREDS_FILE" || return 1
+        if grep -q "^credentials_base64 " "$CONFIG_FILE"
+        then
+            _ClearLegacyLoginCredentials_ || return 1
+        else
+            echo "credentials_base64 TBD" >> "$CONFIG_FILE" || return 1
+        fi
+        _SetCredentialsStoredState_ || return 1
+        _UpdateLoginPswdCheckHelper_ InitPWD
+        return 0
+    fi
+
     sed -i "/^${setting_type}[ =]/d" "$CONFIG_FILE"
     return $?
 }
@@ -2815,14 +3093,14 @@ _ActionsAfterNewConfigSettings_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-07] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 _UpdateConfigFromWebUISettings_()
 {
    [ ! -s "$SHARED_SETTINGS_FILE" ] && return 1
 
    local settingsMergeOK=true  logMsgTag="with errors."
-   local oldLoginCredsENC  doRouterLoginTest=false
+   local oldLoginCredsENC  doRouterLoginTest="$runLoginCredentialsTest"
 
    # Check for 'MerlinAU_' entries excluding 'version' #
    if [ "$(grep "^MerlinAU_" "$SHARED_SETTINGS_FILE" | grep -vc "_version")" -gt 0 ]
@@ -2838,6 +3116,11 @@ _UpdateConfigFromWebUISettings_()
        do
            keySettingName="$(echo "$line" | cut -f1 -d'=')"
            keySettingValue="$(echo "$line" | cut -f2- -d'=')"
+
+           # Derived server-side state is read-only from the WebUI. #
+           if [ "$keySettingName" = "credentials_stored" ]
+           then continue
+           fi
 
            if [ "$keySettingName" = "FW_New_Update_ZIP_Directory_Path" ]
            then
@@ -2867,11 +3150,18 @@ _UpdateConfigFromWebUISettings_()
            if [ "$keySettingName" = "credentials_base64" ]
            then
                oldLoginCredsENC="$(Get_Custom_Setting credentials_base64)"
-               if [ "$oldLoginCredsENC" = "$keySettingValue" ]
-               then _UpdateLoginPswdCheckHelper_ OldPSWD
-               else _UpdateLoginPswdCheckHelper_ NewPSWD
+               if Update_Custom_Settings "$keySettingName" "$keySettingValue"
+               then
+                   if [ "$oldLoginCredsENC" = "$keySettingValue" ]
+                   then _UpdateLoginPswdCheckHelper_ OldPSWD
+                   else _UpdateLoginPswdCheckHelper_ NewPSWD
+                   fi
+               else
+                   settingsMergeOK=false
+                   doRouterLoginTest=false
+                   Say "**ERROR**: Could NOT update protected router credentials."
                fi
-               doRouterLoginTest="$runLoginCredentialsTest"
+               continue
            fi
            Update_Custom_Settings "$keySettingName" "$keySettingValue"
        done < "$TEMPFILE"
@@ -5306,7 +5596,7 @@ _CheckWebGUILoginAccessOK_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-09] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 _GetLoginCredentials_()
 {
@@ -5332,7 +5622,10 @@ _GetLoginCredentials_()
         _UpdateLoginPswdCheckHelper_ InitPWD
     else
         loginCredsDEC="$(echo "$loginCredsENC" | openssl base64 -d)"
-        thePWSDstring="$(echo "$loginCredsDEC" | sed "s/${userName}://")"
+        case "$loginCredsDEC" in
+            *:*) thePWSDstring="${loginCredsDEC#*:}" ;;
+            *)   thePWSDstring="" ;;
+        esac
     fi
     oldPWSDstring="$thePWSDstring"
     newPSWDstring="$thePWSDstring"
@@ -5353,7 +5646,12 @@ _GetLoginCredentials_()
         # Encode the Username and Password in Base64 #
         loginCredsENC="$(echo -n "${userName}:${thePWSDstring}" | openssl base64 -A)"
 
-        Update_Custom_Settings credentials_base64 "$loginCredsENC"
+        if ! Update_Custom_Settings credentials_base64 "$loginCredsENC"
+        then
+            printf "\n${REDct}**ERROR**${NOct}: Credentials could not be saved.\n"
+            _WaitForEnterKey_
+            continue
+        fi
 
         if [ "$thePWSDstring" != "$oldPWSDstring" ]
         then
@@ -5365,8 +5663,6 @@ _GetLoginCredentials_()
             savedMsgStr="Credentials remain unchanged."
         fi
         printf "\n\n${GRNct}${savedMsgStr}${NOct}\n"
-        printf "\nEncoded Credentials:\n"
-        printf "${GRNct}${loginCredsENC}${NOct}\n"
 
         if _WaitForYESorNO_ "\nWould you like to test the current login credentials?"
         then
@@ -10910,14 +11206,19 @@ _CheckForMinimumRequirements_()
    return 1
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jan-15] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by maghuro [2026-Sep-24]     ##
+##----------------------------------------##
 _DoStartupInit_()
 {
    Say "$SCRIPT_NAME $SCRIPT_VERSION starting up"
    _CreateDirPaths_
    _InitCustomDefaultsConfig_
+   if ! _InitLoginCredentialsStorage_
+   then
+       mountWebGUI_OK=false
+       Say "${REDct}**ERROR**${NOct}: Protected credential storage could not be initialized. MerlinAU WebUI is disabled for this run to avoid exposing legacy credentials."
+   fi
    _InitCustomUserSettings_
    _CreateSymLinks_
    _InitHelperJSFile_
@@ -10933,7 +11234,7 @@ _DoStartupInit_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-07] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 _DoInstallation_()
 {
@@ -10943,6 +11244,11 @@ _DoInstallation_()
 
    _CreateDirPaths_
    _InitCustomDefaultsConfig_
+   if ! _InitLoginCredentialsStorage_
+   then
+       mountWebGUI_OK=false
+       Say "${REDct}**ERROR**${NOct}: Protected credential storage could not be initialized. MerlinAU WebUI is disabled for this run to avoid exposing legacy credentials."
+   fi
    _InitCustomUserSettings_
    _CreateSymLinks_
    _InitHelperJSFile_
@@ -10970,7 +11276,7 @@ _DoInstallation_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Aug-13] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 _DoUnInstallation_()
 {
@@ -10981,6 +11287,7 @@ _DoUnInstallation_()
    if ! _AcquireLock_ cliFileLock ; then return 1 ; fi
 
    local savedCFGPath="${SCRIPTS_PATH}/${SCRIPT_NAME}_CFG.SAVED.TXT"
+   local savedCredsPath="${SCRIPTS_PATH}/${SCRIPT_NAME}_CREDENTIALS.SAVED.B64"
 
    if [ -f "$CONFIG_FILE" ]
    then
@@ -10988,7 +11295,23 @@ _DoUnInstallation_()
        if _WaitForYESorNO_ "$("$keepConfigFile" && echo YES || echo NO)"
        then
            keepConfigFile=true
-           mv -f "$CONFIG_FILE" "$savedCFGPath"
+           if ! mv -f "$CONFIG_FILE" "$savedCFGPath"
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to preserve the configuration file. Uninstall cancelled."
+               _ReleaseLock_ cliFileLock
+               return 1
+           fi
+           if [ -f "$LOGIN_CREDS_FILE" ]
+           then
+               if ! mv -f "$LOGIN_CREDS_FILE" "$savedCredsPath"
+               then
+                   mv -f "$savedCFGPath" "$CONFIG_FILE" 2>/dev/null
+                   Say "${REDct}**ERROR**${NOct}: Unable to preserve protected router credentials. Uninstall cancelled."
+                   _ReleaseLock_ cliFileLock
+                   return 1
+               fi
+               chmod 600 "$savedCredsPath" 2>/dev/null
+           fi
        fi
    fi
 
@@ -11027,6 +11350,11 @@ _DoUnInstallation_()
        then
            chmod 755 "$SETTINGS_DIR"
            mv -f "$savedCFGPath" "$CONFIG_FILE"
+           if [ -f "$savedCredsPath" ]
+           then
+               mv -f "$savedCredsPath" "$LOGIN_CREDS_FILE"
+               chmod 600 "$LOGIN_CREDS_FILE" 2>/dev/null
+           fi
        fi
    fi
    _DoExit_ 0
@@ -12470,7 +12798,7 @@ _MainMenu_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-12] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 _DoInitializationStartup_()
 {
@@ -12499,6 +12827,11 @@ _DoInitializationStartup_()
 
    _CreateDirPaths_
    _InitCustomDefaultsConfig_
+   if ! _InitLoginCredentialsStorage_
+   then
+       mountWebGUI_OK=false
+       Say "${REDct}**ERROR**${NOct}: Protected credential storage could not be initialized. MerlinAU WebUI is disabled for this run to avoid exposing legacy credentials."
+   fi
    _InitCustomUserSettings_
    _CreateSymLinks_
    _InitHelperJSFile_
