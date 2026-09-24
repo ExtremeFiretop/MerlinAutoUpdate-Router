@@ -1698,7 +1698,7 @@ function FWVersionStrToNum(verStr, usePrereleaseRank)
 }
 
 /**----------------------------------------**/
-/** Modified by Martinski W. [2025-Feb-21] **/
+/** Modified by maghuro [2026-Sep-24]     **/
 /**----------------------------------------**/
 function LoadCustomSettings()
 {
@@ -1709,7 +1709,7 @@ function LoadCustomSettings()
         {
             // Remove any old entries that may have been left behind //
             if (prop.indexOf('MerlinAU') != -1 && prop.indexOf('MerlinAU_version_') == -1)
-            { eval('delete shared_custom_settings.' + prop); }
+            { delete shared_custom_settings[prop]; }
         }
     }
     ConsoleLogDEBUG("Shared Custom Settings Loaded:", shared_custom_settings);
