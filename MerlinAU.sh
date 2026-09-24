@@ -1685,7 +1685,7 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2026-Aug-16] ##
+## Modified by maghuro [2026-Sep-24]     ##
 ##----------------------------------------##
 Update_Custom_Settings()
 {
@@ -1715,7 +1715,7 @@ Update_Custom_Settings()
                 then
                     if [ "$setting_value" != "$(grep "^$setting_type" "$CONFIG_FILE" | cut -f2 -d' ')" ]
                     then
-                        fixedVal="$(echo "$setting_value" | sed 's/[\/&]/\\&/g')"
+                        fixedVal="$(printf '%s' "$setting_value" | sed 's/[\/&\\]/\\&/g')"
                         sed -i "s/^${setting_type}.*/$setting_type $fixedVal/" "$CONFIG_FILE"
                     fi
                 else
@@ -1743,7 +1743,7 @@ Update_Custom_Settings()
                     oldVal="$(grep "^${setting_type}=" "$CONFIG_FILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
                     if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
                     then
-                        fixedVal="$(echo "$setting_value" | sed 's/[\/.,*-]/\\&/g')"
+                        fixedVal="$(printf '%s' "$setting_value" | sed 's/[\/&\\]/\\&/g')"
                         sed -i "s/${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$CONFIG_FILE"
                     fi
                 else
@@ -1801,7 +1801,7 @@ Update_Custom_Settings()
                 oldVal="$(grep "^${setting_type}=" "$CONFIG_FILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
                 if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
                 then
-                    fixedVal="$(echo "$setting_value" | sed 's/[\/&]/\\&/g')"
+                    fixedVal="$(printf '%s' "$setting_value" | sed 's/[\/&\\]/\\&/g')"
                     sed -i "s/^${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$CONFIG_FILE"
                 fi
             else
