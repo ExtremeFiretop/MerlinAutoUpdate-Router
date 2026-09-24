@@ -1669,7 +1669,7 @@ Get_Custom_Setting()
             "FW_New_Update_EMail_CC_Name" | \
             "FW_New_Update_EMail_CC_Address")
                 grep -q "^${setting_type}=" "$CONFIG_FILE" && \
-                setting_value="$(grep "^${setting_type}=" "$CONFIG_FILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                setting_value="$(grep "^${setting_type}=" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
                 ;;
             *)
                 setting_value="**ERROR**"
@@ -1740,7 +1740,7 @@ Update_Custom_Settings()
             then
                 if grep -q "^${setting_type}=" "$CONFIG_FILE"
                 then
-                    oldVal="$(grep "^${setting_type}=" "$CONFIG_FILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                    oldVal="$(grep "^${setting_type}=" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
                     if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
                     then
                         fixedVal="$(printf '%s' "$setting_value" | sed 's/[\/&\\]/\\&/g')"
@@ -1798,7 +1798,7 @@ Update_Custom_Settings()
             # Generic handling for arbitrary settings #
             if grep -q "^${setting_type}=" "$CONFIG_FILE"
             then
-                oldVal="$(grep "^${setting_type}=" "$CONFIG_FILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                oldVal="$(grep "^${setting_type}=" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
                 if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
                 then
                     fixedVal="$(printf '%s' "$setting_value" | sed 's/[\/&\\]/\\&/g')"
@@ -1846,7 +1846,7 @@ _GetAllNodeSettings_()
         if [ -n "$matched_lines" ]
         then
             # Extract the value from the first matched line #
-            setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
+            setting_value="$(echo "$matched_lines" | head -n 1 | cut -f2- -d'=' | tr -d '"')"
         fi
     fi
     echo "$setting_value"
