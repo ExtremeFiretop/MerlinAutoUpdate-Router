@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Sep-22
+# Last Modified: 2026-Sep-25
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -132,9 +132,6 @@ readonly curlHTTPstatusStr="HTTP_Status_Code"
 readonly curlTmpLogFPath="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.TMP.LOG"
 readonly curlErrLogFPath="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.ERR.LOG"
 readonly curlTmpRespFile="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.RESP.TXT"
-readonly webUILoginDiagDir="${SETTINGS_DIR}/WebUILoginFailures"
-readonly webUILoginDiagLockFile="${TEMP_DIR}/${ScriptFNameTag}_WebUILoginFailures.lock"
-readonly webUILoginDiagLockFD=385
 
 # Temporary NVRAM key to indicate when a F/W Update is in progress #
 readonly nvramTempFWupdateKey="merlinau_fw_update"
@@ -2291,17 +2288,14 @@ readonly POST_UPDATE_EMAIL_SCRIPT_HOOK="[ -x $ScriptFilePath ] && $POST_UPDATE_E
 ##----------------------------------------##
 _CleanUpOldLogFiles_()
 {
-    local logDir="$FW_LOG_DIR"
-    [ $# -gt 0 ] && [ -n "$1" ] && logDir="$1"
-    [ ! -d "$logDir" ] && return 0
     local retCode  numLogFiles  topLogFile  savedTopLogFile=""
 
-    numLogFiles="$(ls -1lt "$logDir"/*.log 2>/dev/null | wc -l)"
+    numLogFiles="$(ls -1lt "$FW_LOG_DIR"/*.log 2>/dev/null | wc -l)"
     # Leave one log file (if any available) #
     [ "$numLogFiles" -lt 2 ] && return 0
 
     # Save the most recent log file #
-    topLogFile="$(ls -1t "$logDir"/*.log 2>/dev/null | head -n1)"
+    topLogFile="$(ls -1t "$FW_LOG_DIR"/*.log 2>/dev/null | head -n1)"
 
     if [ -n "$topLogFile" ] && [ -s "$topLogFile" ]
     then
@@ -2313,7 +2307,7 @@ _CleanUpOldLogFiles_()
     fi
 
     # Delete logs older than 30 days #
-    /usr/bin/find -L "$logDir" -name '*.log' -mtime +30 -exec rm {} \;
+    /usr/bin/find -L "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
     retCode="$?"
 
     # Restore the most recent log file #
@@ -4625,81 +4619,8 @@ _CheckForMinimumModelSupport_()
 }
 
 ##------------------------------------------##
-## Added [2026-Sep-24]                     ##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
 ##------------------------------------------##
-_SaveWebUILoginFailure_()
-{
-    if [ $# -lt 5 ] || [ -z "$1" ] || [ -z "$2" ] || \
-       [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ]
-    then return 1
-    fi
-
-    local loginTarget="$1"  statusSTRx="$2"
-    local responseFPath="$3"  curlTmpLogFile="$4"  curlErrLogFile="$5"
-    local loginOwner="${6:-}"
-    local diagTimeStamp  diagFile  diagIndex=0
-
-    # Keep WebUI login diagnostics on JFFS regardless of the selected F/W log path. #
-    [ -d "$webUILoginDiagDir" ] || \
-        mkdir -p -m 700 "$webUILoginDiagDir" 2>/dev/null || return 1
-
-    # Serialize writes because AiMesh node login checks can run in parallel. #
-    eval exec "$webUILoginDiagLockFD>$webUILoginDiagLockFile"
-    flock -x "$webUILoginDiagLockFD" 2>/dev/null || \
-    { eval exec "${webUILoginDiagLockFD}>&-" ; return 1 ; }
-
-    # Use one timestamped .log file per failure so the existing 30-day log #
-    # cleanup logic can rotate these diagnostics just like F/W update logs. #
-    diagTimeStamp="$(date '+%Y-%m-%d_%H_%M_%S')"
-    diagFile="${webUILoginDiagDir}/${ScriptFNameTag}_WebUILoginFailure_${diagTimeStamp}.log"
-    while [ -e "$diagFile" ]
-    do
-        diagIndex="$((diagIndex + 1))"
-        diagFile="${webUILoginDiagDir}/${ScriptFNameTag}_WebUILoginFailure_${diagTimeStamp}_$(printf '%02d' "$diagIndex").log"
-    done
-
-    {
-        printf '%s\n' "============================================================"
-        printf '%s - WebUI Login Failure [%s]\n' "$(date +"$LOGdateFormat")" "$loginTarget"
-        printf 'Result: %s\n' "$statusSTRx"
-        [ -n "$loginOwner" ] && printf 'Current WebUI Login Owner: %s\n' "$loginOwner"
-
-        printf '%s\n' "-------------------- CURL STATUS ---------------------------"
-        if [ -s "$curlTmpLogFile" ]
-        then cat "$curlTmpLogFile"
-        else printf '%s\n' "<empty>"
-        fi
-
-        printf '%s\n' "-------------------- CURL STDERR ---------------------------"
-        if [ -s "$curlErrLogFile" ]
-        then cat "$curlErrLogFile"
-        else printf '%s\n' "<empty>"
-        fi
-
-        printf '%s\n' "-------------------- ROUTER RESPONSE -----------------------"
-        if [ -s "$responseFPath" ]
-        then
-            # Preserve the full HTTP response but never persist session cookies. #
-            awk '{
-                if (tolower($0) ~ /^set-cookie:/)
-                    print "Set-Cookie: <redacted>"
-                else
-                    print
-            }' "$responseFPath"
-        else printf '%s\n' "<empty>"
-        fi
-        printf '\n'
-    } > "$diagFile" 2>/dev/null
-    chmod 600 "$diagFile" 2>/dev/null
-
-    flock -u "$webUILoginDiagLockFD" 2>/dev/null
-    eval exec "${webUILoginDiagLockFD}>&-"
-    return 0
-}
-
-##----------------------------------------##
-## Modified [2026-Sep-24]                  ##
-##----------------------------------------##
 _DoMainRouterLogin_()
 {
     if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
@@ -4746,12 +4667,6 @@ _DoMainRouterLogin_()
            statusCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
            statusSTRx="HTTP Status Code: $statusCODE"
         fi
-    fi
-
-    if [ "$statusCODE" -ne 0 ]
-    then
-        _SaveWebUILoginFailure_ "Local Router: $routerURL" "$statusSTRx" \
-            "$responseFPath" "$curlTmpLogFPath" "$curlErrLogFPath" "$(nvram get login_ip_str 2>/dev/null)"
     fi
 
     rm -f "$curlErrLogFPath" "$curlTmpLogFPath" "$responseFPath"
@@ -5604,9 +5519,9 @@ _GetNodeURL_()
     echo "${urlProto}://${nodeIPv4addr}${urlPort}"
 }
 
-##----------------------------------------##
-## Modified [2026-Sep-24]                  ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
+##------------------------------------------##
 _DoMeshNodeLogin_()
 {
     if [ $# -lt 4 ] || [ -z "$1" ] || \
@@ -5657,12 +5572,6 @@ _DoMeshNodeLogin_()
            statusCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
            statusSTRx="HTTP Status Code: $statusCODE"
         fi
-    fi
-
-    if [ "$statusCODE" -ne 0 ]
-    then
-        _SaveWebUILoginFailure_ "AiMesh Node: $nodeURL" "$statusSTRx" \
-            "$responseFPath" "$curlTmpLogFile" "$curlErrLogFile"
     fi
 
     rm -f "$curlErrLogFile" "$curlTmpLogFile" "$responseFPath"
@@ -5753,9 +5662,9 @@ _DoMeshNodeLogout_()
     --max-time 3 >/dev/null 2>&1
 }
 
-##----------------------------------------##
-## Modified [2026-Sep-24]                   ##
-##-------------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
+##------------------------------------------##
 # Trigger the node "Check for updates" (no waiting here) #
 _MeshNodeTriggerFWCheck_()
 {
@@ -5798,7 +5707,7 @@ _MeshNodeTriggerFWCheck_()
         if echo "$nvramKeyPair" | grep -qE "\"$nvramTempFWupdateKey\"[[:blank:]]*:[[:blank:]]*\"1\""
         then
             # Tell the parent process not to query this node again during this run. #
-            : > "$busyFile"
+            touch "$busyFile"
             Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check and releasing WebUI session."
 
             # Release the node's single WebUI administration session immediately. #
@@ -10677,7 +10586,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Double-check IF the existing Cookie is still valid. If it's not,
         # attempt to get a NEW login session Cookie by logging in again.
         # If this login fails now then we have to abort here and reboot.
-        # Added by Martinski W. [2026-Sep-20]
+        # Modified by ExtremeFiretop [2026-Sep-25]
         #-------------------------------------------------------------------#
         if ! nvramKeyPair="$(_GetNVRAM_FromWebUI_ "$routerURL" "$cookieFile" "$nvramTempFWupdateKey" "$$")"
         then
@@ -11402,9 +11311,9 @@ _ValidatePrivateIPv4Address_()
    fi
 }
 
-##----------------------------------------##
-## Modified [2026-Sep-24]                   ##
-##-------------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
+##------------------------------------------##
 _ProcessMeshNodes_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]
@@ -12839,12 +12748,6 @@ _RunLockedInitializationChecks_()
    if ! _CleanUpOldLogFiles_
    then
        Say "${YLWct}*WARNING*${NOct}: Unable to clean up old firmware-update log files."
-       retCode=1
-   fi
-
-   if ! _CleanUpOldLogFiles_ "$webUILoginDiagDir"
-   then
-       Say "${YLWct}*WARNING*${NOct}: Unable to clean up old WebUI login-failure log files."
        retCode=1
    fi
 
