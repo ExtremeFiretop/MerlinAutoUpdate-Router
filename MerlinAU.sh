@@ -4636,6 +4636,7 @@ _SaveWebUILoginFailure_()
 
     local loginTarget="$1"  statusSTRx="$2"
     local responseFPath="$3"  curlTmpLogFile="$4"  curlErrLogFile="$5"
+    local loginOwner="${6:-}"
     local diagTimeStamp  diagFile  diagIndex=0
 
     # Keep WebUI login diagnostics on JFFS regardless of the selected F/W log path. #
@@ -4661,6 +4662,7 @@ _SaveWebUILoginFailure_()
         printf '%s\n' "============================================================"
         printf '%s - WebUI Login Failure [%s]\n' "$(date +"$LOGdateFormat")" "$loginTarget"
         printf 'Result: %s\n' "$statusSTRx"
+        [ -n "$loginOwner" ] && printf 'Current WebUI Login Owner: %s\n' "$loginOwner"
 
         printf '%s\n' "-------------------- CURL STATUS ---------------------------"
         if [ -s "$curlTmpLogFile" ]
@@ -4749,7 +4751,7 @@ _DoMainRouterLogin_()
     if [ "$statusCODE" -ne 0 ]
     then
         _SaveWebUILoginFailure_ "Local Router: $routerURL" "$statusSTRx" \
-            "$responseFPath" "$curlTmpLogFPath" "$curlErrLogFPath"
+            "$responseFPath" "$curlTmpLogFPath" "$curlErrLogFPath" "$(nvram get login_ip_str 2>/dev/null)"
     fi
 
     rm -f "$curlErrLogFPath" "$curlTmpLogFPath" "$responseFPath"
@@ -5728,6 +5730,29 @@ _GetNVRAM_FromWebUI_()
     return "$statusCODE"
 }
 
+##---------------------------------------##
+## Added [2026-Sep-24]                    ##
+##---------------------------------------##
+_DoMeshNodeLogout_()
+{
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+    then return 1
+    fi
+
+    local nodeURL="$1"  cookieFile="$2"
+
+    curl -s -k "${nodeURL}/Logout.asp" \
+    --referer "${nodeURL}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Accept-Encoding: gzip, deflate' \
+    -H 'Connection: keep-alive' \
+    -H 'Upgrade-Insecure-Requests: 0' \
+    --cookie "$cookieFile" \
+    --max-time 3 >/dev/null 2>&1
+}
+
 ##----------------------------------------##
 ## Modified [2026-Sep-24]                   ##
 ##-------------------------------------------##
@@ -5777,8 +5802,7 @@ _MeshNodeTriggerFWCheck_()
             Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check and releasing WebUI session."
 
             # Release the node's single WebUI administration session immediately. #
-            curl -s -k "${nodeURL}/Logout.asp" \
-                --cookie "$cookieFile" --max-time 2 >/dev/null 2>&1
+            _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
             rm -f "$cookieFile"
             return 0
         fi
@@ -5876,7 +5900,7 @@ _GetNodeInfo_()
     if [ "$curlCode" -ne 0 ] || [ -z "$htmlContent" ]
     then
         # Logout best-effort #
-        curl -s -k "${nodeURL}/Logout.asp" --cookie "$cookieFile" --max-time 2 >/dev/null 2>&1
+        _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
         printf "\n${REDct}Failed to get information for AiMesh Node [$nodeIPv4addr].${NOct}\n"
         rm -f "$cookieFile"
         return 1
@@ -5899,16 +5923,7 @@ _GetNodeInfo_()
     Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
 
     # Logout request #
-    curl -s -k "${nodeURL}/Logout.asp" \
-    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Accept-Encoding: gzip, deflate' \
-    -H 'Connection: keep-alive' \
-    -H "Referer: ${nodeURL}/Main_Login.asp" \
-    -H 'Upgrade-Insecure-Requests: 0' \
-    --cookie "$cookieFile" \
-    --max-time 2 >/dev/null 2>&1
+    _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
     curlCode="$?"
 
     # Write a vars file the parent shell can source safely #
@@ -10667,6 +10682,23 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         if ! nvramKeyPair="$(_GetNVRAM_FromWebUI_ "$routerURL" "$cookieFile" "$nvramTempFWupdateKey" "$$")"
         then
             rm -f "$cookieFile"
+
+            # If another WebUI session still owns httpd, give its logout a short
+            # grace period to complete before attempting to acquire a new session.
+            loginOwner="$(nvram get login_ip_str 2>/dev/null)"
+            loginWaitSecs=0
+            while [ -n "$loginOwner" ] && [ "$loginOwner" != "0.0.0.0" ] && \
+                  [ "$loginWaitSecs" -lt 5 ]
+            do
+                sleep 1
+                loginWaitSecs="$((loginWaitSecs + 1))"
+                loginOwner="$(nvram get login_ip_str 2>/dev/null)"
+            done
+            if [ -n "$loginOwner" ] && [ "$loginOwner" != "0.0.0.0" ]
+            then
+                _MsgToSysLog_ "*WARNING*: WebUI session owner [$loginOwner] is still active before Router Login 2nd Attempt."
+            fi
+
             if ! curlStatus="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")"
             then
                 rm -f "$cookieFile"
@@ -11449,7 +11481,7 @@ _ProcessMeshNodes_()
                 then
                     if "$includeExtraLogic"
                     then
-                        printf "\n   AiMesh Node [${GRNct}%s${NOct}]: MerlinAU F/W update in progress; status query skipped.\n" "$nodeIPv4addr"
+                        _PrintBusyNodeInfo_ "$nodeIPv4addr" "$uid"
                         uid="$((uid + 1))"
                     fi
                     continue
@@ -11901,6 +11933,39 @@ _SimpleNotificationDate_()
    notifyTimeStrn="$(echo "$1" | sed 's/_/ /g')"
    notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
    echo "$(date -d @$notifyTimeSecs +"%Y-%b-%d %I:%M %p")"
+}
+
+##---------------------------------------##
+## Added [2026-Sep-24]                    ##
+##---------------------------------------##
+_PrintBusyNodeInfo_()
+{
+    local node_info="$1"  uid="$2"
+    local line1="Node ID: ${uid}"
+    local line2="AiMesh Node: ${node_info}"
+    local line3="MerlinAU F/W Update: IN PROGRESS"
+    local line4="Status Query: SKIPPED"
+    local max_length=0  line  length  h_line=''
+
+    for line in "$line1" "$line2" "$line3" "$line4"
+    do
+        length="$(printf "%s" "$line" | awk '{print length}')"
+        [ "$length" -gt "$max_length" ] && max_length="$length"
+    done
+
+    for i in $(awk "BEGIN{for(i=1;i<=$max_length;i++) print i}")
+    do h_line="${h_line}─" ; done
+
+    printf "\n   ┌─%s─┐" "$h_line"
+    length="$(printf "%s" "$line1" | awk '{print length}')"
+    printf "\n   │ %s%*s │" "$line1" "$((max_length - length))" ""
+    length="$(printf "%s" "$line2" | awk '{print length}')"
+    printf "\n   │ AiMesh Node: ${GRNct}%s${NOct}%*s │" "$node_info" "$((max_length - length))" ""
+    length="$(printf "%s" "$line3" | awk '{print length}')"
+    printf "\n   │ MerlinAU F/W Update: ${YLWct}IN PROGRESS${NOct}%*s │" "$((max_length - length))" ""
+    length="$(printf "%s" "$line4" | awk '{print length}')"
+    printf "\n   │ Status Query: ${YLWct}SKIPPED${NOct}%*s │" "$((max_length - length))" ""
+    printf "\n   └─%s─┘" "$h_line"
 }
 
 ##---------------------------------------##
