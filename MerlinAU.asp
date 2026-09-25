@@ -304,7 +304,7 @@ input[value="Uninstall"] {
 <script language="JavaScript" type="text/javascript">
 
 /**----------------------------**/
-/** Last Modified: 2026-May-16 **/
+/** Last Modified: 2026-Sep-25 **/
 /**----------------------------**/
 
 // Separate variables for shared and AJAX settings //
@@ -2337,8 +2337,9 @@ function GetConfigSettings()
                         keyName = tokenStr.substring(0, splitIndex).trim();
                         keyValue = tokenStr.substring(splitIndex + 1).trim();
 
-                        // Remove surrounding quotes if present //
-                        if (keyValue.startsWith('"') && keyValue.endsWith('"'))
+                        // Remove surrounding single or double quotes if present //
+                        if ((keyValue.startsWith('"') && keyValue.endsWith('"')) ||
+                            (keyValue.startsWith("'") && keyValue.endsWith("'")))
                         { keyValue = keyValue.substring(1, keyValue.length - 1); }
 
                         AssignAjaxSetting(keyName, keyValue);
@@ -2354,8 +2355,9 @@ function GetConfigSettings()
                         {
                             keyValue = tokenList[kIndx + 1].trim();
 
-                            // Remove surrounding quotes if present //
-                            if (keyValue.startsWith('"') && keyValue.endsWith('"'))
+                            // Remove surrounding single or double quotes if present //
+                            if ((keyValue.startsWith('"') && keyValue.endsWith('"')) ||
+                                (keyValue.startsWith("'") && keyValue.endsWith("'")))
                             { keyValue = keyValue.substring(1, keyValue.length - 1); }
 
                             AssignAjaxSetting(keyName, keyValue);
@@ -2456,7 +2458,8 @@ function AssignAjaxSetting (keyName, keyValue)
            try
            {
                var decoded = atob(keyValue);
-               var password = decoded.split(':')[1] || '';
+               var splitIndex = decoded.indexOf(':');
+               var password = (splitIndex > 0) ? decoded.slice(splitIndex + 1) : '';
                ajax_custom_settings.routerPassword = password;
            }
            catch (e)
