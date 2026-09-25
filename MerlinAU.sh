@@ -20,7 +20,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.9
-readonly SCRIPT_VERSTAG="26092216"
+readonly SCRIPT_VERSTAG="26092509"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -5731,7 +5731,7 @@ _GetNVRAM_FromWebUI_()
 }
 
 ##---------------------------------------##
-## Added [2026-Sep-24]                    ##
+## Added by ExtremeFiretop [2026-Sep-24] ##
 ##---------------------------------------##
 _DoMeshNodeLogout_()
 {
@@ -10177,7 +10177,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     local retCode  credsENC=""
     local currentVersionNum=""  releaseVersionNum=""
-    local current_version=""
+    local current_version=""  loginOwner=""  curlStatus=""
 
     # Create directory for downloading & extracting firmware #
     if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
@@ -10683,20 +10683,18 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         then
             rm -f "$cookieFile"
 
-            # If another WebUI session still owns httpd, give its logout a short
-            # grace period to complete before attempting to acquire a new session.
+            # AiMesh nodes can reject Logout.asp before http_logout() runs,
+            # leaving the primary router recorded as the WebUI session owner.
+            # If any stale owner remains after our Cookie fails validation,
+            # reset httpd locally to release that server-side session before
+            # attempting to acquire a new login Cookie.
+            curlStatus=""
             loginOwner="$(nvram get login_ip_str 2>/dev/null)"
-            loginWaitSecs=0
-            while [ -n "$loginOwner" ] && [ "$loginOwner" != "0.0.0.0" ] && \
-                  [ "$loginWaitSecs" -lt 5 ]
-            do
-                sleep 1
-                loginWaitSecs="$((loginWaitSecs + 1))"
-                loginOwner="$(nvram get login_ip_str 2>/dev/null)"
-            done
             if [ -n "$loginOwner" ] && [ "$loginOwner" != "0.0.0.0" ]
             then
-                _MsgToSysLog_ "*WARNING*: WebUI session owner [$loginOwner] is still active before Router Login 2nd Attempt."
+                _MsgToSysLog_ "*WARNING*: WebUI session owner [$loginOwner] is still active before Router Login 2nd Attempt. Restarting web server."
+                /sbin/service restart_httpd >/dev/null 2>&1
+                sleep 3
             fi
 
             if ! curlStatus="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")"
@@ -11936,7 +11934,7 @@ _SimpleNotificationDate_()
 }
 
 ##---------------------------------------##
-## Added [2026-Sep-24]                    ##
+## Added by ExtremeFiretop [2026-Sep-24] ##
 ##---------------------------------------##
 _PrintBusyNodeInfo_()
 {
