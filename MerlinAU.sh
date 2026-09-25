@@ -132,6 +132,9 @@ readonly curlHTTPstatusStr="HTTP_Status_Code"
 readonly curlTmpLogFPath="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.TMP.LOG"
 readonly curlErrLogFPath="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.ERR.LOG"
 readonly curlTmpRespFile="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.RESP.TXT"
+readonly webUILoginDiagDir="${SETTINGS_DIR}/WebUILoginFailures"
+readonly webUILoginDiagLockFile="${TEMP_DIR}/${ScriptFNameTag}_WebUILoginFailures.lock"
+readonly webUILoginDiagLockFD=385
 
 # Temporary NVRAM key to indicate when a F/W Update is in progress #
 readonly nvramTempFWupdateKey="merlinau_fw_update"
@@ -2288,15 +2291,17 @@ readonly POST_UPDATE_EMAIL_SCRIPT_HOOK="[ -x $ScriptFilePath ] && $POST_UPDATE_E
 ##----------------------------------------##
 _CleanUpOldLogFiles_()
 {
-    [ ! -d "$FW_LOG_DIR" ] && return 0
+    local logDir="$FW_LOG_DIR"
+    [ $# -gt 0 ] && [ -n "$1" ] && logDir="$1"
+    [ ! -d "$logDir" ] && return 0
     local retCode  numLogFiles  topLogFile  savedTopLogFile=""
 
-    numLogFiles="$(ls -1lt "$FW_LOG_DIR"/*.log 2>/dev/null | wc -l)"
+    numLogFiles="$(ls -1lt "$logDir"/*.log 2>/dev/null | wc -l)"
     # Leave one log file (if any available) #
     [ "$numLogFiles" -lt 2 ] && return 0
 
     # Save the most recent log file #
-    topLogFile="$(ls -1t "$FW_LOG_DIR"/*.log 2>/dev/null | head -n1)"
+    topLogFile="$(ls -1t "$logDir"/*.log 2>/dev/null | head -n1)"
 
     if [ -n "$topLogFile" ] && [ -s "$topLogFile" ]
     then
@@ -2308,7 +2313,7 @@ _CleanUpOldLogFiles_()
     fi
 
     # Delete logs older than 30 days #
-    /usr/bin/find -L "$FW_LOG_DIR" -name '*.log' -mtime +30 -exec rm {} \;
+    /usr/bin/find -L "$logDir" -name '*.log' -mtime +30 -exec rm {} \;
     retCode="$?"
 
     # Restore the most recent log file #
@@ -4392,7 +4397,36 @@ _ReEnableAsusTrendMicroProcesses_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Sep-16] ##
+## Added by ExtremeFiretop [2026-Sep-24]    ##
+##------------------------------------------##
+_ClearFWUpdateGuard_()
+{
+   local guardValue
+
+   guardValue="$(nvram get "$nvramTempFWupdateKey" 2>/dev/null)"
+   [ -z "$guardValue" ] && return 0
+
+   if ! nvram unset "$nvramTempFWupdateKey" 2>/dev/null
+   then
+       Say "${YLWct}*WARNING*${NOct}: Unable to clear the AiMesh F/W-update NVRAM guard [$nvramTempFWupdateKey]."
+       return 1
+   fi
+
+   # The guard may have been persisted by another NVRAM commit while the
+   # update was in progress. Commit its removal so it cannot return after
+   # the next reboot. This commit is done only when the guard actually exists.
+   if ! nvram commit >/dev/null 2>&1
+   then
+       Say "${YLWct}*WARNING*${NOct}: Unable to commit removal of the AiMesh F/W-update NVRAM guard [$nvramTempFWupdateKey]."
+       return 1
+   fi
+
+   Say "Cleared AiMesh F/W-update NVRAM guard [$nvramTempFWupdateKey]."
+   return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
 ##------------------------------------------##
 _DoCleanUp_()
 {
@@ -4410,9 +4444,9 @@ _DoCleanUp_()
    [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
    [ $# -gt 2 ] && [ "$3" -eq 1 ] && keepWfile=true
 
-   # Clear the NVRAM F/W-update guard used by AiMesh nodes #
-   # This value is intentionally never committed to NVRAM #
-   nvram unset "$nvramTempFWupdateKey" 2>/dev/null
+   # Clear the AiMesh F/W-update guard and commit its removal in case
+   # another firmware component persisted the temporary value.
+   _ClearFWUpdateGuard_
 
    # Stop the LEDs blinking #
    _Reset_LEDs_ 1
@@ -4590,8 +4624,79 @@ _CheckForMinimumModelSupport_()
     "$routerModelCheckFailed" && return 1 || return 0
 }
 
+##------------------------------------------##
+## Added [2026-Sep-24]                     ##
+##------------------------------------------##
+_SaveWebUILoginFailure_()
+{
+    if [ $# -lt 5 ] || [ -z "$1" ] || [ -z "$2" ] || \
+       [ -z "$3" ] || [ -z "$4" ] || [ -z "$5" ]
+    then return 1
+    fi
+
+    local loginTarget="$1"  statusSTRx="$2"
+    local responseFPath="$3"  curlTmpLogFile="$4"  curlErrLogFile="$5"
+    local diagTimeStamp  diagFile  diagIndex=0
+
+    # Keep WebUI login diagnostics on JFFS regardless of the selected F/W log path. #
+    [ -d "$webUILoginDiagDir" ] || \
+        mkdir -p -m 700 "$webUILoginDiagDir" 2>/dev/null || return 1
+
+    # Serialize writes because AiMesh node login checks can run in parallel. #
+    eval exec "$webUILoginDiagLockFD>$webUILoginDiagLockFile"
+    flock -x "$webUILoginDiagLockFD" 2>/dev/null || \
+    { eval exec "${webUILoginDiagLockFD}>&-" ; return 1 ; }
+
+    # Use one timestamped .log file per failure so the existing 30-day log #
+    # cleanup logic can rotate these diagnostics just like F/W update logs. #
+    diagTimeStamp="$(date '+%Y-%m-%d_%H_%M_%S')"
+    diagFile="${webUILoginDiagDir}/${ScriptFNameTag}_WebUILoginFailure_${diagTimeStamp}.log"
+    while [ -e "$diagFile" ]
+    do
+        diagIndex="$((diagIndex + 1))"
+        diagFile="${webUILoginDiagDir}/${ScriptFNameTag}_WebUILoginFailure_${diagTimeStamp}_$(printf '%02d' "$diagIndex").log"
+    done
+
+    {
+        printf '%s\n' "============================================================"
+        printf '%s - WebUI Login Failure [%s]\n' "$(date +"$LOGdateFormat")" "$loginTarget"
+        printf 'Result: %s\n' "$statusSTRx"
+
+        printf '%s\n' "-------------------- CURL STATUS ---------------------------"
+        if [ -s "$curlTmpLogFile" ]
+        then cat "$curlTmpLogFile"
+        else printf '%s\n' "<empty>"
+        fi
+
+        printf '%s\n' "-------------------- CURL STDERR ---------------------------"
+        if [ -s "$curlErrLogFile" ]
+        then cat "$curlErrLogFile"
+        else printf '%s\n' "<empty>"
+        fi
+
+        printf '%s\n' "-------------------- ROUTER RESPONSE -----------------------"
+        if [ -s "$responseFPath" ]
+        then
+            # Preserve the full HTTP response but never persist session cookies. #
+            awk '{
+                if (tolower($0) ~ /^set-cookie:/)
+                    print "Set-Cookie: <redacted>"
+                else
+                    print
+            }' "$responseFPath"
+        else printf '%s\n' "<empty>"
+        fi
+        printf '\n'
+    } > "$diagFile" 2>/dev/null
+    chmod 600 "$diagFile" 2>/dev/null
+
+    flock -u "$webUILoginDiagLockFD" 2>/dev/null
+    eval exec "${webUILoginDiagLockFD}>&-"
+    return 0
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2026-Sep-20] ##
+## Modified [2026-Sep-24]                  ##
 ##----------------------------------------##
 _DoMainRouterLogin_()
 {
@@ -4639,6 +4744,12 @@ _DoMainRouterLogin_()
            statusCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
            statusSTRx="HTTP Status Code: $statusCODE"
         fi
+    fi
+
+    if [ "$statusCODE" -ne 0 ]
+    then
+        _SaveWebUILoginFailure_ "Local Router: $routerURL" "$statusSTRx" \
+            "$responseFPath" "$curlTmpLogFPath" "$curlErrLogFPath"
     fi
 
     rm -f "$curlErrLogFPath" "$curlTmpLogFPath" "$responseFPath"
@@ -5492,7 +5603,7 @@ _GetNodeURL_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2026-Sep-21] ##
+## Modified [2026-Sep-24]                  ##
 ##----------------------------------------##
 _DoMeshNodeLogin_()
 {
@@ -5544,6 +5655,12 @@ _DoMeshNodeLogin_()
            statusCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
            statusSTRx="HTTP Status Code: $statusCODE"
         fi
+    fi
+
+    if [ "$statusCODE" -ne 0 ]
+    then
+        _SaveWebUILoginFailure_ "AiMesh Node: $nodeURL" "$statusSTRx" \
+            "$responseFPath" "$curlTmpLogFile" "$curlErrLogFile"
     fi
 
     rm -f "$curlErrLogFile" "$curlTmpLogFile" "$responseFPath"
@@ -5612,8 +5729,8 @@ _GetNVRAM_FromWebUI_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2026-Sep-21] ##
-##----------------------------------------##
+## Modified [2026-Sep-24]                   ##
+##-------------------------------------------##
 # Trigger the node "Check for updates" (no waiting here) #
 _MeshNodeTriggerFWCheck_()
 {
@@ -5625,6 +5742,7 @@ _MeshNodeTriggerFWCheck_()
     local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
     local nodeURL="$(_GetNodeURL_ "$nodeIPv4addr")"
     local cookieFile="/tmp/${runID}.${safeID}.cookie"
+    local busyFile="/tmp/${runID}.${safeID}.busy"
     local curlStatus  nvramKeyPair
 
     # Check for Login Credentials #
@@ -5654,7 +5772,14 @@ _MeshNodeTriggerFWCheck_()
     then
         if echo "$nvramKeyPair" | grep -qE "\"$nvramTempFWupdateKey\"[[:blank:]]*:[[:blank:]]*\"1\""
         then
-            Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check."
+            # Tell the parent process not to query this node again during this run. #
+            : > "$busyFile"
+            Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check and releasing WebUI session."
+
+            # Release the node's single WebUI administration session immediately. #
+            curl -s -k "${nodeURL}/Logout.asp" \
+                --cookie "$cookieFile" --max-time 2 >/dev/null 2>&1
+            rm -f "$cookieFile"
             return 0
         fi
     fi
@@ -10424,7 +10549,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     # NVRAM key guard set BEFORE restarting/logging into the WebGUI.
     # Primary routers running MerlinAU can query this NVRAM value and
     # avoid triggering 'start_webs_update' on AiMesh nodes mid-flash.
-    # Do *NOT* commit this key value since a reboot must clear it.
+    # Do *NOT* commit this key here. Cleanup and startup explicitly
+    # clear and commit its removal so a stale guard cannot survive reboot.
     #-------------------------------------------------------------------#
     nvram set "$nvramTempFWupdateKey"=1
     rm -f "$fwUploadResponseFile" "$fwUploadDiagFile"
@@ -10916,6 +11042,12 @@ _CheckForMinimumRequirements_()
 _DoStartupInit_()
 {
    Say "$SCRIPT_NAME $SCRIPT_VERSION starting up"
+
+   # A successful firmware flash reboots before _DoCleanUp_ can run.
+   # Any update guard still present during services-start is therefore
+   # stale and must be removed persistently before normal operation resumes.
+   _ClearFWUpdateGuard_
+
    _CreateDirPaths_
    _InitCustomDefaultsConfig_
    _InitCustomUserSettings_
@@ -11241,8 +11373,8 @@ _ValidatePrivateIPv4Address_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2026-Jan-01] ##
-##----------------------------------------##
+## Modified [2026-Sep-24]                   ##
+##-------------------------------------------##
 _ProcessMeshNodes_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]
@@ -11293,6 +11425,13 @@ _ProcessMeshNodes_()
             for nodeIPv4addr in $node_list
             do
                 _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
+                local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
+                local busyFile="/tmp/${runID}.${safeID}.busy"
+
+                # An actively flashing node was already logged out by the guard check. #
+                # Do not log back into it just to retrieve status information.         #
+                [ -f "$busyFile" ] && continue
+
                 _GetNodeInfo_ "$nodeIPv4addr" "$runID" >/dev/null 2>&1 &
             done
             wait
@@ -11304,6 +11443,17 @@ _ProcessMeshNodes_()
 
                 local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
                 local varsFile="/tmp/${runID}.${safeID}.vars"
+                local busyFile="/tmp/${runID}.${safeID}.busy"
+
+                if [ -f "$busyFile" ]
+                then
+                    if "$includeExtraLogic"
+                    then
+                        printf "\n   AiMesh Node [${GRNct}%s${NOct}]: MerlinAU F/W update in progress; status query skipped.\n" "$nodeIPv4addr"
+                        uid="$((uid + 1))"
+                    fi
+                    continue
+                fi
 
                 # Load per-node globals (node_*, Node_combinedVer, NodeGNUtonFW) #
                 if [ -s "$varsFile" ]
@@ -11338,7 +11488,7 @@ _ProcessMeshNodes_()
                 _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
             fi
 
-            rm -f "/tmp/${runID}."*.vars 2>/dev/null
+            rm -f "/tmp/${runID}."*.vars "/tmp/${runID}."*.busy "/tmp/${runID}."*.cookie 2>/dev/null
         else
             if "$includeExtraLogic"
             then
@@ -12626,6 +12776,12 @@ _RunLockedInitializationChecks_()
    if ! _CleanUpOldLogFiles_
    then
        Say "${YLWct}*WARNING*${NOct}: Unable to clean up old firmware-update log files."
+       retCode=1
+   fi
+
+   if ! _CleanUpOldLogFiles_ "$webUILoginDiagDir"
+   then
+       Say "${YLWct}*WARNING*${NOct}: Unable to clean up old WebUI login-failure log files."
        retCode=1
    fi
 
