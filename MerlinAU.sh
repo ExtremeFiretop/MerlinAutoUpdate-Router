@@ -5708,9 +5708,9 @@ _MeshNodeTriggerFWCheck_()
         then
             # Tell the parent process not to query this node again during this run. #
             touch "$busyFile"
-            Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check and releasing WebUI session."
+            Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check and attempting to release WebUI session."
 
-            # Release the node's single WebUI administration session immediately. #
+            # Best-effort logout. Some AiMesh firmware blocks Logout.asp while re_mode=1. #
             _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
             rm -f "$cookieFile"
             return 0
@@ -5831,7 +5831,7 @@ _GetNodeInfo_()
     # Combine extracted information into one string #
     Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
 
-    # Logout request #
+    # Logout best-effort. Some AiMesh firmware blocks Logout.asp while re_mode=1. #
     _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
     curlCode="$?"
 
