@@ -678,8 +678,10 @@ _AcquireMutexFLock_()
 ##-------------------------------------##
 ## Added by Martinski W. [2025-Sep-01] ##
 ##-------------------------------------##
+# Intended for BOTH 'grep' & 'sed' cmds
+#---------------------------------------#
 _EscapeChars_()
-{ printf "%s" "$1" | sed 's/[][\/$.*^&-]/\\&/g' ; }
+{ printf "%s" "$1" | sed 's/[][\/{}()$|.*^&+-]/\\&/g' ; }
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Dec-26] ##
@@ -1622,8 +1624,11 @@ _InitCustomUserSettings_()
    sendEMail_CC_Name="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
    sendEMail_CC_Address="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
    if [ "$sendEMailFormaType" = "HTML" ]
-   then isEMailFormatHTML=true
-   else isEMailFormatHTML=false
+   then
+       isEMailFormatHTML=true
+   else
+       isEMailFormatHTML=false
+       sendEMailFormaType="Plain Text"
    fi
 
    _SetUp_FW_UpdateZIP_DirectoryPaths_
@@ -1631,7 +1636,7 @@ _InitCustomUserSettings_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Sep-25] ##
 ##----------------------------------------##
 Get_Custom_Setting()
 {
@@ -1641,7 +1646,7 @@ Get_Custom_Setting()
     local setting_value=""  setting_type="$1"  default_value="TBD"
     [ $# -gt 1 ] && default_value="$2"
 
-    if [ -f "$CONFIG_FILE" ]
+    if [ -s "$CONFIG_FILE" ]
     then
         case "$setting_type" in
             "ROGBuild" | "TUFBuild" | \
@@ -1655,7 +1660,7 @@ Get_Custom_Setting()
             "FW_New_Update_EMail_Notification" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
-                setting_value="$(grep "^${setting_type} " "$CONFIG_FILE" | awk -F ' ' '{print $2}')"
+                setting_value="$(grep -E "^$setting_type .+" "$CONFIG_FILE" | awk -F' ' '{print $2}')"
                 ;;
             "FW_New_Update_Postponement_Days"  | \
             "FW_New_Update_Changelog_Approval" | \
@@ -1669,7 +1674,7 @@ Get_Custom_Setting()
             "FW_New_Update_EMail_CC_Name" | \
             "FW_New_Update_EMail_CC_Address")
                 grep -q "^${setting_type}=" "$CONFIG_FILE" && \
-                setting_value="$(grep "^${setting_type}=" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
+                setting_value="$(grep -E "^${setting_type}=.+" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
                 ;;
             *)
                 setting_value="**ERROR**"
@@ -1677,7 +1682,7 @@ Get_Custom_Setting()
         esac
         if [ -z "$setting_value" ]
         then echo "$default_value"
-        else echo "$setting_value"
+        else printf '%s\n' "$setting_value"
         fi
     else
         echo "$default_value"
@@ -1685,7 +1690,7 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by maghuro [2026-Sep-24]     ##
+## Modified by Martinski W. [2026-Sep-25] ##
 ##----------------------------------------##
 Update_Custom_Settings()
 {
@@ -1709,13 +1714,13 @@ Update_Custom_Settings()
         "FW_New_Update_EMail_Notification" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
-            if [ -f "$CONFIG_FILE" ]
+            if [ -s "$CONFIG_FILE" ]
             then
-                if [ "$(grep -c "^$setting_type" "$CONFIG_FILE")" -gt 0 ]
+                if [ "$(grep -c "^$setting_type " "$CONFIG_FILE")" -gt 0 ]
                 then
-                    if [ "$setting_value" != "$(grep "^$setting_type" "$CONFIG_FILE" | cut -f2 -d' ')" ]
+                    if [ "$setting_value" != "$(grep -E "^$setting_type .+" "$CONFIG_FILE" | cut -f2 -d' ')" ]
                     then
-                        fixedVal="$(printf '%s' "$setting_value" | sed 's/[\/&\\]/\\&/g')"
+                        fixedVal="$(_EscapeChars_ "$setting_value")"
                         sed -i "s/^${setting_type}.*/$setting_type $fixedVal/" "$CONFIG_FILE"
                     fi
                 else
@@ -1736,21 +1741,21 @@ Update_Custom_Settings()
         "FW_New_Update_EMail_FormatType" | \
         "FW_New_Update_EMail_CC_Name" | \
         "FW_New_Update_EMail_CC_Address")
-            if [ -f "$CONFIG_FILE" ]
+            if [ -s "$CONFIG_FILE" ]
             then
-                if grep -q "^${setting_type}=" "$CONFIG_FILE"
+                if grep -qE "^${setting_type}=.*" "$CONFIG_FILE"
                 then
-                    oldVal="$(grep "^${setting_type}=" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
+                    oldVal="$(grep -E "^${setting_type}=.+" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
                     if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
                     then
-                        fixedVal="$(printf '%s' "$setting_value" | sed 's/[\/&\\]/\\&/g')"
-                        sed -i "s/${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$CONFIG_FILE"
+                        fixedVal="$(_EscapeChars_ "$setting_value")"
+                        sed -i "s/${setting_type}=.*/${setting_type}='${fixedVal}'/" "$CONFIG_FILE"
                     fi
                 else
-                    echo "$setting_type=\"${setting_value}\"" >> "$CONFIG_FILE"
+                    echo "$setting_type='${setting_value}'" >> "$CONFIG_FILE"
                 fi
             else
-                echo "$setting_type=\"${setting_value}\"" > "$CONFIG_FILE"
+                echo "$setting_type='${setting_value}'" > "$CONFIG_FILE"
             fi
             if [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
             then
@@ -1796,16 +1801,16 @@ Update_Custom_Settings()
             ;;
         *)
             # Generic handling for arbitrary settings #
-            if grep -q "^${setting_type}=" "$CONFIG_FILE"
+            if grep -qE "^${setting_type}=.*" "$CONFIG_FILE"
             then
-                oldVal="$(grep "^${setting_type}=" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
+                oldVal="$(grep -E "^${setting_type}=.+" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
                 if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
                 then
-                    fixedVal="$(printf '%s' "$setting_value" | sed 's/[\/&\\]/\\&/g')"
-                    sed -i "s/^${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$CONFIG_FILE"
+                    fixedVal="$(_EscapeChars_ "$setting_value")"
+                    sed -i "s/^${setting_type}=.*/${setting_type}='${fixedVal}'/" "$CONFIG_FILE"
                 fi
             else
-                echo "${setting_type}=\"${setting_value}\"" >> "$CONFIG_FILE"
+                echo "${setting_type}='${setting_value}'" >> "$CONFIG_FILE"
             fi
             ;;
     esac
@@ -2990,7 +2995,7 @@ _CurlFileDownload_()
 }
 
 ##----------------------------------------##
-## Modified by maghuro [2026-Sep-24]     ##
+## Modified by maghuro [2026-Sep-24]      ##
 ##----------------------------------------##
 _DownloadScriptFiles_()
 {
@@ -3838,8 +3843,11 @@ _CheckEMailConfigFileFromAMTM_()
    sendEMailNotificationsFlag="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
    sendEMailFormaType="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
    if [ "$sendEMailFormaType" = "HTML" ]
-   then isEMailFormatHTML=true
-   else isEMailFormatHTML=false
+   then
+       isEMailFormatHTML=true
+   else
+       isEMailFormatHTML=false
+       sendEMailFormaType="Plain Text"
    fi
 
    if [ -n "$sendEMail_CC_Name" ] && [ "$sendEMail_CC_Name" != "TBD" ] && \
@@ -11108,7 +11116,7 @@ _DoUnInstallation_()
 ##-------------------------------------##
 _SetEMailFormatType_()
 {
-   local doReturnToMenu
+   local doReturnToMenu  menuFormatStr
    local currFormatOpt  nextFormatOpt  currFormatStr
 
    currFormatOpt="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
@@ -11119,7 +11127,11 @@ _SetEMailFormatType_()
    else
        nextFormatOpt="$currFormatOpt"
    fi
-   currFormatStr="Current Format: ${GRNct}${currFormatOpt}${NOct}"
+   if [ "$currFormatOpt" = "HTML" ]
+   then menuFormatStr="HTML"
+   else menuFormatStr="Plain Text"
+   fi
+   currFormatStr="Current Format: ${GRNct}${menuFormatStr}${NOct}"
 
    doReturnToMenu=false
    while true
@@ -11141,7 +11153,7 @@ _SetEMailFormatType_()
        case $userInput in
            1) nextFormatOpt="HTML" ; break
               ;;
-           2) nextFormatOpt="Plain Text" ; break
+           2) nextFormatOpt="PlainText" ; break
               ;;
            *) echo ; _InvalidMenuSelection_
               ;;
@@ -11172,7 +11184,8 @@ _SetSecondaryEMailAddress_()
    local nextCC_NameOpt  nextCC_AddrOpt
    local currCC_NameStr="Current Name/Alias:"
    local currCC_AddrStr="Current Address:"
-   local clearOptStr="${GRNct}c${NOct}=Clear/Remove Setting"
+   local invalidChars='[][" *?\\]'  #Avoid initial parsing issues#
+   local clearOptStr="${GRNct}C${NOct}=Clear/Remove Setting"
    local doReturnToMenu  doClearSetting  minCharLen  maxCharLen  curCharLen
 
    currCC_NameOpt="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
@@ -11186,6 +11199,7 @@ _SetSecondaryEMailAddress_()
        nextCC_AddrOpt="$currCC_AddrOpt"
        currCC_AddrStr="$currCC_AddrStr ${GRNct}${currCC_AddrOpt}${NOct}"
    fi
+   currCC_AddrStr="$(echo "$currCC_AddrStr" | sed 's/%/%%/g')"
 
    userInput=""
    minCharLen=10
@@ -11205,16 +11219,26 @@ _SetSecondaryEMailAddress_()
 
        [ -z "$userInput" ] && break
 
-       if echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       if printf '%s\n' "$userInput" | grep -qE "^(e|exit|Exit)$"
        then doReturnToMenu=true ; break ; fi
 
-       if echo "$userInput" | grep -qE "^(c|C)$"
+       if printf '%s\n' "$userInput" | grep -qE "^(c|C)$"
        then doClearSetting=true ; break ; fi
 
-       if ! echo "$userInput" | grep -qE ".+[@].+"
+       if ! printf '%s\n' "$userInput" | grep -qE ".+[@].+"
        then
            printf "\n${REDct}INVALID input.${NOct} "
            printf "No ampersand character [${GRNct}@${NOct}] is found.\n"
+           _WaitForEnterKey_
+           clear
+           continue
+       fi
+
+       # Catch invalid chars that may cause parsing errors #
+       if printf '%s\n' "$userInput" | grep -qE "$invalidChars"
+       then
+           printf "\n${REDct}INVALID input.${NOct}\n"
+           printf "One or more invalid characters were found.\n"
            _WaitForEnterKey_
            clear
            continue
@@ -11241,9 +11265,9 @@ _SetSecondaryEMailAddress_()
    if "$doClearSetting" || \
       { [ -z "$nextCC_AddrOpt" ] && [ -n "$currCC_AddrOpt" ] ; }
    then
-       Update_Custom_Settings FW_New_Update_EMail_CC_Name "TBD"
-       Update_Custom_Settings FW_New_Update_EMail_CC_Address "TBD"
-       echo "The secondary email address and associated name/alias were removed successfully."
+       Update_Custom_Settings FW_New_Update_EMail_CC_Name 'TBD'
+       Update_Custom_Settings FW_New_Update_EMail_CC_Address 'TBD'
+       printf "\nThe secondary email address and associated name/alias were removed successfully.\n"
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
        return 0
    fi
@@ -11257,6 +11281,7 @@ _SetSecondaryEMailAddress_()
        nextCC_NameOpt="$currCC_NameOpt"
        currCC_NameStr="$currCC_NameStr ${GRNct}${currCC_NameOpt}${NOct}"
    fi
+   currCC_NameStr="$(echo "$currCC_NameStr" | sed 's/%/%%/g')"
 
    userInput=""
    minCharLen=6
@@ -11269,7 +11294,8 @@ _SetSecondaryEMailAddress_()
        printf "[${theADExitStr}]\n[${currCC_NameStr}]:  "
        read -r userInput
 
-       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       if [ -z "$userInput" ] || \
+          printf '%s\n' "$userInput" | grep -qE "^(e|exit|Exit)$"
        then doReturnToMenu=true ; break ; fi
 
        curCharLen="${#userInput}"
@@ -11284,7 +11310,8 @@ _SetSecondaryEMailAddress_()
        break;
    done
 
-   if [ "$nextCC_AddrOpt" = "$currCC_AddrOpt" ] && [ "$nextCC_NameOpt" = "$currCC_NameOpt" ]
+   if [ "$nextCC_AddrOpt" = "$currCC_AddrOpt" ] && \
+      [ "$nextCC_NameOpt" = "$currCC_NameOpt" ]
    then
        _RunEMailNotificationTest_ && _WaitForEnterKey_ "$advnMenuReturnPromptStr"
        return 0
@@ -12287,8 +12314,8 @@ _ShowAdvancedOptionsMenu_()
            printf "\n ${GRNct}se${NOct}.  Set Email Notifications Secondary Address"
            if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
            then
-               printf "\n${padStr}[Current Name/Alias: ${GRNct}${CC_NAME}${NOct}]"
-               printf "\n${padStr}[Current 2nd Address: ${GRNct}${CC_ADDRESS}${NOct}]\n"
+               printf "\n${padStr}[Current Name/Alias: ${GRNct}%s${NOct}]" "$CC_NAME"
+               printf "\n${padStr}[Current 2nd Address: ${GRNct}%s${NOct}]\n" "$CC_ADDRESS"
            else
                echo
            fi
