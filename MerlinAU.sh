@@ -5658,6 +5658,11 @@ _DoMeshNodeLogout_()
 
     local nodeURL="$1"  cookieFile="$2"
 
+    # Best-effort only: AiMesh nodes normally run with re_mode=1, which intercepts            #
+    # Logout.asp and returns message.htm instead. In that normal state this request           #
+    # does NOT clear the server-side session owner, even when curl itself succeeds.           #
+    # It is only useful when the node UI restriction has been manually disabled               #
+    # (for example re_mode=0). Callers should not depend on this request releasing the WebUI. #
     curl -s -k "${nodeURL}/Logout.asp" \
     --referer "${nodeURL}/Main_Login.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -5718,7 +5723,7 @@ _MeshNodeTriggerFWCheck_()
             touch "$busyFile"
             Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check and attempting to release WebUI session."
 
-            # Best-effort logout. Some AiMesh firmware blocks Logout.asp while re_mode=1. #
+            # Best-effort only; usually a no-op while normal AiMesh re_mode=1 is active. #
             _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
             rm -f "$cookieFile"
             return 0
@@ -5816,7 +5821,7 @@ _GetNodeInfo_()
 
     if [ "$curlCode" -ne 0 ] || [ -z "$htmlContent" ]
     then
-        # Logout best-effort #
+        # Logout best-effort; usually a no-op while normal AiMesh re_mode=1 is active. #
         _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
         printf "\n${REDct}Failed to get information for AiMesh Node [$nodeIPv4addr].${NOct}\n"
         rm -f "$cookieFile"
@@ -5839,7 +5844,7 @@ _GetNodeInfo_()
     # Combine extracted information into one string #
     Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
 
-    # Logout best-effort. Some AiMesh firmware blocks Logout.asp while re_mode=1. #
+    # Logout best-effort; usually a no-op while normal AiMesh re_mode=1 is active. #
     _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
     curlCode="$?"
 
