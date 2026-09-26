@@ -10610,7 +10610,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
             loginOwner="$(nvram get login_ip_str 2>/dev/null)"
             if [ -n "$loginOwner" ] && [ "$loginOwner" != "0.0.0.0" ]
             then
-                _MsgToSysLog_ "*WARNING*: WebUI session owner [$loginOwner] is still active before Router Login 2nd Attempt. Restarting web server."
+                _MsgToSysLog_ "*WARNING*: WebUI owner [$loginOwner] is holding the session. Restarting web server."
                 /sbin/service restart_httpd >/dev/null 2>&1
                 sleep 3
             fi
