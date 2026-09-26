@@ -10591,10 +10591,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         #------------------------------------------------------------------#
         _Unmount_Eject_USB_Drives_
 
-        echo
-        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
-        echo
-
         #-------------------------------------------------------------------#
         # Double-check IF the existing Cookie is still valid. If it's not,
         # attempt to get a NEW login session Cookie by logging in again.
@@ -10631,6 +10627,10 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
                 return 1
             fi
         fi
+
+        echo
+        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
+        echo
 
         #----------------------------------------------------------------------------------#
         # **IMPORTANT NOTE**:
