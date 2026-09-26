@@ -2293,6 +2293,7 @@ readonly POST_UPDATE_EMAIL_SCRIPT_HOOK="[ -x $ScriptFilePath ] && $POST_UPDATE_E
 ##----------------------------------------##
 _CleanUpOldLogFiles_()
 {
+    [ ! -d "$FW_LOG_DIR" ] && return 0
     local retCode  numLogFiles  topLogFile  savedTopLogFile=""
 
     numLogFiles="$(ls -1lt "$FW_LOG_DIR"/*.log 2>/dev/null | wc -l)"
@@ -4626,9 +4627,9 @@ _CheckForMinimumModelSupport_()
     "$routerModelCheckFailed" && return 1 || return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2026-Sep-24] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Sep-20] ##
+##----------------------------------------##
 _DoMainRouterLogin_()
 {
     if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
@@ -5527,9 +5528,9 @@ _GetNodeURL_()
     echo "${urlProto}://${nodeIPv4addr}${urlPort}"
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2026-Sep-24] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Sep-20] ##
+##----------------------------------------##
 _DoMeshNodeLogin_()
 {
     if [ $# -lt 4 ] || [ -z "$1" ] || \
