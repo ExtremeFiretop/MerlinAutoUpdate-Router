@@ -20,7 +20,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.6.9
-readonly SCRIPT_VERSTAG="26092501"
+readonly SCRIPT_VERSTAG="26092509"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -4400,7 +4400,36 @@ _ReEnableAsusTrendMicroProcesses_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2025-Sep-16] ##
+## Added by ExtremeFiretop [2026-Sep-24]    ##
+##------------------------------------------##
+_ClearFWUpdateGuard_()
+{
+   local guardValue
+
+   guardValue="$(nvram get "$nvramTempFWupdateKey" 2>/dev/null)"
+   [ -z "$guardValue" ] && return 0
+
+   if ! nvram unset "$nvramTempFWupdateKey" 2>/dev/null
+   then
+       Say "${YLWct}*WARNING*${NOct}: Unable to clear the AiMesh F/W-update NVRAM guard [$nvramTempFWupdateKey]."
+       return 1
+   fi
+
+   # The guard may have been persisted by another NVRAM commit while the
+   # update was in progress. Commit its removal so it cannot return after
+   # the next reboot. This commit is done only when the guard actually exists.
+   if ! nvram commit >/dev/null 2>&1
+   then
+       Say "${YLWct}*WARNING*${NOct}: Unable to commit removal of the AiMesh F/W-update NVRAM guard [$nvramTempFWupdateKey]."
+       return 1
+   fi
+
+   Say "Cleared AiMesh F/W-update NVRAM guard [$nvramTempFWupdateKey]."
+   return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
 ##------------------------------------------##
 _DoCleanUp_()
 {
@@ -4418,9 +4447,9 @@ _DoCleanUp_()
    [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
    [ $# -gt 2 ] && [ "$3" -eq 1 ] && keepWfile=true
 
-   # Clear the NVRAM F/W-update guard used by AiMesh nodes #
-   # This value is intentionally never committed to NVRAM #
-   nvram unset "$nvramTempFWupdateKey" 2>/dev/null
+   # Clear the AiMesh F/W-update guard and commit its removal in case
+   # another firmware component persisted the temporary value.
+   _ClearFWUpdateGuard_
 
    # Stop the LEDs blinking #
    _Reset_LEDs_ 1
@@ -5619,9 +5648,37 @@ _GetNVRAM_FromWebUI_()
     return "$statusCODE"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2026-Sep-21] ##
-##----------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Sep-24] ##
+##---------------------------------------##
+_DoMeshNodeLogout_()
+{
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+    then return 1
+    fi
+
+    local nodeURL="$1"  cookieFile="$2"
+
+    # Best-effort only: AiMesh nodes normally run with re_mode=1, which intercepts            #
+    # Logout.asp and returns message.htm instead. In that normal state this request           #
+    # does NOT clear the server-side session owner, even when curl itself succeeds.           #
+    # It is only useful when the node UI restriction has been manually disabled               #
+    # (for example re_mode=0). Callers should not depend on this request releasing the WebUI. #
+    curl -s -k "${nodeURL}/Logout.asp" \
+    --referer "${nodeURL}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Accept-Encoding: gzip, deflate' \
+    -H 'Connection: keep-alive' \
+    -H 'Upgrade-Insecure-Requests: 0' \
+    --cookie "$cookieFile" \
+    --max-time 3 >/dev/null 2>&1
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
+##------------------------------------------##
 # Trigger the node "Check for updates" (no waiting here) #
 _MeshNodeTriggerFWCheck_()
 {
@@ -5633,6 +5690,7 @@ _MeshNodeTriggerFWCheck_()
     local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
     local nodeURL="$(_GetNodeURL_ "$nodeIPv4addr")"
     local cookieFile="/tmp/${runID}.${safeID}.cookie"
+    local busyFile="/tmp/${runID}.${safeID}.busy"
     local curlStatus  nvramKeyPair
 
     # Check for Login Credentials #
@@ -5662,7 +5720,13 @@ _MeshNodeTriggerFWCheck_()
     then
         if echo "$nvramKeyPair" | grep -qE "\"$nvramTempFWupdateKey\"[[:blank:]]*:[[:blank:]]*\"1\""
         then
-            Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check."
+            # Tell the parent process not to query this node again during this run. #
+            touch "$busyFile"
+            Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check and attempting to release WebUI session."
+
+            # Best-effort only; usually a no-op while normal AiMesh re_mode=1 is active. #
+            _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
+            rm -f "$cookieFile"
             return 0
         fi
     fi
@@ -5758,8 +5822,8 @@ _GetNodeInfo_()
 
     if [ "$curlCode" -ne 0 ] || [ -z "$htmlContent" ]
     then
-        # Logout best-effort #
-        curl -s -k "${nodeURL}/Logout.asp" --cookie "$cookieFile" --max-time 2 >/dev/null 2>&1
+        # Logout best-effort; usually a no-op while normal AiMesh re_mode=1 is active. #
+        _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
         printf "\n${REDct}Failed to get information for AiMesh Node [$nodeIPv4addr].${NOct}\n"
         rm -f "$cookieFile"
         return 1
@@ -5781,17 +5845,8 @@ _GetNodeInfo_()
     # Combine extracted information into one string #
     Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
 
-    # Logout request #
-    curl -s -k "${nodeURL}/Logout.asp" \
-    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Accept-Encoding: gzip, deflate' \
-    -H 'Connection: keep-alive' \
-    -H "Referer: ${nodeURL}/Main_Login.asp" \
-    -H 'Upgrade-Insecure-Requests: 0' \
-    --cookie "$cookieFile" \
-    --max-time 2 >/dev/null 2>&1
+    # Logout best-effort; usually a no-op while normal AiMesh re_mode=1 is active. #
+    _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
     curlCode="$?"
 
     # Write a vars file the parent shell can source safely #
@@ -10045,7 +10100,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     local retCode  credsENC=""
     local currentVersionNum=""  releaseVersionNum=""
-    local current_version=""
+    local current_version=""  loginOwner=""  curlStatus=""
 
     # Create directory for downloading & extracting firmware #
     if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
@@ -10432,7 +10487,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     # NVRAM key guard set BEFORE restarting/logging into the WebGUI.
     # Primary routers running MerlinAU can query this NVRAM value and
     # avoid triggering 'start_webs_update' on AiMesh nodes mid-flash.
-    # Do *NOT* commit this key value since a reboot must clear it.
+    # Do *NOT* commit this key here. Cleanup and startup explicitly
+    # clear and commit its removal so a stale guard cannot survive reboot.
     #-------------------------------------------------------------------#
     nvram set "$nvramTempFWupdateKey"=1
     rm -f "$fwUploadResponseFile" "$fwUploadDiagFile"
@@ -10536,19 +10592,30 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         #------------------------------------------------------------------#
         _Unmount_Eject_USB_Drives_
 
-        echo
-        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
-        echo
-
         #-------------------------------------------------------------------#
         # Double-check IF the existing Cookie is still valid. If it's not,
         # attempt to get a NEW login session Cookie by logging in again.
         # If this login fails now then we have to abort here and reboot.
-        # Added by Martinski W. [2026-Sep-20]
+        # Modified by ExtremeFiretop [2026-Sep-25]
         #-------------------------------------------------------------------#
         if ! nvramKeyPair="$(_GetNVRAM_FromWebUI_ "$routerURL" "$cookieFile" "$nvramTempFWupdateKey" "$$")"
         then
             rm -f "$cookieFile"
+
+            # AiMesh nodes can reject Logout.asp before http_logout() runs,
+            # leaving the primary router recorded as the WebUI session owner.
+            # If any stale owner remains after our Cookie fails validation,
+            # reset httpd locally to release that server-side session before
+            # attempting to acquire a new login Cookie.
+            curlStatus=""
+            loginOwner="$(nvram get login_ip_str 2>/dev/null)"
+            if [ -n "$loginOwner" ] && [ "$loginOwner" != "0.0.0.0" ]
+            then
+                _MsgToSysLog_ "*WARNING*: WebUI owner [$loginOwner] is holding the session. Restarting web server."
+                /sbin/service restart_httpd >/dev/null 2>&1
+                sleep 3
+            fi
+
             if ! curlStatus="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")"
             then
                 rm -f "$cookieFile"
@@ -10561,6 +10628,10 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
                 return 1
             fi
         fi
+
+        echo
+        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
+        echo
 
         #----------------------------------------------------------------------------------#
         # **IMPORTANT NOTE**:
@@ -10924,6 +10995,12 @@ _CheckForMinimumRequirements_()
 _DoStartupInit_()
 {
    Say "$SCRIPT_NAME $SCRIPT_VERSION starting up"
+
+   # A successful firmware flash reboots before _DoCleanUp_ can run.
+   # Any update guard still present during services-start is therefore
+   # stale and must be removed persistently before normal operation resumes.
+   _ClearFWUpdateGuard_
+
    _CreateDirPaths_
    _InitCustomDefaultsConfig_
    _InitCustomUserSettings_
@@ -11267,9 +11344,9 @@ _ValidatePrivateIPv4Address_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2026-Jan-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
+##------------------------------------------##
 _ProcessMeshNodes_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]
@@ -11320,6 +11397,13 @@ _ProcessMeshNodes_()
             for nodeIPv4addr in $node_list
             do
                 _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
+                local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
+                local busyFile="/tmp/${runID}.${safeID}.busy"
+
+                # An actively flashing node was already logged out by the guard check. #
+                # Do not log back into it just to retrieve status information.         #
+                [ -f "$busyFile" ] && continue
+
                 _GetNodeInfo_ "$nodeIPv4addr" "$runID" >/dev/null 2>&1 &
             done
             wait
@@ -11331,6 +11415,17 @@ _ProcessMeshNodes_()
 
                 local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
                 local varsFile="/tmp/${runID}.${safeID}.vars"
+                local busyFile="/tmp/${runID}.${safeID}.busy"
+
+                if [ -f "$busyFile" ]
+                then
+                    if "$includeExtraLogic"
+                    then
+                        _PrintBusyNodeInfo_ "$nodeIPv4addr" "$uid"
+                        uid="$((uid + 1))"
+                    fi
+                    continue
+                fi
 
                 # Load per-node globals (node_*, Node_combinedVer, NodeGNUtonFW) #
                 if [ -s "$varsFile" ]
@@ -11365,7 +11460,7 @@ _ProcessMeshNodes_()
                 _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
             fi
 
-            rm -f "/tmp/${runID}."*.vars 2>/dev/null
+            rm -f "/tmp/${runID}."*.vars "/tmp/${runID}."*.busy "/tmp/${runID}."*.cookie 2>/dev/null
         else
             if "$includeExtraLogic"
             then
@@ -11778,6 +11873,39 @@ _SimpleNotificationDate_()
    notifyTimeStrn="$(echo "$1" | sed 's/_/ /g')"
    notifyTimeSecs="$(date +%s -d "$notifyTimeStrn")"
    echo "$(date -d @$notifyTimeSecs +"%Y-%b-%d %I:%M %p")"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Sep-24] ##
+##---------------------------------------##
+_PrintBusyNodeInfo_()
+{
+    local node_info="$1"  uid="$2"
+    local line1="Node ID: ${uid}"
+    local line2="AiMesh Node: ${node_info}"
+    local line3="MerlinAU F/W Update: IN PROGRESS"
+    local line4="Status Query: SKIPPED"
+    local max_length=0  line  length  h_line=''
+
+    for line in "$line1" "$line2" "$line3" "$line4"
+    do
+        length="$(printf "%s" "$line" | awk '{print length}')"
+        [ "$length" -gt "$max_length" ] && max_length="$length"
+    done
+
+    for i in $(awk "BEGIN{for(i=1;i<=$max_length;i++) print i}")
+    do h_line="${h_line}─" ; done
+
+    printf "\n   ┌─%s─┐" "$h_line"
+    length="$(printf "%s" "$line1" | awk '{print length}')"
+    printf "\n   │ %s%*s │" "$line1" "$((max_length - length))" ""
+    length="$(printf "%s" "$line2" | awk '{print length}')"
+    printf "\n   │ AiMesh Node: ${GRNct}%s${NOct}%*s │" "$node_info" "$((max_length - length))" ""
+    length="$(printf "%s" "$line3" | awk '{print length}')"
+    printf "\n   │ MerlinAU F/W Update: ${YLWct}IN PROGRESS${NOct}%*s │" "$((max_length - length))" ""
+    length="$(printf "%s" "$line4" | awk '{print length}')"
+    printf "\n   │ Status Query: ${YLWct}SKIPPED${NOct}%*s │" "$((max_length - length))" ""
+    printf "\n   └─%s─┘" "$h_line"
 }
 
 ##---------------------------------------##
