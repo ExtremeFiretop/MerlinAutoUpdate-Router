@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Sep-03
+# Last Modified: 2026-Sep-25
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -19,11 +19,11 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.6.8
-readonly SCRIPT_VERSTAG="26090718"
+readonly SCRIPT_VERSION=1.6.9
+readonly SCRIPT_VERSTAG="26092509"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -89,6 +89,10 @@ readonly InvBGRNct="\e[30;102m"
 readonly InvBYLWct="\e[30;103m"
 readonly InvBMGNct="\e[30;105m"
 
+readonly pLogERROR=3
+readonly pLogWARNG=4
+readonly logTagSTR="${SCRIPT_NAME}_[$$]"
+
 readonly ScriptFileName="${0##*/}"
 readonly ScriptFNameTag="${ScriptFileName%%.*}"
 readonly ScriptDirNameD="${ScriptFNameTag}.d"
@@ -124,9 +128,13 @@ readonly TEMPFILE="/tmp/MerlinAU_settings_$$.txt"
 readonly webPageFileRegExp="user([1-9]|[1-2][0-9])[.]asp"
 readonly webPageLineTabExp="\{url: \"$webPageFileRegExp\", tabName: "
 readonly webPageLineRegExp="${webPageLineTabExp}\"$SCRIPT_NAME\"\},"
-readonly curlHTTPstatusStr="HTTP/S_Status_Code"
-readonly curlTmpLogFile="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.TMP.LOG"
-readonly curlErrLogFile="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.ERR.LOG"
+readonly curlHTTPstatusStr="HTTP_Status_Code"
+readonly curlTmpLogFPath="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.TMP.LOG"
+readonly curlErrLogFPath="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.ERR.LOG"
+readonly curlTmpRespFile="${TEMP_DIR}/tmpCurl_${ScriptFNameTag}_$$.RESP.TXT"
+
+# Temporary NVRAM key to indicate when a F/W Update is in progress #
+readonly nvramTempFWupdateKey="merlinau_fw_update"
 
 # Give FIRST priority to built-in binaries over any other #
 export PATH="/bin:/usr/bin:/sbin:/usr/sbin:$PATH"
@@ -207,7 +215,7 @@ fi
 
 if [ "$isInteractive" = "false" ] && { [ $# -eq 0 ] || [ -z "$1" ] ; }
 then
-   logger -st "${SCRIPT_NAME}_[$$]" -p 3 "**ERROR**: CLI Menu is NOT available in a non-interactive shell"
+   logger -st "$logTagSTR" -p "$pLogERROR" "**ERROR**: CLI Menu is NOT available in a non-interactive shell"
    exit 1
 fi
 
@@ -374,7 +382,22 @@ Say()
    logMsg="$(echo "$1" | \
    sed 's/\\e\[[0-1]m//g; s/\\e\[[3-4][0-9]m//g; s/\\e\[[0-1];[3-4][0-9]m//g; s/\\e\[30;10[1-9]m//g; s/\\n/ /g')"
    _UserLogMsg_ "$logMsg"
-   printf "$logMsg" | logger -t "${SCRIPT_NAME}_[$$]"
+   printf "$logMsg" | logger -t "$logTagSTR"
+}
+
+##----------------------------------------##
+## Modified by Martinski W. [2026-Sep-20] ##
+##----------------------------------------##
+_MsgToSysLog_()
+{
+    local logPrioNum
+
+    if [ $# -gt 1 ] && [ -n "$2" ] && \
+       echo "$2" | grep -qE '^[1-6]$'
+    then logPrioNum="$2"
+    else logPrioNum="$pLogWARNG"
+    fi
+    logger -st "$logTagSTR" -p "$logPrioNum" "$1"
 }
 
 ##----------------------------------------##
@@ -655,8 +678,10 @@ _AcquireMutexFLock_()
 ##-------------------------------------##
 ## Added by Martinski W. [2025-Sep-01] ##
 ##-------------------------------------##
+# Intended for BOTH 'grep' & 'sed' cmds
+#---------------------------------------#
 _EscapeChars_()
-{ printf "%s" "$1" | sed 's/[][\/$.*^&-]/\\&/g' ; }
+{ printf "%s" "$1" | sed 's/[][\/{}()$|.*^&+-]/\\&/g' ; }
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Dec-26] ##
@@ -1599,8 +1624,11 @@ _InitCustomUserSettings_()
    sendEMail_CC_Name="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
    sendEMail_CC_Address="$(Get_Custom_Setting FW_New_Update_EMail_CC_Address)"
    if [ "$sendEMailFormaType" = "HTML" ]
-   then isEMailFormatHTML=true
-   else isEMailFormatHTML=false
+   then
+       isEMailFormatHTML=true
+   else
+       isEMailFormatHTML=false
+       sendEMailFormaType="Plain Text"
    fi
 
    _SetUp_FW_UpdateZIP_DirectoryPaths_
@@ -1608,7 +1636,7 @@ _InitCustomUserSettings_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-05] ##
+## Modified by Martinski W. [2025-Sep-25] ##
 ##----------------------------------------##
 Get_Custom_Setting()
 {
@@ -1618,7 +1646,7 @@ Get_Custom_Setting()
     local setting_value=""  setting_type="$1"  default_value="TBD"
     [ $# -gt 1 ] && default_value="$2"
 
-    if [ -f "$CONFIG_FILE" ]
+    if [ -s "$CONFIG_FILE" ]
     then
         case "$setting_type" in
             "ROGBuild" | "TUFBuild" | \
@@ -1632,7 +1660,7 @@ Get_Custom_Setting()
             "FW_New_Update_EMail_Notification" | \
             "FW_New_Update_Notification_Date" | \
             "FW_New_Update_Notification_Vers")
-                setting_value="$(grep "^${setting_type} " "$CONFIG_FILE" | awk -F ' ' '{print $2}')"
+                setting_value="$(grep -E "^$setting_type .+" "$CONFIG_FILE" | awk -F' ' '{print $2}')"
                 ;;
             "FW_New_Update_Postponement_Days"  | \
             "FW_New_Update_Changelog_Approval" | \
@@ -1646,7 +1674,7 @@ Get_Custom_Setting()
             "FW_New_Update_EMail_CC_Name" | \
             "FW_New_Update_EMail_CC_Address")
                 grep -q "^${setting_type}=" "$CONFIG_FILE" && \
-                setting_value="$(grep "^${setting_type}=" "$CONFIG_FILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                setting_value="$(grep -E "^${setting_type}=.+" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
                 ;;
             *)
                 setting_value="**ERROR**"
@@ -1654,7 +1682,7 @@ Get_Custom_Setting()
         esac
         if [ -z "$setting_value" ]
         then echo "$default_value"
-        else echo "$setting_value"
+        else printf '%s\n' "$setting_value"
         fi
     else
         echo "$default_value"
@@ -1662,7 +1690,7 @@ Get_Custom_Setting()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2026-Aug-16] ##
+## Modified by Martinski W. [2026-Sep-25] ##
 ##----------------------------------------##
 Update_Custom_Settings()
 {
@@ -1686,13 +1714,13 @@ Update_Custom_Settings()
         "FW_New_Update_EMail_Notification" | \
         "FW_New_Update_Notification_Date" | \
         "FW_New_Update_Notification_Vers")
-            if [ -f "$CONFIG_FILE" ]
+            if [ -s "$CONFIG_FILE" ]
             then
-                if [ "$(grep -c "^$setting_type" "$CONFIG_FILE")" -gt 0 ]
+                if [ "$(grep -c "^$setting_type " "$CONFIG_FILE")" -gt 0 ]
                 then
-                    if [ "$setting_value" != "$(grep "^$setting_type" "$CONFIG_FILE" | cut -f2 -d' ')" ]
+                    if [ "$setting_value" != "$(grep -E "^$setting_type .+" "$CONFIG_FILE" | cut -f2 -d' ')" ]
                     then
-                        fixedVal="$(echo "$setting_value" | sed 's/[\/&]/\\&/g')"
+                        fixedVal="$(_EscapeChars_ "$setting_value")"
                         sed -i "s/^${setting_type}.*/$setting_type $fixedVal/" "$CONFIG_FILE"
                     fi
                 else
@@ -1713,21 +1741,21 @@ Update_Custom_Settings()
         "FW_New_Update_EMail_FormatType" | \
         "FW_New_Update_EMail_CC_Name" | \
         "FW_New_Update_EMail_CC_Address")
-            if [ -f "$CONFIG_FILE" ]
+            if [ -s "$CONFIG_FILE" ]
             then
-                if grep -q "^${setting_type}=" "$CONFIG_FILE"
+                if grep -qE "^${setting_type}=.*" "$CONFIG_FILE"
                 then
-                    oldVal="$(grep "^${setting_type}=" "$CONFIG_FILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                    oldVal="$(grep -E "^${setting_type}=.+" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
                     if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
                     then
-                        fixedVal="$(echo "$setting_value" | sed 's/[\/.,*-]/\\&/g')"
-                        sed -i "s/${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$CONFIG_FILE"
+                        fixedVal="$(_EscapeChars_ "$setting_value")"
+                        sed -i "s/${setting_type}=.*/${setting_type}='${fixedVal}'/" "$CONFIG_FILE"
                     fi
                 else
-                    echo "$setting_type=\"${setting_value}\"" >> "$CONFIG_FILE"
+                    echo "$setting_type='${setting_value}'" >> "$CONFIG_FILE"
                 fi
             else
-                echo "$setting_type=\"${setting_value}\"" > "$CONFIG_FILE"
+                echo "$setting_type='${setting_value}'" > "$CONFIG_FILE"
             fi
             if [ "$setting_type" = "FW_New_Update_Postponement_Days" ]
             then
@@ -1773,16 +1801,16 @@ Update_Custom_Settings()
             ;;
         *)
             # Generic handling for arbitrary settings #
-            if grep -q "^${setting_type}=" "$CONFIG_FILE"
+            if grep -qE "^${setting_type}=.*" "$CONFIG_FILE"
             then
-                oldVal="$(grep "^${setting_type}=" "$CONFIG_FILE" | awk -F '=' '{print $2}' | sed "s/['\"]//g")"
+                oldVal="$(grep -E "^${setting_type}=.+" "$CONFIG_FILE" | cut -f2- -d'=' | sed "s/['\"]//g")"
                 if [ -z "$oldVal" ] || [ "$oldVal" != "$setting_value" ]
                 then
-                    fixedVal="$(echo "$setting_value" | sed 's/[\/&]/\\&/g')"
-                    sed -i "s/^${setting_type}=.*/${setting_type}=\"${fixedVal}\"/" "$CONFIG_FILE"
+                    fixedVal="$(_EscapeChars_ "$setting_value")"
+                    sed -i "s/^${setting_type}=.*/${setting_type}='${fixedVal}'/" "$CONFIG_FILE"
                 fi
             else
-                echo "${setting_type}=\"${setting_value}\"" >> "$CONFIG_FILE"
+                echo "${setting_type}='${setting_value}'" >> "$CONFIG_FILE"
             fi
             ;;
     esac
@@ -1823,7 +1851,7 @@ _GetAllNodeSettings_()
         if [ -n "$matched_lines" ]
         then
             # Extract the value from the first matched line #
-            setting_value="$(echo "$matched_lines" | head -n 1 | awk -F '=' '{print $2}' | tr -d '"')"
+            setting_value="$(echo "$matched_lines" | head -n 1 | cut -f2- -d'=' | tr -d '"')"
         fi
     fi
     echo "$setting_value"
@@ -2923,17 +2951,18 @@ _CurlFileDownload_()
    local curlRetCode  returnCODE  statusSTRx  httpStatusSTR
 
    rm -f "$tempFilePathDL"
-   printf '' > "$curlErrLogFile" ; printf '' > "$curlTmpLogFile"
+   printf '' > "$curlErrLogFPath"
+   printf '' > "$curlTmpLogFPath"
 
    curl -LSs --retry 3 --retry-delay 5 --retry-connrefused \
    --connect-timeout 30 --max-time 60 \
-   -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFile" \
-   "$srceFilePathURL" --output "$tempFilePathDL" >> "$curlTmpLogFile"
+   -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFPath" \
+   "$srceFilePathURL" --output "$tempFilePathDL" >> "$curlTmpLogFPath"
    curlRetCode="$?"
 
    returnCODE="$curlRetCode"
    statusSTRx="Curl Status Code: $curlRetCode"
-   httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFile")"
+   httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFPath")"
 
    if [ "$curlRetCode" -eq 0 ] && \
       [ -z "$httpStatusSTR" ] && [ -s "$tempFilePathDL" ]
@@ -2953,25 +2982,25 @@ _CurlFileDownload_()
        if [ "$curlRetCode" -eq 0 ] && [ -n "$httpStatusSTR" ]
        then
            returnCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
-           statusSTRx="HTTP/S Status Code: $returnCODE"
+           statusSTRx="HTTP Status Code: $returnCODE"
        fi
-       if [ -s "$curlErrLogFile" ] && "$isInteractive"
-       then echo ; cat "$curlErrLogFile"
+       if [ -s "$curlErrLogFPath" ] && "$isInteractive"
+       then echo ; cat "$curlErrLogFPath"
        fi
        Say "${REDct}**ERROR**${NOct}: Unable to download the file [$2] [${MGNTct}${statusSTRx}${NOct}]"
        rm -f "$tempFilePathDL"
    fi
 
-   rm -f "$curlErrLogFile" "$curlTmpLogFile"
+   rm -f "$curlErrLogFPath" "$curlTmpLogFPath"
    return "$returnCODE"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2025-Mar-27] ##
+## Modified by maghuro [2026-Sep-24]      ##
 ##----------------------------------------##
 _DownloadScriptFiles_()
 {
-   local retCode  isUpdateAction  updatedWebUIPage  theWebPage
+   local retCode=0  isUpdateAction  updatedWebUIPage  theWebPage
 
    if [ $# -gt 0 ] && [ "$1" = "update" ]
    then isUpdateAction=true
@@ -2981,7 +3010,7 @@ _DownloadScriptFiles_()
 
    if _CurlFileDownload_ "version.txt" "$SCRIPT_VERPATH"
    then
-       retCode=0 ; chmod 664 "$SCRIPT_VERPATH"
+       chmod 664 "$SCRIPT_VERPATH"
    else
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
@@ -2990,7 +3019,6 @@ _DownloadScriptFiles_()
    if "$mountWebGUI_OK" && \
       _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
    then
-       retCode=0
        dos2unix "$SCRIPT_WEB_ASP_PATH"
        chmod 664 "$SCRIPT_WEB_ASP_PATH"
        if "$updatedWebUIPage"
@@ -3012,7 +3040,6 @@ _DownloadScriptFiles_()
 
    if _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$ScriptFilePath"
    then
-       retCode=0
        dos2unix "$ScriptFilePath"
        chmod 755 "$ScriptFilePath"
    else
@@ -3703,22 +3730,16 @@ _CreateEMailContent_()
 
    ! "$isEMailFormatHTML" && sed -i 's/[<]b[>]//g ; s/[<]\/b[>]//g' "$tempEMailBodyMsg"
 
-   if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
-   then
-       CC_ADDRESS_ARG="--mail-rcpt $CC_ADDRESS"
-       CC_ADDRESS_STR="\"${CC_NAME}\" <$CC_ADDRESS>"
-   fi
-
-   ## Header-1 ##
+   ## Header-1a ##
    cat <<EOF > "$tempEMailContent"
 From: "$FROM_NAME" <$FROM_ADDRESS>
 To: "$TO_NAME" <$TO_ADDRESS>
 EOF
 
-   [ -n "$CC_ADDRESS_STR" ] && \
-   printf "Cc: %s\n" "$CC_ADDRESS_STR" >> "$tempEMailContent"
+   [ -n "$CC_ADDRESS_OK" ] && \
+   printf "Cc: \"$CC_NAME\" <$CC_ADDRESS>\n" >> "$tempEMailContent"
 
-   ## Header-2 ##
+   ## Header-1b ##
    cat <<EOF >> "$tempEMailContent"
 Subject: $subjectStr
 Date: $(date -R)
@@ -3729,6 +3750,7 @@ EOF
        cat <<EOF >> "$tempEMailContent"
 MIME-Version: 1.0
 Content-Type: text/html; charset="UTF-8"
+Content-Transfer-Encoding: 8bit
 Content-Disposition: inline
 
 <!DOCTYPE html><html>
@@ -3738,6 +3760,7 @@ Content-Disposition: inline
 EOF
     else
         cat <<EOF >> "$tempEMailContent"
+MIME-Version: 1.0
 Content-Type: text/plain; charset="UTF-8"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
@@ -3747,7 +3770,7 @@ EOF
        printf "%s\n\n" "$emailBodyTitle" >> "$tempEMailContent"
    fi
 
-   ## Body ##
+   ## Email Body ##
    cat "$tempEMailBodyMsg" >> "$tempEMailContent"
 
    ## Footer ##
@@ -3755,7 +3778,7 @@ EOF
    then
        cat <<EOF >> "$tempEMailContent"
 
-Sent by the "<b>${ScriptFNameTag}</b>" utility.
+Sent by the "<b>${ScriptFNameTag}</b>" script.
 From the "<b>${FRIENDLY_ROUTER_NAME}</b>" router.
 
 $(date +"$theEMailDateTimeFormat")
@@ -3764,7 +3787,7 @@ EOF
    else
        cat <<EOF >> "$tempEMailContent"
 
-Sent by the "${ScriptFNameTag}" utility.
+Sent by the "${ScriptFNameTag}" script.
 From the "${FRIENDLY_ROUTER_NAME}" router.
 
 $(date +"$theEMailDateTimeFormat")
@@ -3821,8 +3844,11 @@ _CheckEMailConfigFileFromAMTM_()
    sendEMailNotificationsFlag="$(Get_Custom_Setting FW_New_Update_EMail_Notification)"
    sendEMailFormaType="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
    if [ "$sendEMailFormaType" = "HTML" ]
-   then isEMailFormatHTML=true
-   else isEMailFormatHTML=false
+   then
+       isEMailFormatHTML=true
+   else
+       isEMailFormatHTML=false
+       sendEMailFormaType="Plain Text"
    fi
 
    if [ -n "$sendEMail_CC_Name" ] && [ "$sendEMail_CC_Name" != "TBD" ] && \
@@ -3846,39 +3872,78 @@ _SendEMailNotification_()
    ! _CheckEMailConfigFileFromAMTM_ 1
    then return 1 ; fi
 
-   local CC_ADDRESS_STR=""  CC_ADDRESS_ARG=""
+   local CC_ADDRESS_OK=""  mailpswd
+   local curlRetCode  statusCODE  statusSTRx  httpStatusSTR
 
    [ -z "$FROM_NAME" ] && FROM_NAME="$ScriptFNameTag"
    [ -z "$FRIENDLY_ROUTER_NAME" ] && FRIENDLY_ROUTER_NAME="$MODEL_ID"
+
+   if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
+   then CC_ADDRESS_OK=TRUE
+   fi
 
    ! _CreateEMailContent_ "$1" && return 1
 
    if "$isInteractive"
    then
-       printf "\nSending email notification [$1]."
+       printf "\nSending email notification [${GRNct}${1}${NOct}]."
        printf "\nPlease wait...\n"
    fi
 
-   _UserTraceLog_ "SENDING email notification..."
+   _UserTraceLog_ "SENDING email notification [$1]..."
 
-   curl -Lv --retry 4 --retry-delay 5 --url "${PROTOCOL}://${SMTP}:${PORT}" \
-   --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" $CC_ADDRESS_ARG \
-   --user "${USERNAME}:$(/usr/sbin/openssl aes-256-cbc "$emailPwEnc" -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)" \
-   --upload-file "$tempEMailContent" \
-   $SSL_FLAG --ssl-reqd --crlf >> "$userTraceFile" 2>&1
-   curlCode="$?"
-
-   if [ "$curlCode" -eq 0 ]
+   mailpswd="$(openssl aes-256-cbc "$emailPwEnc" -d -in "$amtmMailPswdFile" -pass pass:ditbabot,isoi)"
+   if [ -z "$mailpswd" ]
    then
-       sleep 2
-       rm -f "$userTraceFile"
-       Say "The email notification was sent successfully [$1]."
-   else
-       Say "${REDct}**ERROR**${NOct}: Failure to send email notification [Code: $curlCode][$1]."
+       Say "${REDct}**ERROR**${NOct}: Failure to extract email password."
+       return 1
    fi
-   rm -f "$tempEMailContent"
 
-   return "$curlCode"
+   printf '' > "$curlErrLogFPath"
+   printf '' > "$curlTmpLogFPath"
+
+   curl -vLSs --retry 3 --retry-delay 5 --retry-connrefused \
+   --connect-timeout 30 --max-time 60 \
+   -w "${curlHTTPstatusStr}: %{http_code}\n" \
+   --output /dev/null --stderr "$curlErrLogFPath" \
+   --url "${PROTOCOL}://${SMTP}:${PORT}" \
+   --user "${USERNAME}:$mailpswd" \
+   --mail-from "$FROM_ADDRESS" --mail-rcpt "$TO_ADDRESS" \
+   ${CC_ADDRESS_OK:+--mail-rcpt "$CC_ADDRESS"} \
+   --upload-file "$tempEMailContent" \
+   $SSL_FLAG --ssl-reqd --crlf >> "$curlTmpLogFPath"
+   curlRetCode="$?"
+
+   statusCODE="$curlRetCode"
+   statusSTRx="Curl Status Code: $curlRetCode"
+   httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFPath")"
+
+   if [ "$curlRetCode" -eq 0 ] && [ -z "$httpStatusSTR" ]
+   then
+       rm -f "$userTraceFile"
+       Say "The email notification [${GRNct}${1}${NOct}] was sent successfully."
+   else
+       if [ "$curlRetCode" -eq 0 ] && [ -n "$httpStatusSTR" ]
+       then
+           statusCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
+           statusSTRx="HTTP Status Code: $statusCODE"
+           cat "$curlTmpLogFPath" >> "$userTraceFile"
+       fi
+       Say "${REDct}**ERROR**${NOct}: Failure to send email notification [${MGNTct}${1}${NOct}] [${REDct}${statusSTRx}${NOct}]."
+
+       if [ -s "$curlErrLogFPath" ] && "$isInteractive"
+       then
+           echo "======================================================="
+           cat "$curlErrLogFPath"
+           echo "======================================================="
+       fi
+   fi
+   mailpswd='XXXXXXXXXXXXXXX' ; unset mailpswd
+   sleep 2
+
+   rm -f "$tempEMailContent"
+   rm -f "$curlErrLogFPath" "$curlTmpLogFPath"
+   return "$statusCODE"
 }
 
 ##----------------------------------------##
@@ -4335,7 +4400,36 @@ _ReEnableAsusTrendMicroProcesses_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2024-Jan-26] ##
+## Added by ExtremeFiretop [2026-Sep-24]    ##
+##------------------------------------------##
+_ClearFWUpdateGuard_()
+{
+   local guardValue
+
+   guardValue="$(nvram get "$nvramTempFWupdateKey" 2>/dev/null)"
+   [ -z "$guardValue" ] && return 0
+
+   if ! nvram unset "$nvramTempFWupdateKey" 2>/dev/null
+   then
+       Say "${YLWct}*WARNING*${NOct}: Unable to clear the AiMesh F/W-update NVRAM guard [$nvramTempFWupdateKey]."
+       return 1
+   fi
+
+   # The guard may have been persisted by another NVRAM commit while the
+   # update was in progress. Commit its removal so it cannot return after
+   # the next reboot. This commit is done only when the guard actually exists.
+   if ! nvram commit >/dev/null 2>&1
+   then
+       Say "${YLWct}*WARNING*${NOct}: Unable to commit removal of the AiMesh F/W-update NVRAM guard [$nvramTempFWupdateKey]."
+       return 1
+   fi
+
+   Say "Cleared AiMesh F/W-update NVRAM guard [$nvramTempFWupdateKey]."
+   return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
 ##------------------------------------------##
 _DoCleanUp_()
 {
@@ -4352,6 +4446,10 @@ _DoCleanUp_()
    [ $# -gt 0 ] && [ "$1" -eq 1 ] && delBINfiles=true
    [ $# -gt 1 ] && [ "$2" -eq 1 ] && keepZIPfile=true
    [ $# -gt 2 ] && [ "$3" -eq 1 ] && keepWfile=true
+
+   # Clear the AiMesh F/W-update guard and commit its removal in case
+   # another firmware component persisted the temporary value.
+   _ClearFWUpdateGuard_
 
    # Stop the LEDs blinking #
    _Reset_LEDs_ 1
@@ -4529,21 +4627,24 @@ _CheckForMinimumModelSupport_()
     "$routerModelCheckFailed" && return 1 || return 0
 }
 
-##------------------------------------------##
-## Modified by ExtremeFiretop [2026-Jul-30] ##
-##------------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Sep-20] ##
+##----------------------------------------##
 _DoMainRouterLogin_()
 {
     if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
-    then
-        echo ; return 1
+    then echo ; return 1
     fi
-    local routerURL="$1"
-    local credsENC="$2"
-    local cookieFile="$3"
-    local curlCode  curlResponse
+    local routerURL="$1"  credsENC="$2"  cookieFile="$3"
+    local responseFPath="${curlTmpRespFile}.MAIN.LOGIN"
+    local curlRetCode  statusCODE  statusSTRx  httpStatusSTR
 
-    curlResponse="$(curl -k "${routerURL}/login.cgi" \
+    printf '' > "$responseFPath"
+    printf '' > "$curlErrLogFPath"
+    printf '' > "$curlTmpLogFPath"
+
+    curl -kiLSs "${routerURL}/login.cgi" \
+    --connect-timeout 10 --max-time 15 \
     --referer "${routerURL}/Main_Login.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
@@ -4552,11 +4653,34 @@ _DoMainRouterLogin_()
     -H 'Connection: keep-alive' \
     --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp" \
     --data-urlencode "login_authorization=$credsENC" \
-    --cookie-jar "$cookieFile")"
-    curlCode="$?"
+    --cookie-jar "$cookieFile" \
+    -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFPath" \
+    --output "$responseFPath" >> "$curlTmpLogFPath"
+    curlRetCode="$?"
 
-    echo "$curlResponse"
-    return "$curlCode"
+    statusCODE="$curlRetCode"
+    statusSTRx="Curl Status Code: $curlRetCode"
+    httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFPath")"
+
+    if [ "$curlRetCode" -eq 0 ] && \
+       [ -z "$httpStatusSTR" ] && [ -s "$responseFPath" ]
+    then
+        if ! grep -qE 'url=index[.]asp|url=GameDashboard[.]asp' "$responseFPath"
+        then
+            statusCODE=777
+            statusSTRx="Login Failure Code: $statusCODE"
+        fi
+    else
+        if [ "$curlRetCode" -eq 0 ] && [ -n "$httpStatusSTR" ]
+        then
+           statusCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
+           statusSTRx="HTTP Status Code: $statusCODE"
+        fi
+    fi
+
+    rm -f "$curlErrLogFPath" "$curlTmpLogFPath" "$responseFPath"
+    echo "$statusSTRx"
+    return "$statusCODE"
 }
 
 ##----------------------------------------##
@@ -4564,7 +4688,7 @@ _DoMainRouterLogin_()
 ##----------------------------------------##
 _TestLoginCredentials_()
 {
-    local credsENC  routerURL  cookieFile  curlResponse  retCode
+    local credsENC  routerURL  cookieFile  curlStatus  retCode
 
     if [ $# -gt 0 ] && [ -n "$1" ]
     then credsENC="$1"
@@ -4578,8 +4702,7 @@ _TestLoginCredentials_()
     /sbin/service restart_httpd >/dev/null 2>&1
     sleep 4
 
-    if curlResponse="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")" && \
-       echo "$curlResponse" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
+    if curlStatus="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")"
     then
         _UpdateLoginPswdCheckHelper_ SUCCESS
         printf "\n${GRNct}Router Login test passed.${NOct}"
@@ -4589,7 +4712,7 @@ _TestLoginCredentials_()
         retCode=0
     else
         _UpdateLoginPswdCheckHelper_ FAILURE
-        printf "\n${REDct}**ERROR**${NOct}: Router Login test failed.\n"
+        printf "\n${REDct}**ERROR**${NOct}: Router Login test failed [$curlStatus].\n"
         printf "\n${routerLoginFailureMsg}\n\n"
         if _WaitForYESorNO_ "Would you like to try again?"
         then retCode=1  # Indicates failure but with intent to retry #
@@ -4647,7 +4770,7 @@ _GetRawKeypress_()
    fi
    local savedSettings="$(stty -g)"
    stty -icanon -echo
-   dd bs=4 count=1 2>/dev/null
+   dd bs=64 count=1 2>/dev/null
    stty "$savedSettings"
    stty -echo
 }
@@ -4774,6 +4897,7 @@ _GetKeypressInput_()
    inputString=""
    inputStrLen=0
    keypressCnt=0
+   keypressLen=0
    prevxStrLen=0
    _ClearKeySeqState_
    _ShowInputString_
@@ -4782,7 +4906,8 @@ _GetKeypressInput_()
    do
       theChar="$(_GetRawKeypress_)"
       charNum="$(printf "%d" "'$theChar")"
-      keypressCnt="$((keypressCnt + 1))"
+      keypressLen="${#theChar}"
+      keypressCnt="$((keypressCnt + keypressLen))"
 
       ##<ENTER>##
       if echo "$charNum" | grep -qE "^(0|10|13)$"
@@ -4980,6 +5105,7 @@ _GetPasswordInput_()
    charNum=""
    showPSWD=0
    keypressCnt=0
+   keypressLen=0
    prevxStrLen=0
    newPSWDstring="$thePWSDstring"
    newPSWDlength="${#newPSWDstring}"
@@ -4990,7 +5116,8 @@ _GetPasswordInput_()
    do
       theChar="$(_GetRawKeypress_)"
       charNum="$(printf "%d" "'$theChar")"
-      keypressCnt="$((keypressCnt + 1))"
+      keypressLen="${#theChar}"
+      keypressCnt="$((keypressCnt + keypressLen))"
 
       ##<ENTER>##
       if echo "$charNum" | grep -qE "^(0|10|13)$"
@@ -5401,20 +5528,27 @@ _GetNodeURL_()
     echo "${urlProto}://${nodeIPv4addr}${urlPort}"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2026-Jan-01] ##
-##-------------------------------------##
+##----------------------------------------##
+## Modified by Martinski W. [2026-Sep-21] ##
+##----------------------------------------##
 _DoMeshNodeLogin_()
 {
-    if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
-    then
-        return 1
+    if [ $# -lt 4 ] || [ -z "$1" ] || \
+       [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]
+    then echo ; return 1
     fi
-    local nodeURL="$1"
-    local credsENC="$2"
-    local cookieFile="$3"
+    local nodeURL="$1"  credsENC="$2"  cookieFile="$3"
+    local responseFPath="${curlTmpRespFile}.${4}.NODE.LOGIN"
+    local curlErrLogFile="${curlErrLogFPath}.${4}.NODE.LOGIN"
+    local curlTmpLogFile="${curlTmpLogFPath}.${4}.NODE.LOGIN"
+    local curlRetCode  statusCODE  statusSTRx  httpStatusSTR
 
-    curl -s -k "${nodeURL}/login.cgi" \
+    printf '' > "$responseFPath"
+    printf '' > "$curlErrLogFile"
+    printf '' > "$curlTmpLogFile"
+
+    curl -kiLSs "${nodeURL}/login.cgi" \
+    --connect-timeout 10 --max-time 15 \
     --referer "${nodeURL}/Main_Login.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept-Language: en-US,en;q=0.5' \
@@ -5424,15 +5558,128 @@ _DoMeshNodeLogin_()
     --data-raw "group_id=&action_mode=&action_script=&action_wait=5&current_page=Main_Login.asp&next_page=index.asp" \
     --data-urlencode "login_authorization=$credsENC" \
     --cookie-jar "$cookieFile" \
-    --max-time 3 >/dev/null 2>&1
+    -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFile" \
+    --output "$responseFPath" >> "$curlTmpLogFile"
+    curlRetCode="$?"
 
-    return "$?"
+    statusCODE="$curlRetCode"
+    statusSTRx="Curl Status Code: $curlRetCode"
+    httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFile")"
+
+    if [ "$curlRetCode" -eq 0 ] && \
+       [ -z "$httpStatusSTR" ] && [ -s "$responseFPath" ]
+    then
+        ## MUST check & verify *IF* this is TRUE for AiMesh Nodes ##
+        if ! grep -qE 'url=index[.]asp|url=GameDashboard[.]asp' "$responseFPath"
+        then
+            statusCODE=788
+            statusSTRx="Login Failure Code: $statusCODE"
+        fi
+    else
+        if [ "$curlRetCode" -eq 0 ] && [ -n "$httpStatusSTR" ]
+        then
+           statusCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
+           statusSTRx="HTTP Status Code: $statusCODE"
+        fi
+    fi
+
+    rm -f "$curlErrLogFile" "$curlTmpLogFile" "$responseFPath"
+    echo "$statusSTRx"
+    return "$statusCODE"
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2026-Jan-01] ##
+## Modified by Martinski W. [2026-Sep-21] ##
 ##----------------------------------------##
-# Trigger the node "Check for updates" (no waiting here)
+_GetNVRAM_FromWebUI_()
+{
+    if [ $# -lt 4 ] || [ -z "$1" ] || \
+       [ -z "$2" ] || [ -z "$3" ] || [ -z "$4" ]
+    then echo ; return 1
+    fi
+    local webUIcURL="$1"  cookieFile="$2"  nvramKey="$3"
+    local responseFPath="${curlTmpRespFile}.${4}.NVRAM.TMP"
+    local curlErrLogFile="${curlErrLogFPath}.${4}.NVRAM.TMP"
+    local curlTmpLogFile="${curlTmpLogFPath}.${4}.NVRAM.TMP"
+    local curlRetCode  statusCODE  statusSTRx  httpStatusSTR
+    local nvramKeyValPair=""
+
+    printf '' > "$responseFPath"
+    printf '' > "$curlErrLogFile"
+    printf '' > "$curlTmpLogFile"
+
+    curl -kiLSs "${webUIcURL}/appGet.cgi?hook=nvram_get($nvramKey)" \
+    --connect-timeout 10 --max-time 15 \
+    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: application/json,text/plain,*/*' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Connection: keep-alive' \
+    -H "Referer: ${webUIcURL}/index.asp" \
+    --cookie "$cookieFile" \
+    -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFile" \
+    --output "$responseFPath" >> "$curlTmpLogFile"
+    curlRetCode="$?"
+
+    statusCODE="$curlRetCode"
+    statusSTRx="Curl Status Code: $curlRetCode"
+    httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFile")"
+
+    if [ "$curlRetCode" -eq 0 ] && \
+       [ -z "$httpStatusSTR" ] && [ -s "$responseFPath" ]
+    then
+        if grep -Eq "href='/Main_Login[.]asp'|login[.]cgi" "$responseFPath"
+        then
+            statusCODE=799
+            statusSTRx="WebUI Session Failure Code: $statusCODE"
+        else
+            nvramKeyValPair="$(grep -oE "\"$nvramKey\":\"[^\"]*\"" "$responseFPath")"
+        fi
+    else
+        if [ "$curlRetCode" -eq 0 ] && [ -n "$httpStatusSTR" ]
+        then
+            statusCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
+            statusSTRx="HTTP Status Code: $statusCODE"
+        fi
+    fi
+    [ -z "$nvramKeyValPair" ] && nvramKeyValPair="$statusSTRx"
+
+    rm -f "$curlErrLogFile" "$curlTmpLogFile" "$responseFPath"
+    echo "$nvramKeyValPair"
+    return "$statusCODE"
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Sep-24] ##
+##---------------------------------------##
+_DoMeshNodeLogout_()
+{
+    if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
+    then return 1
+    fi
+
+    local nodeURL="$1"  cookieFile="$2"
+
+    # Best-effort only: AiMesh nodes normally run with re_mode=1, which intercepts            #
+    # Logout.asp and returns message.htm instead. In that normal state this request           #
+    # does NOT clear the server-side session owner, even when curl itself succeeds.           #
+    # It is only useful when the node UI restriction has been manually disabled               #
+    # (for example re_mode=0). Callers should not depend on this request releasing the WebUI. #
+    curl -s -k "${nodeURL}/Logout.asp" \
+    --referer "${nodeURL}/Main_Login.asp" \
+    --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
+    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
+    -H 'Accept-Language: en-US,en;q=0.5' \
+    -H 'Accept-Encoding: gzip, deflate' \
+    -H 'Connection: keep-alive' \
+    -H 'Upgrade-Insecure-Requests: 0' \
+    --cookie "$cookieFile" \
+    --max-time 3 >/dev/null 2>&1
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
+##------------------------------------------##
+# Trigger the node "Check for updates" (no waiting here) #
 _MeshNodeTriggerFWCheck_()
 {
     if [ $# -lt 2 ] || [ -z "$1" ] || [ -z "$2" ]
@@ -5443,6 +5690,8 @@ _MeshNodeTriggerFWCheck_()
     local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
     local nodeURL="$(_GetNodeURL_ "$nodeIPv4addr")"
     local cookieFile="/tmp/${runID}.${safeID}.cookie"
+    local busyFile="/tmp/${runID}.${safeID}.busy"
+    local curlStatus  nvramKeyPair
 
     # Check for Login Credentials #
     credsENC="$(Get_Custom_Setting credentials_base64)"
@@ -5454,17 +5703,38 @@ _MeshNodeTriggerFWCheck_()
         return 1
     fi
 
-    if _DoMeshNodeLogin_ "$nodeURL" "$credsENC" "$cookieFile"
+    if curlStatus="$(_DoMeshNodeLogin_ "$nodeURL" "$credsENC" "$cookieFile" "${runID}.${safeID}")"
     then
         Say "${GRNct}Successful Login for AiMesh Node [$nodeIPv4addr].${NOct}"
     else
         rm -f "$cookieFile"
-        Say "${REDct}Failed Login for AiMesh Node [$nodeIPv4addr].${NOct}"
+        Say "${REDct}Failed Login for AiMesh Node [$nodeIPv4addr] [$curlStatus].${NOct}"
         return 1
     fi
 
+    #-----------------------------------------------------------------------#
+    # Check if the AiMesh node is already performing a MerlinAU F/W update 
+    # *BEFORE* triggering the built-in firmware update check.
+    #-----------------------------------------------------------------------#
+    if nvramKeyPair="$(_GetNVRAM_FromWebUI_ "$nodeURL" "$cookieFile" "$nvramTempFWupdateKey" "${runID}.${safeID}")"
+    then
+        if echo "$nvramKeyPair" | grep -qE "\"$nvramTempFWupdateKey\"[[:blank:]]*:[[:blank:]]*\"1\""
+        then
+            # Tell the parent process not to query this node again during this run. #
+            touch "$busyFile"
+            Say "AiMesh Node [$nodeIPv4addr] entered an active MerlinAU F/W update before start_webs_update. Skipping firmware check and attempting to release WebUI session."
+
+            # Best-effort only; usually a no-op while normal AiMesh re_mode=1 is active. #
+            _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
+            rm -f "$cookieFile"
+            return 0
+        fi
+    fi
+
+    #-----------------------------------------------------#
     # Trigger firmware check (mimic WebUI "Check" button) #
-    curl -s -k "${nodeURL}/start_apply.htm" \
+    #-----------------------------------------------------#
+    curl -sk "${nodeURL}/start_apply.htm" \
     --referer "${nodeURL}/Advanced_FirmwareUpgrade_Content.asp" \
     --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
     -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' \
@@ -5493,7 +5763,7 @@ _GetNodeInfo_()
     then echo "**ERROR** **NO_PARAMS**" ; return 1
     fi
 
-    local curlCode  htmlContent
+    local curlCode  htmlContent  curlStatus=''
     local nodeIPv4addr="$1"  runID="$2"
     local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
     local nodeURL="$(_GetNodeURL_ "$nodeIPv4addr")"
@@ -5530,10 +5800,10 @@ _GetNodeInfo_()
 
     # If already created a cookie, reuse it (skip login), else perform login request #
     if [ ! -s "$cookieFile" ] && \
-       ! _DoMeshNodeLogin_ "$nodeURL" "$credsENC" "$cookieFile"
+       ! curlStatus="$(_DoMeshNodeLogin_ "$nodeURL" "$credsENC" "$cookieFile" "${runID}.${safeID}")"
     then
         rm -f "$cookieFile"
-        Say "${REDct}Failed Login for AiMesh Node [$nodeIPv4addr].${NOct}"
+        Say "${REDct}Failed Login for AiMesh Node [$nodeIPv4addr] [$curlStatus].${NOct}"
         return 1
     fi
 
@@ -5552,8 +5822,8 @@ _GetNodeInfo_()
 
     if [ "$curlCode" -ne 0 ] || [ -z "$htmlContent" ]
     then
-        # Logout best-effort #
-        curl -s -k "${nodeURL}/Logout.asp" --cookie "$cookieFile" --max-time 2 >/dev/null 2>&1
+        # Logout best-effort; usually a no-op while normal AiMesh re_mode=1 is active. #
+        _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
         printf "\n${REDct}Failed to get information for AiMesh Node [$nodeIPv4addr].${NOct}\n"
         rm -f "$cookieFile"
         return 1
@@ -5575,17 +5845,8 @@ _GetNodeInfo_()
     # Combine extracted information into one string #
     Node_combinedVer="${node_firmver}.${node_buildno}.$node_extendno"
 
-    # Logout request #
-    curl -s -k "${nodeURL}/Logout.asp" \
-    -H 'User-Agent: Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
-    -H 'Accept: text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8' \
-    -H 'Accept-Language: en-US,en;q=0.5' \
-    -H 'Accept-Encoding: gzip, deflate' \
-    -H 'Connection: keep-alive' \
-    -H "Referer: ${nodeURL}/Main_Login.asp" \
-    -H 'Upgrade-Insecure-Requests: 0' \
-    --cookie "$cookieFile" \
-    --max-time 2 >/dev/null 2>&1
+    # Logout best-effort; usually a no-op while normal AiMesh re_mode=1 is active. #
+    _DoMeshNodeLogout_ "$nodeURL" "$cookieFile"
     curlCode="$?"
 
     # Write a vars file the parent shell can source safely #
@@ -6042,17 +6303,18 @@ _GetChecksumsFromRMerlinWebsite_()
 
    theChecksums=""
    rm -f "$outTempFPathDL"
-   printf '' > "$curlErrLogFile" ; printf '' > "$curlTmpLogFile"
+   printf '' > "$curlErrLogFPath"
+   printf '' > "$curlTmpLogFPath"
 
    curl -LSs --retry 3 --retry-delay 5 --retry-connrefused \
    --connect-timeout 30 --max-time 60 \
-   -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFile" \
-   "$FW_SHA256_URL" --output "$outTempFPathDL" >> "$curlTmpLogFile"
+   -w "${curlHTTPstatusStr}: %{http_code}\n" --stderr "$curlErrLogFPath" \
+   "$FW_SHA256_URL" --output "$outTempFPathDL" >> "$curlTmpLogFPath"
    curlRetCode="$?"
 
    returnCODE="$curlRetCode"
    statusSTRx="Curl Status Code: $curlRetCode"
-   httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFile")"
+   httpStatusSTR="$(grep -oE "${curlHTTPstatusStr}: [4-5][0-9]{2,}" "$curlTmpLogFPath")"
 
    if [ "$curlRetCode" -eq 0 ] && \
       [ -z "$httpStatusSTR" ] && [ -s "$outTempFPathDL" ]
@@ -6068,15 +6330,15 @@ _GetChecksumsFromRMerlinWebsite_()
        if [ "$curlRetCode" -eq 0 ] && [ -n "$httpStatusSTR" ]
        then
            returnCODE="$(echo "$httpStatusSTR" | awk -F' ' '{print $2}')"
-           statusSTRx="HTTP/S Status Code: $returnCODE"
+           statusSTRx="HTTP Status Code: $returnCODE"
        fi
-       if [ -s "$curlErrLogFile" ] && "$isInteractive"
-       then echo ; cat "$curlErrLogFile"
+       if [ -s "$curlErrLogFPath" ] && "$isInteractive"
+       then echo ; cat "$curlErrLogFPath"
        fi
        Say "${MGNTct}*WARNING*${NOct}: Unable to download the SHA256 checksum signature list from the ASUSWRT-Merlin website [${MGNTct}${statusSTRx}${NOct}]"
    fi
 
-   rm -f "$curlErrLogFile" "$curlTmpLogFile" "$outTempFPathDL"
+   rm -f "$curlErrLogFPath" "$curlTmpLogFPath" "$outTempFPathDL"
    return "$returnCODE"
 }
 
@@ -6140,8 +6402,8 @@ _CheckOnlineFirmwareSHA256_()
             return 1
         fi
 
-        checksumSource="FwUpdate VPS mirror"
-        Say "${MGNTct}*WARNING*${NOct}: Using the FwUpdate VPS checksum mirror for verification."
+        checksumSource="RMerlin's F/W Update VPS mirror"
+        Say "${MGNTct}*WARNING*${NOct}: Using RMerlin's F/W Update VPS checksum mirror for verification."
     fi
 
     #--------------------------------------------------------------------------#
@@ -9688,8 +9950,6 @@ _Unmount_Eject_USB_Drives_()
     local ejectUSB_OK=false  ejectUSB_PID=""  usbMountPoint=""
     local logMsg="Unmount/Eject USB Drive"
 
-    _MsgToSysLog_() { logger -st "${SCRIPT_NAME}_[$$]" -p 4 "$1" ; }
-
     _MsgToSysLog_ "START of ${logMsg}..."
 
     /sbin/ejusb -1 0 -u 1 2>/dev/null & ejectUSB_PID=$!
@@ -9756,10 +10016,14 @@ _Unmount_Eject_USB_Drives_()
 }
 
 ##----------------------------------------##
-## Modified by Martinski W. [2026-Jan-01] ##
+## Modified by Martinski W. [2026-Sep-21] ##
 ##----------------------------------------##
 _RunFirmwareUpdateNow_()
 {
+    local fwUploadResponseFile="/tmp/upload_response.txt"
+    local fwUploadDiagFile="${SETTINGS_DIR}/last_fw_upload_response.txt"
+    local curlRC=0  uploadHTTPcode=""
+
     # Double-check the directory exists before using it #
     [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
 
@@ -9836,7 +10100,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     local retCode  credsENC=""
     local currentVersionNum=""  releaseVersionNum=""
-    local current_version=""
+    local current_version=""  loginOwner=""  curlStatus=""
 
     # Create directory for downloading & extracting firmware #
     if ! _CreateDirectory_ "$FW_ZIP_DIR" ; then return 1 ; fi
@@ -10204,7 +10468,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
     routerURL="$(_GetRouterURL_)"
     Say "Router Web URL is: ${routerURL}"
-    cookieFile="/tmp/FW_UpgradeCookie.txt"
+    cookieFile="/tmp/MerlinAU_FW_UpgradeCookie.txt"
 
     if "$isInteractive"
     then
@@ -10219,13 +10483,15 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
-    #------------------------------------------------------------#
-    # Restart the WebGUI to make sure nobody else is logged in
-    # so that the F/W Update can start without interruptions.
-    #------------------------------------------------------------#
-    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
-    /sbin/service restart_httpd >/dev/null 2>&1 &
-    sleep 4
+    #-------------------------------------------------------------------#
+    # NVRAM key guard set BEFORE restarting/logging into the WebGUI.
+    # Primary routers running MerlinAU can query this NVRAM value and
+    # avoid triggering 'start_webs_update' on AiMesh nodes mid-flash.
+    # Do *NOT* commit this key here. Cleanup and startup explicitly
+    # clear and commit its removal so a stale guard cannot survive reboot.
+    #-------------------------------------------------------------------#
+    nvram set "$nvramTempFWupdateKey"=1
+    rm -f "$fwUploadResponseFile" "$fwUploadDiagFile"
 
     # Send last email notification before F/W flash #
     _SendEMailNotification_ START_FW_UPDATE_STATUS
@@ -10260,11 +10526,18 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         requiredDIVER_version="$(_ScriptVersionStrToNum_ "5.2.0")"
     fi
 
+    #------------------------------------------------------------#
+    # Restart the WebGUI to make sure nobody else is logged in
+    # so that the F/W Update can start *without* interruptions.
+    #------------------------------------------------------------#
+    "$isInteractive" && printf "\nRestarting web server... Please wait.\n"
+    /sbin/service restart_httpd >/dev/null 2>&1 &
+    sleep 3
+
     ##----------------------------------------##
     ## Modified by Martinski W. [2026-Jan-01] ##
     ##----------------------------------------##
-    if curlResponse="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")" && \
-       echo "$curlResponse" | grep -Eq 'url=index\.asp|url=GameDashboard\.asp'
+    if curlStatus="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")"
     then
         _UpdateLoginPswdCheckHelper_ SUCCESS
 
@@ -10297,21 +10570,19 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # Remove SIGHUP to allow script to continue #
         trap '' HUP
 
-        # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
-        _EntwareServicesHandler_ stop -noskip
-
         ##-------------------------------------##
         ## Added by Martinski W. [2024-Sep-15] ##
         ##-------------------------------------##
         # Remove cron jobs from 3rd-party Add-Ons #
         _RemoveCronJobsFromAddOns_
 
-        _Do_PostReboot_FWUpdate_Setup_
-        echo
-        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
-        echo
+        # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
+        _EntwareServicesHandler_ stop -noskip
 
-        # *WARNING*: NO MORE logging at this point & beyond #
+        _Do_PostReboot_FWUpdate_Setup_
+
+        # Avoid persistent logging from this point during the normal flash path. #
+        # Failure diagnostics are written only if the router does not reboot. #
         sync ; sleep 2 ; echo 3 > /proc/sys/vm/drop_caches ; sleep 3
 
         ##-------------------------------------##
@@ -10321,13 +10592,54 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         #------------------------------------------------------------------#
         _Unmount_Eject_USB_Drives_
 
+        #-------------------------------------------------------------------#
+        # Double-check IF the existing Cookie is still valid. If it's not,
+        # attempt to get a NEW login session Cookie by logging in again.
+        # If this login fails now then we have to abort here and reboot.
+        # Modified by ExtremeFiretop [2026-Sep-25]
+        #-------------------------------------------------------------------#
+        if ! nvramKeyPair="$(_GetNVRAM_FromWebUI_ "$routerURL" "$cookieFile" "$nvramTempFWupdateKey" "$$")"
+        then
+            rm -f "$cookieFile"
+
+            # AiMesh nodes can reject Logout.asp before http_logout() runs,
+            # leaving the primary router recorded as the WebUI session owner.
+            # If any stale owner remains after our Cookie fails validation,
+            # reset httpd locally to release that server-side session before
+            # attempting to acquire a new login Cookie.
+            curlStatus=""
+            loginOwner="$(nvram get login_ip_str 2>/dev/null)"
+            if [ -n "$loginOwner" ] && [ "$loginOwner" != "0.0.0.0" ]
+            then
+                _MsgToSysLog_ "*WARNING*: WebUI owner [$loginOwner] is holding the session. Restarting web server."
+                /sbin/service restart_httpd >/dev/null 2>&1
+                sleep 3
+            fi
+
+            if ! curlStatus="$(_DoMainRouterLogin_ "$routerURL" "$credsENC" "$cookieFile")"
+            then
+                rm -f "$cookieFile"
+                _MsgToSysLog_ "**ERROR**: Router Login 2nd Attempt Failed [$curlStatus]." "$pLogERROR"
+                _MsgToSysLog_ "*WARNING*: Router will be rebooted at this point."
+                _SendEMailNotification_ FAILED_FW_UPDATE_STATUS
+                _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+                _ReleaseLock_ ; sleep 2
+                /sbin/service reboot
+                return 1
+            fi
+        fi
+
+        echo
+        Say "Flashing ${GRNct}${firmware_file}${NOct}...\n${REDct}Please wait for reboot in about 4 minutes or less.${NOct}"
+        echo
+
         #----------------------------------------------------------------------------------#
         # **IMPORTANT NOTE**:
         # Due to the nature of 'nohup' and the specific behavior of this 'Curl' request,
         # the following 'Curl' command MUST always be the last step in this block.
         # Do NOT insert any commands after it! (unless you understand the implications).
         #----------------------------------------------------------------------------------#
-        nohup curl -k "${routerURL}/upgrade.cgi" \
+        nohup curl -sS -k "${routerURL}/upgrade.cgi" \
         --referer "${routerURL}/Advanced_FirmwareUpgrade_Content.asp" \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
         -H 'Accept-Language: en-US,en;q=0.5' \
@@ -10340,7 +10652,9 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         -F 'preferred_lang=EN' \
         -F "firmver=${dottedVersion}" \
         -F "file=@${firmware_file}" \
-        --cookie "$cookieFile" > /tmp/upload_response.txt 2>&1 &
+        --cookie "$cookieFile" \
+        --write-out '\nMERLINAU_HTTP_CODE:%{http_code}\n' \
+        > "$fwUploadResponseFile" 2>&1 &
         curlPID=$!
 
         #----------------------------------------------------------#
@@ -10356,21 +10670,45 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
            sleep 180
            if [ "$curlPID" -gt 0 ]
            then
-               kill -EXIT $curlPID 2>/dev/null || return
-               kill -TERM $curlPID 2>/dev/null
+               kill -EXIT "$curlPID" 2>/dev/null || return
+               kill -TERM "$curlPID" 2>/dev/null
            fi
         ) &
-        wait $curlPID ; curlPID=0
+
+        # Preserve Curl's actual result instead of discarding it. #
+        wait "$curlPID"
+        curlRC=$?
+        curlPID=0
+        uploadHTTPcode="$(sed -n 's/^MERLINAU_HTTP_CODE://p' "$fwUploadResponseFile" 2>/dev/null | tail -n 1)"
+
         #----------------------------------------------------------#
         # Let's wait for 3 minutes here. If the router does not
-        # reboot by itself after the process returns, do it now.
+        # reboot by itself after the process returns, 
+        # preserve any diagnostics then reboot.
+        # A successful flash reboots before this step.
         #----------------------------------------------------------#
         sleep 180
+
+        {
+            echo "MerlinAU v$SCRIPT_VERSION firmware upload diagnostics"
+            echo "Timestamp: $(date '+%Y-%m-%d %H:%M:%S %Z')"
+            echo "Router: $MODEL_ID"
+            echo "Firmware image: $firmware_file"
+            echo "Curl exit code: $curlRC"
+            echo "HTTP status: ${uploadHTTPcode:-UNKNOWN}"
+            echo "------------------------------------------------------------"
+            [ -s "$fwUploadResponseFile" ] && cat "$fwUploadResponseFile"
+        } > "$fwUploadDiagFile"
+        chmod 600 "$fwUploadDiagFile"
+
+        _MsgToSysLog_ "F/W upload did not cause the router to reboot within 180 seconds. Curl exit code [$curlRC], HTTP status [${uploadHTTPcode:-UNKNOWN}]."
+        _MsgToSysLog_ "F/W upload diagnostics saved to [$fwUploadDiagFile]."
+
         _ReleaseLock_
         /sbin/service reboot
     else
          _UpdateLoginPswdCheckHelper_ FAILURE
-        Say "${REDct}**ERROR**${NOct}: Router Login failed."
+        Say "${REDct}**ERROR**${NOct}: Router Login failed [$curlStatus]."
         if "$inMenuMode" || "$isInteractive"
         then
             printf "\n${routerLoginFailureMsg}\n\n"
@@ -10391,7 +10729,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
                 AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
                 if [ "$AllowVPN" = "DISABLED" ]
                 then
-                    Say "Unable to Restart Diversion. Please reboot to restart entware services."
+                    Say "Unable to Restart Diversion. Please reboot to restart Entware services."
                 fi
             fi
             sleep 5
@@ -10657,6 +10995,12 @@ _CheckForMinimumRequirements_()
 _DoStartupInit_()
 {
    Say "$SCRIPT_NAME $SCRIPT_VERSION starting up"
+
+   # A successful firmware flash reboots before _DoCleanUp_ can run.
+   # Any update guard still present during services-start is therefore
+   # stale and must be removed persistently before normal operation resumes.
+   _ClearFWUpdateGuard_
+
    _CreateDirPaths_
    _InitCustomDefaultsConfig_
    _InitCustomUserSettings_
@@ -10778,7 +11122,7 @@ _DoUnInstallation_()
 ##-------------------------------------##
 _SetEMailFormatType_()
 {
-   local doReturnToMenu
+   local doReturnToMenu  menuFormatStr
    local currFormatOpt  nextFormatOpt  currFormatStr
 
    currFormatOpt="$(Get_Custom_Setting FW_New_Update_EMail_FormatType)"
@@ -10789,7 +11133,11 @@ _SetEMailFormatType_()
    else
        nextFormatOpt="$currFormatOpt"
    fi
-   currFormatStr="Current Format: ${GRNct}${currFormatOpt}${NOct}"
+   if [ "$currFormatOpt" = "HTML" ]
+   then menuFormatStr="HTML"
+   else menuFormatStr="Plain Text"
+   fi
+   currFormatStr="Current Format: ${GRNct}${menuFormatStr}${NOct}"
 
    doReturnToMenu=false
    while true
@@ -10811,7 +11159,7 @@ _SetEMailFormatType_()
        case $userInput in
            1) nextFormatOpt="HTML" ; break
               ;;
-           2) nextFormatOpt="Plain Text" ; break
+           2) nextFormatOpt="PlainText" ; break
               ;;
            *) echo ; _InvalidMenuSelection_
               ;;
@@ -10842,7 +11190,8 @@ _SetSecondaryEMailAddress_()
    local nextCC_NameOpt  nextCC_AddrOpt
    local currCC_NameStr="Current Name/Alias:"
    local currCC_AddrStr="Current Address:"
-   local clearOptStr="${GRNct}c${NOct}=Clear/Remove Setting"
+   local invalidChars='[][" *?\\]'  #Avoid initial parsing issues#
+   local clearOptStr="${GRNct}C${NOct}=Clear/Remove Setting"
    local doReturnToMenu  doClearSetting  minCharLen  maxCharLen  curCharLen
 
    currCC_NameOpt="$(Get_Custom_Setting FW_New_Update_EMail_CC_Name)"
@@ -10856,6 +11205,7 @@ _SetSecondaryEMailAddress_()
        nextCC_AddrOpt="$currCC_AddrOpt"
        currCC_AddrStr="$currCC_AddrStr ${GRNct}${currCC_AddrOpt}${NOct}"
    fi
+   currCC_AddrStr="$(echo "$currCC_AddrStr" | sed 's/%/%%/g')"
 
    userInput=""
    minCharLen=10
@@ -10875,16 +11225,26 @@ _SetSecondaryEMailAddress_()
 
        [ -z "$userInput" ] && break
 
-       if echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       if printf '%s\n' "$userInput" | grep -qE "^(e|exit|Exit)$"
        then doReturnToMenu=true ; break ; fi
 
-       if echo "$userInput" | grep -qE "^(c|C)$"
+       if printf '%s\n' "$userInput" | grep -qE "^(c|C)$"
        then doClearSetting=true ; break ; fi
 
-       if ! echo "$userInput" | grep -qE ".+[@].+"
+       if ! printf '%s\n' "$userInput" | grep -qE ".+[@].+"
        then
            printf "\n${REDct}INVALID input.${NOct} "
            printf "No ampersand character [${GRNct}@${NOct}] is found.\n"
+           _WaitForEnterKey_
+           clear
+           continue
+       fi
+
+       # Catch invalid chars that may cause parsing errors #
+       if printf '%s\n' "$userInput" | grep -qE "$invalidChars"
+       then
+           printf "\n${REDct}INVALID input.${NOct}\n"
+           printf "One or more invalid characters were found.\n"
            _WaitForEnterKey_
            clear
            continue
@@ -10911,9 +11271,9 @@ _SetSecondaryEMailAddress_()
    if "$doClearSetting" || \
       { [ -z "$nextCC_AddrOpt" ] && [ -n "$currCC_AddrOpt" ] ; }
    then
-       Update_Custom_Settings FW_New_Update_EMail_CC_Name "TBD"
-       Update_Custom_Settings FW_New_Update_EMail_CC_Address "TBD"
-       echo "The secondary email address and associated name/alias were removed successfully."
+       Update_Custom_Settings FW_New_Update_EMail_CC_Name 'TBD'
+       Update_Custom_Settings FW_New_Update_EMail_CC_Address 'TBD'
+       printf "\nThe secondary email address and associated name/alias were removed successfully.\n"
        _WaitForEnterKey_ "$advnMenuReturnPromptStr"
        return 0
    fi
@@ -10927,6 +11287,7 @@ _SetSecondaryEMailAddress_()
        nextCC_NameOpt="$currCC_NameOpt"
        currCC_NameStr="$currCC_NameStr ${GRNct}${currCC_NameOpt}${NOct}"
    fi
+   currCC_NameStr="$(echo "$currCC_NameStr" | sed 's/%/%%/g')"
 
    userInput=""
    minCharLen=6
@@ -10939,7 +11300,8 @@ _SetSecondaryEMailAddress_()
        printf "[${theADExitStr}]\n[${currCC_NameStr}]:  "
        read -r userInput
 
-       if [ -z "$userInput" ] || echo "$userInput" | grep -qE "^(e|exit|Exit)$"
+       if [ -z "$userInput" ] || \
+          printf '%s\n' "$userInput" | grep -qE "^(e|exit|Exit)$"
        then doReturnToMenu=true ; break ; fi
 
        curCharLen="${#userInput}"
@@ -10954,7 +11316,8 @@ _SetSecondaryEMailAddress_()
        break;
    done
 
-   if [ "$nextCC_AddrOpt" = "$currCC_AddrOpt" ] && [ "$nextCC_NameOpt" = "$currCC_NameOpt" ]
+   if [ "$nextCC_AddrOpt" = "$currCC_AddrOpt" ] && \
+      [ "$nextCC_NameOpt" = "$currCC_NameOpt" ]
    then
        _RunEMailNotificationTest_ && _WaitForEnterKey_ "$advnMenuReturnPromptStr"
        return 0
@@ -10981,9 +11344,9 @@ _ValidatePrivateIPv4Address_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2026-Jan-01] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-24] ##
+##------------------------------------------##
 _ProcessMeshNodes_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ]
@@ -11034,6 +11397,13 @@ _ProcessMeshNodes_()
             for nodeIPv4addr in $node_list
             do
                 _ValidatePrivateIPv4Address_ "$nodeIPv4addr" || continue
+                local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
+                local busyFile="/tmp/${runID}.${safeID}.busy"
+
+                # An actively flashing node was already logged out by the guard check. #
+                # Do not log back into it just to retrieve status information.         #
+                [ -f "$busyFile" ] && continue
+
                 _GetNodeInfo_ "$nodeIPv4addr" "$runID" >/dev/null 2>&1 &
             done
             wait
@@ -11045,6 +11415,17 @@ _ProcessMeshNodes_()
 
                 local safeID="$(_MeshSafeID_ "$nodeIPv4addr")"
                 local varsFile="/tmp/${runID}.${safeID}.vars"
+                local busyFile="/tmp/${runID}.${safeID}.busy"
+
+                if [ -f "$busyFile" ]
+                then
+                    if "$includeExtraLogic"
+                    then
+                        _PrintBusyNodeInfo_ "$nodeIPv4addr" "$uid"
+                        uid="$((uid + 1))"
+                    fi
+                    continue
+                fi
 
                 # Load per-node globals (node_*, Node_combinedVer, NodeGNUtonFW) #
                 if [ -s "$varsFile" ]
@@ -11079,7 +11460,7 @@ _ProcessMeshNodes_()
                 _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
             fi
 
-            rm -f "/tmp/${runID}."*.vars 2>/dev/null
+            rm -f "/tmp/${runID}."*.vars "/tmp/${runID}."*.busy "/tmp/${runID}."*.cookie 2>/dev/null
         else
             if "$includeExtraLogic"
             then
@@ -11495,6 +11876,39 @@ _SimpleNotificationDate_()
 }
 
 ##---------------------------------------##
+## Added by ExtremeFiretop [2026-Sep-24] ##
+##---------------------------------------##
+_PrintBusyNodeInfo_()
+{
+    local node_info="$1"  uid="$2"
+    local line1="Node ID: ${uid}"
+    local line2="AiMesh Node: ${node_info}"
+    local line3="MerlinAU F/W Update: IN PROGRESS"
+    local line4="Status Query: SKIPPED"
+    local max_length=0  line  length  h_line=''
+
+    for line in "$line1" "$line2" "$line3" "$line4"
+    do
+        length="$(printf "%s" "$line" | awk '{print length}')"
+        [ "$length" -gt "$max_length" ] && max_length="$length"
+    done
+
+    for i in $(awk "BEGIN{for(i=1;i<=$max_length;i++) print i}")
+    do h_line="${h_line}─" ; done
+
+    printf "\n   ┌─%s─┐" "$h_line"
+    length="$(printf "%s" "$line1" | awk '{print length}')"
+    printf "\n   │ %s%*s │" "$line1" "$((max_length - length))" ""
+    length="$(printf "%s" "$line2" | awk '{print length}')"
+    printf "\n   │ AiMesh Node: ${GRNct}%s${NOct}%*s │" "$node_info" "$((max_length - length))" ""
+    length="$(printf "%s" "$line3" | awk '{print length}')"
+    printf "\n   │ MerlinAU F/W Update: ${YLWct}IN PROGRESS${NOct}%*s │" "$((max_length - length))" ""
+    length="$(printf "%s" "$line4" | awk '{print length}')"
+    printf "\n   │ Status Query: ${YLWct}SKIPPED${NOct}%*s │" "$((max_length - length))" ""
+    printf "\n   └─%s─┘" "$h_line"
+}
+
+##---------------------------------------##
 ## Added by ExtremeFiretop [2024-Mar-27] ##
 ##---------------------------------------##
 # Define a function to print information about each AiMesh node
@@ -11906,8 +12320,8 @@ _ShowAdvancedOptionsMenu_()
            printf "\n ${GRNct}se${NOct}.  Set Email Notifications Secondary Address"
            if [ -n "$CC_NAME" ] && [ -n "$CC_ADDRESS" ]
            then
-               printf "\n${padStr}[Current Name/Alias: ${GRNct}${CC_NAME}${NOct}]"
-               printf "\n${padStr}[Current 2nd Address: ${GRNct}${CC_ADDRESS}${NOct}]\n"
+               printf "\n${padStr}[Current Name/Alias: ${GRNct}%s${NOct}]" "$CC_NAME"
+               printf "\n${padStr}[Current 2nd Address: ${GRNct}%s${NOct}]\n" "$CC_ADDRESS"
            else
                echo
            fi
