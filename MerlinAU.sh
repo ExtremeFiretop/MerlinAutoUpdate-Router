@@ -3013,9 +3013,8 @@ _CurlFileDownload_()
 ## Added by ExtremeFiretop [2026-Sep-28]    ##
 ##------------------------------------------##
 # Download a production script from a version-pinned GitHub Release asset.
-# Validate the downloaded script's syntax, expected version, and asset type
-# before replacing the installed script. This provides aggregate GitHub
-# download counts without adding a third-party analytics/redirect service
+# Validate the downloaded script's asset type before replacing the installed script.
+# This provides aggregate GitHub# download counts without adding a third-party redirect service
 # or a persistent client identifier.
 _DownloadReleaseScriptAsset_()
 {
