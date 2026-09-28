@@ -3062,9 +3062,9 @@ _DownloadReleaseScriptAsset_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by maghuro [2026-Sep-24]      ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-28] ##
+##------------------------------------------##
 _DownloadScriptFiles_()
 {
    local retCode=0  isUpdateAction  updatedWebUIPage  theWebPage
