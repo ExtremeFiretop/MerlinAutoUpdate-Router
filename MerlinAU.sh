@@ -12991,32 +12991,6 @@ then
                _ReleaseLock_ cliFileLock
            fi
            ;;
-       releaseassettest)
-           testKind="${2:-update}"
-           testVersion="${3:-release-metrics-test}"
-           testDest="/tmp/${SCRIPT_NAME}-${testKind}-releaseasset-test.sh"
-
-           printf "\nTesting GitHub Release asset runtime path...\n"
-           printf "Asset type:      %s\n" "$testKind"
-           printf "Release version: %s\n" "$testVersion"
-           printf "Destination:     %s\n\n" "$testDest"
-
-           rm -f "$testDest"
-
-           if _DownloadReleaseScriptAsset_ "$testKind" "$testVersion" "$testDest"
-           then
-               printf "Release asset download succeeded.\n"
-               printf "Downloaded marker: "
-               grep -m1 '^readonly RELEASE_ASSET_KIND=' "$testDest"
-               printf "Downloaded size: "
-               wc -c < "$testDest"
-               printf "Downloaded file: %s\n" "$testDest"
-               _DoExit_ 0
-           else
-               printf "Release asset download FAILED.\n"
-               _DoExit_ 1
-           fi
-           ;;
        forceupdate)
            if _AcquireLock_ cliFileLock
            then
