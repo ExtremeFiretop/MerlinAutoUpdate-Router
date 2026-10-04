@@ -3043,8 +3043,7 @@ _DownloadReleaseScriptAsset_()
        return 1
    fi
 
-   downloadedKind="$(grep -m1 '^readonly RELEASE_ASSET_KIND=' "$tempScriptPath" | \
-       cut -d'=' -f2- | tr -d '"[:space:]')"
+   downloadedKind="$(grep -m1 '^readonly RELEASE_ASSET_KIND=' "$tempScriptPath" | cut -d'"' -f2)"
 
    if [ "$downloadedKind" != "$assetKind" ]
    then
