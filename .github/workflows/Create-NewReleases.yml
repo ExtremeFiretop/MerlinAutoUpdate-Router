@@ -85,12 +85,10 @@ jobs:
           cp MerlinAU.sh MerlinAU-update.sh
 
           sed -i 's/^readonly RELEASE_ASSET_KIND=.*/readonly RELEASE_ASSET_KIND="install"/' MerlinAU-install.sh
-          sed -i 's/^readonly RELEASE_ASSET_KIND=.*/readonly RELEASE_ASSET_KIND="update"/' Merlin
+          sed -i 's/^readonly RELEASE_ASSET_KIND=.*/readonly RELEASE_ASSET_KIND="update"/' MerlinAU-update.sh
 
           grep -Fxq 'readonly RELEASE_ASSET_KIND="install"' MerlinAU-install.sh
           grep -Fxq 'readonly RELEASE_ASSET_KIND="update"' MerlinAU-update.sh
-          grep -Fxq 'readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}' MerlinAU-install.sh
-          grep -Fxq 'readonly SCRIPT_VERSION=${{ steps.nextver.outputs.tag }}' MerlinAU-update.sh
 
       - name: Create and Push Tag
         run: |
