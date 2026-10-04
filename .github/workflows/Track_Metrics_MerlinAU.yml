@@ -1,0 +1,64 @@
+name: Track Release Downloads
+
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  snapshot-metrics:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7.0.1
+        with:
+          fetch-depth: 0
+
+      - name: Restore metrics history
+        shell: bash
+        run: |
+          mkdir -p metrics
+
+          if git ls-remote --exit-code --heads origin metrics >/dev/null 2>&1; then
+            git fetch origin metrics:refs/remotes/origin/metrics
+            git show origin/metrics:metrics/release_downloads.csv \
+              > metrics/release_downloads.csv 2>/dev/null || true
+          fi
+
+      - name: Snapshot release download counts
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python3 track_downloads.py
+
+      - name: Publish metrics history
+        shell: bash
+        run: |
+          cp metrics/release_downloads.csv /tmp/release_downloads.csv
+          rm -rf metrics
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          if git show-ref --verify --quiet refs/remotes/origin/metrics; then
+            git switch --force-create metrics origin/metrics
+          else
+            git switch --orphan metrics
+            git rm -rf . >/dev/null 2>&1 || true
+          fi
+
+          mkdir -p metrics
+          cp /tmp/release_downloads.csv metrics/release_downloads.csv
+
+          git add metrics/release_downloads.csv
+
+          if git diff --cached --quiet; then
+            echo "No metrics changes to commit."
+            exit 0
+          fi
+
+          git commit -m "Update release download metrics"
+          git push origin metrics
