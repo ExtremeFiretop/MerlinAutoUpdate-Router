@@ -19,11 +19,11 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.6.9
-readonly SCRIPT_VERSTAG="26092509"
+readonly SCRIPT_VERSION=1.7.0
+readonly SCRIPT_VERSTAG="26092816"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -31,6 +31,15 @@ SCRIPT_BRANCH="master"
 # Script URL Info #
 readonly SCRIPT_URL_BASE="https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router"
 SCRIPT_URL_REPO="${SCRIPT_URL_BASE}/$SCRIPT_BRANCH"
+
+# Production release assets are used for install/update downloads so GitHub's
+# native per-asset download counters can provide aggregate usage statistics.
+# Development builds continue to use raw.githubusercontent.com.
+readonly RELEASE_URL_BASE="https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/releases/download"
+readonly RELEASE_INSTALL_ASSET="${SCRIPT_NAME}-install.sh"
+readonly RELEASE_UPDATE_ASSET="${SCRIPT_NAME}-update.sh"
+# Rewritten to "install" or "update" in generated GitHub Release assets.
+readonly RELEASE_ASSET_KIND="source"
 
 # Firmware URL Info #
 readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
@@ -2947,8 +2956,13 @@ _CurlFileDownload_()
    then return 1
    fi
    local tempFilePathDL="${2}.DL.$$.TMP"
-   local srceFilePathURL="${SCRIPT_URL_REPO}/$1"
+   local srceFilePathURL
    local curlRetCode  returnCODE  statusSTRx  httpStatusSTR
+
+   if [ $# -gt 2 ] && [ -n "$3" ]
+   then srceFilePathURL="$3"
+   else srceFilePathURL="${SCRIPT_URL_REPO}/$1"
+   fi
 
    rm -f "$tempFilePathDL"
    printf '' > "$curlErrLogFPath"
@@ -2995,9 +3009,60 @@ _CurlFileDownload_()
    return "$returnCODE"
 }
 
-##----------------------------------------##
-## Modified by maghuro [2026-Sep-24]      ##
-##----------------------------------------##
+##------------------------------------------##
+## Added by ExtremeFiretop [2026-Sep-28]    ##
+##------------------------------------------##
+# Download a production script from a version-pinned GitHub Release asset.
+# Validate the downloaded script's asset type before replacing the installed script.
+# This provides aggregate GitHub# download counts without adding a third-party redirect service
+# or a persistent client identifier.
+_DownloadReleaseScriptAsset_()
+{
+   if [ $# -lt 3 ] || [ -z "$1" ] || [ -z "$2" ] || [ -z "$3" ]
+   then return 1
+   fi
+
+   local assetKind="$1"  releaseVersion="$2"  destFilePath="$3"
+   local assetName  releaseBaseURL  tempScriptPath
+   local downloadedKind
+
+   case "$assetKind" in
+       install) assetName="$RELEASE_INSTALL_ASSET" ;;
+       update)  assetName="$RELEASE_UPDATE_ASSET" ;;
+       *) return 1 ;;
+   esac
+
+   releaseBaseURL="${RELEASE_URL_BASE}/${releaseVersion}"
+   tempScriptPath="${destFilePath}.REL.$$.TMP"
+   rm -f "$tempScriptPath"
+
+   if ! _CurlFileDownload_ "$assetName" "$tempScriptPath" \
+        "${releaseBaseURL}/${assetName}"
+   then
+       rm -f "$tempScriptPath"
+       return 1
+   fi
+
+   downloadedKind="$(grep -m1 '^readonly RELEASE_ASSET_KIND=' "$tempScriptPath" | cut -d'"' -f2)"
+
+   if [ "$downloadedKind" != "$assetKind" ]
+   then
+       Say "${REDct}**ERROR**${NOct}: Release asset type validation failed for [$assetName]."
+       rm -f "$tempScriptPath"
+       return 1
+   fi
+
+   if ! mv -f "$tempScriptPath" "$destFilePath"
+   then
+       rm -f "$tempScriptPath"
+       return 1
+   fi
+   return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Sep-28] ##
+##------------------------------------------##
 _DownloadScriptFiles_()
 {
    local retCode=0  isUpdateAction  updatedWebUIPage  theWebPage
@@ -3038,7 +3103,45 @@ _DownloadScriptFiles_()
        Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
    fi
 
-   if _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$ScriptFilePath"
+   local scriptDownloadOK=false  releaseVersion
+
+   # Stable production installs/updates use GitHub Release assets so GitHub
+   # can count aggregate install/update downloads. Development stays on raw
+   # GitHub and is intentionally excluded from production download counts.
+   if [ "$SCRIPT_BRANCH" = "master" ]
+   then
+       if "$isUpdateAction"
+       then
+           releaseVersion="$DLRepoVersion"
+           [ -z "$releaseVersion" ] && releaseVersion="$(head -n1 "$SCRIPT_VERPATH")"
+           if _DownloadReleaseScriptAsset_ update "$releaseVersion" "$ScriptFilePath"
+           then scriptDownloadOK=true
+           fi
+       elif [ "$RELEASE_ASSET_KIND" = "install" ]
+       then
+           # The bootstrap itself was the counted install asset. Do not fetch
+           # the same asset a second time and inflate the install counter.
+           scriptDownloadOK=true
+       else
+           releaseVersion="$(head -n1 "$SCRIPT_VERPATH")"
+           if _DownloadReleaseScriptAsset_ install "$releaseVersion" "$ScriptFilePath"
+           then
+               scriptDownloadOK=true
+           else
+               # Preserve compatibility with a short release-publication race
+               # or an older AMTM bootstrap by falling back to the raw script.
+               Say "${YLWct}*WARNING*${NOct}: Counted install asset unavailable; falling back to repository source."
+               if _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$ScriptFilePath"
+               then scriptDownloadOK=true
+               fi
+           fi
+       fi
+   elif _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$ScriptFilePath"
+   then
+       scriptDownloadOK=true
+   fi
+
+   if "$scriptDownloadOK"
    then
        dos2unix "$ScriptFilePath"
        chmod 755 "$ScriptFilePath"

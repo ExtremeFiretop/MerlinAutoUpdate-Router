@@ -79,6 +79,17 @@ jobs:
       - name: Push Changes
         run: git push origin main
           
+      - name: Build and Validate Counted Release Assets
+        run: |
+          cp MerlinAU.sh MerlinAU-install.sh
+          cp MerlinAU.sh MerlinAU-update.sh
+
+          sed -i 's/^readonly RELEASE_ASSET_KIND=.*/readonly RELEASE_ASSET_KIND="install"/' MerlinAU-install.sh
+          sed -i 's/^readonly RELEASE_ASSET_KIND=.*/readonly RELEASE_ASSET_KIND="update"/' MerlinAU-update.sh
+
+          grep -Fxq 'readonly RELEASE_ASSET_KIND="install"' MerlinAU-install.sh
+          grep -Fxq 'readonly RELEASE_ASSET_KIND="update"' MerlinAU-update.sh
+
       - name: Create and Push Tag
         run: |
           git tag ${{ steps.nextver.outputs.tag }}
@@ -92,3 +103,6 @@ jobs:
           name: "Release ${{ steps.nextver.outputs.tag }}"
           prerelease: false
           generate_release_notes: true
+          files: |
+            MerlinAU-install.sh
+            MerlinAU-update.sh
