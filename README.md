@@ -1,7 +1,7 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
 
-## v1.6.9
-## 2026-Sep-25
+## v1.7.0
+## 2026-Oct-05
 
 ## WebUI:
 <img width="775" height="1640" alt="image" src="https://github.com/user-attachments/assets/846f889b-b39f-4ffe-a37a-8892ad9b2f7f" />
@@ -194,9 +194,13 @@ Use your preferred SSH client to connect to the router.
 *Manual Installation*
 1. To Download the script to your router, Copy and paste:
 ```bash
-curl --retry 3 "https://raw.githubusercontent.com/ExtremeFiretop/MerlinAutoUpdate-Router/master/MerlinAU.sh" -o "/jffs/scripts/MerlinAU.sh" && chmod +x "/jffs/scripts/MerlinAU.sh" && sh /jffs/scripts/MerlinAU.sh install
+curl -fL --retry 3 "https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router/releases/latest/download/MerlinAU-install.sh" -o "/jffs/scripts/MerlinAU.sh" && chmod +x "/jffs/scripts/MerlinAU.sh" && sh /jffs/scripts/MerlinAU.sh install
 ```
 - The script is now ready for use!
+
+### Aggregate Download Counts and Privacy
+Stable MerlinAU releases use separate GitHub Release assets for fresh installs and script updates. This way, GitHub's native download counter can provide aggregate install/update activity without adding a third-party gateway, cookies, installation ID, or telemetry.
+The counters represent **download events, not unique users or routers**. Reinstalls, forced updates, retries, or manual downloads can increment them more than once.
   
 ## Usage
 
