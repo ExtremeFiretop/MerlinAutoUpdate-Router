@@ -3164,7 +3164,12 @@ _GetRemoteMinSupportedFirmwareVers_()
    local varName minVers defaultVar
 
    tmpScript="/tmp/${SCRIPT_NAME}.sh.minfw.tmp"
-   srceScriptUrl="${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh"
+   if [ "$SCRIPT_BRANCH" = "master" ] && [ -n "$DLRepoVersion" ]
+   then
+        srceScriptUrl="${RELEASE_URL_BASE}/${DLRepoVersion}/${RELEASE_UPDATE_ASSET}"
+   else
+        srceScriptUrl="${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh"
+   fi
 
    current_version="$(_GetCurrentFWInstalledLongVersion_)"
    if [ -n "$fwInstalledBranchVer" ]
