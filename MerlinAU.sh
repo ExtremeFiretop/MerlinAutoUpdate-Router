@@ -3189,7 +3189,7 @@ _GetRemoteMinSupportedFirmwareVers_()
    if [ -z "$minVers" ]
    then
        defaultVar="$(grep -m1 \
-         '^[[:space:]]*\*\)[[:space:]]*MinSupportedFirmwareVers="\$MinSupportedFW_' \
+         '^[[:space:]]*[*])[[:space:]]*MinSupportedFirmwareVers="\$MinSupportedFW_' \
          "$tmpScript" | \
          sed -n 's/.*\$\([A-Za-z0-9_]*\)".*/\1/p')"
 
@@ -3251,7 +3251,10 @@ _SCRIPT_UPDATE_()
    if [ $# -gt 0 ] && [ "$1" = "force" ]
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
-       _CheckForNewScriptUpdates_ -quietcheck
+       if ! _CheckForNewScriptUpdates_ -quietcheck
+       then
+           return 1
+       fi
        printf "${CYANct}Downloading latest version [$DLRepoVersion] of ${SCRIPT_NAME}${NOct}\n"
 
        current_version="$(_GetCurrentFWInstalledLongVersion_)"
