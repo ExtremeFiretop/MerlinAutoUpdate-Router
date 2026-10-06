@@ -376,7 +376,7 @@ _UserLogMsg_()
 DoPrintf()
 {
     if "$isInteractive" && "$isVerbose"
-    then printf "$1"
+    then printf "$@"
     fi
 }
 
@@ -6266,6 +6266,8 @@ _DownloadForMerlin_()
 ##---------------------------------------##
 _UnzipMerlin_()
 {
+    unzipOutputFile="${TEMP_DIR}/MerlinAU_unzip_$$.log"
+
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file
     unzip -l "$FW_ZIP_FPATH" 2>&1 | \
@@ -6273,8 +6275,17 @@ _UnzipMerlin_()
     Say "-----------------------------------------------------------"
 
     # Extracting the firmware binary image
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
-       while IFS= read -r line ; do Say "$line" ; done
+    unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* > "$unzipOutputFile" 2>&1
+    unzipStatus=$?
+
+    while IFS= read -r line
+    do
+        Say "$line"
+    done < "$unzipOutputFile"
+
+    rm -f "$unzipOutputFile"
+
+    if [ "$unzipStatus" -eq 0 ]
     then
         Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
