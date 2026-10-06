@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Sep-25
+# Last Modified: 2026-Oct-06
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -19,8 +19,8 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.7.0
-readonly SCRIPT_VERSTAG="26092816"
+readonly SCRIPT_VERSION=1.7.1
+readonly SCRIPT_VERSTAG="26100605"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -370,9 +370,9 @@ _UserLogMsg_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2026-Feb-22] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-05] ##
+##------------------------------------------##
 DoPrintf()
 {
     if "$isInteractive" && "$isVerbose"
@@ -6261,9 +6261,9 @@ _DownloadForMerlin_()
     fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-18] ##
-##---------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-05] ##
+##------------------------------------------##
 _UnzipMerlin_()
 {
     unzipOutputFile="${TEMP_DIR}/MerlinAU_unzip_$$.log"
@@ -11139,9 +11139,9 @@ _DoStartupInit_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Apr-07] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-06] ##
+##------------------------------------------##
 _DoInstallation_()
 {
    local webguiOK=true
@@ -11155,7 +11155,12 @@ _DoInstallation_()
    _InitHelperJSFile_
    _SetVersionSharedSettings_ local "$SCRIPT_VERSION"
    _SetVersionSharedSettings_ server "$SCRIPT_VERSION"
-   _DownloadScriptFiles_ install
+   if ! _DownloadScriptFiles_ install
+   then
+       Say "${REDct}**ERROR**${NOct}: Unable to download all required $SCRIPT_NAME installation files."
+       Say "Installation aborted."
+       _DoExit_ 1
+   fi
    _CheckAndSetBackupOption_
    _SetDefaultBuildType_
 
