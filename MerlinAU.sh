@@ -16,14 +16,15 @@
 # MerlinAU™ and MerlinAutoUpdate™ are project trademarks.
 # The GPLv3 license does not grant trademark rights. See TRADEMARKS.md.
 ##############################################################################
+# amtm NoMD5check
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.7.0
-readonly SCRIPT_VERSTAG="26092816"
+readonly SCRIPT_VERSION=1.7.1
+readonly SCRIPT_VERSTAG="26100707"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
