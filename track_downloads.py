@@ -51,28 +51,16 @@ def github_get(url: str, token: str | None):
         raise RuntimeError(f"GitHub API request failed for {url}: {exc}") from exc
 
 
-def get_releases(repository: str, token: str | None) -> list[dict]:
-    releases = []
-    page = 1
+def get_latest_release(repository: str, token: str | None) -> dict:
+    url = f"https://api.github.com/repos/{repository}/releases/latest"
+    payload = github_get(url, token)
 
-    while True:
-        url = (
-            f"https://api.github.com/repos/{repository}/releases"
-            f"?per_page=100&page={page}"
+    if not isinstance(payload, dict):
+        raise RuntimeError(
+            "Unexpected GitHub API response while retrieving latest release."
         )
-        payload = github_get(url, token)
 
-        if not isinstance(payload, list):
-            raise RuntimeError("Unexpected GitHub API response while listing releases.")
-
-        releases.extend(payload)
-
-        if len(payload) < 100:
-            break
-
-        page += 1
-
-    return releases
+    return payload
 
 
 def load_existing_rows(path: Path):
@@ -133,39 +121,35 @@ def main() -> int:
     snapshot_time = now.isoformat().replace("+00:00", "Z")
 
     rows = load_existing_rows(OUTPUT_PATH)
-    releases = get_releases(repository, token)
+    release = get_latest_release(repository, token)
 
     matched_assets = 0
 
-    for release in releases:
-        if release.get("draft") or release.get("prerelease"):
+    tag = str(release.get("tag_name") or "")
+    published_at = str(release.get("published_at") or "")
+
+    for asset in release.get("assets") or []:
+        asset_name = str(asset.get("name") or "")
+        kind = ASSETS.get(asset_name)
+
+        if kind is None:
             continue
 
-        tag = str(release.get("tag_name") or "")
-        published_at = str(release.get("published_at") or "")
+        row = {
+            "snapshot_date": snapshot_date,
+            "snapshot_time_utc": snapshot_time,
+            "tag": tag,
+            "published_at": published_at,
+            "kind": kind,
+            "asset_name": asset_name,
+            "asset_id": str(asset.get("id") or ""),
+            "download_count": str(asset.get("download_count") or 0),
+        }
 
-        for asset in release.get("assets") or []:
-            asset_name = str(asset.get("name") or "")
-            kind = ASSETS.get(asset_name)
-
-            if kind is None:
-                continue
-
-            row = {
-                "snapshot_date": snapshot_date,
-                "snapshot_time_utc": snapshot_time,
-                "tag": tag,
-                "published_at": published_at,
-                "kind": kind,
-                "asset_name": asset_name,
-                "asset_id": str(asset.get("id") or ""),
-                "download_count": str(asset.get("download_count") or 0),
-            }
-
-            # Same-day manual reruns refresh the row instead of duplicating it.
-            key = (snapshot_date, tag, asset_name)
-            rows[key] = row
-            matched_assets += 1
+        # Same-day manual reruns refresh the row instead of duplicating it.
+        key = (snapshot_date, tag, asset_name)
+        rows[key] = row
+        matched_assets += 1
 
     write_rows(OUTPUT_PATH, rows)
 
