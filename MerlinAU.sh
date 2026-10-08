@@ -371,13 +371,13 @@ _UserLogMsg_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2026-Feb-22] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-05] ##
+##------------------------------------------##
 DoPrintf()
 {
     if "$isInteractive" && "$isVerbose"
-    then printf "$1"
+    then printf "$@"
     fi
 }
 
@@ -6262,11 +6262,13 @@ _DownloadForMerlin_()
     fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-18] ##
-##---------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-05] ##
+##------------------------------------------##
 _UnzipMerlin_()
 {
+    unzipOutputFile="${TEMP_DIR}/MerlinAU_unzip_$$.log"
+
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file
     unzip -l "$FW_ZIP_FPATH" 2>&1 | \
@@ -6274,8 +6276,17 @@ _UnzipMerlin_()
     Say "-----------------------------------------------------------"
 
     # Extracting the firmware binary image
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
-       while IFS= read -r line ; do Say "$line" ; done
+    unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* > "$unzipOutputFile" 2>&1
+    unzipStatus=$?
+
+    while IFS= read -r line
+    do
+        Say "$line"
+    done < "$unzipOutputFile"
+
+    rm -f "$unzipOutputFile"
+
+    if [ "$unzipStatus" -eq 0 ]
     then
         Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
@@ -11145,7 +11156,12 @@ _DoInstallation_()
    _InitHelperJSFile_
    _SetVersionSharedSettings_ local "$SCRIPT_VERSION"
    _SetVersionSharedSettings_ server "$SCRIPT_VERSION"
-   _DownloadScriptFiles_ install
+   if ! _DownloadScriptFiles_ install
+   then
+       Say "${REDct}**ERROR**${NOct}: Unable to download all required $SCRIPT_NAME installation files."
+       Say "Installation aborted."
+       _DoExit_ 1
+   fi
    _CheckAndSetBackupOption_
    _SetDefaultBuildType_
 
