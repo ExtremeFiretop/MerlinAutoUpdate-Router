@@ -16,7 +16,7 @@
 # MerlinAU™ and MerlinAutoUpdate™ are project trademarks.
 # The GPLv3 license does not grant trademark rights. See TRADEMARKS.md.
 ##############################################################################
-# amtm NoMD5check
+
 set -u
 
 ## Set version for each Production Release ##
