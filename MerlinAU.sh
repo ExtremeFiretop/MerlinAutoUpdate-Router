@@ -3167,7 +3167,9 @@ _GetRemoteMinSupportedFirmwareVers_()
    tmpScript="/tmp/${SCRIPT_NAME}.sh.minfw.tmp"
    if [ "$SCRIPT_BRANCH" = "master" ] && [ -n "$DLRepoVersion" ]
    then
-        srceScriptUrl="${RELEASE_URL_BASE}/${DLRepoVersion}/${RELEASE_UPDATE_ASSET}"
+        # Inspect the version-pinned repository source rather than the counted
+        # update asset so this compatibility check does not inflate update metrics.
+        srceScriptUrl="${SCRIPT_URL_BASE}/${DLRepoVersion}/${SCRIPT_NAME}.sh"
    else
         srceScriptUrl="${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh"
    fi
