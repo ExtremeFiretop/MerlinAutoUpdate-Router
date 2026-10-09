@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Sep-25
+# Last Modified: 2026-Oct-09
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -20,8 +20,8 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.7.1
-readonly SCRIPT_VERSTAG="26100707"
+readonly SCRIPT_VERSION=1.7.2
+readonly SCRIPT_VERSTAG="26100915"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
