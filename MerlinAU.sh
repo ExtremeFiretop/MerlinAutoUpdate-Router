@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Sep-25
+# Last Modified: 2026-Oct-11
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -20,11 +20,11 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.7.1
-readonly SCRIPT_VERSTAG="26100707"
+readonly SCRIPT_VERSION=1.7.2
+readonly SCRIPT_VERSTAG="26101122"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -3067,6 +3067,7 @@ _DownloadReleaseScriptAsset_()
 _DownloadScriptFiles_()
 {
    local retCode=0  isUpdateAction  updatedWebUIPage  theWebPage
+   local scriptDownloadOK=false  releaseVersion
 
    if [ $# -gt 0 ] && [ "$1" = "update" ]
    then isUpdateAction=true
@@ -3103,8 +3104,6 @@ _DownloadScriptFiles_()
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
    fi
-
-   local scriptDownloadOK=false  releaseVersion
 
    # Stable production installs/updates use GitHub Release assets so GitHub
    # can count aggregate install/update downloads. Development stays on raw
@@ -3253,8 +3252,7 @@ _SCRIPT_UPDATE_()
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
        if ! _CheckForNewScriptUpdates_ -quietcheck
-       then
-           return 1
+       then return 1
        fi
        printf "${CYANct}Downloading latest version [$DLRepoVersion] of ${SCRIPT_NAME}${NOct}\n"
 
@@ -10599,8 +10597,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     # NVRAM key guard set BEFORE restarting/logging into the WebGUI.
     # Primary routers running MerlinAU can query this NVRAM value and
     # avoid triggering 'start_webs_update' on AiMesh nodes mid-flash.
-    # Do *NOT* commit this key here. Cleanup and startup explicitly
-    # clear and commit its removal so a stale guard cannot survive reboot.
+    # Do *NOT* commit this key here. Cleanup & startup explicitly clear
+    # and commit its removal so a stale guard cannot survive reboot.
     #-------------------------------------------------------------------#
     nvram set "$nvramTempFWupdateKey"=1
     rm -f "$fwUploadResponseFile" "$fwUploadDiagFile"
@@ -10714,11 +10712,13 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         then
             rm -f "$cookieFile"
 
+            #-----------------------------------------------------------------#
             # AiMesh nodes can reject Logout.asp before http_logout() runs,
             # leaving the primary router recorded as the WebUI session owner.
             # If any stale owner remains after our Cookie fails validation,
             # reset httpd locally to release that server-side session before
             # attempting to acquire a new login Cookie.
+            #-----------------------------------------------------------------#
             curlStatus=""
             loginOwner="$(nvram get login_ip_str 2>/dev/null)"
             if [ -n "$loginOwner" ] && [ "$loginOwner" != "0.0.0.0" ]
@@ -10851,8 +10851,50 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
+##-------------------------------------##
+## Added by Martinski W. [2026-Oct-11] ##
+##-------------------------------------##
+_CheckInternetConnectionWithPings_()
+{
+   local pingTarget  pingStatus
+   local pingWaitSecs=10  pingTestCount=5
+   local pingAttemptNUM=0  pingAttemptMAX=8
+   local pingTargetList="8.8.8.8  9.9.9.9  1.1.1.1"   pingTestOK=false
+   local pingStatsRegEx="[0-9]+ packets transmitted, [0-9]+ packets received, [0-9]+[%] packet loss"
+
+   while true
+   do
+       for pingTarget in $pingTargetList
+       do
+           pingStatus="$(ping -c "$pingTestCount" -w "$pingWaitSecs" "$pingTarget" 2>/dev/null | grep -E "$pingStatsRegEx")"
+           if echo "$pingStatus" | grep -q ", 0% packet loss"
+           then
+               pingTestOK=true
+               Say "Successful ping tests to $pingTarget target."
+               break
+           fi
+           pingAttemptNUM="$((pingAttemptNUM + 1))"
+           Say "Ping tests to $pingTarget target failed."
+           sleep 5
+       done
+
+       if "$pingTestOK" || [ "$pingAttemptNUM" -ge "$pingAttemptMAX" ]
+       then break
+       fi
+       sleep 10
+   done
+
+   if "$pingTestOK"
+   then
+       return 0
+   else
+       Say "**ALERT**: All ping tests failed to reach targets."
+       return 1
+   fi
+}
+
 ##----------------------------------------##
-## Modified by Martinski W. [2026-Apr-06] ##
+## Modified by Martinski W. [2026-Oct-11] ##
 ##----------------------------------------##
 _PostUpdateEmailNotification_()
 {
@@ -10863,7 +10905,7 @@ _PostUpdateEmailNotification_()
 
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=600  #10 minutes#
-   local curWaitDelaySecs=0
+   local curWaitDelaySecs=0  sleepWaitSecs
    local logMsg="Post-Reboot Update Email Notification Wait Timeout"
    Say "START of ${logMsg}."
 
@@ -10892,7 +10934,21 @@ _PostUpdateEmailNotification_()
    fi
 
    Say "END of $logMsg [$curWaitDelaySecs sec.]"
-   sleep 25  ## Let's wait a bit & proceed ##
+
+   #-----------------------------------------------------------#
+   # Let's wait a bit and then proceed to check the internet
+   # connection with ping tests before sending the email.
+   # This is an attempt to give the router enough time to
+   # initialize and establish a valid internet connection.
+   #-----------------------------------------------------------#
+   if "$inMainRouterMode"
+   then sleepWaitSecs=30
+   else sleepWaitSecs=60   #Allow AiMesh Nodes more time#
+   fi
+   sleep "$sleepWaitSecs"
+   Say "Checking internet connection before attempting to send email..."
+   _CheckInternetConnectionWithPings_
+
    _DelPostUpdateEmailNotifyScriptHook_
    _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
 }
@@ -11572,7 +11628,7 @@ _ProcessMeshNodes_()
                 _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
             fi
 
-            rm -f "/tmp/${runID}."*.vars "/tmp/${runID}."*.busy "/tmp/${runID}."*.cookie 2>/dev/null
+            rm -f "/tmp/${runID}."*.vars "/tmp/${runID}."*.busy "/tmp/${runID}."*.cookie
         else
             if "$includeExtraLogic"
             then
@@ -11769,7 +11825,7 @@ _ConfirmCronJobForFWAutoUpdates_()
 
     # 4) Unknown/fallback -> treat as DISABLED #
     else
-        DoPrintf "Unknown FW_Update_Check value: '%s'. Disabling firmware checks.\n" "$fwUpdateCheckState"
+        DoPrintf "Unknown FW_Update_Check value: '${fwUpdateCheckState}'. Disabling firmware checks.\n"
         _DisableFWAutoUpdateChecks_
     fi
 
