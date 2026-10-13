@@ -90,6 +90,9 @@ jobs:
           grep -Fxq 'readonly RELEASE_ASSET_KIND="install"' MerlinAU-install.sh
           grep -Fxq 'readonly RELEASE_ASSET_KIND="update"' MerlinAU-update.sh
 
+          md5sum MerlinAU-install.sh MerlinAU-update.sh > MD5SUMS
+          md5sum -c MD5SUMS
+
       - name: Create and Push Tag
         run: |
           git tag ${{ steps.nextver.outputs.tag }}
@@ -106,3 +109,4 @@ jobs:
           files: |
             MerlinAU-install.sh
             MerlinAU-update.sh
+            MD5SUMS
