@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Oct-11
+# Last Modified: 2026-Oct-13
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -21,7 +21,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.7.2
-readonly SCRIPT_VERSTAG="26101122"
+readonly SCRIPT_VERSTAG="26101320"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -3834,7 +3834,6 @@ _CreateEMailContent_()
                 printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
               } > "$tempEMailBodyMsg"
            fi
-           rm -f "$saveEMailInfoMsg"
            ;;
        *) return 1
            ;;
@@ -10906,9 +10905,41 @@ _CheckInternetConnectionWithPings_()
    fi
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2026-Oct-11] ##
-##----------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Oct-13] ##
+##---------------------------------------##
+_CheckDNSResolutionForHost_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local dnsHost="$1"
+   local dnsWaitSecs=5  dnsAttemptNUM=0  dnsAttemptMAX=12
+
+   # Literal IPv4/IPv6 addresses do not require DNS resolution. #
+   if echo "$dnsHost" | grep -qE '^([0-9]{1,3}[.]){3}[0-9]{1,3}$|^[0-9A-Fa-f:]+$'
+   then return 0
+   fi
+
+   while [ "$dnsAttemptNUM" -lt "$dnsAttemptMAX" ]
+   do
+       if nslookup "$dnsHost" >/dev/null 2>&1
+       then
+           Say "DNS resolution for $dnsHost succeeded."
+           return 0
+       fi
+
+       dnsAttemptNUM="$((dnsAttemptNUM + 1))"
+       Say "DNS resolution for $dnsHost failed [Attempt: $dnsAttemptNUM/$dnsAttemptMAX]."
+       [ "$dnsAttemptNUM" -lt "$dnsAttemptMAX" ] && sleep "$dnsWaitSecs"
+   done
+
+   Say "${YLWct}**WARNING**${NOct}: DNS resolution for $dnsHost is not ready."
+   return 1
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-13] ##
+##------------------------------------------##
 _PostUpdateEmailNotification_()
 {
    if [ "$(Get_Custom_Setting CheckChangeLog)" = "ENABLED" ]
@@ -10920,6 +10951,14 @@ _PostUpdateEmailNotification_()
    local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0  sleepWaitSecs
    local logMsg="Post-Reboot Update Email Notification Wait Timeout"
+
+   #---------------------------------------------------------------------#
+   # The top-level command dispatcher acquires cliOptsLock before calling
+   # this function. Do not hold that global options lock while waiting up
+   # to 10 minutes for the router/network to finish booting.
+   #---------------------------------------------------------------------#
+   _ReleaseLock_ cliOptsLock
+
    Say "START of ${logMsg}."
 
    #--------------------------------------------------------------
@@ -10937,7 +10976,7 @@ _PostUpdateEmailNotification_()
          [ "$((curWaitDelaySecs % 30))" -eq 0 ]
       then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
 
-      sleep $theWaitDelaySecs
+      sleep "$theWaitDelaySecs"
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
 
@@ -10959,11 +10998,44 @@ _PostUpdateEmailNotification_()
    else sleepWaitSecs=60   #Allow AiMesh Nodes more time#
    fi
    sleep "$sleepWaitSecs"
-   Say "Checking internet connection before attempting to send email..."
-   _CheckInternetConnectionWithPings_
 
-   _DelPostUpdateEmailNotifyScriptHook_
-   _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
+   Say "Checking internet connection before attempting to send email..."
+   if ! _CheckInternetConnectionWithPings_
+   then
+       Say "${YLWct}**WARNING**${NOct}: Internet connection is not ready. Post-update email state was preserved for retry."
+       return 1
+   fi
+
+   # Load the configured SMTP host, then verify that the exact host curl
+   # will use can be resolved before attempting the notification.
+   if ! _CheckEMailConfigFileFromAMTM_ 1
+   then
+       Say "${YLWct}**WARNING**${NOct}: Email configuration is not ready. Post-update email state was preserved for retry."
+       return 1
+   fi
+   if ! _CheckDNSResolutionForHost_ "$SMTP"
+   then
+       Say "${YLWct}**WARNING**${NOct}: SMTP DNS is not ready. Post-update email state was preserved for retry."
+       return 1
+   fi
+
+   # Reacquire the short-lived options lock only when MerlinAU is ready
+   # to perform the state-changing notification/cleanup work.
+   if ! _AcquireLock_ cliOptsLock
+   then
+       Say "${YLWct}**WARNING**${NOct}: Unable to reacquire cliOptsLock. Post-update email state was preserved for retry."
+       return 1
+   fi
+
+   if _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
+   then
+       _DelPostUpdateEmailNotifyScriptHook_
+       rm -f "$saveEMailInfoMsg"
+       return 0
+   fi
+
+   Say "${YLWct}**WARNING**${NOct}: Post-update email delivery failed. Post-update email state was preserved for retry."
+   return 1
 }
 
 ##----------------------------------------##
@@ -10977,6 +11049,14 @@ _PostRebootRunNow_()
    local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot F/W Update Run Wait Timeout"
+
+   #---------------------------------------------------------------------#
+   # The top-level command dispatcher acquires cliOptsLock before calling
+   # this function. Release it during the potentially long readiness wait
+   # so normal startup/other MerlinAU option handling is not blocked.
+   #---------------------------------------------------------------------#
+   _ReleaseLock_ cliOptsLock
+
    Say "START of ${logMsg}."
 
    #--------------------------------------------------------------
@@ -10996,7 +11076,7 @@ _PostRebootRunNow_()
          [ "$((curWaitDelaySecs % 30))" -eq 0 ]
       then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
 
-      sleep $theWaitDelaySecs
+      sleep "$theWaitDelaySecs"
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
 
@@ -11007,6 +11087,13 @@ _PostRebootRunNow_()
 
    Say "END of $logMsg [$curWaitDelaySecs sec.]"
    sleep 30  ## Let's wait a bit & proceed ##
+
+   if ! _AcquireLock_ cliOptsLock
+   then
+       Say "${REDct}**ERROR**${NOct}: Unable to reacquire cliOptsLock for post-reboot F/W Update run."
+       return 1
+   fi
+
    if _AcquireLock_ cliFileLock && \
       _AcquireMutexFLock_
    then
