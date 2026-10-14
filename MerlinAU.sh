@@ -10863,48 +10863,6 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2026-Oct-11] ##
-##-------------------------------------##
-_CheckInternetConnectionWithPings_()
-{
-   local pingTarget  pingStatus
-   local pingWaitSecs=10  pingTestCount=5
-   local pingAttemptNUM=0  pingAttemptMAX=8
-   local pingTargetList="8.8.8.8  9.9.9.9  1.1.1.1"   pingTestOK=false
-   local pingStatsRegEx="[0-9]+ packets transmitted, [0-9]+ packets received, [0-9]+[%] packet loss"
-
-   while true
-   do
-       for pingTarget in $pingTargetList
-       do
-           pingStatus="$(ping -c "$pingTestCount" -w "$pingWaitSecs" "$pingTarget" 2>/dev/null | grep -E "$pingStatsRegEx")"
-           if echo "$pingStatus" | grep -q ", 0% packet loss"
-           then
-               pingTestOK=true
-               Say "Successful ping tests to $pingTarget target."
-               break
-           fi
-           pingAttemptNUM="$((pingAttemptNUM + 1))"
-           Say "Ping tests to $pingTarget target failed."
-           sleep 5
-       done
-
-       if "$pingTestOK" || [ "$pingAttemptNUM" -ge "$pingAttemptMAX" ]
-       then break
-       fi
-       sleep 10
-   done
-
-   if "$pingTestOK"
-   then
-       return 0
-   else
-       Say "**ALERT**: All ping tests failed to reach targets."
-       return 1
-   fi
-}
-
 ##---------------------------------------##
 ## Added by ExtremeFiretop [2026-Oct-13] ##
 ##---------------------------------------##
@@ -10988,10 +10946,9 @@ _PostUpdateEmailNotification_()
    Say "END of $logMsg [$curWaitDelaySecs sec.]"
 
    #-----------------------------------------------------------#
-   # Let's wait a bit and then proceed to check the internet
-   # connection with ping tests before sending the email.
-   # This is an attempt to give the router enough time to
-   # initialize and establish a valid internet connection.
+   # Give the router/AiMesh node additional time to stabilize,
+   # then verify that the exact SMTP host curl will use can be
+   # resolved before attempting the notification.
    #-----------------------------------------------------------#
    if "$inMainRouterMode"
    then sleepWaitSecs=30
@@ -10999,15 +10956,7 @@ _PostUpdateEmailNotification_()
    fi
    sleep "$sleepWaitSecs"
 
-   Say "Checking internet connection before attempting to send email..."
-   if ! _CheckInternetConnectionWithPings_
-   then
-       Say "${YLWct}**WARNING**${NOct}: Internet connection is not ready. Post-update email state was preserved for retry."
-       return 1
-   fi
-
-   # Load the configured SMTP host, then verify that the exact host curl
-   # will use can be resolved before attempting the notification.
+   # Load the configured SMTP host, then verify DNS readiness.
    if ! _CheckEMailConfigFileFromAMTM_ 1
    then
        Say "${YLWct}**WARNING**${NOct}: Email configuration is not ready. Post-update email state was preserved for retry."
