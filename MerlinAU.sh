@@ -11000,11 +11000,7 @@ _PostUpdateEmailNotification_()
    sleep "$sleepWaitSecs"
 
    Say "Checking internet connection before attempting to send email..."
-   if ! _CheckInternetConnectionWithPings_
-   then
-       Say "${YLWct}**WARNING**${NOct}: Internet connection is not ready. Post-update email state was preserved for retry."
-       return 1
-   fi
+   _CheckInternetConnectionWithPings_
 
    # Load the configured SMTP host, then verify that the exact host curl
    # will use can be resolved before attempting the notification.
