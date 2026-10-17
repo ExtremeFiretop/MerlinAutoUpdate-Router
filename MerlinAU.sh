@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Sep-25
+# Last Modified: 2026-Oct-13
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -16,15 +16,15 @@
 # MerlinAU™ and MerlinAutoUpdate™ are project trademarks.
 # The GPLv3 license does not grant trademark rights. See TRADEMARKS.md.
 ##############################################################################
-# amtm NoMD5check
+
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.7.1
-readonly SCRIPT_VERSTAG="26100707"
+readonly SCRIPT_VERSION=1.7.2
+readonly SCRIPT_VERSTAG="26101320"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="master"
+SCRIPT_BRANCH="dev"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
@@ -371,13 +371,13 @@ _UserLogMsg_()
    fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2026-Feb-22] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-05] ##
+##------------------------------------------##
 DoPrintf()
 {
     if "$isInteractive" && "$isVerbose"
-    then printf "$1"
+    then printf "$@"
     fi
 }
 
@@ -3067,6 +3067,7 @@ _DownloadReleaseScriptAsset_()
 _DownloadScriptFiles_()
 {
    local retCode=0  isUpdateAction  updatedWebUIPage  theWebPage
+   local scriptDownloadOK=false  releaseVersion
 
    if [ $# -gt 0 ] && [ "$1" = "update" ]
    then isUpdateAction=true
@@ -3103,8 +3104,6 @@ _DownloadScriptFiles_()
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest WebUI ASP file for $SCRIPT_NAME."
    fi
-
-   local scriptDownloadOK=false  releaseVersion
 
    # Stable production installs/updates use GitHub Release assets so GitHub
    # can count aggregate install/update downloads. Development stays on raw
@@ -3167,7 +3166,9 @@ _GetRemoteMinSupportedFirmwareVers_()
    tmpScript="/tmp/${SCRIPT_NAME}.sh.minfw.tmp"
    if [ "$SCRIPT_BRANCH" = "master" ] && [ -n "$DLRepoVersion" ]
    then
-        srceScriptUrl="${RELEASE_URL_BASE}/${DLRepoVersion}/${RELEASE_UPDATE_ASSET}"
+        # Inspect the version-pinned repository source rather than the counted
+        # update asset so this compatibility check does not inflate update metrics.
+        srceScriptUrl="${SCRIPT_URL_BASE}/${DLRepoVersion}/${SCRIPT_NAME}.sh"
    else
         srceScriptUrl="${SCRIPT_URL_REPO}/${SCRIPT_NAME}.sh"
    fi
@@ -3253,8 +3254,7 @@ _SCRIPT_UPDATE_()
    then
        printf "\n${CYANct}Force downloading latest script version...${NOct}\n"
        if ! _CheckForNewScriptUpdates_ -quietcheck
-       then
-           return 1
+       then return 1
        fi
        printf "${CYANct}Downloading latest version [$DLRepoVersion] of ${SCRIPT_NAME}${NOct}\n"
 
@@ -3834,7 +3834,6 @@ _CreateEMailContent_()
                 printf "\nThe F/W version that is currently installed:\n<b>${fwInstalledVersion}</b>\n"
               } > "$tempEMailBodyMsg"
            fi
-           rm -f "$saveEMailInfoMsg"
            ;;
        *) return 1
            ;;
@@ -6262,11 +6261,13 @@ _DownloadForMerlin_()
     fi
 }
 
-##---------------------------------------##
-## Added by ExtremeFiretop [2024-Apr-18] ##
-##---------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-05] ##
+##------------------------------------------##
 _UnzipMerlin_()
 {
+    unzipOutputFile="${TEMP_DIR}/MerlinAU_unzip_$$.log"
+
     Say "-----------------------------------------------------------"
     # List & log the contents of the ZIP file
     unzip -l "$FW_ZIP_FPATH" 2>&1 | \
@@ -6274,8 +6275,17 @@ _UnzipMerlin_()
     Say "-----------------------------------------------------------"
 
     # Extracting the firmware binary image
-    if unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* 2>&1 | \
-       while IFS= read -r line ; do Say "$line" ; done
+    unzip -o "$FW_ZIP_FPATH" -d "$FW_BIN_DIR" -x README* > "$unzipOutputFile" 2>&1
+    unzipStatus=$?
+
+    while IFS= read -r line
+    do
+        Say "$line"
+    done < "$unzipOutputFile"
+
+    rm -f "$unzipOutputFile"
+
+    if [ "$unzipStatus" -eq 0 ]
     then
         Say "-----------------------------------------------------------"
         #---------------------------------------------------------------#
@@ -10599,8 +10609,8 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     # NVRAM key guard set BEFORE restarting/logging into the WebGUI.
     # Primary routers running MerlinAU can query this NVRAM value and
     # avoid triggering 'start_webs_update' on AiMesh nodes mid-flash.
-    # Do *NOT* commit this key here. Cleanup and startup explicitly
-    # clear and commit its removal so a stale guard cannot survive reboot.
+    # Do *NOT* commit this key here. Cleanup & startup explicitly clear
+    # and commit its removal so a stale guard cannot survive reboot.
     #-------------------------------------------------------------------#
     nvram set "$nvramTempFWupdateKey"=1
     rm -f "$fwUploadResponseFile" "$fwUploadDiagFile"
@@ -10714,11 +10724,13 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         then
             rm -f "$cookieFile"
 
+            #-----------------------------------------------------------------#
             # AiMesh nodes can reject Logout.asp before http_logout() runs,
             # leaving the primary router recorded as the WebUI session owner.
             # If any stale owner remains after our Cookie fails validation,
             # reset httpd locally to release that server-side session before
             # attempting to acquire a new login Cookie.
+            #-----------------------------------------------------------------#
             curlStatus=""
             loginOwner="$(nvram get login_ip_str 2>/dev/null)"
             if [ -n "$loginOwner" ] && [ "$loginOwner" != "0.0.0.0" ]
@@ -10851,9 +10863,83 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2026-Apr-06] ##
-##----------------------------------------##
+##-------------------------------------##
+## Added by Martinski W. [2026-Oct-11] ##
+##-------------------------------------##
+_CheckInternetConnectionWithPings_()
+{
+   local pingTarget  pingStatus
+   local pingWaitSecs=10  pingTestCount=5
+   local pingAttemptNUM=0  pingAttemptMAX=8
+   local pingTargetList="8.8.8.8  9.9.9.9  1.1.1.1"   pingTestOK=false
+   local pingStatsRegEx="[0-9]+ packets transmitted, [0-9]+ packets received, [0-9]+[%] packet loss"
+
+   while true
+   do
+       for pingTarget in $pingTargetList
+       do
+           pingStatus="$(ping -c "$pingTestCount" -w "$pingWaitSecs" "$pingTarget" 2>/dev/null | grep -E "$pingStatsRegEx")"
+           if echo "$pingStatus" | grep -q ", 0% packet loss"
+           then
+               pingTestOK=true
+               Say "Successful ping tests to $pingTarget target."
+               break
+           fi
+           pingAttemptNUM="$((pingAttemptNUM + 1))"
+           Say "Ping tests to $pingTarget target failed."
+           sleep 5
+       done
+
+       if "$pingTestOK" || [ "$pingAttemptNUM" -ge "$pingAttemptMAX" ]
+       then break
+       fi
+       sleep 10
+   done
+
+   if "$pingTestOK"
+   then
+       return 0
+   else
+       Say "**ALERT**: All ping tests failed to reach targets."
+       return 1
+   fi
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Oct-13] ##
+##---------------------------------------##
+_CheckDNSResolutionForHost_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   local dnsHost="$1"
+   local dnsWaitSecs=5  dnsAttemptNUM=0  dnsAttemptMAX=12
+
+   # Literal IPv4/IPv6 addresses do not require DNS resolution. #
+   if echo "$dnsHost" | grep -qE '^([0-9]{1,3}[.]){3}[0-9]{1,3}$|^[0-9A-Fa-f:]+$'
+   then return 0
+   fi
+
+   while [ "$dnsAttemptNUM" -lt "$dnsAttemptMAX" ]
+   do
+       if nslookup "$dnsHost" >/dev/null 2>&1
+       then
+           Say "DNS resolution for $dnsHost succeeded."
+           return 0
+       fi
+
+       dnsAttemptNUM="$((dnsAttemptNUM + 1))"
+       Say "DNS resolution for $dnsHost failed [Attempt: $dnsAttemptNUM/$dnsAttemptMAX]."
+       [ "$dnsAttemptNUM" -lt "$dnsAttemptMAX" ] && sleep "$dnsWaitSecs"
+   done
+
+   Say "${YLWct}**WARNING**${NOct}: DNS resolution for $dnsHost is not ready."
+   return 1
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-13] ##
+##------------------------------------------##
 _PostUpdateEmailNotification_()
 {
    if [ "$(Get_Custom_Setting CheckChangeLog)" = "ENABLED" ]
@@ -10863,8 +10949,16 @@ _PostUpdateEmailNotification_()
 
    local theWaitDelaySecs=10
    local maxWaitDelaySecs=600  #10 minutes#
-   local curWaitDelaySecs=0
+   local curWaitDelaySecs=0  sleepWaitSecs
    local logMsg="Post-Reboot Update Email Notification Wait Timeout"
+
+   #---------------------------------------------------------------------#
+   # The top-level command dispatcher acquires cliOptsLock before calling
+   # this function. Do not hold that global options lock while waiting up
+   # to 10 minutes for the router/network to finish booting.
+   #---------------------------------------------------------------------#
+   _ReleaseLock_ cliOptsLock
+
    Say "START of ${logMsg}."
 
    #--------------------------------------------------------------
@@ -10882,7 +10976,7 @@ _PostUpdateEmailNotification_()
          [ "$((curWaitDelaySecs % 30))" -eq 0 ]
       then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
 
-      sleep $theWaitDelaySecs
+      sleep "$theWaitDelaySecs"
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
 
@@ -10892,9 +10986,52 @@ _PostUpdateEmailNotification_()
    fi
 
    Say "END of $logMsg [$curWaitDelaySecs sec.]"
-   sleep 25  ## Let's wait a bit & proceed ##
-   _DelPostUpdateEmailNotifyScriptHook_
-   _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
+
+   #-----------------------------------------------------------#
+   # Let's wait a bit and then proceed to check the internet
+   # connection with ping tests before sending the email.
+   # This is an attempt to give the router enough time to
+   # initialize and establish a valid internet connection.
+   #-----------------------------------------------------------#
+   if "$inMainRouterMode"
+   then sleepWaitSecs=30
+   else sleepWaitSecs=60   #Allow AiMesh Nodes more time#
+   fi
+   sleep "$sleepWaitSecs"
+
+   Say "Checking internet connection before attempting to send email..."
+   _CheckInternetConnectionWithPings_
+
+   # Load the configured SMTP host, then verify that the exact host curl
+   # will use can be resolved before attempting the notification.
+   if ! _CheckEMailConfigFileFromAMTM_ 1
+   then
+       Say "${YLWct}**WARNING**${NOct}: Email configuration is not ready. Post-update email state was preserved for retry."
+       return 1
+   fi
+   if ! _CheckDNSResolutionForHost_ "$SMTP"
+   then
+       Say "${YLWct}**WARNING**${NOct}: SMTP DNS is not ready. Post-update email state was preserved for retry."
+       return 1
+   fi
+
+   # Reacquire the short-lived options lock only when MerlinAU is ready
+   # to perform the state-changing notification/cleanup work.
+   if ! _AcquireLock_ cliOptsLock
+   then
+       Say "${YLWct}**WARNING**${NOct}: Unable to reacquire cliOptsLock. Post-update email state was preserved for retry."
+       return 1
+   fi
+
+   if _SendEMailNotification_ POST_REBOOT_FW_UPDATE_STATUS
+   then
+       _DelPostUpdateEmailNotifyScriptHook_
+       rm -f "$saveEMailInfoMsg"
+       return 0
+   fi
+
+   Say "${YLWct}**WARNING**${NOct}: Post-update email delivery failed. Post-update email state was preserved for retry."
+   return 1
 }
 
 ##----------------------------------------##
@@ -10908,6 +11045,14 @@ _PostRebootRunNow_()
    local maxWaitDelaySecs=600  #10 minutes#
    local curWaitDelaySecs=0
    local logMsg="Post-Reboot F/W Update Run Wait Timeout"
+
+   #---------------------------------------------------------------------#
+   # The top-level command dispatcher acquires cliOptsLock before calling
+   # this function. Release it during the potentially long readiness wait
+   # so normal startup/other MerlinAU option handling is not blocked.
+   #---------------------------------------------------------------------#
+   _ReleaseLock_ cliOptsLock
+
    Say "START of ${logMsg}."
 
    #--------------------------------------------------------------
@@ -10927,7 +11072,7 @@ _PostRebootRunNow_()
          [ "$((curWaitDelaySecs % 30))" -eq 0 ]
       then Say "$logMsg [$curWaitDelaySecs secs.]..." ; fi
 
-      sleep $theWaitDelaySecs
+      sleep "$theWaitDelaySecs"
       curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
    done
 
@@ -10938,6 +11083,13 @@ _PostRebootRunNow_()
 
    Say "END of $logMsg [$curWaitDelaySecs sec.]"
    sleep 30  ## Let's wait a bit & proceed ##
+
+   if ! _AcquireLock_ cliOptsLock
+   then
+       Say "${REDct}**ERROR**${NOct}: Unable to reacquire cliOptsLock for post-reboot F/W Update run."
+       return 1
+   fi
+
    if _AcquireLock_ cliFileLock && \
       _AcquireMutexFLock_
    then
@@ -11145,7 +11297,12 @@ _DoInstallation_()
    _InitHelperJSFile_
    _SetVersionSharedSettings_ local "$SCRIPT_VERSION"
    _SetVersionSharedSettings_ server "$SCRIPT_VERSION"
-   _DownloadScriptFiles_ install
+   if ! _DownloadScriptFiles_ install
+   then
+       Say "${REDct}**ERROR**${NOct}: Unable to download all required $SCRIPT_NAME installation files."
+       Say "Installation aborted."
+       _DoExit_ 1
+   fi
    _CheckAndSetBackupOption_
    _SetDefaultBuildType_
 
@@ -11572,7 +11729,7 @@ _ProcessMeshNodes_()
                 _SendEMailNotification_ AGGREGATED_UPDATE_NOTIFICATION
             fi
 
-            rm -f "/tmp/${runID}."*.vars "/tmp/${runID}."*.busy "/tmp/${runID}."*.cookie 2>/dev/null
+            rm -f "/tmp/${runID}."*.vars "/tmp/${runID}."*.busy "/tmp/${runID}."*.cookie
         else
             if "$includeExtraLogic"
             then
@@ -11769,7 +11926,7 @@ _ConfirmCronJobForFWAutoUpdates_()
 
     # 4) Unknown/fallback -> treat as DISABLED #
     else
-        DoPrintf "Unknown FW_Update_Check value: '%s'. Disabling firmware checks.\n" "$fwUpdateCheckState"
+        DoPrintf "Unknown FW_Update_Check value: '${fwUpdateCheckState}'. Disabling firmware checks.\n"
         _DisableFWAutoUpdateChecks_
     fi
 
