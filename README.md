@@ -1,7 +1,7 @@
 # MerlinAU - AsusWRT-Merlin Firmware Auto Updater
 
 ## v1.7.2
-## 2026-Oct-12
+## 2026-Oct-17
 
 ## WebUI:
 <img width="775" height="1640" alt="image" src="https://github.com/user-attachments/assets/846f889b-b39f-4ffe-a37a-8892ad9b2f7f" />
