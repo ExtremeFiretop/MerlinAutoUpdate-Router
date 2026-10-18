@@ -24,7 +24,7 @@ readonly SCRIPT_VERSION=1.7.2
 readonly SCRIPT_VERSTAG="26101320"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
-SCRIPT_BRANCH="dev"
+SCRIPT_BRANCH="master"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Jul-03] ##
