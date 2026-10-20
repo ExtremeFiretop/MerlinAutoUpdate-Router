@@ -12949,7 +12949,7 @@ _DoInitializationStartup_()
 
        "$isInteractive" && \
         printf "\n${BOLDct}Would you like to uninstall $ScriptFileName now${NOct}"
-        if _WaitForYESorNO_
+        if "$isInteractive" && _WaitForYESorNO_
         then
             _DoUnInstallation_
             _DoExit_ 0
