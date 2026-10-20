@@ -4107,6 +4107,9 @@ _CreateDirectory_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
 
+    local preserveFiles=false
+    [ $# -gt 1 ] && [ "$2" = "preserve" ] && preserveFiles=true
+
     mkdir -p "$1"
     if [ ! -d "$1" ]
     then
@@ -4114,7 +4117,7 @@ _CreateDirectory_()
         "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
-    if ! "$offlineUpdateTrigger"
+    if ! "$offlineUpdateTrigger" && ! "$preserveFiles"
     then
         # Clear directory in case any previous files still exist #
         rm -f "${1}"/*
@@ -8932,7 +8935,7 @@ _ManageChangelogMerlin_()
     local wgetLogFile  changeLogFile  changeLogTag
 
     # Create directory to download changelog if missing #
-    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
+    if ! _CreateDirectory_ "$FW_BIN_DIR" preserve ; then return 1 ; fi
 
     if [ "$mode" = "view" ] || [ "$mode" = "webuidownload" ]
     then
@@ -9030,7 +9033,7 @@ _ManageChangelogGnuton_()
     local wgetLogFile  FW_Changelog_GITHUB
 
     # Create directory to download changelog if missing
-    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
+    if ! _CreateDirectory_ "$FW_BIN_DIR" preserve ; then return 1 ; fi
 
     GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
 
