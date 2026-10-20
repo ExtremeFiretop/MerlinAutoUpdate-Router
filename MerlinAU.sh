@@ -20,8 +20,8 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.7.2
-readonly SCRIPT_VERSTAG="26101320"
+readonly SCRIPT_VERSION=1.7.3
+readonly SCRIPT_VERSTAG="26101922"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -2428,12 +2428,20 @@ _Mount_WebUI_()
        Say "${CRITct}**ERROR**${NOct}: The WebUI page file for $SCRIPT_NAME is NOT found."
        return 1
    fi
-   local webPageFile
+   local webPageFile  webPageTitleFile
 
    Say "Mounting WebUI page for ${SCRIPT_NAME}..."
 
-   eval exec "$WEBUI_LOCKFD>$WEBUI_LOCKFILE"
-   flock -x "$WEBUI_LOCKFD"
+   if ! eval exec "$WEBUI_LOCKFD>$WEBUI_LOCKFILE"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to open the WebUI lock file."
+       return 1
+   fi
+   if ! flock -x "$WEBUI_LOCKFD"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to acquire the WebUI lock."
+       return 1
+   fi
 
    webPageFile="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
    if [ -z "$webPageFile" ] || [ "$webPageFile" = "NONE" ]
@@ -2442,20 +2450,54 @@ _Mount_WebUI_()
        flock -u "$WEBUI_LOCKFD"
        return 1
    fi
+   webPageTitleFile="${SHARED_WEB_DIR}/$(echo "$webPageFile" | cut -f1 -d'.').title"
 
-   cp -fp "$SCRIPT_WEB_ASP_PATH" "${SHARED_WEB_DIR}/$webPageFile"
-   echo "$SCRIPT_NAME" > "${SHARED_WEB_DIR}/$(echo "$webPageFile" | cut -f1 -d'.').title"
+   if ! cp -fp "$SCRIPT_WEB_ASP_PATH" "${SHARED_WEB_DIR}/$webPageFile"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to copy the $SCRIPT_NAME WebUI page."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
+   if ! printf '%s\n' "$SCRIPT_NAME" > "$webPageTitleFile"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to create the $SCRIPT_NAME WebUI title file."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
 
    if [ ! -f "$TEMP_MENU_TREE" ]
-   then cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE"
+   then
+       if ! cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE"
+       then
+           Say "${CRITct}**ERROR**${NOct}: Unable to create the temporary WebUI menu tree."
+           flock -u "$WEBUI_LOCKFD"
+           return 1
+       fi
    fi
-   sed -i "/url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+
+   if ! sed -i "/url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to update the temporary WebUI menu tree."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
 
    # Insert new page tab in the 'Administration' menu #
-   sed -i "/url: \"Advanced_FirmwareUpgrade_Content.asp\", tabName:/a {url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"}," "$TEMP_MENU_TREE"
+   if ! sed -i "/url: \"Advanced_FirmwareUpgrade_Content.asp\", tabName:/a {url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"}," "$TEMP_MENU_TREE"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to add the $SCRIPT_NAME tab to the WebUI menu tree."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
 
+   # It is normal for this to fail when no previous bind mount exists. #
    umount "$ORIG_MENU_TREE" 2>/dev/null
-   mount -o bind "$TEMP_MENU_TREE" "$ORIG_MENU_TREE"
+   if ! mount -o bind "$TEMP_MENU_TREE" "$ORIG_MENU_TREE"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to bind-mount the $SCRIPT_NAME WebUI menu tree."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
    flock -u "$WEBUI_LOCKFD"
 
    Say "${GRNct}$SCRIPT_NAME WebUI page was mounted as $webPageFile successfully."
