@@ -510,9 +510,29 @@ else
    esac
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
-##----------------------------------------##
+##------------------------------------------##
+## Added by ExtremeFiretop [2026-Oct-20]    ##
+##------------------------------------------##
+_IsMerlinAU_PID_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   # First confirm the PID still exists. #
+   kill -0 "$1" 2>/dev/null || return 1
+
+   # Preserve the existing process-name check for direct executions. #
+   if pidof "$ScriptFileName" | grep -qow "$1"
+   then return 0 ; fi
+
+   # Cron starts MerlinAU as "sh /jffs/scripts/MerlinAU.sh ...", so the
+   # process name is "sh". Verify the script path in the process argv. #
+   [ -r "/proc/$1/cmdline" ] || return 1
+   tr '\0' '\n' < "/proc/$1/cmdline" | grep -Fxq "$ScriptFilePath"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-20] ##
+##------------------------------------------##
 _AcquireLock_()
 {
    local retCode  waitTimeoutSecs
@@ -541,7 +561,7 @@ _AcquireLock_()
       if [ -s "$LockFilePath" ]
       then
           oldPID="$(head -n1 "$LockFilePath" |  awk -F '|' '{print $1}')"
-          if [ -n "$oldPID" ] && ! pidof "$ScriptFileName" | grep -qow "$oldPID"
+          if [ -n "$oldPID" ] && ! _IsMerlinAU_PID_ "$oldPID"
           then sed -i "/^${oldPID}|/d" "$LockFilePath"
           fi
           lockFileSecs="$(date +%s -r "$LockFilePath")"
@@ -563,8 +583,7 @@ _AcquireLock_()
       then
           Say "Stale Lock Found (older than $LockFileMaxAgeSecs secs). Resetting lock file..."
           if [ -n "$oldPID" ] && \
-             pidof "$ScriptFileName" | grep -qow "$oldPID" && \
-             kill -EXIT "$oldPID" 2>/dev/null
+             _IsMerlinAU_PID_ "$oldPID"
           then
               kill -TERM "$oldPID" ; wait "$oldPID"
           fi
