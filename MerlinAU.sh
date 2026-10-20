@@ -10135,19 +10135,6 @@ _Unmount_Eject_USB_Drives_()
             ejectUSB_OK=true ; break
         fi
 
-        ## If timeout was reached, check again and exit loop ##
-        if [ -n "$ejectUSB_PID" ] && \
-           [ "$curWaitDelaySecs" -ge "$maxWaitDelaySecs" ]
-        then
-            if ! kill -EXIT "$ejectUSB_PID" 2>/dev/null && \
-               ! usbMountPoint="$(_GetDefaultUSBMountPoint_)"
-            then
-                ejectUSB_OK=true ; break
-            fi
-            kill -KILL "$ejectUSB_PID" 2>/dev/null
-            wait $ejectUSB_PID ; break
-        fi
-
         ## If USB drive is still mounted, try again ##
         if [ -n "$ejectUSB_PID" ] && \
            ! kill -EXIT "$ejectUSB_PID" 2>/dev/null && \
@@ -10165,8 +10152,24 @@ _Unmount_Eject_USB_Drives_()
         curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
     done
 
-    if "$ejectUSB_OK" || \
-       [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+    # The loop condition exits once the timeout is reached, so any final
+    # eject-process cleanup must happen here rather than inside the loop. #
+    if ! "$ejectUSB_OK" && \
+       [ "$curWaitDelaySecs" -ge "$maxWaitDelaySecs" ]
+    then
+        # Check once more in case the drive unmounted at the timeout boundary. #
+        if ! usbMountPoint="$(_GetDefaultUSBMountPoint_)"
+        then
+            ejectUSB_OK=true
+        elif [ -n "$ejectUSB_PID" ] && \
+             kill -EXIT "$ejectUSB_PID" 2>/dev/null
+        then
+            kill -KILL "$ejectUSB_PID" 2>/dev/null
+            wait "$ejectUSB_PID" 2>/dev/null
+        fi
+    fi
+
+    if "$ejectUSB_OK"
     then
         _MsgToSysLog_ "$logMsg succeeded [$curWaitDelaySecs secs]"
     else
@@ -10754,7 +10757,15 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         ##-------------------------------------##
         # Unmount the USB drives. If "busy" let's wait until "idle" state. #
         #------------------------------------------------------------------#
-        _Unmount_Eject_USB_Drives_
+        if ! _Unmount_Eject_USB_Drives_
+        then
+            _MsgToSysLog_ "**ERROR**: Unable to safely unmount USB drive before F/W flash." "$pLogERROR"
+            _MsgToSysLog_ "*WARNING*: F/W update was cancelled. Router will be rebooted to restore stopped services."
+            _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+            _ReleaseLock_ ; sleep 2
+            /sbin/service reboot
+            return 1
+        fi
 
         #-------------------------------------------------------------------#
         # Double-check IF the existing Cookie is still valid. If it's not,
