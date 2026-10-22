@@ -27,3 +27,5 @@ snapshot_date,snapshot_time_utc,tag,published_at,kind,asset_name,asset_id,downlo
 2026-10-20,2026-10-20T03:48:41Z,1.7.2,2026-10-18T13:36:43Z,update,MerlinAU-update.sh,653570771,824
 2026-10-21,2026-10-21T03:39:37Z,1.7.2,2026-10-18T13:36:43Z,install,MerlinAU-install.sh,653570772,28
 2026-10-21,2026-10-21T03:39:37Z,1.7.2,2026-10-18T13:36:43Z,update,MerlinAU-update.sh,653570771,887
+2026-10-22,2026-10-22T03:39:15Z,1.7.2,2026-10-18T13:36:43Z,install,MerlinAU-install.sh,653570772,37
+2026-10-22,2026-10-22T03:39:15Z,1.7.2,2026-10-18T13:36:43Z,update,MerlinAU-update.sh,653570771,941
