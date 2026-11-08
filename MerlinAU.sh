@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Oct-13
+# Last Modified: 2026-Nov-07
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -21,7 +21,7 @@ set -u
 
 ## Set version for each Production Release ##
 readonly SCRIPT_VERSION=1.7.3
-readonly SCRIPT_VERSTAG="26101922"
+readonly SCRIPT_VERSTAG="26110716"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="dev"
@@ -719,6 +719,7 @@ _DoExit_()
 {
    local exitCode=0
    [ $# -gt 0 ] && [ -n "$1" ] && exitCode="$1"
+   _RestoreLowMemoryState_
    _ReleaseLock_
    _ReleaseMutexFLock_ checkLockOK
    _IgnoreKeypresses_ OFF
@@ -4465,11 +4466,43 @@ _GetRequiredRAM_KB_()
     echo "$total_required_KB"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Mar-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Nov-07] ##
+##------------------------------------------##
+LowMemoryServiceStateSaved=false
+LowMemoryNotificationCenterWasRunning=false
+LowMemoryStoppedServices=""
+
 _ShutDownNonCriticalServices_()
 {
+    local procName  procNum  service_name
+
+    # Capture the pre-update state only once. Repeated memory checks must not
+    # replace the original state with the already-stopped state.
+    if ! "$LowMemoryServiceStateSaved"
+    then
+        for procName in nt_center nt_monitor nt_actMail
+        do
+            procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
+            if [ "$procNum" -gt 0 ]
+            then LowMemoryNotificationCenterWasRunning=true
+            fi
+        done
+
+        for service_name in conn_diag samba nasapps
+        do
+            procNum="$(ps w | grep -w "$service_name" | grep -cv "grep -w")"
+            if [ "$procNum" -gt 0 ]
+            then
+                if [ -z "$LowMemoryStoppedServices" ]
+                then LowMemoryStoppedServices="$service_name"
+                else LowMemoryStoppedServices="$LowMemoryStoppedServices $service_name"
+                fi
+            fi
+        done
+        LowMemoryServiceStateSaved=true
+    fi
+
     for procName in nt_center nt_monitor nt_actMail
     do
         procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
@@ -4491,9 +4524,43 @@ _ShutDownNonCriticalServices_()
     done
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jun-01] ##
-##-------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Nov-07] ##
+##---------------------------------------##
+_RestoreNonCriticalServices_()
+{
+    local service_name
+
+    ! "$LowMemoryServiceStateSaved" && return 0
+
+    Say "Restoring services stopped by low-memory handling..."
+
+    # start_notification_center() in Asuswrt starts nt_monitor, which in turn
+    # manages the notification-center processes. Invoke nt_monitor directly
+    # only when that group was running before MerlinAU stopped it.
+    if "$LowMemoryNotificationCenterWasRunning" && \
+       ! pidof nt_monitor >/dev/null 2>&1 && \
+       command -v nt_monitor >/dev/null 2>&1
+    then
+        nt_monitor >/dev/null 2>&1 &
+        sleep 1
+    fi
+
+    for service_name in $LowMemoryStoppedServices
+    do
+        service "start_$service_name" >/dev/null 2>&1
+        sleep 1
+    done
+
+    LowMemoryNotificationCenterWasRunning=false
+    LowMemoryStoppedServices=""
+    LowMemoryServiceStateSaved=false
+    return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Nov-07] ##
+##------------------------------------------##
 #---------------------------------------------------------------------#
 # As a last resort, to free more available RAM, we now attempt to
 # disable and shutdown existing ASUS/TrendMicro services such as:
@@ -4506,20 +4573,74 @@ bwdpi_db_enable_SAVED=""
 aae_disable_force_SAVED=""
 wrs_protect_enable_SAVED=""
 networkmap_fullscan_SAVED=""
+AsusTrendMicroStateSaved=false
+AsusTrendMicroNVRAMModified=false
 AsusTrendMicroProcsDisabled=false
+AsusTrendMicroAAEWasRunning=false
+AsusTrendMicroMastiffWasRunning=false
+AsusTrendMicroWRSWasRunning=false
+AsusTrendMicroNetoolWasRunning=false
+LowMemoryEntwareStopped=false
 
-_DisableAsusTrendMicroProcesses_()
+_SaveAsusTrendMicroState_()
 {
+    local procName
+
+    "$AsusTrendMicroStateSaved" && return 0
+
     apps_analysis_SAVED="$(nvram get apps_analysis)"
     bwdpi_db_enable_SAVED="$(nvram get bwdpi_db_enable)"
     aae_disable_force_SAVED="$(nvram get aae_disable_force)"
     wrs_protect_enable_SAVED="$(nvram get wrs_protect_enable)"
     networkmap_fullscan_SAVED="$(nvram get networkmap_fullscan)"
 
-    if [ "$apps_analysis_SAVED" = "1" ]     || \
-       [ "$bwdpi_db_enable_SAVED" = "1" ]   || \
-       [ "$aae_disable_force_SAVED" = "0" ] || \
-       [ "$wrs_protect_enable_SAVED" = "1" ]
+    pidof aaews >/dev/null 2>&1 && AsusTrendMicroAAEWasRunning=true
+    pidof mastiff >/dev/null 2>&1 && AsusTrendMicroMastiffWasRunning=true
+    pidof netool >/dev/null 2>&1 && AsusTrendMicroNetoolWasRunning=true
+    for procName in dcd wred bwdpi_wred_alive bwdpi_check hour_monitor
+    do
+        if pidof "$procName" >/dev/null 2>&1
+        then AsusTrendMicroWRSWasRunning=true ; break
+        fi
+    done
+
+    AsusTrendMicroStateSaved=true
+    return 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Nov-07] ##
+##---------------------------------------##
+_RestoreAsusTrendMicroNVRAMState_()
+{
+    ! "$AsusTrendMicroStateSaved" && return 0
+    ! "$AsusTrendMicroNVRAMModified" && return 0
+
+    Say "Restoring temporary Asus/TrendMicro NVRAM settings..."
+    nvram set apps_analysis="$apps_analysis_SAVED"
+    nvram set bwdpi_db_enable="$bwdpi_db_enable_SAVED"
+    nvram set aae_disable_force="$aae_disable_force_SAVED"
+    nvram set wrs_protect_enable="$wrs_protect_enable_SAVED"
+    nvram set networkmap_fullscan="$networkmap_fullscan_SAVED"
+    AsusTrendMicroNVRAMModified=false
+    return 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Nov-07] ##
+##---------------------------------------##
+_DisableAsusTrendMicroProcesses_()
+{
+    local procName  procNum
+
+    # Preserve the true pre-update values only on the first low-memory pass.
+    # Subsequent memory checks must never save the temporary disabled values.
+    _SaveAsusTrendMicroState_
+
+    if [ "$(nvram get apps_analysis)" = "1" ]     || \
+       [ "$(nvram get bwdpi_db_enable)" = "1" ]   || \
+       [ "$(nvram get aae_disable_force)" = "0" ] || \
+       [ "$(nvram get wrs_protect_enable)" = "1" ]
     then
         Say "Temporarily disabling some Asus/TrendMicro services..."
         "$isInteractive" && printf "Please wait.\n"
@@ -4528,6 +4649,7 @@ _DisableAsusTrendMicroProcesses_()
         nvram set aae_disable_force=1 ; sleep 1
         nvram set wrs_protect_enable=0 ; sleep 1
         nvram set networkmap_fullscan=2
+        AsusTrendMicroNVRAMModified=true
         AsusTrendMicroProcsDisabled=true
         sleep 2
     fi
@@ -4538,7 +4660,7 @@ _DisableAsusTrendMicroProcesses_()
         if [ "$procNum" -gt 0 ]
         then
             printf "$procName: [$procNum]\n"
-            killall -9 "$procName" && sleep 1
+            killall -9 "$procName" && { AsusTrendMicroProcsDisabled=true ; sleep 1 ; }
         fi
     done
 
@@ -4546,31 +4668,71 @@ _DisableAsusTrendMicroProcesses_()
     then printf "\nDone.\n" ; fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jun-01] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Nov-07] ##
+##------------------------------------------##
 _ReEnableAsusTrendMicroProcesses_()
 {
-    if ! "$AsusTrendMicroProcsDisabled"
+    if ! "$AsusTrendMicroStateSaved" && ! "$AsusTrendMicroProcsDisabled"
     then return 0 ; fi
+
+    # A snapshot may exist even when nothing actually needed changing. #
+    if "$AsusTrendMicroStateSaved" && \
+       ! "$AsusTrendMicroNVRAMModified" && ! "$AsusTrendMicroProcsDisabled"
+    then
+        AsusTrendMicroStateSaved=false
+        return 0
+    fi
 
     Say "Re-enabling existing Asus/TrendMicro services..."
     "$isInteractive" && printf "Please wait.\n"
 
-    nvram set apps_analysis="$apps_analysis_SAVED"
-    sleep 1
-    nvram set bwdpi_db_enable="$bwdpi_db_enable_SAVED"
-    sleep 1
-    nvram set aae_disable_force="$aae_disable_force_SAVED"
-    sleep 1
-    nvram set wrs_protect_enable="$wrs_protect_enable_SAVED"
-    sleep 1
-    nvram set networkmap_fullscan="$networkmap_fullscan_SAVED"
-    sleep 1
+    _RestoreAsusTrendMicroNVRAMState_
+
+    # Restart only service groups that were actually running before MerlinAU
+    # entered the low-memory path. Use Asuswrt's own service actions so each
+    # daemon is started with the firmware's expected configuration.
+    if "$AsusTrendMicroWRSWasRunning"
+    then service restart_wrs >/dev/null 2>&1 ; sleep 2
+    fi
+    if "$AsusTrendMicroMastiffWasRunning"
+    then service start_mastiff >/dev/null 2>&1 ; sleep 1
+    fi
+    if "$AsusTrendMicroAAEWasRunning"
+    then service start_aae >/dev/null 2>&1 ; sleep 1
+    fi
+    if "$AsusTrendMicroNetoolWasRunning"
+    then service start_netool >/dev/null 2>&1 ; sleep 1
+    fi
+
     AsusTrendMicroProcsDisabled=false
+    AsusTrendMicroStateSaved=false
+    AsusTrendMicroAAEWasRunning=false
+    AsusTrendMicroMastiffWasRunning=false
+    AsusTrendMicroWRSWasRunning=false
+    AsusTrendMicroNetoolWasRunning=false
 
     "$isInteractive" && printf "\nDone.\n"
-    Say "A reboot may be necessary to fully restart Asus/TrendMicro services..."
+    return 0
+}
+
+_RestoreLowMemoryState_()
+{
+    # Restore configuration first, then restart only the services MerlinAU
+    # intentionally stopped during the low-memory path. This function is
+    # idempotent so cleanup/exit/caller paths can safely invoke it repeatedly.
+    _ReEnableAsusTrendMicroProcesses_
+
+    if "$LowMemoryEntwareStopped"
+    then
+        if ! _EntwareServicesHandler_ start
+        then
+            Say "${YLWct}*WARNING*${NOct}: Entware service restart did not complete within the allowed time."
+        fi
+        LowMemoryEntwareStopped=false
+    fi
+
+    _RestoreNonCriticalServices_
     return 0
 }
 
@@ -4580,6 +4742,10 @@ _ReEnableAsusTrendMicroProcesses_()
 _ClearFWUpdateGuard_()
 {
    local guardValue
+
+   # Never allow an NVRAM commit used for guard cleanup to persist temporary
+   # low-memory TrendMicro settings. Restore the original values first.
+   _RestoreAsusTrendMicroNVRAMState_
 
    guardValue="$(nvram get "$nvramTempFWupdateKey" 2>/dev/null)"
    [ -z "$guardValue" ] && return 0
@@ -4625,6 +4791,10 @@ _DoCleanUp_()
    # Clear the AiMesh F/W-update guard and commit its removal in case
    # another firmware component persisted the temporary value.
    _ClearFWUpdateGuard_
+
+   # Restore services/configuration changed only to free RAM if this update
+   # attempt is being cleaned up instead of proceeding through a reboot.
+   _RestoreLowMemoryState_
 
    # Stop the LEDs blinking #
    _Reset_LEDs_ 1
@@ -4721,8 +4891,19 @@ check_memory_and_prompt_reboot()
                 # Attempt to clear clears pagecache, dentries, and inodes after shutting down services
                 Say "Attempting to free up memory once more even more aggressively..."
 
-                # Stop Entware services to free some memory #
-                _EntwareServicesHandler_ stop
+                # Stop Entware services to free some memory. Mark the state
+                # before starting rc.unslung so rollback still knows Entware
+                # needs restoration if a service stop hangs or times out. #
+                if [ -x /opt/bin/opkg ] && [ -x /opt/etc/init.d/rc.unslung ]
+                then LowMemoryEntwareStopped=true
+                fi
+                if ! _EntwareServicesHandler_ stop
+                then
+                    Say "${REDct}**ERROR**${NOct}: Entware services did not stop within the allowed time. Cancelling the firmware update."
+                    _RestoreLowMemoryState_
+                    _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+                    _DoExit_ 1
+                fi
                 _ShutDownNonCriticalServices_
 
                 sync; echo 3 > /proc/sys/vm/drop_caches
@@ -4740,6 +4921,9 @@ check_memory_and_prompt_reboot()
                         freeRAM_kb="$(_GetFreeRAM_KB_)"
                         Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         _AddPostRebootRunScriptHook_
+                        # Restore temporary NVRAM before reboot in case the
+                        # firmware commits pending NVRAM changes on shutdown. #
+                        _RestoreAsusTrendMicroNVRAMState_
                         Say "Rebooting router..."
                         _ReleaseLock_
                         /sbin/service reboot
@@ -4749,10 +4933,7 @@ check_memory_and_prompt_reboot()
                         freeRAM_kb="$(_GetFreeRAM_KB_)"
                         Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         Say "Insufficient memory to continue. Exiting script."
-                        # Restart Entware services #
-                        _EntwareServicesHandler_ start
-                        _ReEnableAsusTrendMicroProcesses_
-
+                        _RestoreLowMemoryState_
                         _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
                         _DoExit_ 1
                     fi
@@ -9521,17 +9702,20 @@ _RemoveCronJobsFromAddOns_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-May-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Nov-07] ##
+##------------------------------------------##
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
-   local actionStr=""
+   local actionStr=""  retCode=0
    local servicesList  servicesCnt=0
    local entwOPT_init  entwOPT_unslung
+   local entwProcID=0  waitSecsCNT=0
+   local waitSecsMAX=120  killGraceSecs=5
+   local procTreePIDs=""  procID
    # space-delimited list of services to skip #
    local skipServiceList="tailscaled zerotier-one sshd"
    local skippedService  skippedServiceFile  skippedServiceName
@@ -9558,6 +9742,65 @@ _EntwareServicesHandler_()
            if mv -f "${entwOPT_init}/OFF.${skippedServiceName}.OFF" "$skippedServiceFile"
            then Say "Skipped $skippedServiceFile $1 call." ; fi
        done
+       return 0
+   }
+
+   _CollectProcTreePIDs_()
+   {
+       local parentPID="$1"  procPath  childPID  childPPID
+
+       # /proc/<pid>/status is available on older Asuswrt kernels and avoids
+       # depending on optional BusyBox ps features or the proc children file. #
+       for procPath in /proc/[0-9]*
+       do
+           [ -r "${procPath}/status" ] || continue
+           childPID="${procPath##*/}"
+           childPPID="$(awk '/^PPid:/{print $2; exit}' "${procPath}/status" 2>/dev/null)"
+           [ "$childPPID" = "$parentPID" ] || continue
+           _CollectProcTreePIDs_ "$childPID"
+       done
+       echo "$parentPID"
+   }
+
+   _RunEntwareActionWithTimeout_()
+   {
+       waitSecsCNT=0
+       "$entwOPT_unslung" "$1" &
+       entwProcID="$!"
+
+       while kill -0 "$entwProcID" 2>/dev/null
+       do
+           if [ "$waitSecsCNT" -ge "$waitSecsMAX" ]
+           then
+               Say "${YLWct}*WARNING*${NOct}: Entware ${1} action exceeded ${waitSecsMAX} seconds. Terminating the stalled rc.unslung process tree..."
+
+               procTreePIDs="$(_CollectProcTreePIDs_ "$entwProcID")"
+
+               # Stop the rc.unslung parent first so it cannot advance to
+               # another service while its existing descendants are stopped. #
+               kill -TERM "$entwProcID" 2>/dev/null
+               for procID in $procTreePIDs
+               do
+                   [ "$procID" = "$entwProcID" ] && continue
+                   kill -TERM "$procID" 2>/dev/null
+               done
+               sleep "$killGraceSecs"
+
+               for procID in $procTreePIDs
+               do
+                   if kill -0 "$procID" 2>/dev/null
+                   then kill -KILL "$procID" 2>/dev/null
+                   fi
+               done
+               wait "$entwProcID" 2>/dev/null
+               return 1
+           fi
+
+           sleep 1
+           waitSecsCNT="$((waitSecsCNT + 1))"
+       done
+
+       wait "$entwProcID" 2>/dev/null
        return 0
    }
 
@@ -9612,9 +9855,13 @@ _EntwareServicesHandler_()
    echo "$servicesList" | while IFS= read -r servLine ; do Say "$servLine" ; done
    Say "-----------------------------------------------------------"
 
-   $entwOPT_unslung "$1" ; sleep 5
+   if ! _RunEntwareActionWithTimeout_ "$1"
+   then retCode=1
+   else sleep 5
+   fi
    _RenameSkippedService_ "$1" && echo
    "$isInteractive" && printf "\nDone.\n"
+   return "$retCode"
 }
 
 ##------------------------------------------##
@@ -10110,6 +10357,7 @@ _RunOfflineUpdateNow_()
                _AcquireMutexFLock_
             then
                 _RunFirmwareUpdateNow_
+                _RestoreLowMemoryState_
             else
                 _WaitForEnterKey_
             fi
@@ -10672,6 +10920,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
+    # Restore any temporary TrendMicro NVRAM values before the flash path
+    # can perform or trigger an NVRAM commit. Keep the RAM-heavy processes
+    # stopped; the router reboot will restore their normal runtime state.
+    _RestoreAsusTrendMicroNVRAMState_
+
     #-------------------------------------------------------------------#
     # NVRAM key guard set BEFORE restarting/logging into the WebGUI.
     # Primary routers running MerlinAU can query this NVRAM value and
@@ -10766,7 +11019,15 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         _RemoveCronJobsFromAddOns_
 
         # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
-        _EntwareServicesHandler_ stop -noskip
+        if ! _EntwareServicesHandler_ stop -noskip
+        then
+            _MsgToSysLog_ "**ERROR**: Entware services did not stop within the allowed time before F/W flash." "$pLogERROR"
+            _MsgToSysLog_ "*WARNING*: F/W update was cancelled. Router will be rebooted to restore stopped services."
+            _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+            _ReleaseLock_ ; sleep 2
+            /sbin/service reboot
+            return 1
+        fi
 
         _Do_PostReboot_FWUpdate_Setup_
 
@@ -11169,6 +11430,7 @@ _PostRebootRunNow_()
       _AcquireMutexFLock_
    then
        _RunFirmwareUpdateNow_
+       _RestoreLowMemoryState_
        _ReleaseLock_ cliFileLock
        _ReleaseMutexFLock_
    fi
@@ -12915,6 +13177,7 @@ _MainMenu_()
                 _AcquireMutexFLock_
              then
                  _RunFirmwareUpdateNow_
+                 _RestoreLowMemoryState_
                  FlashStarted=false
              else
                  _WaitForEnterKey_
@@ -13207,6 +13470,7 @@ then
               _AcquireMutexFLock_
            then
                _RunFirmwareUpdateNow_
+               _RestoreLowMemoryState_
                _ReleaseLock_ cliFileLock
                _ReleaseMutexFLock_
            fi
@@ -13306,6 +13570,7 @@ then
                            fi
                            webguiMode=true
                            _RunFirmwareUpdateNow_
+                           _RestoreLowMemoryState_
                            _ReleaseLock_ cliFileLock
                            _ReleaseMutexFLock_
                        fi
