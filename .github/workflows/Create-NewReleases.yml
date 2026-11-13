@@ -99,7 +99,7 @@ jobs:
           git push origin ${{ steps.nextver.outputs.tag }}
           
       - name: Create Release with Automated Release Notes
-        uses: softprops/action-gh-release@v3.0.3
+        uses: softprops/action-gh-release@v3.0.4
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           tag_name: ${{ steps.nextver.outputs.tag }}
