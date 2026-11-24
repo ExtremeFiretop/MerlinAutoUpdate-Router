@@ -45,7 +45,8 @@ readonly RELEASE_ASSET_KIND="source"
 # Firmware URL Info #
 readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly FW_SFURL_RELEASE_SUFFIX="Release"
-readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
+readonly FW_GITURL_RELEASE_3004="https://api.github.com/repos/Asuswrt-Merlin/asuswrt-merlin.ng-3004.gnuton/releases/latest"
+readonly FW_GITURL_RELEASE_3006="https://api.github.com/repos/Asuswrt-Merlin/asuswrt-merlin.ng-3006.gnuton/releases/latest"
 readonly FW_SHA256_URL="https://www.asuswrt-merlin.net/download"
 readonly FW_SHA256_MIRROR_URL="https://fwupdate.asuswrt-merlin.net/sha256sums-ng.txt"
 
@@ -1027,6 +1028,21 @@ _ScriptVersionStrToNum_()
    echo "$verNum" ; return 0
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Nov-23] ##
+##---------------------------------------##
+_GetGnutonReleaseURL_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   case "$1" in
+       3004) echo "$FW_GITURL_RELEASE_3004" ;;
+       3006) echo "$FW_GITURL_RELEASE_3006" ;;
+          *) return 1 ;;
+   esac
+   return 0
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Aug-11] ##
 ##----------------------------------------##
@@ -1184,6 +1200,7 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 readonly isGNUtonFW="$(_GetFirmwareVariantFromRouter_)"
+readonly FW_GITURL_RELEASE="$(_GetGnutonReleaseURL_ "$fwInstalledBaseVers")"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-05] ##
@@ -6329,7 +6346,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
     fi
 
     # Fetch the latest release data from GitHub #
-    releaseData="$(curl -s "$theGitURL")"
+    releaseData="$(curl -Ls "$theGitURL")"
 
     # grep search pattern #
     grepPattern="\"browser_download_url\": \".*${PRODUCT_ID}.*${searchType}.*\.${FW_FileExtRegExp}\""
@@ -6394,7 +6411,7 @@ GetLatestFirmwareMD5URL()
     fi
 
     # Fetch the latest release data from GitHub #
-    releaseData="$(curl -s "$theGitURL")"
+    releaseData="$(curl -Ls "$theGitURL")"
 
     # grep search pattern #
     grepPattern="\"browser_download_url\": \".*${PRODUCT_ID}.*${searchType}.*\.${FW_FileExtRegExp}\.md5\""
@@ -6432,7 +6449,7 @@ GetLatestChangelogURL()
     local changelogURL
 
     # Fetch the latest release data from GitHub #
-    local releaseData="$(curl -s "$theGitURL")"
+    local releaseData="$(curl -Ls "$theGitURL")"
 
     # Parse the release data to find the download URL of the CHANGELOG file
     # Directly find the URL without matching a specific model number
@@ -9416,7 +9433,7 @@ _CheckNodeFWUpdateNotification_()
              echo "Please click here to review the latest changelog:"
              if "$NodeGNUtonFW"
              then
-                 GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
+                 GnutonChangeLogURL="$(GetLatestChangelogURL "$(_GetGnutonReleaseURL_ "$node_firmver")")"
                  echo "$GnutonChangeLogURL"
              else
                  if [ "$node_firmver" -eq 3006 ]
@@ -9448,7 +9465,7 @@ _CheckNodeFWUpdateNotification_()
          echo "Please click here to review the latest changelog:"
          if "$NodeGNUtonFW"
          then
-             GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
+             GnutonChangeLogURL="$(GetLatestChangelogURL "$(_GetGnutonReleaseURL_ "$node_firmver")")"
              echo "$GnutonChangeLogURL"
          else
              if [ "$node_firmver" -eq 3006 ]

@@ -1,10 +1,11 @@
 #!/bin/sh
 
-readonly SCRIPT_VERSTAG="25072411"
+readonly SCRIPT_VERSTAG="26112319"
 
 wget_options="-q -t 2 -T 30"
 
-fwsite="https://raw.githubusercontent.com/gnuton/asuswrt-merlin.ng/master/updates"
+fwsite3004="https://raw.githubusercontent.com/Asuswrt-Merlin/asuswrt-merlin.ng-3004.gnuton/master/updates"
+fwsite3006="https://raw.githubusercontent.com/Asuswrt-Merlin/asuswrt-merlin.ng-3006.gnuton/master/updates"
 
 nvram set webs_state_update=0 # INITIALIZING
 nvram set webs_state_flag=0   # 0: Don't do upgrade  1: Do upgrade
@@ -30,8 +31,10 @@ model=$(nvram get productid)
 model="$model#"
 
 if [ "$current_base" = "3006" ]; then
+    fwsite="$fwsite3006"
     manifest_file="manifest_3006.txt"
 else
+    fwsite="$fwsite3004"
     manifest_file="manifest2.txt"
 fi
 
@@ -101,7 +104,7 @@ fi
 webs_state_flag=$(nvram get webs_state_flag)
 
 if [ "$webs_state_flag" -eq "1" ]; then
-	releasenote_file0=$(nvram get webs_state_info)_note.txt
+	releasenote_file0="${firmbase}_${firmver}.${buildno}_${extendno}_note.txt"
 	releasenote_path0="/tmp/release_note0.txt"
 	echo "---- download real release note ----" >> /tmp/webs_upgrade.log
 	/usr/sbin/wget $wget_options $fwsite/$releasenote_file0 -O $releasenote_path0
