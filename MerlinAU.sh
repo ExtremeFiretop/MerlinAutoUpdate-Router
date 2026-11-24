@@ -209,6 +209,9 @@ inMenuMode=true
 webguiMode=false
 isVerbose=false
 FlashStarted=false
+fwUpdateSignalPhase="normal"
+fwUploadPID=0
+fwUploadWatchdogPID=0
 MerlinChangeLogURL=""
 GnutonChangeLogURL=""
 keepConfigFile=false
@@ -712,6 +715,49 @@ _AcquireMutexFLock_()
 #---------------------------------------#
 _EscapeChars_()
 { printf "%s" "$1" | sed 's/[][\/{}()$|.*^&+-]/\\&/g' ; }
+
+##------------------------------------------##
+## Added by ExtremeFiretop [2026-Nov-07]    ##
+##------------------------------------------##
+_HandleTerminationSignal_()
+{
+   local signalName="$1"
+
+   case "$fwUpdateSignalPhase" in
+       preflash)
+           # At this point cron jobs and services may already be stopped and
+           # USB storage may already be unmounted. Do not leave the router in
+           # that partial preflash state if the controlling shell is stopped.
+           trap '' HUP INT QUIT ABRT TERM
+           _MsgToSysLog_ "*WARNING*: Signal [$signalName] received during F/W preflash preparation. Cancelling the update and rebooting to restore stopped services."
+
+           # Do not run the normal cleanup path here: it may restart Entware
+           # while rc.unslung is itself being interrupted. Restore only the
+           # temporary NVRAM state/guard and let the reboot restore runtime
+           # services and addon cron state cleanly.
+           _ClearFWUpdateGuard_
+           _ReleaseLock_
+           _ReleaseMutexFLock_ checkLockOK
+           sync
+           /sbin/service reboot
+           exit 1
+           ;;
+       upload)
+           # Once upgrade.cgi has been started the firmware upload/reboot
+           # sequence must remain protected. Releasing locks or cleaning up
+           # here could allow another MerlinAU action to start while Curl is
+           # still uploading the image. The upload wait loop below remains
+           # active until the Curl child really exits.
+           _MsgToSysLog_ "*WARNING*: Signal [$signalName] received during protected F/W upload/reboot wait. Signal ignored until the flash sequence completes."
+           return 0
+           ;;
+       *)
+           trap '' HUP INT QUIT ABRT TERM
+           _DoCleanUp_ 0 "$keepZIPfile" "$keepWfile"
+           _DoExit_ 0
+           ;;
+   esac
+}
 
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Dec-26] ##
@@ -10660,6 +10706,36 @@ _RunFirmwareUpdateNow_()
     local fwUploadDiagFile="${SETTINGS_DIR}/last_fw_upload_response.txt"
     local curlRC=0  uploadHTTPcode=""
 
+    _WaitForFirmwareUpload_()
+    {
+        local uploadPID="$1"  procState=""
+
+        # Do not use a single blocking wait here. A trapped SIGINT/SIGTERM can
+        # interrupt wait(1) while Curl remains alive, which would let the
+        # parent continue and release its update locks too early. Poll /proc
+        # until the child exits (or becomes a zombie), then reap it once.
+        while [ -r "/proc/${uploadPID}/status" ]
+        do
+            procState="$(awk '/^State:/{print $2; exit}' "/proc/${uploadPID}/status" 2>/dev/null)"
+            [ "$procState" = "Z" ] && break
+            sleep 1
+        done
+
+        wait "$uploadPID"
+    }
+
+    _WaitForFirmwareRebootWindow_()
+    {
+        local waitUntil
+        waitUntil="$(( $(date +%s) + $1 ))"
+
+        # Keep the full reboot grace period even if a trapped signal interrupts
+        # an individual sleep command.
+        while [ "$(date +%s)" -lt "$waitUntil" ]
+        do sleep 5
+        done
+    }
+
     # Double-check the directory exists before using it #
     [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
 
@@ -11182,6 +11258,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     then
         _UpdateLoginPswdCheckHelper_ SUCCESS
 
+        # From this point forward MerlinAU begins deliberately stopping
+        # services and removing scheduled jobs in preparation for the flash.
+        # A terminating signal must reboot instead of simply exiting.
+        fwUpdateSignalPhase="preflash"
+
         if [ -f /opt/bin/diversion ]
         then
             # Diversion unmount command also unloads entware services #
@@ -11294,10 +11375,13 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
         #----------------------------------------------------------------------------------#
         # **IMPORTANT NOTE**:
-        # Due to the nature of 'nohup' and the specific behavior of this 'Curl' request,
-        # the following 'Curl' command MUST always be the last step in this block.
-        # Do NOT insert any commands after it! (unless you understand the implications).
+        # Once the upload starts, termination signals are deferred until the Curl child
+        # has really exited so the firmware-update locks cannot be released underneath it.
         #----------------------------------------------------------------------------------#
+        fwUpdateSignalPhase="upload"
+        fwUploadPID=0
+        fwUploadWatchdogPID=0
+
         nohup curl -sS -k "${routerURL}/upgrade.cgi" \
         --referer "${routerURL}/Advanced_FirmwareUpgrade_Content.asp" \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -11314,7 +11398,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         --cookie "$cookieFile" \
         --write-out '\nMERLINAU_HTTP_CODE:%{http_code}\n' \
         > "$fwUploadResponseFile" 2>&1 &
-        curlPID=$!
+        fwUploadPID=$!
 
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
@@ -11327,17 +11411,32 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         #----------------------------------------------------------#
         (
            sleep 180
-           if [ "$curlPID" -gt 0 ]
+           if [ "$fwUploadPID" -gt 0 ]
            then
-               kill -EXIT "$curlPID" 2>/dev/null || return
-               kill -TERM "$curlPID" 2>/dev/null
+               kill -EXIT "$fwUploadPID" 2>/dev/null || return
+               kill -TERM "$fwUploadPID" 2>/dev/null
+               sleep 5
+               kill -EXIT "$fwUploadPID" 2>/dev/null && \
+               kill -KILL "$fwUploadPID" 2>/dev/null
            fi
         ) &
+        fwUploadWatchdogPID=$!
 
-        # Preserve Curl's actual result instead of discarding it. #
-        wait "$curlPID"
+        # Preserve Curl's actual result without allowing a trapped signal to
+        # make the parent stop waiting while the upload child is still alive. #
+        _WaitForFirmwareUpload_ "$fwUploadPID"
         curlRC=$?
-        curlPID=0
+
+        # The upload child has been reaped, so its watchdog must not survive
+        # long enough to act on a future process that reuses the same PID. #
+        if [ "$fwUploadWatchdogPID" -gt 0 ] && \
+           kill -0 "$fwUploadWatchdogPID" 2>/dev/null
+        then
+            kill -TERM "$fwUploadWatchdogPID" 2>/dev/null
+            wait "$fwUploadWatchdogPID" 2>/dev/null
+        fi
+        fwUploadWatchdogPID=0
+        fwUploadPID=0
         uploadHTTPcode="$(sed -n 's/^MERLINAU_HTTP_CODE://p' "$fwUploadResponseFile" 2>/dev/null | tail -n 1)"
 
         #----------------------------------------------------------#
@@ -11346,7 +11445,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # preserve any diagnostics then reboot.
         # A successful flash reboots before this step.
         #----------------------------------------------------------#
-        sleep 180
+        _WaitForFirmwareRebootWindow_ 180
 
         {
             echo "MerlinAU v$SCRIPT_VERSION firmware upload diagnostics"
@@ -12277,7 +12376,11 @@ _ProcessMeshNodes_()
 
 keepZIPfile=0
 keepWfile=0
-trap '_DoCleanUp_ 0 "$keepZIPfile" "$keepWfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
+trap '_HandleTerminationSignal_ HUP' HUP
+trap '_HandleTerminationSignal_ INT' INT
+trap '_HandleTerminationSignal_ QUIT' QUIT
+trap '_HandleTerminationSignal_ ABRT' ABRT
+trap '_HandleTerminationSignal_ TERM' TERM
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-05] ##
