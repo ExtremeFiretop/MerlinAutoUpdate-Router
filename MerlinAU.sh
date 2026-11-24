@@ -3141,33 +3141,60 @@ _DownloadReleaseScriptAsset_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2026-Sep-28] ##
+## Modified by ExtremeFiretop [2026-Nov-23] ##
 ##------------------------------------------##
 _DownloadScriptFiles_()
 {
-   local retCode=0  isUpdateAction  updatedWebUIPage  theWebPage
+   local retCode=0  isUpdateAction  updatedWebUIPage  webUIUpdateNeeded  theWebPage
    local scriptDownloadOK=false  releaseVersion
+   local versionDestPath="$SCRIPT_VERPATH"
+   local webAspDestPath="$SCRIPT_WEB_ASP_PATH"
+   local scriptDestPath="$ScriptFilePath"
+   local stagedVersionPath  stagedWebAspPath  stagedScriptPath
 
    if [ $# -gt 0 ] && [ "$1" = "update" ]
-   then isUpdateAction=true
-   else isUpdateAction=false
+   then
+       isUpdateAction=true
+
+       # Stage every update file beside its final destination. Nothing live is
+       # replaced until all required downloads have completed successfully.
+       stagedVersionPath="${SCRIPT_VERPATH}.UPDATE.$$.TMP"
+       stagedWebAspPath="${SCRIPT_WEB_ASP_PATH}.UPDATE.$$.TMP"
+       stagedScriptPath="${ScriptFilePath}.UPDATE.$$.TMP"
+       versionDestPath="$stagedVersionPath"
+       webAspDestPath="$stagedWebAspPath"
+       scriptDestPath="$stagedScriptPath"
+       rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath"
+   else
+       isUpdateAction=false
    fi
    updatedWebUIPage=false
+   webUIUpdateNeeded=false
 
-   if _CurlFileDownload_ "version.txt" "$SCRIPT_VERPATH"
+   if _CurlFileDownload_ "version.txt" "$versionDestPath"
    then
-       chmod 664 "$SCRIPT_VERPATH"
+       chmod 664 "$versionDestPath"
    else
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
    fi
 
    if "$mountWebGUI_OK" && \
-      _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
+      _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$webAspDestPath"
    then
-       dos2unix "$SCRIPT_WEB_ASP_PATH"
-       chmod 664 "$SCRIPT_WEB_ASP_PATH"
-       if "$updatedWebUIPage"
+       dos2unix "$webAspDestPath"
+       chmod 664 "$webAspDestPath"
+
+       if "$isUpdateAction"
+       then
+           # _CurlFileDownload_ cannot compare a staged path with the live ASP,
+           # so preserve the existing WebUI-change behavior explicitly here.
+           if [ -f "$SCRIPT_WEB_ASP_PATH" ] && [ -f "$TEMP_MENU_TREE" ] && \
+              ! diff -q "$webAspDestPath" "$SCRIPT_WEB_ASP_PATH" >/dev/null 2>&1
+           then
+               webUIUpdateNeeded=true
+           fi
+       elif "$updatedWebUIPage"
        then
            theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
            if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
@@ -3176,7 +3203,6 @@ _DownloadScriptFiles_()
                rm -f "${SHARED_WEB_DIR}/$theWebPage"
                rm -f "${SHARED_WEB_DIR}/$(echo "$theWebPage" | cut -f1 -d'.').title"
            fi
-           "$isUpdateAction" && _Mount_WebUI_
        fi
    elif "$mountWebGUI_OK"
    then
@@ -3192,8 +3218,8 @@ _DownloadScriptFiles_()
        if "$isUpdateAction"
        then
            releaseVersion="$DLRepoVersion"
-           [ -z "$releaseVersion" ] && releaseVersion="$(head -n1 "$SCRIPT_VERPATH")"
-           if _DownloadReleaseScriptAsset_ update "$releaseVersion" "$ScriptFilePath"
+           [ -z "$releaseVersion" ] && releaseVersion="$(head -n1 "$versionDestPath")"
+           if _DownloadReleaseScriptAsset_ update "$releaseVersion" "$scriptDestPath"
            then scriptDownloadOK=true
            fi
        elif [ "$RELEASE_ASSET_KIND" = "install" ]
@@ -3215,18 +3241,64 @@ _DownloadScriptFiles_()
                fi
            fi
        fi
-   elif _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$ScriptFilePath"
+   elif _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$scriptDestPath"
    then
        scriptDownloadOK=true
    fi
 
    if "$scriptDownloadOK"
    then
-       dos2unix "$ScriptFilePath"
-       chmod 755 "$ScriptFilePath"
+       dos2unix "$scriptDestPath"
+       chmod 755 "$scriptDestPath"
    else
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest script file for $SCRIPT_NAME."
+   fi
+
+   if "$isUpdateAction"
+   then
+       # A failed staged download must leave the currently-installed files
+       # untouched so the next update check can retry normally.
+       if [ "$retCode" -ne 0 ]
+       then
+           rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath"
+           return "$retCode"
+       fi
+
+       # Commit only after every required file is staged. The script is made
+       # live first and version.txt is deliberately the final commit marker.
+       if ! mv -f "$stagedScriptPath" "$ScriptFilePath"
+       then
+           Say "${REDct}**ERROR**${NOct}: Unable to replace the installed $SCRIPT_NAME script."
+           rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath"
+           return 1
+       fi
+
+       if "$mountWebGUI_OK" && ! mv -f "$stagedWebAspPath" "$SCRIPT_WEB_ASP_PATH"
+       then
+           Say "${REDct}**ERROR**${NOct}: Unable to replace the $SCRIPT_NAME WebUI ASP file."
+           rm -f "$stagedVersionPath" "$stagedWebAspPath"
+           return 1
+       fi
+
+       if ! mv -f "$stagedVersionPath" "$SCRIPT_VERPATH"
+       then
+           Say "${REDct}**ERROR**${NOct}: Unable to replace the $SCRIPT_NAME version file."
+           rm -f "$stagedVersionPath"
+           return 1
+       fi
+
+       if "$mountWebGUI_OK" && "$webUIUpdateNeeded"
+       then
+           theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
+           if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
+           then
+               sed -i "/url: \"$theWebPage\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+               rm -f "${SHARED_WEB_DIR}/$theWebPage"
+               rm -f "${SHARED_WEB_DIR}/$(echo "$theWebPage" | cut -f1 -d'.').title"
+           fi
+           _Mount_WebUI_
+       fi
    fi
    return "$retCode"
 }
