@@ -3151,6 +3151,9 @@ _DownloadScriptFiles_()
    local webAspDestPath="$SCRIPT_WEB_ASP_PATH"
    local scriptDestPath="$ScriptFilePath"
    local stagedVersionPath  stagedWebAspPath  stagedScriptPath
+   local versionBackupPath  webAspBackupPath  scriptBackupPath
+   local versionHadLiveFile=false  webAspHadLiveFile=false  scriptHadLiveFile=false
+   local versionCommitted=false  webAspCommitted=false  scriptCommitted=false
 
    if [ $# -gt 0 ] && [ "$1" = "update" ]
    then
@@ -3161,10 +3164,14 @@ _DownloadScriptFiles_()
        stagedVersionPath="${SCRIPT_VERPATH}.UPDATE.$$.TMP"
        stagedWebAspPath="${SCRIPT_WEB_ASP_PATH}.UPDATE.$$.TMP"
        stagedScriptPath="${ScriptFilePath}.UPDATE.$$.TMP"
+       versionBackupPath="${SCRIPT_VERPATH}.UPDATE.$$.BAK"
+       webAspBackupPath="${SCRIPT_WEB_ASP_PATH}.UPDATE.$$.BAK"
+       scriptBackupPath="${ScriptFilePath}.UPDATE.$$.BAK"
        versionDestPath="$stagedVersionPath"
        webAspDestPath="$stagedWebAspPath"
        scriptDestPath="$stagedScriptPath"
-       rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath"
+       rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath" \
+             "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
    else
        isUpdateAction=false
    fi
@@ -3261,32 +3268,134 @@ _DownloadScriptFiles_()
        # untouched so the next update check can retry normally.
        if [ "$retCode" -ne 0 ]
        then
-           rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath"
+           rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath" \
+                 "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
            return "$retCode"
        fi
 
-       # Commit only after every required file is staged. The script is made
-       # live first and version.txt is deliberately the final commit marker.
+       # Keep rollback copies before changing any installed file. The staged
+       # files live beside their destinations, so each final mv is atomic on
+       # the destination filesystem; the backups protect the cross-file
+       # transaction if a later replacement fails.
+       if [ -f "$ScriptFilePath" ]
+       then
+           if ! cp -fp "$ScriptFilePath" "$scriptBackupPath"
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to create rollback copy of the installed $SCRIPT_NAME script."
+               rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath" \
+                     "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+               return 1
+           fi
+           scriptHadLiveFile=true
+       fi
+
+       if "$mountWebGUI_OK" && [ -f "$SCRIPT_WEB_ASP_PATH" ]
+       then
+           if ! cp -fp "$SCRIPT_WEB_ASP_PATH" "$webAspBackupPath"
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to create rollback copy of the $SCRIPT_NAME WebUI ASP file."
+               rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath" \
+                     "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+               return 1
+           fi
+           webAspHadLiveFile=true
+       fi
+
+       if [ -f "$SCRIPT_VERPATH" ]
+       then
+           if ! cp -fp "$SCRIPT_VERPATH" "$versionBackupPath"
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to create rollback copy of the $SCRIPT_NAME version file."
+               rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath" \
+                     "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+               return 1
+           fi
+           versionHadLiveFile=true
+       fi
+
+       _RollbackScriptFileUpdate_()
+       {
+           local rollbackOK=true
+
+           if "$versionCommitted"
+           then
+               if "$versionHadLiveFile"
+               then
+                   if ! cp -fp "$versionBackupPath" "$SCRIPT_VERPATH"
+                   then rollbackOK=false
+                   fi
+               else
+                   rm -f "$SCRIPT_VERPATH" || rollbackOK=false
+               fi
+           fi
+
+           if "$webAspCommitted"
+           then
+               if "$webAspHadLiveFile"
+               then
+                   if ! cp -fp "$webAspBackupPath" "$SCRIPT_WEB_ASP_PATH"
+                   then rollbackOK=false
+                   fi
+               else
+                   rm -f "$SCRIPT_WEB_ASP_PATH" || rollbackOK=false
+               fi
+           fi
+
+           if "$scriptCommitted"
+           then
+               if "$scriptHadLiveFile"
+               then
+                   if ! cp -fp "$scriptBackupPath" "$ScriptFilePath"
+                   then rollbackOK=false
+                   fi
+               else
+                   rm -f "$ScriptFilePath" || rollbackOK=false
+               fi
+           fi
+
+           rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath"
+
+           if "$rollbackOK"
+           then
+               rm -f "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+               return 0
+           fi
+
+           Say "${CRITct}**ERROR**${NOct}: Script-update rollback was incomplete. Rollback copies were retained for recovery."
+           return 1
+       }
+
+       # Commit only after every required file is staged and rollback copies
+       # are available. The script is made live first and version.txt is
+       # deliberately the final commit marker.
        if ! mv -f "$stagedScriptPath" "$ScriptFilePath"
        then
            Say "${REDct}**ERROR**${NOct}: Unable to replace the installed $SCRIPT_NAME script."
-           rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath"
+           _RollbackScriptFileUpdate_
            return 1
        fi
+       scriptCommitted=true
 
-       if "$mountWebGUI_OK" && ! mv -f "$stagedWebAspPath" "$SCRIPT_WEB_ASP_PATH"
+       if "$mountWebGUI_OK"
        then
-           Say "${REDct}**ERROR**${NOct}: Unable to replace the $SCRIPT_NAME WebUI ASP file."
-           rm -f "$stagedVersionPath" "$stagedWebAspPath"
-           return 1
+           if ! mv -f "$stagedWebAspPath" "$SCRIPT_WEB_ASP_PATH"
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to replace the $SCRIPT_NAME WebUI ASP file."
+               _RollbackScriptFileUpdate_
+               return 1
+           fi
+           webAspCommitted=true
        fi
 
        if ! mv -f "$stagedVersionPath" "$SCRIPT_VERPATH"
        then
            Say "${REDct}**ERROR**${NOct}: Unable to replace the $SCRIPT_NAME version file."
-           rm -f "$stagedVersionPath"
+           _RollbackScriptFileUpdate_
            return 1
        fi
+       versionCommitted=true
+
+       rm -f "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
 
        if "$mountWebGUI_OK" && "$webUIUpdateNeeded"
        then
