@@ -9818,7 +9818,8 @@ _EntwareServicesHandler_()
        done
 
        wait "$entwProcID" 2>/dev/null
-       return 0
+       retCode="$?"
+       return "$retCode"
    }
 
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
