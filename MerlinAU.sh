@@ -4557,7 +4557,7 @@ _RestoreNonCriticalServices_()
     # only when that group was running before MerlinAU stopped it.
     if "$LowMemoryNotificationCenterWasRunning" && \
        ! pidof nt_monitor >/dev/null 2>&1 && \
-       command -v nt_monitor >/dev/null 2>&1
+       [ -n "$(which nt_monitor 2>/dev/null)" ]
     then
         nt_monitor >/dev/null 2>&1 &
         sleep 1
