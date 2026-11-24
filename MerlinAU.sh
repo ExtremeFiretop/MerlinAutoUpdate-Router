@@ -4,7 +4,7 @@
 #
 # Project Created: 2023-Oct-01 by @ExtremeFiretop
 # Official Co-Author: @Martinski W. since 2023-Nov-01
-# Last Modified: 2026-Oct-13
+# Last Modified: 2026-Nov-23
 #
 # MerlinAU™ / MerlinAutoUpdate™
 # Official project: https://github.com/ExtremeFiretop/MerlinAutoUpdate-Router
@@ -20,8 +20,8 @@
 set -u
 
 ## Set version for each Production Release ##
-readonly SCRIPT_VERSION=1.7.2
-readonly SCRIPT_VERSTAG="26101320"
+readonly SCRIPT_VERSION=1.7.3
+readonly SCRIPT_VERSTAG="26110716"
 readonly SCRIPT_NAME="MerlinAU"
 ## Set to "master" for Production Releases ##
 SCRIPT_BRANCH="master"
@@ -45,7 +45,8 @@ readonly RELEASE_ASSET_KIND="source"
 # Firmware URL Info #
 readonly FW_SFURL_BASE="https://sourceforge.net/projects/asuswrt-merlin/files"
 readonly FW_SFURL_RELEASE_SUFFIX="Release"
-readonly FW_GITURL_RELEASE="https://api.github.com/repos/gnuton/asuswrt-merlin.ng/releases/latest"
+readonly FW_GITURL_RELEASE_3004="https://api.github.com/repos/Asuswrt-Merlin/asuswrt-merlin.ng-3004.gnuton/releases/latest"
+readonly FW_GITURL_RELEASE_3006="https://api.github.com/repos/Asuswrt-Merlin/asuswrt-merlin.ng-3006.gnuton/releases/latest"
 readonly FW_SHA256_URL="https://www.asuswrt-merlin.net/download"
 readonly FW_SHA256_MIRROR_URL="https://fwupdate.asuswrt-merlin.net/sha256sums-ng.txt"
 
@@ -208,6 +209,9 @@ inMenuMode=true
 webguiMode=false
 isVerbose=false
 FlashStarted=false
+fwUpdateSignalPhase="normal"
+fwUploadPID=0
+fwUploadWatchdogPID=0
 MerlinChangeLogURL=""
 GnutonChangeLogURL=""
 keepConfigFile=false
@@ -510,9 +514,29 @@ else
    esac
 fi
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-Jan-15] ##
-##----------------------------------------##
+##------------------------------------------##
+## Added by ExtremeFiretop [2026-Oct-20]    ##
+##------------------------------------------##
+_IsMerlinAU_PID_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   # First confirm the PID still exists. #
+   kill -0 "$1" 2>/dev/null || return 1
+
+   # Preserve the existing process-name check for direct executions. #
+   if pidof "$ScriptFileName" | grep -qow "$1"
+   then return 0 ; fi
+
+   # Cron starts MerlinAU as "sh /jffs/scripts/MerlinAU.sh ...", so the
+   # process name is "sh". Verify the script path in the process argv. #
+   [ -r "/proc/$1/cmdline" ] || return 1
+   tr '\0' '\n' < "/proc/$1/cmdline" | grep -Fxq "$ScriptFilePath"
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Oct-20] ##
+##------------------------------------------##
 _AcquireLock_()
 {
    local retCode  waitTimeoutSecs
@@ -541,7 +565,7 @@ _AcquireLock_()
       if [ -s "$LockFilePath" ]
       then
           oldPID="$(head -n1 "$LockFilePath" |  awk -F '|' '{print $1}')"
-          if [ -n "$oldPID" ] && ! pidof "$ScriptFileName" | grep -qow "$oldPID"
+          if [ -n "$oldPID" ] && ! _IsMerlinAU_PID_ "$oldPID"
           then sed -i "/^${oldPID}|/d" "$LockFilePath"
           fi
           lockFileSecs="$(date +%s -r "$LockFilePath")"
@@ -563,8 +587,7 @@ _AcquireLock_()
       then
           Say "Stale Lock Found (older than $LockFileMaxAgeSecs secs). Resetting lock file..."
           if [ -n "$oldPID" ] && \
-             pidof "$ScriptFileName" | grep -qow "$oldPID" && \
-             kill -EXIT "$oldPID" 2>/dev/null
+             _IsMerlinAU_PID_ "$oldPID"
           then
               kill -TERM "$oldPID" ; wait "$oldPID"
           fi
@@ -693,6 +716,49 @@ _AcquireMutexFLock_()
 _EscapeChars_()
 { printf "%s" "$1" | sed 's/[][\/{}()$|.*^&+-]/\\&/g' ; }
 
+##------------------------------------------##
+## Added by ExtremeFiretop [2026-Nov-07]    ##
+##------------------------------------------##
+_HandleTerminationSignal_()
+{
+   local signalName="$1"
+
+   case "$fwUpdateSignalPhase" in
+       preflash)
+           # At this point cron jobs and services may already be stopped and
+           # USB storage may already be unmounted. Do not leave the router in
+           # that partial preflash state if the controlling shell is stopped.
+           trap '' HUP INT QUIT ABRT TERM
+           _MsgToSysLog_ "*WARNING*: Signal [$signalName] received during F/W preflash preparation. Cancelling the update and rebooting to restore stopped services."
+
+           # Do not run the normal cleanup path here: it may restart Entware
+           # while rc.unslung is itself being interrupted. Restore only the
+           # temporary NVRAM state/guard and let the reboot restore runtime
+           # services and addon cron state cleanly.
+           _ClearFWUpdateGuard_
+           _ReleaseLock_
+           _ReleaseMutexFLock_ checkLockOK
+           sync
+           /sbin/service reboot
+           exit 1
+           ;;
+       upload)
+           # Once upgrade.cgi has been started the firmware upload/reboot
+           # sequence must remain protected. Releasing locks or cleaning up
+           # here could allow another MerlinAU action to start while Curl is
+           # still uploading the image. The upload wait loop below remains
+           # active until the Curl child really exits.
+           _MsgToSysLog_ "*WARNING*: Signal [$signalName] received during protected F/W upload/reboot wait. Signal ignored until the flash sequence completes."
+           return 0
+           ;;
+       *)
+           trap '' HUP INT QUIT ABRT TERM
+           _DoCleanUp_ 0 "$keepZIPfile" "$keepWfile"
+           _DoExit_ 0
+           ;;
+   esac
+}
+
 ##-------------------------------------##
 ## Added by Martinski W. [2023-Dec-26] ##
 ##-------------------------------------##
@@ -700,6 +766,7 @@ _DoExit_()
 {
    local exitCode=0
    [ $# -gt 0 ] && [ -n "$1" ] && exitCode="$1"
+   _RestoreLowMemoryState_
    _ReleaseLock_
    _ReleaseMutexFLock_ checkLockOK
    _IgnoreKeypresses_ OFF
@@ -1007,6 +1074,21 @@ _ScriptVersionStrToNum_()
    echo "$verNum" ; return 0
 }
 
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Nov-23] ##
+##---------------------------------------##
+_GetGnutonReleaseURL_()
+{
+   if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
+
+   case "$1" in
+       3004) echo "$FW_GITURL_RELEASE_3004" ;;
+       3006) echo "$FW_GITURL_RELEASE_3006" ;;
+          *) return 1 ;;
+   esac
+   return 0
+}
+
 ##----------------------------------------##
 ## Modified by Martinski W. [2024-Aug-11] ##
 ##----------------------------------------##
@@ -1164,6 +1246,7 @@ readonly PRODUCT_ID="$(_GetRouterProductID_)"
 readonly FW_FileName="${PRODUCT_ID}_firmware"
 readonly FW_SFURL_RELEASE="${FW_SFURL_BASE}/${PRODUCT_ID}/${FW_SFURL_RELEASE_SUFFIX}/"
 readonly isGNUtonFW="$(_GetFirmwareVariantFromRouter_)"
+readonly FW_GITURL_RELEASE="$(_GetGnutonReleaseURL_ "$fwInstalledBaseVers")"
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-05] ##
@@ -2428,12 +2511,20 @@ _Mount_WebUI_()
        Say "${CRITct}**ERROR**${NOct}: The WebUI page file for $SCRIPT_NAME is NOT found."
        return 1
    fi
-   local webPageFile
+   local webPageFile  webPageTitleFile
 
    Say "Mounting WebUI page for ${SCRIPT_NAME}..."
 
-   eval exec "$WEBUI_LOCKFD>$WEBUI_LOCKFILE"
-   flock -x "$WEBUI_LOCKFD"
+   if ! eval exec "$WEBUI_LOCKFD>$WEBUI_LOCKFILE"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to open the WebUI lock file."
+       return 1
+   fi
+   if ! flock -x "$WEBUI_LOCKFD"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to acquire the WebUI lock."
+       return 1
+   fi
 
    webPageFile="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
    if [ -z "$webPageFile" ] || [ "$webPageFile" = "NONE" ]
@@ -2442,20 +2533,54 @@ _Mount_WebUI_()
        flock -u "$WEBUI_LOCKFD"
        return 1
    fi
+   webPageTitleFile="${SHARED_WEB_DIR}/$(echo "$webPageFile" | cut -f1 -d'.').title"
 
-   cp -fp "$SCRIPT_WEB_ASP_PATH" "${SHARED_WEB_DIR}/$webPageFile"
-   echo "$SCRIPT_NAME" > "${SHARED_WEB_DIR}/$(echo "$webPageFile" | cut -f1 -d'.').title"
+   if ! cp -fp "$SCRIPT_WEB_ASP_PATH" "${SHARED_WEB_DIR}/$webPageFile"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to copy the $SCRIPT_NAME WebUI page."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
+   if ! printf '%s\n' "$SCRIPT_NAME" > "$webPageTitleFile"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to create the $SCRIPT_NAME WebUI title file."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
 
    if [ ! -f "$TEMP_MENU_TREE" ]
-   then cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE"
+   then
+       if ! cp -fp "$ORIG_MENU_TREE" "$TEMP_MENU_TREE"
+       then
+           Say "${CRITct}**ERROR**${NOct}: Unable to create the temporary WebUI menu tree."
+           flock -u "$WEBUI_LOCKFD"
+           return 1
+       fi
    fi
-   sed -i "/url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+
+   if ! sed -i "/url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to update the temporary WebUI menu tree."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
 
    # Insert new page tab in the 'Administration' menu #
-   sed -i "/url: \"Advanced_FirmwareUpgrade_Content.asp\", tabName:/a {url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"}," "$TEMP_MENU_TREE"
+   if ! sed -i "/url: \"Advanced_FirmwareUpgrade_Content.asp\", tabName:/a {url: \"$webPageFile\", tabName: \"$SCRIPT_NAME\"}," "$TEMP_MENU_TREE"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to add the $SCRIPT_NAME tab to the WebUI menu tree."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
 
+   # It is normal for this to fail when no previous bind mount exists. #
    umount "$ORIG_MENU_TREE" 2>/dev/null
-   mount -o bind "$TEMP_MENU_TREE" "$ORIG_MENU_TREE"
+   if ! mount -o bind "$TEMP_MENU_TREE" "$ORIG_MENU_TREE"
+   then
+       Say "${CRITct}**ERROR**${NOct}: Unable to bind-mount the $SCRIPT_NAME WebUI menu tree."
+       flock -u "$WEBUI_LOCKFD"
+       return 1
+   fi
    flock -u "$WEBUI_LOCKFD"
 
    Say "${GRNct}$SCRIPT_NAME WebUI page was mounted as $webPageFile successfully."
@@ -3062,33 +3187,67 @@ _DownloadReleaseScriptAsset_()
 }
 
 ##------------------------------------------##
-## Modified by ExtremeFiretop [2026-Sep-28] ##
+## Modified by ExtremeFiretop [2026-Nov-23] ##
 ##------------------------------------------##
 _DownloadScriptFiles_()
 {
-   local retCode=0  isUpdateAction  updatedWebUIPage  theWebPage
+   local retCode=0  isUpdateAction  updatedWebUIPage  webUIUpdateNeeded  theWebPage
    local scriptDownloadOK=false  releaseVersion
+   local versionDestPath="$SCRIPT_VERPATH"
+   local webAspDestPath="$SCRIPT_WEB_ASP_PATH"
+   local scriptDestPath="$ScriptFilePath"
+   local stagedVersionPath  stagedWebAspPath  stagedScriptPath
+   local versionBackupPath  webAspBackupPath  scriptBackupPath
+   local versionHadLiveFile=false  webAspHadLiveFile=false  scriptHadLiveFile=false
+   local versionCommitted=false  webAspCommitted=false  scriptCommitted=false
 
    if [ $# -gt 0 ] && [ "$1" = "update" ]
-   then isUpdateAction=true
-   else isUpdateAction=false
+   then
+       isUpdateAction=true
+
+       # Stage every update file beside its final destination. Nothing live is
+       # replaced until all required downloads have completed successfully.
+       stagedVersionPath="${SCRIPT_VERPATH}.UPDATE.$$.TMP"
+       stagedWebAspPath="${SCRIPT_WEB_ASP_PATH}.UPDATE.$$.TMP"
+       stagedScriptPath="${ScriptFilePath}.UPDATE.$$.TMP"
+       versionBackupPath="${SCRIPT_VERPATH}.UPDATE.$$.BAK"
+       webAspBackupPath="${SCRIPT_WEB_ASP_PATH}.UPDATE.$$.BAK"
+       scriptBackupPath="${ScriptFilePath}.UPDATE.$$.BAK"
+       versionDestPath="$stagedVersionPath"
+       webAspDestPath="$stagedWebAspPath"
+       scriptDestPath="$stagedScriptPath"
+       rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath" \
+             "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+   else
+       isUpdateAction=false
    fi
    updatedWebUIPage=false
+   webUIUpdateNeeded=false
 
-   if _CurlFileDownload_ "version.txt" "$SCRIPT_VERPATH"
+   if _CurlFileDownload_ "version.txt" "$versionDestPath"
    then
-       chmod 664 "$SCRIPT_VERPATH"
+       chmod 664 "$versionDestPath"
    else
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest version file for $SCRIPT_NAME."
    fi
 
    if "$mountWebGUI_OK" && \
-      _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$SCRIPT_WEB_ASP_PATH"
+      _CurlFileDownload_ "$SCRIPT_WEB_ASP_FILE" "$webAspDestPath"
    then
-       dos2unix "$SCRIPT_WEB_ASP_PATH"
-       chmod 664 "$SCRIPT_WEB_ASP_PATH"
-       if "$updatedWebUIPage"
+       dos2unix "$webAspDestPath"
+       chmod 664 "$webAspDestPath"
+
+       if "$isUpdateAction"
+       then
+           # _CurlFileDownload_ cannot compare a staged path with the live ASP,
+           # so preserve the existing WebUI-change behavior explicitly here.
+           if [ -f "$SCRIPT_WEB_ASP_PATH" ] && [ -f "$TEMP_MENU_TREE" ] && \
+              ! diff -q "$webAspDestPath" "$SCRIPT_WEB_ASP_PATH" >/dev/null 2>&1
+           then
+               webUIUpdateNeeded=true
+           fi
+       elif "$updatedWebUIPage"
        then
            theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
            if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
@@ -3097,7 +3256,6 @@ _DownloadScriptFiles_()
                rm -f "${SHARED_WEB_DIR}/$theWebPage"
                rm -f "${SHARED_WEB_DIR}/$(echo "$theWebPage" | cut -f1 -d'.').title"
            fi
-           "$isUpdateAction" && _Mount_WebUI_
        fi
    elif "$mountWebGUI_OK"
    then
@@ -3113,8 +3271,8 @@ _DownloadScriptFiles_()
        if "$isUpdateAction"
        then
            releaseVersion="$DLRepoVersion"
-           [ -z "$releaseVersion" ] && releaseVersion="$(head -n1 "$SCRIPT_VERPATH")"
-           if _DownloadReleaseScriptAsset_ update "$releaseVersion" "$ScriptFilePath"
+           [ -z "$releaseVersion" ] && releaseVersion="$(head -n1 "$versionDestPath")"
+           if _DownloadReleaseScriptAsset_ update "$releaseVersion" "$scriptDestPath"
            then scriptDownloadOK=true
            fi
        elif [ "$RELEASE_ASSET_KIND" = "install" ]
@@ -3136,18 +3294,166 @@ _DownloadScriptFiles_()
                fi
            fi
        fi
-   elif _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$ScriptFilePath"
+   elif _CurlFileDownload_ "${SCRIPT_NAME}.sh" "$scriptDestPath"
    then
        scriptDownloadOK=true
    fi
 
    if "$scriptDownloadOK"
    then
-       dos2unix "$ScriptFilePath"
-       chmod 755 "$ScriptFilePath"
+       dos2unix "$scriptDestPath"
+       chmod 755 "$scriptDestPath"
    else
        retCode=1
        Say "${REDct}**ERROR**${NOct}: Unable to download latest script file for $SCRIPT_NAME."
+   fi
+
+   if "$isUpdateAction"
+   then
+       # A failed staged download must leave the currently-installed files
+       # untouched so the next update check can retry normally.
+       if [ "$retCode" -ne 0 ]
+       then
+           rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath" \
+                 "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+           return "$retCode"
+       fi
+
+       # Keep rollback copies before changing any installed file. The staged
+       # files live beside their destinations, so each final mv is atomic on
+       # the destination filesystem; the backups protect the cross-file
+       # transaction if a later replacement fails.
+       if [ -f "$ScriptFilePath" ]
+       then
+           if ! cp -fp "$ScriptFilePath" "$scriptBackupPath"
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to create rollback copy of the installed $SCRIPT_NAME script."
+               rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath" \
+                     "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+               return 1
+           fi
+           scriptHadLiveFile=true
+       fi
+
+       if "$mountWebGUI_OK" && [ -f "$SCRIPT_WEB_ASP_PATH" ]
+       then
+           if ! cp -fp "$SCRIPT_WEB_ASP_PATH" "$webAspBackupPath"
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to create rollback copy of the $SCRIPT_NAME WebUI ASP file."
+               rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath" \
+                     "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+               return 1
+           fi
+           webAspHadLiveFile=true
+       fi
+
+       if [ -f "$SCRIPT_VERPATH" ]
+       then
+           if ! cp -fp "$SCRIPT_VERPATH" "$versionBackupPath"
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to create rollback copy of the $SCRIPT_NAME version file."
+               rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath" \
+                     "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+               return 1
+           fi
+           versionHadLiveFile=true
+       fi
+
+       _RollbackScriptFileUpdate_()
+       {
+           local rollbackOK=true
+
+           if "$versionCommitted"
+           then
+               if "$versionHadLiveFile"
+               then
+                   if ! cp -fp "$versionBackupPath" "$SCRIPT_VERPATH"
+                   then rollbackOK=false
+                   fi
+               else
+                   rm -f "$SCRIPT_VERPATH" || rollbackOK=false
+               fi
+           fi
+
+           if "$webAspCommitted"
+           then
+               if "$webAspHadLiveFile"
+               then
+                   if ! cp -fp "$webAspBackupPath" "$SCRIPT_WEB_ASP_PATH"
+                   then rollbackOK=false
+                   fi
+               else
+                   rm -f "$SCRIPT_WEB_ASP_PATH" || rollbackOK=false
+               fi
+           fi
+
+           if "$scriptCommitted"
+           then
+               if "$scriptHadLiveFile"
+               then
+                   if ! cp -fp "$scriptBackupPath" "$ScriptFilePath"
+                   then rollbackOK=false
+                   fi
+               else
+                   rm -f "$ScriptFilePath" || rollbackOK=false
+               fi
+           fi
+
+           rm -f "$stagedVersionPath" "$stagedWebAspPath" "$stagedScriptPath"
+
+           if "$rollbackOK"
+           then
+               rm -f "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+               return 0
+           fi
+
+           Say "${CRITct}**ERROR**${NOct}: Script-update rollback was incomplete. Rollback copies were retained for recovery."
+           return 1
+       }
+
+       # Commit only after every required file is staged and rollback copies
+       # are available. The script is made live first and version.txt is
+       # deliberately the final commit marker.
+       if ! mv -f "$stagedScriptPath" "$ScriptFilePath"
+       then
+           Say "${REDct}**ERROR**${NOct}: Unable to replace the installed $SCRIPT_NAME script."
+           _RollbackScriptFileUpdate_
+           return 1
+       fi
+       scriptCommitted=true
+
+       if "$mountWebGUI_OK"
+       then
+           if ! mv -f "$stagedWebAspPath" "$SCRIPT_WEB_ASP_PATH"
+           then
+               Say "${REDct}**ERROR**${NOct}: Unable to replace the $SCRIPT_NAME WebUI ASP file."
+               _RollbackScriptFileUpdate_
+               return 1
+           fi
+           webAspCommitted=true
+       fi
+
+       if ! mv -f "$stagedVersionPath" "$SCRIPT_VERPATH"
+       then
+           Say "${REDct}**ERROR**${NOct}: Unable to replace the $SCRIPT_NAME version file."
+           _RollbackScriptFileUpdate_
+           return 1
+       fi
+       versionCommitted=true
+
+       rm -f "$versionBackupPath" "$webAspBackupPath" "$scriptBackupPath"
+
+       if "$mountWebGUI_OK" && "$webUIUpdateNeeded"
+       then
+           theWebPage="$(_GetWebUIPage_ "$SCRIPT_WEB_ASP_PATH")"
+           if [ -n "$theWebPage" ] && [ "$theWebPage" != "NONE" ]
+           then
+               sed -i "/url: \"$theWebPage\", tabName: \"$SCRIPT_NAME\"/d" "$TEMP_MENU_TREE"
+               rm -f "${SHARED_WEB_DIR}/$theWebPage"
+               rm -f "${SHARED_WEB_DIR}/$(echo "$theWebPage" | cut -f1 -d'.').title"
+           fi
+           _Mount_WebUI_
+       fi
    fi
    return "$retCode"
 }
@@ -4065,6 +4371,9 @@ _CreateDirectory_()
 {
     if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
 
+    local preserveFiles=false
+    [ $# -gt 1 ] && [ "$2" = "preserve" ] && preserveFiles=true
+
     mkdir -p "$1"
     if [ ! -d "$1" ]
     then
@@ -4072,7 +4381,7 @@ _CreateDirectory_()
         "$inMenuMode" && _WaitForEnterKey_ "$theMenuReturnPromptMsg"
         return 1
     fi
-    if ! "$offlineUpdateTrigger"
+    if ! "$offlineUpdateTrigger" && ! "$preserveFiles"
     then
         # Clear directory in case any previous files still exist #
         rm -f "${1}"/*
@@ -4401,11 +4710,43 @@ _GetRequiredRAM_KB_()
     echo "$total_required_KB"
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2023-Mar-24] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Nov-07] ##
+##------------------------------------------##
+LowMemoryServiceStateSaved=false
+LowMemoryNotificationCenterWasRunning=false
+LowMemoryStoppedServices=""
+
 _ShutDownNonCriticalServices_()
 {
+    local procName  procNum  service_name
+
+    # Capture the pre-update state only once. Repeated memory checks must not
+    # replace the original state with the already-stopped state.
+    if ! "$LowMemoryServiceStateSaved"
+    then
+        for procName in nt_center nt_monitor nt_actMail
+        do
+            procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
+            if [ "$procNum" -gt 0 ]
+            then LowMemoryNotificationCenterWasRunning=true
+            fi
+        done
+
+        for service_name in conn_diag samba nasapps
+        do
+            procNum="$(ps w | grep -w "$service_name" | grep -cv "grep -w")"
+            if [ "$procNum" -gt 0 ]
+            then
+                if [ -z "$LowMemoryStoppedServices" ]
+                then LowMemoryStoppedServices="$service_name"
+                else LowMemoryStoppedServices="$LowMemoryStoppedServices $service_name"
+                fi
+            fi
+        done
+        LowMemoryServiceStateSaved=true
+    fi
+
     for procName in nt_center nt_monitor nt_actMail
     do
         procNum="$(ps w | grep -w "$procName" | grep -cv "grep -w")"
@@ -4427,9 +4768,43 @@ _ShutDownNonCriticalServices_()
     done
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jun-01] ##
-##-------------------------------------##
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Nov-07] ##
+##---------------------------------------##
+_RestoreNonCriticalServices_()
+{
+    local service_name
+
+    ! "$LowMemoryServiceStateSaved" && return 0
+
+    Say "Restoring services stopped by low-memory handling..."
+
+    # start_notification_center() in Asuswrt starts nt_monitor, which in turn
+    # manages the notification-center processes. Invoke nt_monitor directly
+    # only when that group was running before MerlinAU stopped it.
+    if "$LowMemoryNotificationCenterWasRunning" && \
+       ! pidof nt_monitor >/dev/null 2>&1 && \
+       [ -n "$(which nt_monitor 2>/dev/null)" ]
+    then
+        nt_monitor >/dev/null 2>&1 &
+        sleep 1
+    fi
+
+    for service_name in $LowMemoryStoppedServices
+    do
+        service "start_$service_name" >/dev/null 2>&1
+        sleep 1
+    done
+
+    LowMemoryNotificationCenterWasRunning=false
+    LowMemoryStoppedServices=""
+    LowMemoryServiceStateSaved=false
+    return 0
+}
+
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Nov-07] ##
+##------------------------------------------##
 #---------------------------------------------------------------------#
 # As a last resort, to free more available RAM, we now attempt to
 # disable and shutdown existing ASUS/TrendMicro services such as:
@@ -4442,20 +4817,74 @@ bwdpi_db_enable_SAVED=""
 aae_disable_force_SAVED=""
 wrs_protect_enable_SAVED=""
 networkmap_fullscan_SAVED=""
+AsusTrendMicroStateSaved=false
+AsusTrendMicroNVRAMModified=false
 AsusTrendMicroProcsDisabled=false
+AsusTrendMicroAAEWasRunning=false
+AsusTrendMicroMastiffWasRunning=false
+AsusTrendMicroWRSWasRunning=false
+AsusTrendMicroNetoolWasRunning=false
+LowMemoryEntwareStopped=false
 
-_DisableAsusTrendMicroProcesses_()
+_SaveAsusTrendMicroState_()
 {
+    local procName
+
+    "$AsusTrendMicroStateSaved" && return 0
+
     apps_analysis_SAVED="$(nvram get apps_analysis)"
     bwdpi_db_enable_SAVED="$(nvram get bwdpi_db_enable)"
     aae_disable_force_SAVED="$(nvram get aae_disable_force)"
     wrs_protect_enable_SAVED="$(nvram get wrs_protect_enable)"
     networkmap_fullscan_SAVED="$(nvram get networkmap_fullscan)"
 
-    if [ "$apps_analysis_SAVED" = "1" ]     || \
-       [ "$bwdpi_db_enable_SAVED" = "1" ]   || \
-       [ "$aae_disable_force_SAVED" = "0" ] || \
-       [ "$wrs_protect_enable_SAVED" = "1" ]
+    pidof aaews >/dev/null 2>&1 && AsusTrendMicroAAEWasRunning=true
+    pidof mastiff >/dev/null 2>&1 && AsusTrendMicroMastiffWasRunning=true
+    pidof netool >/dev/null 2>&1 && AsusTrendMicroNetoolWasRunning=true
+    for procName in dcd wred bwdpi_wred_alive bwdpi_check hour_monitor
+    do
+        if pidof "$procName" >/dev/null 2>&1
+        then AsusTrendMicroWRSWasRunning=true ; break
+        fi
+    done
+
+    AsusTrendMicroStateSaved=true
+    return 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Nov-07] ##
+##---------------------------------------##
+_RestoreAsusTrendMicroNVRAMState_()
+{
+    ! "$AsusTrendMicroStateSaved" && return 0
+    ! "$AsusTrendMicroNVRAMModified" && return 0
+
+    Say "Restoring temporary Asus/TrendMicro NVRAM settings..."
+    nvram set apps_analysis="$apps_analysis_SAVED"
+    nvram set bwdpi_db_enable="$bwdpi_db_enable_SAVED"
+    nvram set aae_disable_force="$aae_disable_force_SAVED"
+    nvram set wrs_protect_enable="$wrs_protect_enable_SAVED"
+    nvram set networkmap_fullscan="$networkmap_fullscan_SAVED"
+    AsusTrendMicroNVRAMModified=false
+    return 0
+}
+
+##---------------------------------------##
+## Added by ExtremeFiretop [2026-Nov-07] ##
+##---------------------------------------##
+_DisableAsusTrendMicroProcesses_()
+{
+    local procName  procNum
+
+    # Preserve the true pre-update values only on the first low-memory pass.
+    # Subsequent memory checks must never save the temporary disabled values.
+    _SaveAsusTrendMicroState_
+
+    if [ "$(nvram get apps_analysis)" = "1" ]     || \
+       [ "$(nvram get bwdpi_db_enable)" = "1" ]   || \
+       [ "$(nvram get aae_disable_force)" = "0" ] || \
+       [ "$(nvram get wrs_protect_enable)" = "1" ]
     then
         Say "Temporarily disabling some Asus/TrendMicro services..."
         "$isInteractive" && printf "Please wait.\n"
@@ -4464,6 +4893,7 @@ _DisableAsusTrendMicroProcesses_()
         nvram set aae_disable_force=1 ; sleep 1
         nvram set wrs_protect_enable=0 ; sleep 1
         nvram set networkmap_fullscan=2
+        AsusTrendMicroNVRAMModified=true
         AsusTrendMicroProcsDisabled=true
         sleep 2
     fi
@@ -4474,7 +4904,7 @@ _DisableAsusTrendMicroProcesses_()
         if [ "$procNum" -gt 0 ]
         then
             printf "$procName: [$procNum]\n"
-            killall -9 "$procName" && sleep 1
+            killall -9 "$procName" && { AsusTrendMicroProcsDisabled=true ; sleep 1 ; }
         fi
     done
 
@@ -4482,31 +4912,71 @@ _DisableAsusTrendMicroProcesses_()
     then printf "\nDone.\n" ; fi
 }
 
-##-------------------------------------##
-## Added by Martinski W. [2025-Jun-01] ##
-##-------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Nov-07] ##
+##------------------------------------------##
 _ReEnableAsusTrendMicroProcesses_()
 {
-    if ! "$AsusTrendMicroProcsDisabled"
+    if ! "$AsusTrendMicroStateSaved" && ! "$AsusTrendMicroProcsDisabled"
     then return 0 ; fi
+
+    # A snapshot may exist even when nothing actually needed changing. #
+    if "$AsusTrendMicroStateSaved" && \
+       ! "$AsusTrendMicroNVRAMModified" && ! "$AsusTrendMicroProcsDisabled"
+    then
+        AsusTrendMicroStateSaved=false
+        return 0
+    fi
 
     Say "Re-enabling existing Asus/TrendMicro services..."
     "$isInteractive" && printf "Please wait.\n"
 
-    nvram set apps_analysis="$apps_analysis_SAVED"
-    sleep 1
-    nvram set bwdpi_db_enable="$bwdpi_db_enable_SAVED"
-    sleep 1
-    nvram set aae_disable_force="$aae_disable_force_SAVED"
-    sleep 1
-    nvram set wrs_protect_enable="$wrs_protect_enable_SAVED"
-    sleep 1
-    nvram set networkmap_fullscan="$networkmap_fullscan_SAVED"
-    sleep 1
+    _RestoreAsusTrendMicroNVRAMState_
+
+    # Restart only service groups that were actually running before MerlinAU
+    # entered the low-memory path. Use Asuswrt's own service actions so each
+    # daemon is started with the firmware's expected configuration.
+    if "$AsusTrendMicroWRSWasRunning"
+    then service restart_wrs >/dev/null 2>&1 ; sleep 2
+    fi
+    if "$AsusTrendMicroMastiffWasRunning"
+    then service start_mastiff >/dev/null 2>&1 ; sleep 1
+    fi
+    if "$AsusTrendMicroAAEWasRunning"
+    then service start_aae >/dev/null 2>&1 ; sleep 1
+    fi
+    if "$AsusTrendMicroNetoolWasRunning"
+    then service start_netool >/dev/null 2>&1 ; sleep 1
+    fi
+
     AsusTrendMicroProcsDisabled=false
+    AsusTrendMicroStateSaved=false
+    AsusTrendMicroAAEWasRunning=false
+    AsusTrendMicroMastiffWasRunning=false
+    AsusTrendMicroWRSWasRunning=false
+    AsusTrendMicroNetoolWasRunning=false
 
     "$isInteractive" && printf "\nDone.\n"
-    Say "A reboot may be necessary to fully restart Asus/TrendMicro services..."
+    return 0
+}
+
+_RestoreLowMemoryState_()
+{
+    # Restore configuration first, then restart only the services MerlinAU
+    # intentionally stopped during the low-memory path. This function is
+    # idempotent so cleanup/exit/caller paths can safely invoke it repeatedly.
+    _ReEnableAsusTrendMicroProcesses_
+
+    if "$LowMemoryEntwareStopped"
+    then
+        if ! _EntwareServicesHandler_ start
+        then
+            Say "${YLWct}*WARNING*${NOct}: Entware service restart did not complete within the allowed time."
+        fi
+        LowMemoryEntwareStopped=false
+    fi
+
+    _RestoreNonCriticalServices_
     return 0
 }
 
@@ -4516,6 +4986,10 @@ _ReEnableAsusTrendMicroProcesses_()
 _ClearFWUpdateGuard_()
 {
    local guardValue
+
+   # Never allow an NVRAM commit used for guard cleanup to persist temporary
+   # low-memory TrendMicro settings. Restore the original values first.
+   _RestoreAsusTrendMicroNVRAMState_
 
    guardValue="$(nvram get "$nvramTempFWupdateKey" 2>/dev/null)"
    [ -z "$guardValue" ] && return 0
@@ -4561,6 +5035,10 @@ _DoCleanUp_()
    # Clear the AiMesh F/W-update guard and commit its removal in case
    # another firmware component persisted the temporary value.
    _ClearFWUpdateGuard_
+
+   # Restore services/configuration changed only to free RAM if this update
+   # attempt is being cleaned up instead of proceeding through a reboot.
+   _RestoreLowMemoryState_
 
    # Stop the LEDs blinking #
    _Reset_LEDs_ 1
@@ -4657,8 +5135,19 @@ check_memory_and_prompt_reboot()
                 # Attempt to clear clears pagecache, dentries, and inodes after shutting down services
                 Say "Attempting to free up memory once more even more aggressively..."
 
-                # Stop Entware services to free some memory #
-                _EntwareServicesHandler_ stop
+                # Stop Entware services to free some memory. Mark the state
+                # before starting rc.unslung so rollback still knows Entware
+                # needs restoration if a service stop hangs or times out. #
+                if [ -x /opt/bin/opkg ] && [ -x /opt/etc/init.d/rc.unslung ]
+                then LowMemoryEntwareStopped=true
+                fi
+                if ! _EntwareServicesHandler_ stop
+                then
+                    Say "${REDct}**ERROR**${NOct}: Entware services did not stop within the allowed time. Cancelling the firmware update."
+                    _RestoreLowMemoryState_
+                    _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+                    _DoExit_ 1
+                fi
                 _ShutDownNonCriticalServices_
 
                 sync; echo 3 > /proc/sys/vm/drop_caches
@@ -4676,6 +5165,9 @@ check_memory_and_prompt_reboot()
                         freeRAM_kb="$(_GetFreeRAM_KB_)"
                         Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         _AddPostRebootRunScriptHook_
+                        # Restore temporary NVRAM before reboot in case the
+                        # firmware commits pending NVRAM changes on shutdown. #
+                        _RestoreAsusTrendMicroNVRAMState_
                         Say "Rebooting router..."
                         _ReleaseLock_
                         /sbin/service reboot
@@ -4685,10 +5177,7 @@ check_memory_and_prompt_reboot()
                         freeRAM_kb="$(_GetFreeRAM_KB_)"
                         Say "Required RAM: ${requiredRAM_kb} KB - RAM Free: ${freeRAM_kb} KB - RAM Available: ${availableRAM_kb} KB"
                         Say "Insufficient memory to continue. Exiting script."
-                        # Restart Entware services #
-                        _EntwareServicesHandler_ start
-                        _ReEnableAsusTrendMicroProcesses_
-
+                        _RestoreLowMemoryState_
                         _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
                         _DoExit_ 1
                     fi
@@ -6084,7 +6573,7 @@ _GetLatestFWUpdateVersionFromGitHub_()
     fi
 
     # Fetch the latest release data from GitHub #
-    releaseData="$(curl -s "$theGitURL")"
+    releaseData="$(curl -Ls "$theGitURL")"
 
     # grep search pattern #
     grepPattern="\"browser_download_url\": \".*${PRODUCT_ID}.*${searchType}.*\.${FW_FileExtRegExp}\""
@@ -6149,7 +6638,7 @@ GetLatestFirmwareMD5URL()
     fi
 
     # Fetch the latest release data from GitHub #
-    releaseData="$(curl -s "$theGitURL")"
+    releaseData="$(curl -Ls "$theGitURL")"
 
     # grep search pattern #
     grepPattern="\"browser_download_url\": \".*${PRODUCT_ID}.*${searchType}.*\.${FW_FileExtRegExp}\.md5\""
@@ -6187,7 +6676,7 @@ GetLatestChangelogURL()
     local changelogURL
 
     # Fetch the latest release data from GitHub #
-    local releaseData="$(curl -s "$theGitURL")"
+    local releaseData="$(curl -Ls "$theGitURL")"
 
     # Parse the release data to find the download URL of the CHANGELOG file
     # Directly find the URL without matching a specific model number
@@ -8890,7 +9379,7 @@ _ManageChangelogMerlin_()
     local wgetLogFile  changeLogFile  changeLogTag
 
     # Create directory to download changelog if missing #
-    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
+    if ! _CreateDirectory_ "$FW_BIN_DIR" preserve ; then return 1 ; fi
 
     if [ "$mode" = "view" ] || [ "$mode" = "webuidownload" ]
     then
@@ -8988,7 +9477,7 @@ _ManageChangelogGnuton_()
     local wgetLogFile  FW_Changelog_GITHUB
 
     # Create directory to download changelog if missing
-    if ! _CreateDirectory_ "$FW_BIN_DIR" ; then return 1 ; fi
+    if ! _CreateDirectory_ "$FW_BIN_DIR" preserve ; then return 1 ; fi
 
     GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
 
@@ -9171,7 +9660,7 @@ _CheckNodeFWUpdateNotification_()
              echo "Please click here to review the latest changelog:"
              if "$NodeGNUtonFW"
              then
-                 GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
+                 GnutonChangeLogURL="$(GetLatestChangelogURL "$(_GetGnutonReleaseURL_ "$node_firmver")")"
                  echo "$GnutonChangeLogURL"
              else
                  if [ "$node_firmver" -eq 3006 ]
@@ -9203,7 +9692,7 @@ _CheckNodeFWUpdateNotification_()
          echo "Please click here to review the latest changelog:"
          if "$NodeGNUtonFW"
          then
-             GnutonChangeLogURL="$(GetLatestChangelogURL "$FW_GITURL_RELEASE")"
+             GnutonChangeLogURL="$(GetLatestChangelogURL "$(_GetGnutonReleaseURL_ "$node_firmver")")"
              echo "$GnutonChangeLogURL"
          else
              if [ "$node_firmver" -eq 3006 ]
@@ -9457,17 +9946,20 @@ _RemoveCronJobsFromAddOns_()
    return 0
 }
 
-##----------------------------------------##
-## Modified by Martinski W. [2025-May-31] ##
-##----------------------------------------##
+##------------------------------------------##
+## Modified by ExtremeFiretop [2026-Nov-07] ##
+##------------------------------------------##
 _EntwareServicesHandler_()
 {
    if [ $# -eq 0 ] || [ -z "$1" ] ; then return 1 ; fi
    local AllowVPN="$(Get_Custom_Setting Allow_Updates_OverVPN)"
 
-   local actionStr=""
+   local actionStr=""  retCode=0
    local servicesList  servicesCnt=0
    local entwOPT_init  entwOPT_unslung
+   local entwProcID=0  waitSecsCNT=0
+   local waitSecsMAX=120  killGraceSecs=5
+   local procTreePIDs=""  procID
    # space-delimited list of services to skip #
    local skipServiceList="tailscaled zerotier-one sshd"
    local skippedService  skippedServiceFile  skippedServiceName
@@ -9495,6 +9987,66 @@ _EntwareServicesHandler_()
            then Say "Skipped $skippedServiceFile $1 call." ; fi
        done
        return 0
+   }
+
+   _CollectProcTreePIDs_()
+   {
+       local parentPID="$1"  procPath  childPID  childPPID
+
+       # /proc/<pid>/status is available on older Asuswrt kernels and avoids
+       # depending on optional BusyBox ps features or the proc children file. #
+       for procPath in /proc/[0-9]*
+       do
+           [ -r "${procPath}/status" ] || continue
+           childPID="${procPath##*/}"
+           childPPID="$(awk '/^PPid:/{print $2; exit}' "${procPath}/status" 2>/dev/null)"
+           [ "$childPPID" = "$parentPID" ] || continue
+           _CollectProcTreePIDs_ "$childPID"
+       done
+       echo "$parentPID"
+   }
+
+   _RunEntwareActionWithTimeout_()
+   {
+       waitSecsCNT=0
+       "$entwOPT_unslung" "$1" &
+       entwProcID="$!"
+
+       while kill -0 "$entwProcID" 2>/dev/null
+       do
+           if [ "$waitSecsCNT" -ge "$waitSecsMAX" ]
+           then
+               Say "${YLWct}*WARNING*${NOct}: Entware ${1} action exceeded ${waitSecsMAX} seconds. Terminating the stalled rc.unslung process tree..."
+
+               procTreePIDs="$(_CollectProcTreePIDs_ "$entwProcID")"
+
+               # Stop the rc.unslung parent first so it cannot advance to
+               # another service while its existing descendants are stopped. #
+               kill -TERM "$entwProcID" 2>/dev/null
+               for procID in $procTreePIDs
+               do
+                   [ "$procID" = "$entwProcID" ] && continue
+                   kill -TERM "$procID" 2>/dev/null
+               done
+               sleep "$killGraceSecs"
+
+               for procID in $procTreePIDs
+               do
+                   if kill -0 "$procID" 2>/dev/null
+                   then kill -KILL "$procID" 2>/dev/null
+                   fi
+               done
+               wait "$entwProcID" 2>/dev/null
+               return 1
+           fi
+
+           sleep 1
+           waitSecsCNT="$((waitSecsCNT + 1))"
+       done
+
+       wait "$entwProcID" 2>/dev/null
+       retCode="$?"
+       return "$retCode"
    }
 
    if [ ! -x /opt/bin/opkg ] || [ ! -x "$entwOPT_unslung" ]
@@ -9548,9 +10100,13 @@ _EntwareServicesHandler_()
    echo "$servicesList" | while IFS= read -r servLine ; do Say "$servLine" ; done
    Say "-----------------------------------------------------------"
 
-   $entwOPT_unslung "$1" ; sleep 5
+   if ! _RunEntwareActionWithTimeout_ "$1"
+   then retCode=1
+   else sleep 5
+   fi
    _RenameSkippedService_ "$1" && echo
    "$isInteractive" && printf "\nDone.\n"
+   return "$retCode"
 }
 
 ##------------------------------------------##
@@ -10046,6 +10602,7 @@ _RunOfflineUpdateNow_()
                _AcquireMutexFLock_
             then
                 _RunFirmwareUpdateNow_
+                _RestoreLowMemoryState_
             else
                 _WaitForEnterKey_
             fi
@@ -10093,19 +10650,6 @@ _Unmount_Eject_USB_Drives_()
             ejectUSB_OK=true ; break
         fi
 
-        ## If timeout was reached, check again and exit loop ##
-        if [ -n "$ejectUSB_PID" ] && \
-           [ "$curWaitDelaySecs" -ge "$maxWaitDelaySecs" ]
-        then
-            if ! kill -EXIT "$ejectUSB_PID" 2>/dev/null && \
-               ! usbMountPoint="$(_GetDefaultUSBMountPoint_)"
-            then
-                ejectUSB_OK=true ; break
-            fi
-            kill -KILL "$ejectUSB_PID" 2>/dev/null
-            wait $ejectUSB_PID ; break
-        fi
-
         ## If USB drive is still mounted, try again ##
         if [ -n "$ejectUSB_PID" ] && \
            ! kill -EXIT "$ejectUSB_PID" 2>/dev/null && \
@@ -10123,8 +10667,24 @@ _Unmount_Eject_USB_Drives_()
         curWaitDelaySecs="$((curWaitDelaySecs + theWaitDelaySecs))"
     done
 
-    if "$ejectUSB_OK" || \
-       [ "$curWaitDelaySecs" -lt "$maxWaitDelaySecs" ]
+    # The loop condition exits once the timeout is reached, so any final
+    # eject-process cleanup must happen here rather than inside the loop. #
+    if ! "$ejectUSB_OK" && \
+       [ "$curWaitDelaySecs" -ge "$maxWaitDelaySecs" ]
+    then
+        # Check once more in case the drive unmounted at the timeout boundary. #
+        if ! usbMountPoint="$(_GetDefaultUSBMountPoint_)"
+        then
+            ejectUSB_OK=true
+        elif [ -n "$ejectUSB_PID" ] && \
+             kill -EXIT "$ejectUSB_PID" 2>/dev/null
+        then
+            kill -KILL "$ejectUSB_PID" 2>/dev/null
+            wait "$ejectUSB_PID" 2>/dev/null
+        fi
+    fi
+
+    if "$ejectUSB_OK"
     then
         _MsgToSysLog_ "$logMsg succeeded [$curWaitDelaySecs secs]"
     else
@@ -10145,6 +10705,36 @@ _RunFirmwareUpdateNow_()
     local fwUploadResponseFile="/tmp/upload_response.txt"
     local fwUploadDiagFile="${SETTINGS_DIR}/last_fw_upload_response.txt"
     local curlRC=0  uploadHTTPcode=""
+
+    _WaitForFirmwareUpload_()
+    {
+        local uploadPID="$1"  procState=""
+
+        # Do not use a single blocking wait here. A trapped SIGINT/SIGTERM can
+        # interrupt wait(1) while Curl remains alive, which would let the
+        # parent continue and release its update locks too early. Poll /proc
+        # until the child exits (or becomes a zombie), then reap it once.
+        while [ -r "/proc/${uploadPID}/status" ]
+        do
+            procState="$(awk '/^State:/{print $2; exit}' "/proc/${uploadPID}/status" 2>/dev/null)"
+            [ "$procState" = "Z" ] && break
+            sleep 1
+        done
+
+        wait "$uploadPID"
+    }
+
+    _WaitForFirmwareRebootWindow_()
+    {
+        local waitUntil
+        waitUntil="$(( $(date +%s) + $1 ))"
+
+        # Keep the full reboot grace period even if a trapped signal interrupts
+        # an individual sleep command.
+        while [ "$(date +%s)" -lt "$waitUntil" ]
+        do sleep 5
+        done
+    }
 
     # Double-check the directory exists before using it #
     [ ! -d "$FW_LOG_DIR" ] && mkdir -p -m 755 "$FW_LOG_DIR"
@@ -10605,6 +11195,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         fi
     fi
 
+    # Restore any temporary TrendMicro NVRAM values before the flash path
+    # can perform or trigger an NVRAM commit. Keep the RAM-heavy processes
+    # stopped; the router reboot will restore their normal runtime state.
+    _RestoreAsusTrendMicroNVRAMState_
+
     #-------------------------------------------------------------------#
     # NVRAM key guard set BEFORE restarting/logging into the WebGUI.
     # Primary routers running MerlinAU can query this NVRAM value and
@@ -10663,6 +11258,11 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
     then
         _UpdateLoginPswdCheckHelper_ SUCCESS
 
+        # From this point forward MerlinAU begins deliberately stopping
+        # services and removing scheduled jobs in preparation for the flash.
+        # A terminating signal must reboot instead of simply exiting.
+        fwUpdateSignalPhase="preflash"
+
         if [ -f /opt/bin/diversion ]
         then
             # Diversion unmount command also unloads entware services #
@@ -10699,7 +11299,15 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         _RemoveCronJobsFromAddOns_
 
         # Stop Entware services WITHOUT exceptions BEFORE the F/W flash #
-        _EntwareServicesHandler_ stop -noskip
+        if ! _EntwareServicesHandler_ stop -noskip
+        then
+            _MsgToSysLog_ "**ERROR**: Entware services did not stop within the allowed time before F/W flash." "$pLogERROR"
+            _MsgToSysLog_ "*WARNING*: F/W update was cancelled. Router will be rebooted to restore stopped services."
+            _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+            _ReleaseLock_ ; sleep 2
+            /sbin/service reboot
+            return 1
+        fi
 
         _Do_PostReboot_FWUpdate_Setup_
 
@@ -10712,7 +11320,15 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         ##-------------------------------------##
         # Unmount the USB drives. If "busy" let's wait until "idle" state. #
         #------------------------------------------------------------------#
-        _Unmount_Eject_USB_Drives_
+        if ! _Unmount_Eject_USB_Drives_
+        then
+            _MsgToSysLog_ "**ERROR**: Unable to safely unmount USB drive before F/W flash." "$pLogERROR"
+            _MsgToSysLog_ "*WARNING*: F/W update was cancelled. Router will be rebooted to restore stopped services."
+            _DoCleanUp_ 1 "$keepZIPfile" "$keepWfile"
+            _ReleaseLock_ ; sleep 2
+            /sbin/service reboot
+            return 1
+        fi
 
         #-------------------------------------------------------------------#
         # Double-check IF the existing Cookie is still valid. If it's not,
@@ -10759,10 +11375,13 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
 
         #----------------------------------------------------------------------------------#
         # **IMPORTANT NOTE**:
-        # Due to the nature of 'nohup' and the specific behavior of this 'Curl' request,
-        # the following 'Curl' command MUST always be the last step in this block.
-        # Do NOT insert any commands after it! (unless you understand the implications).
+        # Once the upload starts, termination signals are deferred until the Curl child
+        # has really exited so the firmware-update locks cannot be released underneath it.
         #----------------------------------------------------------------------------------#
+        fwUpdateSignalPhase="upload"
+        fwUploadPID=0
+        fwUploadWatchdogPID=0
+
         nohup curl -sS -k "${routerURL}/upgrade.cgi" \
         --referer "${routerURL}/Advanced_FirmwareUpgrade_Content.asp" \
         --user-agent 'Mozilla/5.0 (X11; Linux x86_64; rv:109.0) Gecko/20100101 Firefox/115.0' \
@@ -10779,7 +11398,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         --cookie "$cookieFile" \
         --write-out '\nMERLINAU_HTTP_CODE:%{http_code}\n' \
         > "$fwUploadResponseFile" 2>&1 &
-        curlPID=$!
+        fwUploadPID=$!
 
         #----------------------------------------------------------#
         # In the rare case that the F/W Update gets "stuck" for
@@ -10792,17 +11411,32 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         #----------------------------------------------------------#
         (
            sleep 180
-           if [ "$curlPID" -gt 0 ]
+           if [ "$fwUploadPID" -gt 0 ]
            then
-               kill -EXIT "$curlPID" 2>/dev/null || return
-               kill -TERM "$curlPID" 2>/dev/null
+               kill -EXIT "$fwUploadPID" 2>/dev/null || return
+               kill -TERM "$fwUploadPID" 2>/dev/null
+               sleep 5
+               kill -EXIT "$fwUploadPID" 2>/dev/null && \
+               kill -KILL "$fwUploadPID" 2>/dev/null
            fi
         ) &
+        fwUploadWatchdogPID=$!
 
-        # Preserve Curl's actual result instead of discarding it. #
-        wait "$curlPID"
+        # Preserve Curl's actual result without allowing a trapped signal to
+        # make the parent stop waiting while the upload child is still alive. #
+        _WaitForFirmwareUpload_ "$fwUploadPID"
         curlRC=$?
-        curlPID=0
+
+        # The upload child has been reaped, so its watchdog must not survive
+        # long enough to act on a future process that reuses the same PID. #
+        if [ "$fwUploadWatchdogPID" -gt 0 ] && \
+           kill -0 "$fwUploadWatchdogPID" 2>/dev/null
+        then
+            kill -TERM "$fwUploadWatchdogPID" 2>/dev/null
+            wait "$fwUploadWatchdogPID" 2>/dev/null
+        fi
+        fwUploadWatchdogPID=0
+        fwUploadPID=0
         uploadHTTPcode="$(sed -n 's/^MERLINAU_HTTP_CODE://p' "$fwUploadResponseFile" 2>/dev/null | tail -n 1)"
 
         #----------------------------------------------------------#
@@ -10811,7 +11445,7 @@ Please manually update to version ${GRNct}${MinSupportedFirmwareVers}${NOct} or 
         # preserve any diagnostics then reboot.
         # A successful flash reboots before this step.
         #----------------------------------------------------------#
-        sleep 180
+        _WaitForFirmwareRebootWindow_ 180
 
         {
             echo "MerlinAU v$SCRIPT_VERSION firmware upload diagnostics"
@@ -11094,6 +11728,7 @@ _PostRebootRunNow_()
       _AcquireMutexFLock_
    then
        _RunFirmwareUpdateNow_
+       _RestoreLowMemoryState_
        _ReleaseLock_ cliFileLock
        _ReleaseMutexFLock_
    fi
@@ -11741,7 +12376,11 @@ _ProcessMeshNodes_()
 
 keepZIPfile=0
 keepWfile=0
-trap '_DoCleanUp_ 0 "$keepZIPfile" "$keepWfile" ; _DoExit_ 0' HUP INT QUIT ABRT TERM
+trap '_HandleTerminationSignal_ HUP' HUP
+trap '_HandleTerminationSignal_ INT' INT
+trap '_HandleTerminationSignal_ QUIT' QUIT
+trap '_HandleTerminationSignal_ ABRT' ABRT
+trap '_HandleTerminationSignal_ TERM' TERM
 
 ##----------------------------------------##
 ## Modified by Martinski W. [2025-Jan-05] ##
@@ -12840,6 +13479,7 @@ _MainMenu_()
                 _AcquireMutexFLock_
              then
                  _RunFirmwareUpdateNow_
+                 _RestoreLowMemoryState_
                  FlashStarted=false
              else
                  _WaitForEnterKey_
@@ -12907,7 +13547,7 @@ _DoInitializationStartup_()
 
        "$isInteractive" && \
         printf "\n${BOLDct}Would you like to uninstall $ScriptFileName now${NOct}"
-        if _WaitForYESorNO_
+        if "$isInteractive" && _WaitForYESorNO_
         then
             _DoUnInstallation_
             _DoExit_ 0
@@ -13132,6 +13772,7 @@ then
               _AcquireMutexFLock_
            then
                _RunFirmwareUpdateNow_
+               _RestoreLowMemoryState_
                _ReleaseLock_ cliFileLock
                _ReleaseMutexFLock_
            fi
@@ -13231,6 +13872,7 @@ then
                            fi
                            webguiMode=true
                            _RunFirmwareUpdateNow_
+                           _RestoreLowMemoryState_
                            _ReleaseLock_ cliFileLock
                            _ReleaseMutexFLock_
                        fi
